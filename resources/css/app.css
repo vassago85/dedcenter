@@ -29,6 +29,20 @@
 
 :root {
     --flux-brand: 255 43 43;
+
+    --lp-bg: #071327;
+    --lp-bg-2: #0a1a33;
+    --lp-surface: rgba(255, 255, 255, 0.04);
+    --lp-surface-2: rgba(255, 255, 255, 0.06);
+    --lp-border: rgba(255, 255, 255, 0.10);
+    --lp-text: #f5f7fb;
+    --lp-text-soft: #b9c5d9;
+    --lp-text-muted: #8ea0bf;
+    --lp-red: #e10600;
+    --lp-red-hover: #c90404;
+    --logo-black: #16181d;
+    --logo-white: #ffffff;
+    --logo-red: #e10600;
 }
 
 :where([data-flux-control]) {
