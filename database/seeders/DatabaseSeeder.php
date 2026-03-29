@@ -2,24 +2,57 @@
 
 namespace Database\Seeders;
 
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@deadcenter.co.za'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
+            ]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        User::firstOrCreate(
+            ['email' => 'test@example.com'],
+            [
+                'name' => 'Test User',
+                'password' => Hash::make('password'),
+                'role' => 'member',
+            ]
+        );
+
+        $this->call(SettingsSeeder::class);
+
+        $royalFlush = Organization::firstOrCreate(
+            ['slug' => 'royal-flush'],
+            [
+                'name' => 'Royal Flush',
+                'description' => 'Year-long precision shooting competition. Compete across multiple matches to claim the top spot on the leaderboard.',
+                'type' => 'competition',
+                'status' => 'approved',
+                'created_by' => $admin->id,
+                'primary_color' => '#b91c1c',
+                'secondary_color' => '#0f172a',
+                'hero_text' => 'Royal Flush 2026',
+                'hero_description' => 'The ultimate year-long precision shooting competition. Register for matches, submit your scores, and climb the leaderboard.',
+                'portal_enabled' => true,
+                'best_of' => 5,
+            ]
+        );
+
+        $royalFlush->admins()->syncWithoutDetaching([
+            $admin->id => ['role' => 'owner'],
         ]);
     }
 }

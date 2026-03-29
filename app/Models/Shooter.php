@@ -2,17 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Shooter extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'squad_id',
         'name',
         'bib_number',
         'user_id',
+        'match_division_id',
         'sort_order',
     ];
 
@@ -35,9 +39,24 @@ class Shooter extends Model
         return $this->hasMany(Score::class);
     }
 
+    public function stageTimes(): HasMany
+    {
+        return $this->hasMany(StageTime::class);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(MatchDivision::class, 'match_division_id');
+    }
+
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(MatchCategory::class, 'match_category_shooter');
     }
 
     // ── Computed Attributes ──
@@ -58,5 +77,15 @@ class Shooter extends Model
     public function getMissCountAttribute(): int
     {
         return $this->scores()->where('is_hit', false)->count();
+    }
+
+    public function getPrsScoreAttribute(): int
+    {
+        return $this->hit_count;
+    }
+
+    public function getTotalTimeAttribute(): float
+    {
+        return (float) $this->stageTimes()->sum('time_seconds');
     }
 }

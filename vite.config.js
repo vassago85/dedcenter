@@ -10,6 +10,7 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.js',
+                'resources/css/scoring.css',
                 'resources/js/scoring-app/main.js',
             ],
             refresh: true,

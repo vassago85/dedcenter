@@ -1,0 +1,376 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\MatchDivision;
+use App\Models\Score;
+use App\Models\Shooter;
+use App\Models\ShootingMatch;
+use App\Models\StageTime;
+use App\Models\TargetSet;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class ScoreboardController extends Controller
+{
+    public function show(Request $request, ShootingMatch $match)
+    {
+        if ($match->isPrs()) {
+            return $this->prsScoreboard($match, $request);
+        }
+
+        return $this->standardScoreboard($match, $request);
+    }
+
+    private function matchMeta(ShootingMatch $match): array
+    {
+        $totalTargets = DB::table('gongs')
+            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->where('target_sets.match_id', $match->id)
+            ->count();
+
+        $meta = [
+            'id' => $match->id,
+            'name' => $match->name,
+            'scoring_type' => $match->isPrs() ? 'prs' : 'standard',
+            'total_targets' => $totalTargets,
+        ];
+
+        $divisions = $match->divisions()->orderBy('sort_order')->get();
+        if ($divisions->isNotEmpty()) {
+            $meta['divisions'] = $divisions->map(fn ($d) => ['id' => $d->id, 'name' => $d->name])->values();
+        }
+
+        $categories = $match->categories()->orderBy('sort_order')->get();
+        if ($categories->isNotEmpty()) {
+            $meta['categories'] = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug])->values();
+        }
+
+        return $meta;
+    }
+
+    private function categoryShooterIds(?string $categoryFilter): ?array
+    {
+        if (!$categoryFilter) return null;
+        return DB::table('match_category_shooter')
+            ->where('match_category_id', $categoryFilter)
+            ->pluck('shooter_id')
+            ->toArray();
+    }
+
+    private function divisionLookup(ShootingMatch $match): array
+    {
+        return DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('match_divisions', 'shooters.match_division_id', '=', 'match_divisions.id')
+            ->where('squads.match_id', $match->id)
+            ->pluck('match_divisions.name', 'shooters.id')
+            ->toArray();
+    }
+
+    private function divisionIdLookup(ShootingMatch $match): array
+    {
+        return DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->pluck('shooters.match_division_id', 'shooters.id')
+            ->toArray();
+    }
+
+    private function standardScoreboard(ShootingMatch $match, Request $request)
+    {
+        $divisionFilter = $request->query('division');
+        $categoryFilter = $request->query('category');
+        $divisionNames = $this->divisionLookup($match);
+        $divisionIds = $this->divisionIdLookup($match);
+        $catShooterIds = $this->categoryShooterIds($categoryFilter);
+
+        $query = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
+            ->leftJoin('gongs', 'scores.gong_id', '=', 'gongs.id')
+            ->where('squads.match_id', $match->id);
+
+        if ($divisionFilter) {
+            $query->where('shooters.match_division_id', $divisionFilter);
+        }
+
+        if ($catShooterIds !== null) {
+            $query->whereIn('shooters.id', $catShooterIds);
+        }
+
+        $shooters = $query
+            ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
+            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
+            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
+            ->selectRaw('COALESCE(SUM(CASE WHEN scores.is_hit = 1 THEN gongs.multiplier ELSE 0 END), 0) as agg_total')
+            ->groupBy('shooters.id', 'shooters.name', 'squads.name')
+            ->orderByDesc('agg_total')
+            ->get();
+
+        $leaderboard = $shooters->values()->map(fn ($shooter, $index) => [
+            'rank' => $index + 1,
+            'shooter_id' => (int) $shooter->shooter_id,
+            'name' => $shooter->name,
+            'squad' => $shooter->squad,
+            'division_id' => $divisionIds[(int) $shooter->shooter_id] ?? null,
+            'division' => $divisionNames[(int) $shooter->shooter_id] ?? null,
+            'hits' => (int) $shooter->agg_hits,
+            'misses' => (int) $shooter->agg_misses,
+            'total_score' => round((float) $shooter->agg_total, 2),
+        ]);
+
+        $response = [
+            'match' => $this->matchMeta($match),
+            'leaderboard' => $leaderboard,
+        ];
+
+        if ($match->side_bet_enabled) {
+            $response['match']['side_bet_enabled'] = true;
+            $response['side_bet'] = $this->sideBetLeaderboard($match, $catShooterIds, $divisionFilter);
+        }
+
+        return response()->json($response);
+    }
+
+    /**
+     * Build the side bet leaderboard for a standard match.
+     *
+     * Ranking: most hits on the smallest gong (highest multiplier) across all target sets.
+     * Tiebreaker: compare distances (furthest first) where each shooter hit that gong rank.
+     * Cascade: if still tied, repeat for the next smallest gong rank.
+     */
+    private function sideBetLeaderboard(ShootingMatch $match, ?array $catShooterIds, ?string $divisionFilter): array
+    {
+        $targetSets = $match->targetSets()
+            ->orderByDesc('distance_meters')
+            ->with(['gongs' => fn ($q) => $q->orderByDesc('multiplier')])
+            ->get();
+
+        if ($targetSets->isEmpty()) {
+            return [];
+        }
+
+        $gongRankMap = [];
+        $maxRanks = 0;
+        foreach ($targetSets as $ts) {
+            $rank = 0;
+            foreach ($ts->gongs as $gong) {
+                $gongRankMap[$gong->id] = [
+                    'rank' => $rank,
+                    'distance' => $ts->distance_meters,
+                    'multiplier' => (float) $gong->multiplier,
+                ];
+                $rank++;
+            }
+            $maxRanks = max($maxRanks, $rank);
+        }
+
+        $gongIds = array_keys($gongRankMap);
+        if (empty($gongIds)) {
+            return [];
+        }
+
+        $shooterQuery = DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.id', 'shooters.name', 'squads.name as squad');
+
+        if ($divisionFilter) {
+            $shooterQuery->where('shooters.match_division_id', $divisionFilter);
+        }
+        if ($catShooterIds !== null) {
+            $shooterQuery->whereIn('shooters.id', $catShooterIds);
+        }
+
+        $shooters = $shooterQuery->get();
+        $shooterIds = $shooters->pluck('id')->toArray();
+
+        if (empty($shooterIds)) {
+            return [];
+        }
+
+        $hits = DB::table('scores')
+            ->whereIn('scores.gong_id', $gongIds)
+            ->whereIn('scores.shooter_id', $shooterIds)
+            ->where('scores.is_hit', true)
+            ->select('scores.shooter_id', 'scores.gong_id')
+            ->get();
+
+        $profiles = [];
+        foreach ($shooters as $s) {
+            $profiles[$s->id] = [
+                'shooter_id' => $s->id,
+                'name' => $s->name,
+                'squad' => $s->squad,
+                'ranks' => [],
+            ];
+            for ($r = 0; $r < $maxRanks; $r++) {
+                $profiles[$s->id]['ranks'][$r] = [
+                    'count' => 0,
+                    'distances' => [],
+                ];
+            }
+        }
+
+        foreach ($hits as $hit) {
+            if (!isset($gongRankMap[$hit->gong_id])) continue;
+            $info = $gongRankMap[$hit->gong_id];
+            $sid = $hit->shooter_id;
+            if (!isset($profiles[$sid])) continue;
+
+            $profiles[$sid]['ranks'][$info['rank']]['count']++;
+            $profiles[$sid]['ranks'][$info['rank']]['distances'][] = $info['distance'];
+        }
+
+        foreach ($profiles as &$p) {
+            for ($r = 0; $r < $maxRanks; $r++) {
+                rsort($p['ranks'][$r]['distances']);
+            }
+        }
+        unset($p);
+
+        usort($profiles, function ($a, $b) use ($maxRanks) {
+            for ($r = 0; $r < $maxRanks; $r++) {
+                $aCount = $a['ranks'][$r]['count'];
+                $bCount = $b['ranks'][$r]['count'];
+                if ($aCount !== $bCount) return $bCount <=> $aCount;
+
+                $aDist = $a['ranks'][$r]['distances'];
+                $bDist = $b['ranks'][$r]['distances'];
+                $len = max(count($aDist), count($bDist));
+                for ($i = 0; $i < $len; $i++) {
+                    $ad = $aDist[$i] ?? 0;
+                    $bd = $bDist[$i] ?? 0;
+                    if ($ad !== $bd) return $bd <=> $ad;
+                }
+            }
+            return 0;
+        });
+
+        $result = [];
+        foreach ($profiles as $index => $p) {
+            $entry = [
+                'rank' => $index + 1,
+                'shooter_id' => $p['shooter_id'],
+                'name' => $p['name'],
+                'squad' => $p['squad'],
+                'small_gong_hits' => $p['ranks'][0]['count'] ?? 0,
+                'distances_hit' => $p['ranks'][0]['distances'] ?? [],
+            ];
+            $result[] = $entry;
+        }
+
+        return $result;
+    }
+
+    private function prsScoreboard(ShootingMatch $match, Request $request)
+    {
+        $divisionFilter = $request->query('division');
+        $categoryFilter = $request->query('category');
+        $divisionNames = $this->divisionLookup($match);
+        $divisionIds = $this->divisionIdLookup($match);
+        $catShooterIds = $this->categoryShooterIds($categoryFilter);
+
+        $targetSets = $match->targetSets()->get();
+        $targetSetIds = $targetSets->pluck('id');
+
+        $totalTargets = DB::table('gongs')
+            ->whereIn('target_set_id', $targetSetIds)
+            ->count();
+        $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
+        $tiebreakerStageId = $tiebreakerStage?->id;
+
+        $shooterTimes = StageTime::query()
+            ->whereIn('target_set_id', $targetSetIds)
+            ->get()
+            ->groupBy('shooter_id')
+            ->map(fn ($times) => (float) $times->sum('time_seconds'))
+            ->toArray();
+
+        $tbHits = [];
+        $tbTimes = [];
+        if ($tiebreakerStageId) {
+            $tbGongIds = DB::table('gongs')->where('target_set_id', $tiebreakerStageId)->pluck('id');
+
+            $tbHits = Score::whereIn('gong_id', $tbGongIds)
+                ->where('is_hit', true)
+                ->select('shooter_id', DB::raw('COUNT(*) as hit_count'))
+                ->groupBy('shooter_id')
+                ->pluck('hit_count', 'shooter_id')
+                ->map(fn ($v) => (int) $v)
+                ->toArray();
+
+            $tbTimes = StageTime::where('target_set_id', $tiebreakerStageId)
+                ->pluck('time_seconds', 'shooter_id')
+                ->map(fn ($v) => (float) $v)
+                ->toArray();
+        }
+
+        $query = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
+            ->where('squads.match_id', $match->id);
+
+        if ($divisionFilter) {
+            $query->where('shooters.match_division_id', $divisionFilter);
+        }
+
+        if ($catShooterIds !== null) {
+            $query->whereIn('shooters.id', $catShooterIds);
+        }
+
+        $shooters = $query
+            ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
+            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
+            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
+            ->groupBy('shooters.id', 'shooters.name', 'squads.name')
+            ->get();
+
+        $entries = $shooters->map(function ($shooter) use ($shooterTimes, $tbHits, $tbTimes, $divisionNames, $divisionIds, $totalTargets) {
+            $sid = (int) $shooter->shooter_id;
+            return [
+                'shooter_id' => $sid,
+                'name' => $shooter->name,
+                'squad' => $shooter->squad,
+                'division_id' => $divisionIds[$sid] ?? null,
+                'division' => $divisionNames[$sid] ?? null,
+                'hits' => (int) $shooter->agg_hits,
+                'misses' => (int) $shooter->agg_misses,
+                'not_taken' => $totalTargets - (int) $shooter->agg_hits - (int) $shooter->agg_misses,
+                'agg_time' => $shooterTimes[$sid] ?? 0.0,
+                'tb_hits' => $tbHits[$sid] ?? 0,
+                'tb_time' => $tbTimes[$sid] ?? 0.0,
+            ];
+        });
+
+        $sorted = $entries->sort(function ($a, $b) {
+            if ($a['hits'] !== $b['hits']) return $b['hits'] <=> $a['hits'];
+            if ($a['tb_hits'] !== $b['tb_hits']) return $b['tb_hits'] <=> $a['tb_hits'];
+            if ($a['tb_time'] !== $b['tb_time']) return $a['tb_time'] <=> $b['tb_time'];
+            return $a['agg_time'] <=> $b['agg_time'];
+        })->values();
+
+        $leaderboard = $sorted->map(fn ($entry, $index) => [
+            'rank' => $index + 1,
+            'shooter_id' => $entry['shooter_id'],
+            'name' => $entry['name'],
+            'squad' => $entry['squad'],
+            'division_id' => $entry['division_id'],
+            'division' => $entry['division'],
+            'hits' => $entry['hits'],
+            'misses' => $entry['misses'],
+            'not_taken' => $entry['not_taken'],
+            'total_score' => $entry['hits'],
+            'total_time' => round($entry['agg_time'], 2),
+            'tb_hits' => $entry['tb_hits'],
+            'tb_time' => round($entry['tb_time'], 2),
+        ]);
+
+        return response()->json([
+            'match' => $this->matchMeta($match),
+            'leaderboard' => $leaderboard,
+        ]);
+    }
+}

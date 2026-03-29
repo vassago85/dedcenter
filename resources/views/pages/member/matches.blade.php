@@ -1,0 +1,82 @@
+<?php
+
+use App\Models\ShootingMatch;
+use App\Enums\MatchStatus;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Volt\Component;
+
+new #[Layout('components.layouts.app')]
+    #[Title('Browse Matches')]
+    class extends Component {
+    public string $search = '';
+
+    public function with(): array
+    {
+        $matches = ShootingMatch::with('organization')
+            ->where('status', MatchStatus::Active)
+            ->when($this->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
+            ->orderBy('date')
+            ->get();
+
+        return ['matches' => $matches];
+    }
+}; ?>
+
+<div class="space-y-6">
+    <div>
+        <flux:heading size="xl">Browse Matches</flux:heading>
+        <p class="mt-1 text-sm text-slate-400">Find and register for upcoming shooting matches.</p>
+    </div>
+
+    <div class="max-w-sm">
+        <flux:input wire:model.live.debounce.300ms="search" placeholder="Search matches..." icon="magnifying-glass" />
+    </div>
+
+    @if($matches->isEmpty())
+        <div class="rounded-xl border border-slate-700 bg-slate-800 px-6 py-12 text-center">
+            <p class="text-slate-400">
+                @if($search)
+                    No active matches found for "{{ $search }}".
+                @else
+                    No active matches available right now. Check back soon!
+                @endif
+            </p>
+        </div>
+    @else
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            @foreach($matches as $match)
+                <a href="{{ route('matches.show', $match) }}" wire:key="match-{{ $match->id }}"
+                   class="rounded-xl border border-slate-700 bg-slate-800 p-6 hover:border-red-600/50 transition-colors block">
+                    <h3 class="text-lg font-semibold text-white">{{ $match->name }}</h3>
+                    @if($match->organization)
+                        <p class="mt-1 text-xs text-slate-500">{{ $match->organization->name }}</p>
+                    @endif
+                    <div class="mt-3 space-y-1.5 text-sm text-slate-400">
+                        <div class="flex items-center gap-2">
+                            <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                            </svg>
+                            {{ $match->date?->format('d M Y') }}
+                        </div>
+                        @if($match->location)
+                            <div class="flex items-center gap-2">
+                                <svg class="h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                </svg>
+                                {{ $match->location }}
+                            </div>
+                        @endif
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <span class="text-lg font-bold {{ $match->entry_fee ? 'text-white' : 'text-green-400' }}">
+                            {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}
+                        </span>
+                        <span class="text-sm font-medium text-red-400">Register &rarr;</span>
+                    </div>
+                </a>
+            @endforeach
+        </div>
+    @endif
+</div>

@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+
+@source '../js/scoring-app/**/*.vue';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
