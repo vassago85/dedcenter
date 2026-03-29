@@ -15,6 +15,10 @@ new #[Layout('components.layouts.app')]
         $user = auth()->user();
 
         return [
+            'liveMatches' => ShootingMatch::with('organization')
+                ->where('status', MatchStatus::Active)
+                ->orderBy('date', 'desc')
+                ->get(),
             'upcomingMatches' => ShootingMatch::with('organization')
                 ->where('status', MatchStatus::Active)
                 ->where('date', '>=', now()->startOfDay())
@@ -36,6 +40,51 @@ new #[Layout('components.layouts.app')]
         <flux:heading size="xl">Dashboard</flux:heading>
         <p class="mt-1 text-sm text-slate-400">Welcome back, {{ auth()->user()->name }}.</p>
     </div>
+
+    {{-- Live Now --}}
+    @if($liveMatches->isNotEmpty())
+    <div class="rounded-xl border border-green-700/50 bg-gradient-to-br from-green-900/20 to-slate-800">
+        <div class="border-b border-green-700/30 px-6 py-4 flex items-center gap-3">
+            <span class="relative flex h-3 w-3">
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
+            </span>
+            <h2 class="text-lg font-semibold text-white">Live Now</h2>
+            <span class="text-xs text-slate-400">{{ $liveMatches->count() }} {{ Str::plural('match', $liveMatches->count()) }} in progress</span>
+        </div>
+        <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach($liveMatches as $lm)
+                <div class="rounded-lg border border-slate-700 bg-slate-800/80 p-4 flex flex-col" wire:key="live-{{ $lm->id }}">
+                    <h3 class="font-semibold text-white">{{ $lm->name }}</h3>
+                    @if($lm->organization)
+                        <p class="mt-0.5 text-xs text-slate-500">{{ $lm->organization->name }}</p>
+                    @endif
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        @if($lm->date)
+                            <span>{{ $lm->date->format('d M Y') }}</span>
+                        @endif
+                        @if($lm->location)
+                            <span>&bull; {{ $lm->location }}</span>
+                        @endif
+                    </div>
+                    <div class="mt-1">
+                        <flux:badge size="sm" color="zinc">{{ ucfirst($lm->scoring_type) }}</flux:badge>
+                    </div>
+                    <div class="mt-auto pt-4">
+                        <flux:button href="{{ route('live', $lm) }}" size="sm" variant="primary" class="w-full !bg-green-600 hover:!bg-green-700">
+                            Watch Live
+                        </flux:button>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @else
+    <div class="rounded-xl border border-slate-700/50 bg-slate-800/50 px-6 py-5 flex items-center gap-3">
+        <span class="inline-flex h-3 w-3 rounded-full bg-slate-600"></span>
+        <p class="text-sm text-slate-500">No matches live right now.</p>
+    </div>
+    @endif
 
     {{-- My Registrations --}}
     <div class="rounded-xl border border-slate-700 bg-slate-800">

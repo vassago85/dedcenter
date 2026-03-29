@@ -14,9 +14,10 @@ new #[Layout('components.layouts.app')]
     public function with(): array
     {
         $matches = ShootingMatch::with('organization')
-            ->where('status', MatchStatus::Active)
+            ->whereIn('status', [MatchStatus::Active, MatchStatus::Completed])
             ->when($this->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
-            ->orderBy('date')
+            ->orderByRaw("FIELD(status, 'active', 'completed')")
+            ->orderBy('date', 'desc')
             ->get();
 
         return ['matches' => $matches];
@@ -26,7 +27,7 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6">
     <div>
         <flux:heading size="xl">Browse Matches</flux:heading>
-        <p class="mt-1 text-sm text-slate-400">Find and register for upcoming shooting matches.</p>
+        <p class="mt-1 text-sm text-slate-400">Find matches, register, or watch live scores.</p>
     </div>
 
     <div class="max-w-sm">
@@ -37,18 +38,31 @@ new #[Layout('components.layouts.app')]
         <div class="rounded-xl border border-slate-700 bg-slate-800 px-6 py-12 text-center">
             <p class="text-slate-400">
                 @if($search)
-                    No active matches found for "{{ $search }}".
+                    No matches found for "{{ $search }}".
                 @else
-                    No active matches available right now. Check back soon!
+                    No matches available right now. Check back soon!
                 @endif
             </p>
         </div>
     @else
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             @foreach($matches as $match)
-                <a href="{{ route('matches.show', $match) }}" wire:key="match-{{ $match->id }}"
-                   class="rounded-xl border border-slate-700 bg-slate-800 p-6 hover:border-red-600/50 transition-colors block">
-                    <h3 class="text-lg font-semibold text-white">{{ $match->name }}</h3>
+                <div wire:key="match-{{ $match->id }}"
+                     class="rounded-xl border {{ $match->status === MatchStatus::Active ? 'border-green-700/40' : 'border-slate-700' }} bg-slate-800 p-6 flex flex-col transition-colors">
+                    <div class="flex items-start justify-between gap-2">
+                        <h3 class="text-lg font-semibold text-white">{{ $match->name }}</h3>
+                        @if($match->status === MatchStatus::Active)
+                            <span class="flex items-center gap-1.5 shrink-0">
+                                <span class="relative flex h-2 w-2">
+                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                    <span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                                </span>
+                                <span class="text-xs font-medium text-green-400">Live</span>
+                            </span>
+                        @else
+                            <flux:badge size="sm" color="zinc">Completed</flux:badge>
+                        @endif
+                    </div>
                     @if($match->organization)
                         <p class="mt-1 text-xs text-slate-500">{{ $match->organization->name }}</p>
                     @endif
@@ -73,9 +87,20 @@ new #[Layout('components.layouts.app')]
                         <span class="text-lg font-bold {{ $match->entry_fee ? 'text-white' : 'text-green-400' }}">
                             {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}
                         </span>
-                        <span class="text-sm font-medium text-red-400">Register &rarr;</span>
                     </div>
-                </a>
+                    <div class="mt-4 flex items-center gap-2">
+                        <a href="{{ route('live', $match) }}"
+                           class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $match->status === MatchStatus::Active ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-700 text-slate-300 hover:bg-slate-600' }}">
+                            {{ $match->status === MatchStatus::Active ? 'Watch Live' : 'View Results' }}
+                        </a>
+                        @if($match->status === MatchStatus::Active)
+                            <a href="{{ route('matches.show', $match) }}"
+                               class="inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700">
+                                Register
+                            </a>
+                        @endif
+                    </div>
+                </div>
             @endforeach
         </div>
     @endif
