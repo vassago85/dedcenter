@@ -74,13 +74,23 @@ new #[Layout('components.layouts.app')]
 
             <div>
                 <label class="block text-sm font-medium text-secondary mb-1">Role</label>
-                <flux:badge size="sm" color="zinc">{{ auth()->user()->roleLabel() }}</flux:badge>
+                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium text-amber-300 bg-amber-400/15">
+                    {{ auth()->user()->roleLabel() }}
+                </span>
                 @if(auth()->user()->organizations->isNotEmpty())
                     <div class="mt-2 flex flex-wrap gap-2">
                         @foreach(auth()->user()->organizations as $org)
-                            <flux:badge size="sm" color="{{ match($org->pivot->role) { 'owner' => 'amber', 'match_director' => 'blue', 'range_officer' => 'green', default => 'zinc' } }}">
+                            @php
+                                $badgeColor = match($org->pivot->role) {
+                                    'owner' => 'text-amber-300 bg-amber-400/15',
+                                    'match_director' => 'text-blue-300 bg-blue-400/15',
+                                    'range_officer' => 'text-green-300 bg-green-400/15',
+                                    default => 'text-zinc-300 bg-zinc-400/15',
+                                };
+                            @endphp
+                            <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium {{ $badgeColor }}">
                                 {{ $org->name }}: {{ ucfirst(str_replace('_', ' ', $org->pivot->role)) }}
-                            </flux:badge>
+                            </span>
                         @endforeach
                     </div>
                 @endif

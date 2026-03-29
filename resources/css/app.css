@@ -45,35 +45,106 @@
     --logo-red: #e10600;
 }
 
+/*
+ * Flux UI dark-theme overrides.
+ * Flux's pre-compiled CSS uses its own dark: variant which doesn't
+ * match our @custom-variant setup. Force correct colors here.
+ */
+
+/* ── Focus ring ── */
 :where([data-flux-control]) {
     --tw-ring-color: var(--color-focus);
 }
 
-:where([data-flux-input]) input,
-:where([data-flux-input]) textarea {
-    color: var(--color-primary) !important;
-    background: var(--color-surface) !important;
-    border-color: var(--color-border) !important;
+/* ── Headings ── */
+:where([data-flux-heading]) {
+    color: #ffffff !important;
 }
-
-:where([data-flux-input]) input::placeholder,
-:where([data-flux-input]) textarea::placeholder {
+:where([data-flux-subheading]) {
     color: var(--color-muted) !important;
 }
 
-:where([data-flux-checkbox]) {
-    border-color: var(--color-border) !important;
-    background: var(--color-surface) !important;
-}
-
+/* ── Labels ── */
 :where([data-flux-label]) {
     color: var(--color-secondary) !important;
 }
 
-:where([data-flux-heading]) {
+/* ── Inputs & textareas ── */
+:where([data-flux-input]) input,
+:where([data-flux-input]) textarea,
+:where([data-flux-input]) select {
     color: #ffffff !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+}
+:where([data-flux-input]) input::placeholder,
+:where([data-flux-input]) textarea::placeholder {
+    color: var(--color-muted) !important;
+}
+:where([data-flux-input]) input:focus,
+:where([data-flux-input]) textarea:focus {
+    border-color: var(--color-accent) !important;
 }
 
+/* ── Select / listbox ── */
+:where([data-flux-select]) button,
+:where([data-flux-listbox]) {
+    color: #ffffff !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+}
+:where([data-flux-select-option]),
+:where([data-flux-option]) {
+    color: var(--color-secondary) !important;
+}
+:where([data-flux-select-option]):hover,
+:where([data-flux-option]):hover,
+:where([data-flux-select-option][data-active]),
+:where([data-flux-option][data-active]) {
+    color: #ffffff !important;
+    background: var(--color-surface-2) !important;
+}
+
+/* ── Checkbox & radio ── */
+:where([data-flux-checkbox]),
+:where([data-flux-radio]) {
+    border-color: var(--color-border) !important;
+    background: var(--color-surface) !important;
+}
+
+/* ── Badges — force readable text on dark backgrounds ── */
+:where([data-flux-badge]) {
+    color: #e4e4e7 !important;
+    background: rgba(161, 161, 170, 0.25) !important;
+    border: none !important;
+}
+:where([data-flux-badge][class*="bg-green"]),
+:where([data-flux-badge][class*="text-green"]) {
+    color: #86efac !important;
+    background: rgba(34, 197, 94, 0.15) !important;
+}
+:where([data-flux-badge][class*="bg-amber"]),
+:where([data-flux-badge][class*="text-amber"]) {
+    color: #fcd34d !important;
+    background: rgba(245, 158, 11, 0.15) !important;
+}
+:where([data-flux-badge][class*="bg-blue"]),
+:where([data-flux-badge][class*="text-blue"]) {
+    color: #93c5fd !important;
+    background: rgba(59, 130, 246, 0.15) !important;
+}
+:where([data-flux-badge][class*="bg-red"]),
+:where([data-flux-badge][class*="text-red"]) {
+    color: #fca5a5 !important;
+    background: rgba(239, 68, 68, 0.15) !important;
+}
+:where([data-flux-badge][class*="bg-zinc"]),
+:where([data-flux-badge][class*="text-zinc"]) {
+    color: #e4e4e7 !important;
+    background: rgba(161, 161, 170, 0.2) !important;
+}
+
+/* ── Buttons ── */
 :where([data-flux-button][data-variant="ghost"]) {
     color: var(--color-secondary) !important;
 }
@@ -81,11 +152,81 @@
     color: #ffffff !important;
     background: var(--color-surface-2) !important;
 }
+:where([data-flux-button][data-variant="subtle"]) {
+    color: var(--color-secondary) !important;
+    background: var(--color-surface) !important;
+}
+:where([data-flux-button][data-variant="subtle"]):hover {
+    color: #ffffff !important;
+    background: var(--color-surface-2) !important;
+}
 
-:where([data-flux-badge]) {
+/* ── Separator ── */
+:where([data-flux-separator]) {
     border-color: var(--color-border) !important;
 }
 
-:where([data-flux-separator]) {
+/* ── Toast ── */
+:where([data-flux-toast]) {
+    color: #ffffff !important;
+    background: var(--color-surface) !important;
     border-color: var(--color-border) !important;
+}
+
+/* ── Modal / dialog ── */
+:where([data-flux-modal]),
+:where([data-flux-dialog-panel]) {
+    color: var(--color-secondary) !important;
+    background: var(--color-sidebar) !important;
+    border-color: var(--color-border) !important;
+}
+
+/* ── Dropdown / menu ── */
+:where([data-flux-menu]) {
+    background: var(--color-sidebar) !important;
+    border-color: var(--color-border) !important;
+}
+:where([data-flux-menu-item]) {
+    color: var(--color-secondary) !important;
+}
+:where([data-flux-menu-item]):hover,
+:where([data-flux-menu-item][data-active]) {
+    color: #ffffff !important;
+    background: var(--color-surface-2) !important;
+}
+
+/* ── Table ── */
+:where([data-flux-table]) th {
+    color: var(--color-muted) !important;
+    border-color: var(--color-border) !important;
+}
+:where([data-flux-table]) td {
+    color: var(--color-secondary) !important;
+    border-color: var(--color-border) !important;
+}
+
+/* ── Card ── */
+:where([data-flux-card]) {
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+}
+
+/* ── Tabs ── */
+:where([data-flux-tabs]) {
+    border-color: var(--color-border) !important;
+}
+:where([data-flux-tab]) {
+    color: var(--color-muted) !important;
+}
+:where([data-flux-tab][aria-selected="true"]),
+:where([data-flux-tab][data-selected]) {
+    color: #ffffff !important;
+}
+
+/* ── Description / text ── */
+:where([data-flux-description]) {
+    color: var(--color-muted) !important;
+}
+:where([data-flux-error]) {
+    color: var(--color-accent) !important;
 }
