@@ -26,7 +26,7 @@ new #[Layout('components.layouts.auth')]
 
         session()->regenerate();
 
-        $redirect = auth()->user()->isAdmin()
+        $redirect = auth()->user()->isOwner()
             ? route('admin.dashboard')
             : route('dashboard');
 
@@ -35,8 +35,8 @@ new #[Layout('components.layouts.auth')]
 }; ?>
 
 <div>
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-8 [&_label]:!text-slate-300">
-        <h1 class="mb-6 text-center text-2xl font-bold text-white">Sign In</h1>
+    <div class="rounded-xl border border-border bg-surface p-8">
+        <h1 class="mb-6 text-center text-2xl font-bold text-primary">Sign In</h1>
 
         <form wire:submit="login" class="space-y-5">
             <div>
@@ -49,7 +49,7 @@ new #[Layout('components.layouts.auth')]
                     autofocus
                 />
                 @error('email')
-                    <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
                 @enderror
             </div>
 
@@ -62,24 +62,24 @@ new #[Layout('components.layouts.auth')]
                     required
                 />
                 @error('password')
-                    <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
                 @enderror
             </div>
 
-            <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+            <label class="flex items-center gap-2 text-sm text-secondary cursor-pointer select-none">
                 <input type="checkbox" wire:model="remember"
-                    class="rounded border-slate-600 bg-slate-700 text-red-600 focus:ring-red-500 focus:ring-offset-slate-800" />
+                    class="rounded border-border bg-surface-2 text-accent focus:ring-accent focus:ring-offset-app" />
                 Remember me
             </label>
 
-            <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700 w-full">
+            <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover w-full">
                 Sign In
             </flux:button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-slate-400">
+        <p class="mt-6 text-center text-sm text-muted">
             Don't have an account?
-            <a href="{{ route('register') }}" class="text-red-400 hover:text-red-300 font-medium" wire:navigate>
+            <a href="{{ route('register') }}" class="text-accent hover:text-accent-hover font-medium" wire:navigate>
                 Register
             </a>
         </p>

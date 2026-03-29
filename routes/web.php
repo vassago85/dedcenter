@@ -13,7 +13,7 @@ Route::get('/', function () {
         return view('welcome');
     }
 
-    return auth()->user()->isAdmin()
+    return auth()->user()->isOwner()
         ? redirect()->route('admin.dashboard')
         : redirect()->route('dashboard');
 });
@@ -34,6 +34,8 @@ Route::prefix('p/{organization}')->name('portal.')->group(function () {
     Volt::route('/leaderboard', 'portal.leaderboard')->name('leaderboard');
 });
 
+Volt::route('/features', 'features')->name('features');
+
 // ── Member (auth) ──
 Route::middleware('auth')->group(function () {
     Volt::route('/dashboard', 'member.dashboard')->name('dashboard');
@@ -41,6 +43,7 @@ Route::middleware('auth')->group(function () {
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
     Volt::route('/organizations', 'member.organizations')->name('organizations');
     Volt::route('/organizations/create', 'member.organization-create')->name('organizations.create');
+    Volt::route('/settings', 'member.settings')->name('settings');
 });
 
 // ── Organization Admin (auth + org.admin) ──

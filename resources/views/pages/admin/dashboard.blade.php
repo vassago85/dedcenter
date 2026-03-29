@@ -35,9 +35,9 @@ new #[Layout('components.layouts.app')]
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <flux:heading size="xl">Admin Dashboard</flux:heading>
-            <p class="mt-1 text-sm text-slate-400">Overview of your shooting platform.</p>
+            <p class="mt-1 text-sm text-muted">Overview of your shooting platform.</p>
         </div>
-        <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+        <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="!bg-accent hover:!bg-accent-hover">
             <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -47,79 +47,79 @@ new #[Layout('components.layouts.app')]
 
     {{-- Stats --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6">
-            <p class="text-sm font-medium text-slate-400">Total Matches</p>
-            <p class="mt-2 text-3xl font-bold text-white">{{ $totalMatches }}</p>
+        <div class="rounded-xl border border-border bg-surface p-6">
+            <p class="text-sm font-medium text-muted">Total Matches</p>
+            <p class="mt-2 text-3xl font-bold text-primary">{{ $totalMatches }}</p>
         </div>
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6">
-            <p class="text-sm font-medium text-slate-400">Active Matches</p>
+        <div class="rounded-xl border border-border bg-surface p-6">
+            <p class="text-sm font-medium text-muted">Active Matches</p>
             <p class="mt-2 text-3xl font-bold text-green-400">{{ $activeMatches }}</p>
         </div>
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6">
-            <p class="text-sm font-medium text-slate-400">Registered Members</p>
-            <p class="mt-2 text-3xl font-bold text-white">{{ $totalMembers }}</p>
+        <div class="rounded-xl border border-border bg-surface p-6">
+            <p class="text-sm font-medium text-muted">Registered Members</p>
+            <p class="mt-2 text-3xl font-bold text-primary">{{ $totalMembers }}</p>
         </div>
-        <a href="{{ route('admin.organizations') }}" class="rounded-xl border border-slate-700 bg-slate-800 p-6 hover:border-amber-600/50 transition-colors">
-            <p class="text-sm font-medium text-slate-400">Organizations</p>
-            <p class="mt-2 text-3xl font-bold text-white">{{ $totalOrgs }}</p>
+        <a href="{{ route('admin.organizations') }}" class="rounded-xl border border-border bg-surface p-6 hover:border-amber-600/50 transition-colors">
+            <p class="text-sm font-medium text-muted">Organizations</p>
+            <p class="mt-2 text-3xl font-bold text-primary">{{ $totalOrgs }}</p>
             @if($pendingOrgs > 0)
                 <p class="mt-1 text-xs text-amber-400">{{ $pendingOrgs }} pending approval</p>
             @endif
         </a>
-        <a href="{{ route('admin.registrations') }}" class="rounded-xl border border-slate-700 bg-slate-800 p-6 hover:border-red-600/50 transition-colors">
-            <p class="text-sm font-medium text-slate-400">Pending Approvals</p>
-            <p class="mt-2 text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-red-400' : 'text-white' }}">{{ $pendingRegistrations }}</p>
+        <a href="{{ route('admin.registrations') }}" class="rounded-xl border border-border bg-surface p-6 hover:border-red-600/50 transition-colors">
+            <p class="text-sm font-medium text-muted">Pending Approvals</p>
+            <p class="mt-2 text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-accent' : 'text-primary' }}">{{ $pendingRegistrations }}</p>
         </a>
     </div>
 
     {{-- Quick links --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <a href="{{ route('admin.matches.index') }}" class="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-4 hover:border-slate-500 transition-colors">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-700">
-                <svg class="h-5 w-5 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <a href="{{ route('admin.matches.index') }}" class="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-slate-500 transition-colors">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
+                <svg class="h-5 w-5 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H16.5C17.3284 3.75 18 4.42157 18 5.25V18.75C18 19.5784 17.3284 20.25 16.5 20.25H7.5C6.67157 20.25 6 19.5784 6 18.75V5.25C6 4.42157 6.67157 3.75 7.5 3.75Z" />
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-medium text-white">Manage Matches</p>
-                <p class="text-xs text-slate-400">Create and edit matches</p>
+                <p class="text-sm font-medium text-primary">Manage Matches</p>
+                <p class="text-xs text-muted">Create and edit matches</p>
             </div>
         </a>
-        <a href="{{ route('admin.registrations') }}" class="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-4 hover:border-slate-500 transition-colors">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-700">
-                <svg class="h-5 w-5 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <a href="{{ route('admin.registrations') }}" class="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-slate-500 transition-colors">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
+                <svg class="h-5 w-5 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-medium text-white">Registrations</p>
-                <p class="text-xs text-slate-400">Review payment proofs</p>
+                <p class="text-sm font-medium text-primary">Registrations</p>
+                <p class="text-xs text-muted">Review payment proofs</p>
             </div>
         </a>
-        <a href="{{ route('admin.settings') }}" class="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-4 hover:border-slate-500 transition-colors">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-700">
-                <svg class="h-5 w-5 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <a href="{{ route('admin.settings') }}" class="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-slate-500 transition-colors">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
+                <svg class="h-5 w-5 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-medium text-white">Settings</p>
-                <p class="text-xs text-slate-400">Bank details &amp; configuration</p>
+                <p class="text-sm font-medium text-primary">Settings</p>
+                <p class="text-xs text-muted">Bank details &amp; configuration</p>
             </div>
         </a>
     </div>
 
     {{-- Recent matches --}}
-    <div class="rounded-xl border border-slate-700 bg-slate-800">
-        <div class="border-b border-slate-700 px-6 py-4">
-            <h2 class="text-lg font-semibold text-white">Recent Matches</h2>
+    <div class="rounded-xl border border-border bg-surface">
+        <div class="border-b border-border px-6 py-4">
+            <h2 class="text-lg font-semibold text-primary">Recent Matches</h2>
         </div>
 
         @if($recentMatches->isEmpty())
             <div class="px-6 py-12 text-center">
-                <p class="text-slate-400">No matches yet.</p>
-                <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="mt-4 !bg-red-600 hover:!bg-red-700">
+                <p class="text-muted">No matches yet.</p>
+                <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="mt-4 !bg-accent hover:!bg-accent-hover">
                     Create Your First Match
                 </flux:button>
             </div>
@@ -127,7 +127,7 @@ new #[Layout('components.layouts.app')]
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-slate-700 text-left text-slate-400">
+                        <tr class="border-b border-border text-left text-muted">
                             <th class="px-6 py-3 font-medium">Name</th>
                             <th class="px-6 py-3 font-medium">Organization</th>
                             <th class="px-6 py-3 font-medium">Date</th>
@@ -140,10 +140,10 @@ new #[Layout('components.layouts.app')]
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($recentMatches as $match)
-                            <tr class="hover:bg-slate-700/30 transition-colors">
-                                <td class="px-6 py-3 font-medium text-white">{{ $match->name }}</td>
-                                <td class="px-6 py-3 text-slate-300 text-xs">{{ $match->organization?->name ?? '—' }}</td>
-                                <td class="px-6 py-3 text-slate-300">{{ $match->date?->format('d M Y') ?? '—' }}</td>
+                            <tr class="hover:bg-surface-2/30 transition-colors">
+                                <td class="px-6 py-3 font-medium text-primary">{{ $match->name }}</td>
+                                <td class="px-6 py-3 text-secondary text-xs">{{ $match->organization?->name ?? '—' }}</td>
+                                <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
                                 <td class="px-6 py-3">
                                     @switch($match->status)
                                         @case(MatchStatus::Draft)
@@ -157,9 +157,9 @@ new #[Layout('components.layouts.app')]
                                             @break
                                     @endswitch
                                 </td>
-                                <td class="px-6 py-3 text-right text-slate-300">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
-                                <td class="px-6 py-3 text-right text-slate-300">{{ $match->registrations_count }}</td>
-                                <td class="px-6 py-3 text-right text-slate-300">{{ $match->shooters_count }}</td>
+                                <td class="px-6 py-3 text-right text-secondary">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
+                                <td class="px-6 py-3 text-right text-secondary">{{ $match->registrations_count }}</td>
+                                <td class="px-6 py-3 text-right text-secondary">{{ $match->shooters_count }}</td>
                                 <td class="px-6 py-3 text-right">
                                     <flux:button href="{{ route('admin.matches.edit', $match) }}" size="sm" variant="ghost">
                                         Edit

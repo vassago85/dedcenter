@@ -55,22 +55,59 @@ class User extends Authenticatable
 
     // ── Helpers ──
 
-    public function isAdmin(): bool
+    public function isOwner(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === 'owner';
     }
 
-    public function isMember(): bool
+    public function isAdmin(): bool
     {
-        return $this->role === 'member';
+        return $this->isOwner();
+    }
+
+    public function isShooter(): bool
+    {
+        return $this->role === 'shooter';
+    }
+
+    public function orgRole(Organization $organization): ?string
+    {
+        return $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->first()?->pivot->role;
+    }
+
+    public function isOrgOwner(Organization $organization): bool
+    {
+        return $this->isOwner() || $this->orgRole($organization) === 'owner';
+    }
+
+    public function isOrgMatchDirector(Organization $organization): bool
+    {
+        return $this->isOwner() || in_array($this->orgRole($organization), ['owner', 'match_director']);
+    }
+
+    public function isOrgRangeOfficer(Organization $organization): bool
+    {
+        return $this->isOwner() || in_array($this->orgRole($organization), ['owner', 'match_director', 'range_officer']);
     }
 
     public function isOrgAdmin(Organization $organization): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
+        return $this->isOrgRangeOfficer($organization);
+    }
 
-        return $this->organizations()->where('organization_id', $organization->id)->exists();
+    public function canScore(): bool
+    {
+        return $this->isOwner() || $this->organizations()->exists();
+    }
+
+    public function roleLabel(): string
+    {
+        return match ($this->role) {
+            'owner' => 'Site Owner',
+            'shooter' => 'Shooter',
+            default => ucfirst(str_replace('_', ' ', $this->role)),
+        };
     }
 }

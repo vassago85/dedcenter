@@ -463,7 +463,7 @@ new #[Layout('components.layouts.app')]
         <div>
             <flux:heading size="xl">{{ $match ? 'Edit Match' : 'New Match' }}</flux:heading>
             @if($match)
-                <p class="mt-1 text-sm text-slate-400">
+                <p class="mt-1 text-sm text-muted">
                     Status:
                     @switch($match->status)
                         @case(MatchStatus::Draft)
@@ -483,8 +483,8 @@ new #[Layout('components.layouts.app')]
 
     {{-- Match form --}}
     <form wire:submit="save" class="space-y-6">
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-white">Match Details</h2>
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Match Details</h2>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:input wire:model="name" label="Name" placeholder="e.g. Monthly Steel Challenge" required />
@@ -496,21 +496,21 @@ new #[Layout('components.layouts.app')]
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <flux:input wire:model="entry_fee" label="Entry Fee (ZAR)" type="number" step="0.01" min="0" placeholder="Leave empty for free" />
-                    <p class="mt-1 text-xs text-slate-500">Leave empty or 0 for free entry.</p>
+                    <p class="mt-1 text-xs text-muted">Leave empty or 0 for free entry.</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1">Scoring Type</label>
+                    <label class="block text-sm font-medium text-secondary mb-1">Scoring Type</label>
                     <div class="flex gap-2">
                         <button type="button" wire:click="$set('scoring_type', 'standard')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600' }}">
+                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             Standard
                         </button>
                         <button type="button" wire:click="$set('scoring_type', 'prs')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600' }}">
+                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             PRS
                         </button>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">
+                    <p class="mt-1 text-xs text-muted">
                         @if($scoring_type === 'prs')
                             PRS: Hit/miss (1pt each), shooter completes full stage, optional timer for tiebreaker.
                         @else
@@ -521,13 +521,13 @@ new #[Layout('components.layouts.app')]
             </div>
 
             @if($scoring_type === 'standard')
-                <div class="rounded-lg border border-slate-700 bg-slate-700/30 p-4">
+                <div class="rounded-lg border border-border bg-surface-2/30 p-4">
                     <label class="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" wire:model="side_bet_enabled"
-                               class="rounded border-slate-600 bg-slate-700 text-red-500 focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
+                               class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
                         <div>
-                            <span class="text-sm font-medium text-white">Enable Side Bet</span>
-                            <p class="text-xs text-slate-400">Rank by smallest gong hits with furthest-distance tiebreaker. Winner is whoever hits the most small gongs.</p>
+                            <span class="text-sm font-medium text-primary">Enable Side Bet</span>
+                            <p class="text-xs text-muted">Rank by smallest gong hits with furthest-distance tiebreaker. Winner is whoever hits the most small gongs.</p>
                         </div>
                     </label>
                 </div>
@@ -535,7 +535,7 @@ new #[Layout('components.layouts.app')]
             <flux:textarea wire:model="notes" label="Notes" placeholder="Optional notes about this match..." rows="3" />
 
             <div class="flex justify-end pt-2">
-                <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                     {{ $match ? 'Save Changes' : 'Create Match' }}
                 </flux:button>
             </div>
@@ -544,8 +544,8 @@ new #[Layout('components.layouts.app')]
 
     @if($match)
         {{-- Match controls --}}
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">Match Controls</h2>
+        <div class="rounded-xl border border-border bg-surface p-6">
+            <h2 class="text-lg font-semibold text-primary mb-4">Match Controls</h2>
             <div class="flex flex-wrap gap-3">
                 @if($match->status === MatchStatus::Draft)
                     <flux:button wire:click="startMatch" variant="primary" class="!bg-green-600 hover:!bg-green-700"
@@ -572,16 +572,16 @@ new #[Layout('components.layouts.app')]
             </div>
 
             @if($qrCodeSvg)
-                <div class="mt-4 border-t border-slate-700 pt-4">
-                    <h3 class="text-sm font-medium text-slate-300 mb-3">Live Scoreboard</h3>
+                <div class="mt-4 border-t border-border pt-4">
+                    <h3 class="text-sm font-medium text-secondary mb-3">Live Scoreboard</h3>
                     <div class="flex items-start gap-4">
                         <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0">{!! $qrCodeSvg !!}</div>
                         <div class="space-y-2">
-                            <p class="text-xs text-slate-400">Share this QR code for spectators to follow scores live on their phones.</p>
+                            <p class="text-xs text-muted">Share this QR code for spectators to follow scores live on their phones.</p>
                             <div class="flex items-center gap-2">
-                                <input type="text" value="{{ $liveUrl }}" readonly class="flex-1 rounded-md border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs text-slate-300" />
+                                <input type="text" value="{{ $liveUrl }}" readonly class="flex-1 rounded-md border border-slate-600 bg-surface-2 px-3 py-1.5 text-xs text-secondary" />
                                 <button onclick="navigator.clipboard.writeText('{{ $liveUrl }}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)"
-                                        class="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-600">Copy</button>
+                                        class="rounded-md bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-2">Copy</button>
                             </div>
                             <flux:button href="{{ route('live', $match) }}" target="_blank" variant="ghost" size="sm">Open Live Scoreboard</flux:button>
                         </div>
@@ -594,65 +594,65 @@ new #[Layout('components.layouts.app')]
 
         {{-- Divisions --}}
         <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-white">Divisions</h2>
+            <h2 class="text-lg font-semibold text-primary">Divisions</h2>
             @if($divisions->isNotEmpty())
                 <div class="space-y-2">
                     @foreach($divisions as $div)
-                        <div class="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2" wire:key="div-{{ $div->id }}">
+                        <div class="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-2" wire:key="div-{{ $div->id }}">
                             <input type="text" value="{{ $div->name }}"
-                                   class="flex-1 rounded-md border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                   class="flex-1 rounded-md border border-slate-600 bg-surface-2 px-3 py-1.5 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                    wire:change="updateDivision({{ $div->id }}, $event.target.value)" />
-                            <span class="text-xs text-slate-500">{{ $div->shooters()->count() }} shooters</span>
-                            <button class="text-red-400 hover:text-red-300 text-lg leading-none" wire:click="deleteDivision({{ $div->id }})" wire:confirm="Delete this division?">&times;</button>
+                            <span class="text-xs text-muted">{{ $div->shooters()->count() }} shooters</span>
+                            <button class="text-accent hover:text-accent text-lg leading-none" wire:click="deleteDivision({{ $div->id }})" wire:confirm="Delete this division?">&times;</button>
                         </div>
                     @endforeach
                 </div>
             @else
-                <p class="text-sm text-slate-500">No divisions. All shooters compete in a single combined pool.</p>
+                <p class="text-sm text-muted">No divisions. All shooters compete in a single combined pool.</p>
             @endif
-            <div class="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 p-4 space-y-3">
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
                 <div class="flex gap-3 items-end">
                     <div class="flex-1"><flux:input wire:model="divisionName" placeholder="e.g. Open, Production..." /></div>
-                    <flux:button wire:click="addDivision" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700">Add Division</flux:button>
+                    <flux:button wire:click="addDivision" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Division</flux:button>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <flux:button wire:click="addMinorMajorPreset" size="sm" variant="ghost">+ Minor/Major</flux:button>
                     <flux:button wire:click="addPrsDivisionPreset" size="sm" variant="ghost">+ Open/Factory/Limited</flux:button>
                 </div>
-                <p class="text-[10px] text-slate-600">Divisions classify by equipment class. Single-select per shooter.</p>
+                <p class="text-[10px] text-muted/60">Divisions classify by equipment class. Single-select per shooter.</p>
             </div>
         </div>
 
         {{-- Categories --}}
         <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-white">Categories</h2>
+            <h2 class="text-lg font-semibold text-primary">Categories</h2>
             @if($categories->isNotEmpty())
                 <div class="space-y-2">
                     @foreach($categories as $cat)
-                        <div class="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2" wire:key="cat-{{ $cat->id }}">
+                        <div class="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-2" wire:key="cat-{{ $cat->id }}">
                             <input type="text" value="{{ $cat->name }}"
-                                   class="flex-1 rounded-md border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                   class="flex-1 rounded-md border border-slate-600 bg-surface-2 px-3 py-1.5 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                    wire:change="updateCategory({{ $cat->id }}, $event.target.value)" />
                             @if($cat->description)
-                                <span class="text-[10px] text-slate-500 hidden sm:inline">{{ $cat->description }}</span>
+                                <span class="text-[10px] text-muted hidden sm:inline">{{ $cat->description }}</span>
                             @endif
-                            <span class="text-xs text-slate-500">{{ $cat->shooters()->count() }}</span>
-                            <button class="text-red-400 hover:text-red-300 text-lg leading-none" wire:click="deleteCategory({{ $cat->id }})" wire:confirm="Delete this category?">&times;</button>
+                            <span class="text-xs text-muted">{{ $cat->shooters()->count() }}</span>
+                            <button class="text-accent hover:text-accent text-lg leading-none" wire:click="deleteCategory({{ $cat->id }})" wire:confirm="Delete this category?">&times;</button>
                         </div>
                     @endforeach
                 </div>
             @else
-                <p class="text-sm text-slate-500">No categories. Add demographic categories like Overall, Ladies, Junior, Senior.</p>
+                <p class="text-sm text-muted">No categories. Add demographic categories like Overall, Ladies, Junior, Senior.</p>
             @endif
-            <div class="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 p-4 space-y-3">
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
                 <div class="flex gap-3 items-end">
                     <div class="flex-1"><flux:input wire:model="categoryName" placeholder="e.g. Ladies, Junior..." /></div>
-                    <flux:button wire:click="addCategory" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700">Add Category</flux:button>
+                    <flux:button wire:click="addCategory" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Category</flux:button>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <flux:button wire:click="addStandardCategoryPreset" size="sm" variant="ghost">+ Standard Preset (Overall/Ladies/Junior/Senior)</flux:button>
                 </div>
-                <p class="text-[10px] text-slate-600">Categories classify by demographics. Multi-select per shooter (a score appears in all matching category leaderboards).</p>
+                <p class="text-[10px] text-muted/60">Categories classify by demographics. Multi-select per shooter (a score appears in all matching category leaderboards).</p>
             </div>
         </div>
 
@@ -660,27 +660,27 @@ new #[Layout('components.layouts.app')]
 
         {{-- Target Sets --}}
         <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-white">Target Sets</h2>
+            <h2 class="text-lg font-semibold text-primary">Target Sets</h2>
 
             @foreach($targetSets as $ts)
-                <div class="rounded-xl border {{ $ts->is_tiebreaker && $scoring_type === 'prs' ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-slate-700' }} bg-slate-800 overflow-hidden" wire:key="ts-{{ $ts->id }}">
-                    <div class="flex items-center justify-between border-b border-slate-700 px-6 py-3">
+                <div class="rounded-xl border {{ $ts->is_tiebreaker && $scoring_type === 'prs' ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-border' }} bg-surface overflow-hidden" wire:key="ts-{{ $ts->id }}">
+                    <div class="flex items-center justify-between border-b border-border px-6 py-3">
                         <div class="flex items-center gap-3">
                             <div class="flex items-center gap-1">
                                 <input type="number" value="{{ $ts->distance_meters }}" min="1"
-                                       class="w-20 rounded-md border border-slate-600 bg-slate-700 px-2 py-1 text-sm text-white text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                       class="w-20 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                        wire:change="updateTargetSet({{ $ts->id }}, 'distance_meters', $event.target.value)" />
-                                <span class="text-sm text-slate-400">m</span>
+                                <span class="text-sm text-muted">m</span>
                             </div>
-                            <span class="text-xs text-slate-500">({{ $ts->gongs->count() }} targets)</span>
+                            <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
                             @if($scoring_type === 'prs' && $ts->is_tiebreaker)
-                                <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Tiebreaker</span>
+                                <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">Tiebreaker</span>
                             @endif
                         </div>
                         <div class="flex items-center gap-2">
                             @if($scoring_type === 'prs')
                                 <button wire:click="setTiebreakerStage({{ $ts->id }})"
-                                        class="rounded-lg px-2 py-1 text-xs font-medium transition-colors {{ $ts->is_tiebreaker ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white' }}"
+                                        class="rounded-lg px-2 py-1 text-xs font-medium transition-colors {{ $ts->is_tiebreaker ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-muted hover:bg-surface-2 hover:text-primary' }}"
                                         title="Set as tiebreaker stage">
                                     &#9201; TB
                                 </button>
@@ -688,7 +688,7 @@ new #[Layout('components.layouts.app')]
                             <flux:button size="sm" variant="ghost" wire:click="cloneTargetSet({{ $ts->id }})" title="Clone">
                                 Clone
                             </flux:button>
-                            <flux:button size="sm" variant="ghost" class="!text-red-400 hover:!text-red-300"
+                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
                                          wire:click="deleteTargetSet({{ $ts->id }})"
                                          wire:confirm="Delete this target set and all its gongs?">
                                 Delete
@@ -696,12 +696,12 @@ new #[Layout('components.layouts.app')]
                         </div>
                     </div>
                     @if($scoring_type === 'prs')
-                        <div class="flex items-center gap-3 border-b border-slate-700/50 bg-slate-800/50 px-6 py-2">
-                            <label class="text-xs font-medium text-slate-400 whitespace-nowrap">Par Time (s):</label>
+                        <div class="flex items-center gap-3 border-b border-border/50 bg-surface/50 px-6 py-2">
+                            <label class="text-xs font-medium text-muted whitespace-nowrap">Par Time (s):</label>
                             <input type="number" value="{{ $ts->par_time_seconds }}" step="0.01" min="0" placeholder="e.g. 90.00"
-                                   class="w-28 rounded-md border border-slate-600 bg-slate-700 px-2 py-1 text-sm text-white text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                   class="w-28 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                                    wire:change="updateParTime({{ $ts->id }}, $event.target.value)" />
-                            <span class="text-xs text-slate-500">Max time for this stage. Incomplete shooters get this time.</span>
+                            <span class="text-xs text-muted">Max time for this stage. Incomplete shooters get this time.</span>
                         </div>
                     @endif
 
@@ -710,7 +710,7 @@ new #[Layout('components.layouts.app')]
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm">
                                     <thead>
-                                        <tr class="text-left text-slate-400 border-b border-slate-700/50">
+                                        <tr class="text-left text-muted border-b border-border/50">
                                             <th class="px-3 py-2 font-medium w-12">#</th>
                                             <th class="px-3 py-2 font-medium">Label</th>
                                             <th class="px-3 py-2 font-medium w-28">Multiplier</th>
@@ -720,22 +720,22 @@ new #[Layout('components.layouts.app')]
                                     <tbody class="divide-y divide-slate-700/50">
                                         @foreach($ts->gongs->sortBy('number') as $gong)
                                             <tr wire:key="gong-{{ $gong->id }}">
-                                                <td class="px-3 py-1.5 text-slate-400 font-mono">{{ $gong->number }}</td>
+                                                <td class="px-3 py-1.5 text-muted font-mono">{{ $gong->number }}</td>
                                                 <td class="px-3 py-1.5">
                                                     <input type="text" value="{{ $gong->label }}" placeholder="e.g. 2.5 MOA"
-                                                           class="w-full rounded border border-slate-600 bg-slate-700 px-2 py-1 text-sm text-white placeholder-slate-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                                           class="w-full rounded border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary placeholder-slate-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                                            wire:change="updateGong({{ $gong->id }}, 'label', $event.target.value)" />
                                                 </td>
                                                 <td class="px-3 py-1.5">
                                                     <div class="flex items-center gap-1">
                                                         <input type="number" value="{{ $gong->multiplier }}" step="0.01" min="0.01"
-                                                               class="w-20 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-sm text-white text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                                               class="w-20 rounded border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                                                wire:change="updateGong({{ $gong->id }}, 'multiplier', $event.target.value)" />
-                                                        <span class="text-slate-400 text-xs">x</span>
+                                                        <span class="text-muted text-xs">x</span>
                                                     </div>
                                                 </td>
                                                 <td class="px-3 py-1.5 text-right">
-                                                    <button class="text-red-400 hover:text-red-300 text-lg leading-none"
+                                                    <button class="text-accent hover:text-accent text-lg leading-none"
                                                             wire:click="deleteGong({{ $gong->id }})">&times;</button>
                                                 </td>
                                             </tr>
@@ -744,18 +744,18 @@ new #[Layout('components.layouts.app')]
                                 </table>
                             </div>
                         @else
-                            <p class="text-sm text-slate-500 px-3">No targets yet.</p>
+                            <p class="text-sm text-muted px-3">No targets yet.</p>
                         @endif
 
                         @if($addingGongToTargetSetId === $ts->id)
-                            <div class="rounded-lg border border-slate-600 bg-slate-700/50 p-4 space-y-3">
+                            <div class="rounded-lg border border-slate-600 bg-surface-2/50 p-4 space-y-3">
                                 <div class="grid grid-cols-3 gap-3">
                                     <flux:input wire:model="gongNumber" label="#" type="number" min="1" required />
                                     <flux:input wire:model="gongLabel" label="Label" placeholder="e.g. 1.5 MOA" />
                                     <flux:input wire:model="gongMultiplier" label="Multiplier" type="number" step="0.01" min="0.01" required />
                                 </div>
                                 <div class="flex gap-2">
-                                    <flux:button wire:click="addGong" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+                                    <flux:button wire:click="addGong" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                                         Add Target
                                     </flux:button>
                                     <flux:button wire:click="$set('addingGongToTargetSetId', null)" size="sm" variant="ghost">
@@ -771,7 +771,7 @@ new #[Layout('components.layouts.app')]
                                         <flux:button size="sm" variant="ghost" wire:click="populatePrsTargets({{ $ts->id }}, 8)">+ 8 Targets</flux:button>
                                         <flux:button size="sm" variant="ghost" wire:click="populatePrsTargets({{ $ts->id }}, 10)">+ 10 Targets</flux:button>
                                     @else
-                                        <flux:button size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700"
+                                        <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover"
                                                      wire:click="populateStandardTargets({{ $ts->id }})">
                                             + Add Standard Targets (5 MOA)
                                         </flux:button>
@@ -786,13 +786,13 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endforeach
 
-            <div class="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 p-4 space-y-3">
-                <h3 class="text-sm font-medium text-slate-300">Add Target Set</h3>
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
+                <h3 class="text-sm font-medium text-secondary">Add Target Set</h3>
                 <div class="flex gap-3 items-end">
                     <div class="w-32">
                         <flux:input wire:model="tsDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 100" />
                     </div>
-                    <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+                    <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                         Add Target Set
                     </flux:button>
                 </div>
@@ -803,13 +803,13 @@ new #[Layout('components.layouts.app')]
 
         {{-- Squads --}}
         <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-white">Squads</h2>
+            <h2 class="text-lg font-semibold text-primary">Squads</h2>
 
             @foreach($squads as $squad)
-                <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden" wire:key="squad-{{ $squad->id }}">
-                    <div class="flex items-center justify-between border-b border-slate-700 px-6 py-3">
-                        <span class="font-medium text-white">{{ $squad->name }}</span>
-                        <flux:button size="sm" variant="ghost" class="!text-red-400 hover:!text-red-300"
+                <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="squad-{{ $squad->id }}">
+                    <div class="flex items-center justify-between border-b border-border px-6 py-3">
+                        <span class="font-medium text-primary">{{ $squad->name }}</span>
+                        <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
                                      wire:click="deleteSquad({{ $squad->id }})"
                                      wire:confirm="Delete this squad and all its shooters?">
                             Delete
@@ -821,7 +821,7 @@ new #[Layout('components.layouts.app')]
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm">
                                     <thead>
-                                        <tr class="text-left text-slate-400 border-b border-slate-700/50">
+                                        <tr class="text-left text-muted border-b border-border/50">
                                             <th class="px-3 py-2 font-medium">Name</th>
                                             <th class="px-3 py-2 font-medium">Bib #</th>
                                             @if($divisions->isNotEmpty())<th class="px-3 py-2 font-medium">Division</th>@endif
@@ -832,11 +832,11 @@ new #[Layout('components.layouts.app')]
                                     <tbody class="divide-y divide-slate-700/50">
                                         @foreach($squad->shooters->sortBy('sort_order') as $shooter)
                                             <tr wire:key="shooter-{{ $shooter->id }}">
-                                                <td class="px-3 py-2 text-slate-300">{{ $shooter->name }}</td>
-                                                <td class="px-3 py-2 text-slate-300">{{ $shooter->bib_number ?? '—' }}</td>
+                                                <td class="px-3 py-2 text-secondary">{{ $shooter->name }}</td>
+                                                <td class="px-3 py-2 text-secondary">{{ $shooter->bib_number ?? '—' }}</td>
                                                 @if($divisions->isNotEmpty())
                                                     <td class="px-3 py-2">
-                                                        <select class="rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-white focus:border-red-500"
+                                                        <select class="rounded border border-slate-600 bg-surface-2 px-2 py-1 text-xs text-primary focus:border-red-500"
                                                                 wire:change="updateShooterDivision({{ $shooter->id }}, $event.target.value)">
                                                             <option value="" {{ !$shooter->match_division_id ? 'selected' : '' }}>—</option>
                                                             @foreach($divisions as $d)
@@ -851,21 +851,21 @@ new #[Layout('components.layouts.app')]
                                                             @foreach($categories as $cat)
                                                                 <label class="inline-flex items-center gap-0.5 cursor-pointer">
                                                                     <input type="checkbox" value="{{ $cat->id }}"
-                                                                           class="rounded border-slate-600 bg-slate-700 text-red-500 focus:ring-red-500 focus:ring-offset-0 h-3 w-3"
+                                                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-3 w-3"
                                                                            {{ $shooter->categories->contains('id', $cat->id) ? 'checked' : '' }}
                                                                            x-on:change="
                                                                                let id = {{ $cat->id }};
                                                                                if ($event.target.checked) { cats.push(id); } else { cats = cats.filter(c => c !== id); }
                                                                                $wire.updateShooterCategories({{ $shooter->id }}, [...cats]);
                                                                            " />
-                                                                    <span class="text-[10px] text-slate-400">{{ $cat->name }}</span>
+                                                                    <span class="text-[10px] text-muted">{{ $cat->name }}</span>
                                                                 </label>
                                                             @endforeach
                                                         </div>
                                                     </td>
                                                 @endif
                                                 <td class="px-3 py-2 text-right">
-                                                    <flux:button size="sm" variant="ghost" class="!text-red-400 hover:!text-red-300"
+                                                    <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
                                                                  wire:click="deleteShooter({{ $shooter->id }})">
                                                         &times;
                                                     </flux:button>
@@ -876,18 +876,18 @@ new #[Layout('components.layouts.app')]
                                 </table>
                             </div>
                         @else
-                            <p class="text-sm text-slate-500 px-3">No shooters yet.</p>
+                            <p class="text-sm text-muted px-3">No shooters yet.</p>
                         @endif
 
                         @if($addingShooterToSquadId === $squad->id)
-                            <div class="rounded-lg border border-slate-600 bg-slate-700/50 p-4 space-y-3">
+                            <div class="rounded-lg border border-slate-600 bg-surface-2/50 p-4 space-y-3">
                                 <div class="grid grid-cols-2 gap-3 {{ $divisions->isNotEmpty() ? 'sm:grid-cols-3' : '' }}">
                                     <flux:input wire:model="shooterName" label="Name" placeholder="Shooter name" required />
                                     <flux:input wire:model="shooterBib" label="Bib #" placeholder="Optional" />
                                     @if($divisions->isNotEmpty())
                                         <div>
-                                            <label class="block text-sm font-medium text-slate-300 mb-1">Division</label>
-                                            <select wire:model="shooterDivision" class="w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                                            <label class="block text-sm font-medium text-secondary mb-1">Division</label>
+                                            <select wire:model="shooterDivision" class="w-full rounded-md border border-slate-600 bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
                                                 <option value="">No Division</option>
                                                 @foreach($divisions as $d)
                                                     <option value="{{ $d->id }}">{{ $d->name }}</option>
@@ -898,20 +898,20 @@ new #[Layout('components.layouts.app')]
                                 </div>
                                 @if($categories->isNotEmpty())
                                     <div class="col-span-full">
-                                        <label class="block text-sm font-medium text-slate-300 mb-1">Categories</label>
+                                        <label class="block text-sm font-medium text-secondary mb-1">Categories</label>
                                         <div class="flex flex-wrap gap-3">
                                             @foreach($categories as $cat)
                                                 <label class="inline-flex items-center gap-1.5 cursor-pointer">
                                                     <input type="checkbox" value="{{ $cat->id }}" wire:model="shooterCategories"
-                                                           class="rounded border-slate-600 bg-slate-700 text-red-500 focus:ring-red-500 focus:ring-offset-0" />
-                                                    <span class="text-sm text-slate-300">{{ $cat->name }}</span>
+                                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0" />
+                                                    <span class="text-sm text-secondary">{{ $cat->name }}</span>
                                                 </label>
                                             @endforeach
                                         </div>
                                     </div>
                                 @endif
                                 <div class="col-span-full flex gap-2">
-                                    <flux:button wire:click="addShooter" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+                                    <flux:button wire:click="addShooter" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                                         Add Shooter
                                     </flux:button>
                                     <flux:button wire:click="$set('addingShooterToSquadId', null)" size="sm" variant="ghost">
@@ -930,13 +930,13 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endforeach
 
-            <div class="rounded-xl border border-dashed border-slate-600 bg-slate-800/50 p-4 space-y-3">
-                <h3 class="text-sm font-medium text-slate-300">Add Squad</h3>
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
+                <h3 class="text-sm font-medium text-secondary">Add Squad</h3>
                 <div class="flex gap-3">
                     <div class="flex-1">
                         <flux:input wire:model="squadName" placeholder="e.g. Squad A" />
                     </div>
-                    <flux:button wire:click="addSquad" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700 self-end">
+                    <flux:button wire:click="addSquad" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover self-end">
                         Add Squad
                     </flux:button>
                 </div>

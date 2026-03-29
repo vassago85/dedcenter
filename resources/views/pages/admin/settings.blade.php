@@ -47,13 +47,13 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6 max-w-2xl">
     <div>
         <flux:heading size="xl">Settings</flux:heading>
-        <p class="mt-1 text-sm text-slate-400">Configure bank details for EFT payments.</p>
+        <p class="mt-1 text-sm text-muted">Configure bank details for EFT payments.</p>
     </div>
 
     <form wire:submit="save" class="space-y-6">
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-white">Bank Details</h2>
-            <p class="text-sm text-slate-400">These details are shown to members when they register for a match.</p>
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Bank Details</h2>
+            <p class="text-sm text-muted">These details are shown to members when they register for a match.</p>
 
             <flux:input wire:model="bank_name" label="Bank Name" placeholder="e.g. FNB" required />
             <flux:input wire:model="bank_account_name" label="Account Name" placeholder="e.g. DeadCenter Shooting" required />
@@ -63,10 +63,10 @@ new #[Layout('components.layouts.app')]
             <flux:separator />
 
             <flux:input wire:model="bank_reference_prefix" label="Payment Reference Prefix" placeholder="e.g. DC" required />
-            <p class="text-xs text-slate-500">References will be generated as PREFIX-SURNAME-0000</p>
+            <p class="text-xs text-muted">References will be generated as PREFIX-SURNAME-0000</p>
 
             <div class="flex justify-end pt-2">
-                <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                     Save Settings
                 </flux:button>
             </div>

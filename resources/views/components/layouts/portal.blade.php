@@ -39,7 +39,7 @@
         .portal-ring-primary:focus { --tw-ring-color: var(--portal-primary); }
     </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-white antialiased">
+<body class="min-h-screen bg-app text-primary antialiased">
 
     {{-- Navigation --}}
     <nav class="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl" style="background-color: color-mix(in srgb, {{ $secondaryColor }} 95%, transparent);">
@@ -55,15 +55,15 @@
 
                     <div class="hidden sm:flex items-center gap-1">
                         <a href="{{ route('portal.home', $org) }}"
-                           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('portal.home') ? 'portal-bg-primary text-white' : 'text-slate-300 hover:text-white hover:bg-white/10' }}">
+                           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('portal.home') ? 'portal-bg-primary text-primary' : 'text-secondary hover:text-primary hover:bg-white/10' }}">
                             Home
                         </a>
                         <a href="{{ route('portal.matches', $org) }}"
-                           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('portal.matches*') ? 'portal-bg-primary text-white' : 'text-slate-300 hover:text-white hover:bg-white/10' }}">
+                           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('portal.matches*') ? 'portal-bg-primary text-primary' : 'text-secondary hover:text-primary hover:bg-white/10' }}">
                             Matches
                         </a>
                         <a href="{{ route('portal.leaderboard', $org) }}"
-                           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('portal.leaderboard') ? 'portal-bg-primary text-white' : 'text-slate-300 hover:text-white hover:bg-white/10' }}">
+                           class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ request()->routeIs('portal.leaderboard') ? 'portal-bg-primary text-primary' : 'text-secondary hover:text-primary hover:bg-white/10' }}">
                             Leaderboard
                         </a>
                     </div>
@@ -71,18 +71,18 @@
 
                 <div class="flex items-center gap-3">
                     @auth
-                        <span class="text-xs text-slate-400 hidden sm:inline">{{ auth()->user()->name }}</span>
+                        <span class="text-xs text-muted hidden sm:inline">{{ auth()->user()->name }}</span>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <button type="submit" class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+                            <button type="submit" class="rounded-lg px-3 py-1.5 text-sm font-medium text-secondary hover:text-primary hover:bg-white/10 transition-colors">
                                 Sign Out
                             </button>
                         </form>
                     @else
-                        <a href="{{ route('login') }}" class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+                        <a href="{{ route('login') }}" class="rounded-lg px-3 py-1.5 text-sm font-medium text-secondary hover:text-primary hover:bg-white/10 transition-colors">
                             Sign In
                         </a>
-                        <a href="{{ route('register') }}" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors">
+                        <a href="{{ route('register') }}" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-4 py-1.5 text-sm font-medium text-primary transition-colors">
                             Register
                         </a>
                     @endauth
@@ -92,15 +92,15 @@
             {{-- Mobile nav --}}
             <div class="flex sm:hidden gap-1 pb-2 -mx-1 overflow-x-auto">
                 <a href="{{ route('portal.home', $org) }}"
-                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.home') ? 'portal-bg-primary text-white' : 'text-slate-300 hover:bg-white/10' }}">
+                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.home') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
                     Home
                 </a>
                 <a href="{{ route('portal.matches', $org) }}"
-                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.matches*') ? 'portal-bg-primary text-white' : 'text-slate-300 hover:bg-white/10' }}">
+                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.matches*') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
                     Matches
                 </a>
                 <a href="{{ route('portal.leaderboard', $org) }}"
-                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.leaderboard') ? 'portal-bg-primary text-white' : 'text-slate-300 hover:bg-white/10' }}">
+                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.leaderboard') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
                     Leaderboard
                 </a>
             </div>
@@ -116,10 +116,10 @@
     <footer class="border-t border-white/10 mt-16">
         <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
             <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p class="text-sm text-slate-500">&copy; {{ date('Y') }} {{ $orgName }}. Powered by DeadCenter.</p>
-                <div class="flex gap-4 text-sm text-slate-500">
-                    <a href="{{ route('portal.matches', $org) }}" class="hover:text-slate-300 transition-colors">Matches</a>
-                    <a href="{{ route('portal.leaderboard', $org) }}" class="hover:text-slate-300 transition-colors">Leaderboard</a>
+                <p class="text-sm text-muted">&copy; {{ date('Y') }} {{ $orgName }}. Powered by DeadCenter.</p>
+                <div class="flex gap-4 text-sm text-muted">
+                    <a href="{{ route('portal.matches', $org) }}" class="hover:text-secondary transition-colors">Matches</a>
+                    <a href="{{ route('portal.leaderboard', $org) }}" class="hover:text-secondary transition-colors">Leaderboard</a>
                 </div>
             </div>
         </div>

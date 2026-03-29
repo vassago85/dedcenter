@@ -21,6 +21,14 @@ new #[Layout('components.layouts.app')]
     public string $hero_description = '';
     public bool $portal_enabled = false;
 
+    public string $bank_name = '';
+
+    public string $bank_account_holder = '';
+
+    public string $bank_account_number = '';
+
+    public string $bank_branch_code = '';
+
     public function mount(Organization $organization): void
     {
         $this->organization = $organization;
@@ -33,6 +41,10 @@ new #[Layout('components.layouts.app')]
         $this->hero_text = $organization->hero_text ?? '';
         $this->hero_description = $organization->hero_description ?? '';
         $this->portal_enabled = $organization->portal_enabled;
+        $this->bank_name = $organization->bank_name ?? '';
+        $this->bank_account_holder = $organization->bank_account_holder ?? '';
+        $this->bank_account_number = $organization->bank_account_number ?? '';
+        $this->bank_branch_code = $organization->bank_branch_code ?? '';
     }
 
     public function save(): void
@@ -46,6 +58,10 @@ new #[Layout('components.layouts.app')]
             'secondary_color' => 'required|string|max:7',
             'hero_text' => 'nullable|string|max:255',
             'hero_description' => 'nullable|string|max:500',
+            'bank_name' => 'nullable|string|max:255',
+            'bank_account_holder' => 'nullable|string|max:255',
+            'bank_account_number' => 'nullable|string|max:50',
+            'bank_branch_code' => 'nullable|string|max:20',
         ]);
 
         $this->organization->update([
@@ -58,6 +74,10 @@ new #[Layout('components.layouts.app')]
             'hero_text' => $validated['hero_text'] ?: null,
             'hero_description' => $validated['hero_description'] ?: null,
             'portal_enabled' => $this->portal_enabled,
+            'bank_name' => $validated['bank_name'] ?: null,
+            'bank_account_holder' => $validated['bank_account_holder'] ?: null,
+            'bank_account_number' => $validated['bank_account_number'] ?: null,
+            'bank_branch_code' => $validated['bank_branch_code'] ?: null,
         ]);
 
         Flux::toast('Settings saved.', variant: 'success');
@@ -67,59 +87,59 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6 max-w-2xl">
     <div>
         <flux:heading size="xl">Settings</flux:heading>
-        <p class="mt-1 text-sm text-slate-400">{{ $organization->name }} — Configure organization settings.</p>
+        <p class="mt-1 text-sm text-muted">{{ $organization->name }} — Configure organization settings.</p>
     </div>
 
     <form wire:submit="save" class="space-y-6">
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-white">Organization Details</h2>
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Organization Details</h2>
 
             <flux:input wire:model="name" label="Name" required />
             <flux:textarea wire:model="description" label="Description" placeholder="What is this organization about..." rows="3" />
 
             <flux:separator />
 
-            <h2 class="text-lg font-semibold text-white">Leaderboard</h2>
+            <h2 class="text-lg font-semibold text-primary">Leaderboard</h2>
             <div class="max-w-xs">
                 <flux:input wire:model="best_of" label="Best-of (X scores)" type="number" min="1" placeholder="Leave empty to count all" />
-                <p class="mt-1 text-xs text-slate-500">Leaderboard will rank shooters by their top X match scores. Leave empty to sum all scores.</p>
+                <p class="mt-1 text-xs text-muted">Leaderboard will rank shooters by their top X match scores. Leave empty to sum all scores.</p>
             </div>
 
             <flux:separator />
 
-            <h2 class="text-lg font-semibold text-white">Defaults</h2>
+            <h2 class="text-lg font-semibold text-primary">Defaults</h2>
             <div class="max-w-xs">
                 <flux:input wire:model="entry_fee_default" label="Default Entry Fee (ZAR)" type="number" step="0.01" min="0" placeholder="Leave empty for free" />
-                <p class="mt-1 text-xs text-slate-500">New matches will default to this fee.</p>
+                <p class="mt-1 text-xs text-muted">New matches will default to this fee.</p>
             </div>
 
             <flux:separator />
 
-            <h2 class="text-lg font-semibold text-white">Public Portal / White Label</h2>
+            <h2 class="text-lg font-semibold text-primary">Public Portal / White Label</h2>
 
             <div class="flex items-center gap-3">
                 <input type="checkbox" wire:model="portal_enabled" id="portal_enabled"
-                       class="rounded border-slate-600 bg-slate-700 text-red-600 focus:ring-red-500">
-                <label for="portal_enabled" class="text-sm text-slate-300">Enable public portal</label>
+                       class="rounded border-border bg-surface-2 text-accent focus:ring-red-500">
+                <label for="portal_enabled" class="text-sm text-secondary">Enable public portal</label>
             </div>
             @if($organization->portal_enabled)
-                <p class="text-xs text-slate-400">
-                    Portal URL: <a href="{{ route('portal.home', $organization) }}" target="_blank" class="text-red-400 hover:text-red-300 font-mono">{{ route('portal.home', $organization) }}</a>
+                <p class="text-xs text-muted">
+                    Portal URL: <a href="{{ route('portal.home', $organization) }}" target="_blank" class="text-accent hover:text-accent font-mono">{{ route('portal.home', $organization) }}</a>
                 </p>
             @endif
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1">Primary Color</label>
+                    <label class="block text-sm font-medium text-secondary mb-1">Primary Color</label>
                     <div class="flex items-center gap-2">
-                        <input type="color" wire:model.live="primary_color" class="h-10 w-14 cursor-pointer rounded border border-slate-600 bg-slate-700">
+                        <input type="color" wire:model.live="primary_color" class="h-10 w-14 cursor-pointer rounded border border-border bg-surface-2">
                         <flux:input wire:model.live="primary_color" class="flex-1" />
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1">Secondary Color</label>
+                    <label class="block text-sm font-medium text-secondary mb-1">Secondary Color</label>
                     <div class="flex items-center gap-2">
-                        <input type="color" wire:model.live="secondary_color" class="h-10 w-14 cursor-pointer rounded border border-slate-600 bg-slate-700">
+                        <input type="color" wire:model.live="secondary_color" class="h-10 w-14 cursor-pointer rounded border border-border bg-surface-2">
                         <flux:input wire:model.live="secondary_color" class="flex-1" />
                     </div>
                 </div>
@@ -129,32 +149,42 @@ new #[Layout('components.layouts.app')]
             <flux:textarea wire:model="hero_description" label="Hero Description" placeholder="A brief description shown on the portal landing page..." rows="2" />
 
             {{-- Preview swatch --}}
-            <div class="rounded-lg p-4 border border-slate-600" style="background-color: {{ $secondary_color }};">
+            <div class="rounded-lg p-4 border border-border" style="background-color: {{ $secondary_color }};">
                 <p class="text-sm font-bold" style="color: {{ $primary_color }};">{{ $hero_text ?: $organization->name }}</p>
-                <p class="text-xs text-slate-400 mt-1">Color preview</p>
+                <p class="text-xs text-muted mt-1">Color preview</p>
             </div>
+        </div>
+
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Banking Details</h2>
+            <p class="text-sm text-muted">Shown to members where payment instructions are displayed for your organization.</p>
+
+            <flux:input wire:model="bank_name" label="Bank name" placeholder="e.g. FNB" />
+            <flux:input wire:model="bank_account_holder" label="Account holder" placeholder="Name on the account" />
+            <flux:input wire:model="bank_account_number" label="Account number" placeholder="e.g. 62000000000" />
+            <flux:input wire:model="bank_branch_code" label="Branch code" placeholder="e.g. 250655" />
 
             <div class="flex justify-end pt-2">
-                <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700">Save Settings</flux:button>
+                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Save Settings</flux:button>
             </div>
         </div>
     </form>
 
     {{-- Info --}}
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-2">
-        <h2 class="text-sm font-semibold text-slate-400">Organization Info</h2>
+    <div class="rounded-xl border border-border bg-surface p-6 space-y-2">
+        <h2 class="text-sm font-semibold text-muted">Organization Info</h2>
         <div class="grid grid-cols-2 gap-2 text-sm">
-            <span class="text-slate-500">Type</span>
-            <span class="text-white capitalize">{{ $organization->type }}</span>
-            <span class="text-slate-500">Slug</span>
-            <span class="text-white font-mono text-xs">{{ $organization->slug }}</span>
-            <span class="text-slate-500">Status</span>
-            <span class="text-white capitalize">{{ $organization->status }}</span>
-            <span class="text-slate-500">Created</span>
-            <span class="text-white">{{ $organization->created_at->format('d M Y') }}</span>
+            <span class="text-muted">Type</span>
+            <span class="text-primary capitalize">{{ $organization->type }}</span>
+            <span class="text-muted">Slug</span>
+            <span class="text-primary font-mono text-xs">{{ $organization->slug }}</span>
+            <span class="text-muted">Status</span>
+            <span class="text-primary capitalize">{{ $organization->status }}</span>
+            <span class="text-muted">Created</span>
+            <span class="text-primary">{{ $organization->created_at->format('d M Y') }}</span>
             @if($organization->parent)
-                <span class="text-slate-500">Parent</span>
-                <span class="text-white">{{ $organization->parent->name }}</span>
+                <span class="text-muted">Parent</span>
+                <span class="text-primary">{{ $organization->parent->name }}</span>
             @endif
         </div>
     </div>

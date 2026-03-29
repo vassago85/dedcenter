@@ -118,7 +118,7 @@ new #[Layout('components.layouts.app')]
         </flux:button>
         <div>
             <flux:heading size="xl">{{ $match->name }}</flux:heading>
-            <div class="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-400">
+            <div class="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted">
                 @if($match->date)
                     <span>{{ $match->date->format('d M Y') }}</span>
                 @endif
@@ -131,7 +131,7 @@ new #[Layout('components.layouts.app')]
 
     {{-- Watch Live / View Results banner --}}
     <a href="{{ route('live', $match) }}"
-       class="flex items-center justify-between gap-4 rounded-xl border {{ $match->status === \App\Enums\MatchStatus::Active ? 'border-green-700/50 bg-gradient-to-r from-green-900/30 to-slate-800' : 'border-slate-700 bg-slate-800' }} px-6 py-4 transition-colors hover:border-green-600/60">
+       class="flex items-center justify-between gap-4 rounded-xl border {{ $match->status === \App\Enums\MatchStatus::Active ? 'border-green-700/50 bg-gradient-to-r from-green-900/30 to-surface' : 'border-border bg-surface' }} px-6 py-4 transition-colors hover:border-green-600/60">
         <div class="flex items-center gap-3">
             @if($match->status === \App\Enums\MatchStatus::Active)
                 <span class="relative flex h-3 w-3">
@@ -140,39 +140,39 @@ new #[Layout('components.layouts.app')]
                 </span>
                 <span class="text-sm font-semibold text-green-400">Match is live &mdash; Watch Live Scores</span>
             @else
-                <svg class="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <svg class="h-5 w-5 text-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
                 </svg>
-                <span class="text-sm font-semibold text-slate-300">View Scoreboard &amp; Results</span>
+                <span class="text-sm font-semibold text-secondary">View Scoreboard &amp; Results</span>
             @endif
         </div>
-        <svg class="h-5 w-5 {{ $match->status === \App\Enums\MatchStatus::Active ? 'text-green-400' : 'text-slate-500' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <svg class="h-5 w-5 {{ $match->status === \App\Enums\MatchStatus::Active ? 'text-green-400' : 'text-muted' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
     </a>
 
     {{-- Match Info --}}
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-4">
+    <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
         <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-white">Match Information</h2>
-            <span class="text-2xl font-bold {{ $match->entry_fee ? 'text-white' : 'text-green-400' }}">
+            <h2 class="text-lg font-semibold text-primary">Match Information</h2>
+            <span class="text-2xl font-bold {{ $match->entry_fee ? 'text-primary' : 'text-green-400' }}">
                 {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free Entry' }}
             </span>
         </div>
 
         @if($match->notes)
-            <p class="text-sm text-slate-300">{{ $match->notes }}</p>
+            <p class="text-sm text-secondary">{{ $match->notes }}</p>
         @endif
 
         {{-- Target sets summary --}}
         @if($targetSets->isNotEmpty())
             <div class="space-y-2">
-                <h3 class="text-sm font-medium text-slate-400">Target Sets</h3>
+                <h3 class="text-sm font-medium text-muted">Target Sets</h3>
                 <div class="flex flex-wrap gap-2">
                     @foreach($targetSets as $ts)
-                        <div class="rounded-lg border border-slate-600 bg-slate-700/50 px-3 py-2">
-                            <span class="text-sm font-medium text-white">{{ $ts->label }}</span>
-                            <span class="ml-1 text-xs text-slate-400">({{ $ts->gongs->count() }} targets)</span>
+                        <div class="rounded-lg border border-border bg-surface-2/50 px-3 py-2">
+                            <span class="text-sm font-medium text-primary">{{ $ts->label }}</span>
+                            <span class="ml-1 text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
                         </div>
                     @endforeach
                 </div>
@@ -181,13 +181,13 @@ new #[Layout('components.layouts.app')]
     </div>
 
     {{-- Registration Section --}}
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-4">
-        <h2 class="text-lg font-semibold text-white">Registration</h2>
+    <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+        <h2 class="text-lg font-semibold text-primary">Registration</h2>
 
         @if(! $registration)
             {{-- Not registered --}}
-            <p class="text-sm text-slate-400">Register for this match to participate.</p>
-            <flux:button wire:click="register" variant="primary" class="!bg-red-600 hover:!bg-red-700"
+            <p class="text-sm text-muted">Register for this match to participate.</p>
+            <flux:button wire:click="register" variant="primary" class="!bg-accent hover:!bg-accent-hover"
                          wire:confirm="Register for this match?">
                 Register for this Match
             </flux:button>
@@ -201,7 +201,7 @@ new #[Layout('components.layouts.app')]
                     </svg>
                     <span class="text-sm font-medium text-green-400">Your registration is confirmed!</span>
                 </div>
-                <p class="mt-1 text-xs text-slate-400">Reference: {{ $registration->payment_reference }}</p>
+                <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
             </div>
 
         @elseif($registration->isRejected())
@@ -214,7 +214,7 @@ new #[Layout('components.layouts.app')]
                     <span class="text-sm font-medium text-red-400">Your registration was rejected.</span>
                 </div>
                 @if($registration->admin_notes)
-                    <p class="mt-1 text-xs text-slate-400">Reason: {{ $registration->admin_notes }}</p>
+                    <p class="mt-1 text-xs text-muted">Reason: {{ $registration->admin_notes }}</p>
                 @endif
             </div>
 
@@ -227,7 +227,7 @@ new #[Layout('components.layouts.app')]
                     </svg>
                     <span class="text-sm font-medium text-blue-400">Your proof of payment is under review.</span>
                 </div>
-                <p class="mt-1 text-xs text-slate-400">Reference: {{ $registration->payment_reference }}</p>
+                <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
             </div>
 
         @elseif($registration->isPending())
@@ -235,28 +235,28 @@ new #[Layout('components.layouts.app')]
             <div class="space-y-4">
                 <div class="rounded-lg border border-amber-800 bg-amber-900/20 p-4">
                     <p class="text-sm font-medium text-amber-400">Payment Required</p>
-                    <p class="mt-1 text-xs text-slate-400">Please make an EFT payment using the details below and upload your proof of payment.</p>
+                    <p class="mt-1 text-xs text-muted">Please make an EFT payment using the details below and upload your proof of payment.</p>
                 </div>
 
                 {{-- Bank details --}}
-                <div class="rounded-lg border border-slate-600 bg-slate-700/50 p-4 space-y-2">
-                    <h3 class="text-sm font-semibold text-white">Bank Details</h3>
+                <div class="rounded-lg border border-border bg-surface-2/50 p-4 space-y-2">
+                    <h3 class="text-sm font-semibold text-primary">Bank Details</h3>
                     <dl class="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                         <div>
-                            <dt class="text-slate-400">Bank</dt>
-                            <dd class="font-medium text-white">{{ $bankDetails['bank_name'] ?: '—' }}</dd>
+                            <dt class="text-muted">Bank</dt>
+                            <dd class="font-medium text-primary">{{ $bankDetails['bank_name'] ?: '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-slate-400">Account Name</dt>
-                            <dd class="font-medium text-white">{{ $bankDetails['bank_account_name'] ?: '—' }}</dd>
+                            <dt class="text-muted">Account Name</dt>
+                            <dd class="font-medium text-primary">{{ $bankDetails['bank_account_name'] ?: '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-slate-400">Account Number</dt>
-                            <dd class="font-medium text-white">{{ $bankDetails['bank_account_number'] ?: '—' }}</dd>
+                            <dt class="text-muted">Account Number</dt>
+                            <dd class="font-medium text-primary">{{ $bankDetails['bank_account_number'] ?: '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-slate-400">Branch Code</dt>
-                            <dd class="font-medium text-white">{{ $bankDetails['bank_branch_code'] ?: '—' }}</dd>
+                            <dt class="text-muted">Branch Code</dt>
+                            <dd class="font-medium text-primary">{{ $bankDetails['bank_branch_code'] ?: '—' }}</dd>
                         </div>
                     </dl>
 
@@ -264,30 +264,30 @@ new #[Layout('components.layouts.app')]
 
                     <dl class="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                         <div>
-                            <dt class="text-slate-400">Payment Reference</dt>
-                            <dd class="font-mono font-bold text-red-400">{{ $registration->payment_reference }}</dd>
+                            <dt class="text-muted">Payment Reference</dt>
+                            <dd class="font-mono font-bold text-accent">{{ $registration->payment_reference }}</dd>
                         </div>
                         <div>
-                            <dt class="text-slate-400">Amount</dt>
-                            <dd class="font-bold text-white">R{{ number_format($registration->amount, 2) }}</dd>
+                            <dt class="text-muted">Amount</dt>
+                            <dd class="font-bold text-primary">R{{ number_format($registration->amount, 2) }}</dd>
                         </div>
                     </dl>
                 </div>
 
                 {{-- Upload POP --}}
                 <div class="space-y-3">
-                    <h3 class="text-sm font-semibold text-white">Upload Proof of Payment</h3>
+                    <h3 class="text-sm font-semibold text-primary">Upload Proof of Payment</h3>
                     <form wire:submit="uploadProof">
                         <div class="flex items-end gap-3">
                             <div class="flex-1">
                                 <input type="file" wire:model="proofOfPayment" accept=".jpg,.jpeg,.png,.pdf"
-                                       class="block w-full text-sm text-slate-400 file:mr-4 file:rounded-lg file:border-0 file:bg-red-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-red-700 file:cursor-pointer" />
-                                <p class="mt-1 text-xs text-slate-500">JPG, PNG, or PDF. Max 5MB.</p>
+                                       class="block w-full text-sm text-muted file:mr-4 file:rounded-lg file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-accent-hover file:cursor-pointer" />
+                                <p class="mt-1 text-xs text-muted">JPG, PNG, or PDF. Max 5MB.</p>
                                 @error('proofOfPayment')
-                                    <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                                    <p class="mt-1 text-xs text-accent">{{ $message }}</p>
                                 @enderror
                             </div>
-                            <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700">
+                            <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                                 Upload
                             </flux:button>
                         </div>
@@ -299,7 +299,7 @@ new #[Layout('components.layouts.app')]
 
     {{-- Scoreboard links --}}
     <div class="flex items-center justify-center gap-3">
-        <flux:button href="{{ route('live', $match) }}" variant="primary" class="{{ $match->status === \App\Enums\MatchStatus::Active ? '!bg-green-600 hover:!bg-green-700' : '!bg-slate-600 hover:!bg-slate-700' }}">
+        <flux:button href="{{ route('live', $match) }}" variant="primary" class="{{ $match->status === \App\Enums\MatchStatus::Active ? '!bg-green-600 hover:!bg-green-700' : '!bg-surface-2 hover:!bg-surface-2' }}">
             {{ $match->status === \App\Enums\MatchStatus::Active ? 'Watch Live Scores' : 'View Results' }}
         </flux:button>
         <flux:button href="{{ route('scoreboard', $match) }}" variant="ghost">

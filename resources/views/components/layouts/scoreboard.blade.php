@@ -12,7 +12,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @fluxAppearance
 </head>
-<body class="bg-slate-950 text-white antialiased">
+<body class="bg-app text-primary antialiased">
     {{ $slot }}
 
     @fluxScripts

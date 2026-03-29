@@ -52,20 +52,20 @@ new #[Layout('components.layouts.app')]
         </flux:button>
         <div>
             <flux:heading size="xl">Create Organization</flux:heading>
-            <p class="mt-1 text-sm text-slate-400">Submit a new league, club, competition, or challenge for approval.</p>
+            <p class="mt-1 text-sm text-muted">Submit a new league, club, competition, or challenge for approval.</p>
         </div>
     </div>
 
     <form wire:submit="save" class="space-y-6">
-        <div class="rounded-xl border border-slate-700 bg-slate-800 p-6 space-y-4">
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <flux:input wire:model="name" label="Organization Name" placeholder="e.g. Gauteng Shooting League" required />
 
             <div>
-                <label class="block text-sm font-medium text-slate-300 mb-1">Type</label>
+                <label class="block text-sm font-medium text-secondary mb-1">Type</label>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     @foreach(['league' => 'League', 'club' => 'Club', 'competition' => 'Competition', 'challenge' => 'Challenge'] as $value => $label)
                         <button type="button" wire:click="$set('type', '{{ $value }}')"
-                                class="rounded-lg border px-3 py-2 text-sm font-medium text-center transition-colors {{ $type === $value ? 'border-red-600 bg-red-600/20 text-red-400' : 'border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-500' }}">
+                                class="rounded-lg border px-3 py-2 text-sm font-medium text-center transition-colors {{ $type === $value ? 'border-accent bg-accent/20 text-accent' : 'border-border bg-surface-2 text-secondary hover:border-muted' }}">
                             {{ $label }}
                         </button>
                     @endforeach
@@ -74,8 +74,8 @@ new #[Layout('components.layouts.app')]
 
             @if($type === 'club' && $leagues->isNotEmpty())
                 <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-1">Parent League (optional)</label>
-                    <select wire:model="parent_id" class="w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                    <label class="block text-sm font-medium text-secondary mb-1">Parent League (optional)</label>
+                    <select wire:model="parent_id" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent">
                         <option value="">No parent league</option>
                         @foreach($leagues as $league)
                             <option value="{{ $league->id }}">{{ $league->name }}</option>
@@ -91,7 +91,7 @@ new #[Layout('components.layouts.app')]
             </div>
 
             <div class="flex justify-end pt-2">
-                <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700">Submit for Approval</flux:button>
+                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Submit for Approval</flux:button>
             </div>
         </div>
     </form>

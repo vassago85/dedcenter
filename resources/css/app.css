@@ -12,5 +12,46 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
-    --color-accent: var(--color-red-600);
+
+    --color-app: #08142b;
+    --color-sidebar: #16253f;
+    --color-surface: #1d2d4a;
+    --color-surface-2: #243757;
+    --color-border: #31486d;
+    --color-primary: #f3f7ff;
+    --color-secondary: #b8c6de;
+    --color-muted: #8ea0bf;
+    --color-accent: #ff2b2b;
+    --color-accent-hover: #e32020;
+    --color-accent-soft: rgba(255, 43, 43, 0.12);
+    --color-focus: rgba(255, 43, 43, 0.35);
+}
+
+:root {
+    --flux-brand: 255 43 43;
+}
+
+:where([data-flux-control]) {
+    --tw-ring-color: var(--color-focus);
+}
+
+:where([data-flux-input]) input,
+:where([data-flux-input]) textarea {
+    color: var(--color-primary) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+}
+
+:where([data-flux-input]) input::placeholder,
+:where([data-flux-input]) textarea::placeholder {
+    color: var(--color-muted) !important;
+}
+
+:where([data-flux-checkbox]) {
+    border-color: var(--color-border) !important;
+    background: var(--color-surface) !important;
+}
+
+:where([data-flux-label]) {
+    color: var(--color-secondary) !important;
 }

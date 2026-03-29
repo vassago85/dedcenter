@@ -58,30 +58,30 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6">
     <div>
         <flux:heading size="xl">Match Registrations</flux:heading>
-        <p class="mt-1 text-sm text-slate-400">Review and approve member registrations.</p>
+        <p class="mt-1 text-sm text-muted">Review and approve member registrations.</p>
     </div>
 
     {{-- Filter --}}
     <div class="flex gap-2">
         @foreach(['proof_submitted' => 'Pending Review', 'pending_payment' => 'Awaiting Payment', 'confirmed' => 'Confirmed', 'rejected' => 'Rejected', 'all' => 'All'] as $value => $label)
             <button wire:click="$set('filter', '{{ $value }}')"
-                    class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600' }}">
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                 {{ $label }}
             </button>
         @endforeach
     </div>
 
     {{-- Table --}}
-    <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+    <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($registrations->isEmpty())
             <div class="px-6 py-12 text-center">
-                <p class="text-slate-400">No registrations matching this filter.</p>
+                <p class="text-muted">No registrations matching this filter.</p>
             </div>
         @else
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-slate-700 text-left text-slate-400">
+                        <tr class="border-b border-border text-left text-muted">
                             <th class="px-6 py-3 font-medium">Member</th>
                             <th class="px-6 py-3 font-medium">Match</th>
                             <th class="px-6 py-3 font-medium">Reference</th>
@@ -94,11 +94,11 @@ new #[Layout('components.layouts.app')]
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($registrations as $reg)
-                            <tr class="hover:bg-slate-700/30 transition-colors" wire:key="reg-{{ $reg->id }}">
-                                <td class="px-6 py-3 text-white">{{ $reg->user->name }}</td>
-                                <td class="px-6 py-3 text-slate-300">{{ $reg->match->name }}</td>
-                                <td class="px-6 py-3 font-mono text-xs text-slate-400">{{ $reg->payment_reference }}</td>
-                                <td class="px-6 py-3 text-slate-300">{{ $reg->amount ? 'R'.number_format($reg->amount, 2) : 'Free' }}</td>
+                            <tr class="hover:bg-surface-2/30 transition-colors" wire:key="reg-{{ $reg->id }}">
+                                <td class="px-6 py-3 text-primary">{{ $reg->user->name }}</td>
+                                <td class="px-6 py-3 text-secondary">{{ $reg->match->name }}</td>
+                                <td class="px-6 py-3 font-mono text-xs text-muted">{{ $reg->payment_reference }}</td>
+                                <td class="px-6 py-3 text-secondary">{{ $reg->amount ? 'R'.number_format($reg->amount, 2) : 'Free' }}</td>
                                 <td class="px-6 py-3">
                                     @switch($reg->payment_status)
                                         @case('pending_payment')
@@ -118,14 +118,14 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3">
                                     @if($reg->proof_of_payment_path)
                                         <a href="{{ Storage::url($reg->proof_of_payment_path) }}" target="_blank"
-                                           class="text-red-400 hover:text-red-300 text-xs font-medium">
+                                           class="text-accent hover:text-accent text-xs font-medium">
                                             View POP
                                         </a>
                                     @else
-                                        <span class="text-slate-500 text-xs">—</span>
+                                        <span class="text-muted text-xs">—</span>
                                     @endif
                                 </td>
-                                <td class="px-6 py-3 text-slate-400 text-xs">{{ $reg->created_at->format('d M Y H:i') }}</td>
+                                <td class="px-6 py-3 text-muted text-xs">{{ $reg->created_at->format('d M Y H:i') }}</td>
                                 <td class="px-6 py-3 text-right">
                                     @if($reg->payment_status === 'proof_submitted')
                                         <div class="flex items-center justify-end gap-2">
@@ -134,7 +134,7 @@ new #[Layout('components.layouts.app')]
                                                          wire:confirm="Approve this registration? A shooter will be added to the match.">
                                                 Approve
                                             </flux:button>
-                                            <flux:button size="sm" variant="ghost" class="!text-red-400 hover:!text-red-300"
+                                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
                                                          wire:click="reject({{ $reg->id }})"
                                                          wire:confirm="Reject this registration?">
                                                 Reject

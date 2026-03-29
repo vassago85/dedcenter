@@ -38,8 +38,8 @@ new #[Layout('components.layouts.auth')]
 }; ?>
 
 <div>
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-8 [&_label]:!text-slate-300">
-        <h1 class="mb-6 text-center text-2xl font-bold text-white">Create Account</h1>
+    <div class="rounded-xl border border-border bg-surface p-8">
+        <h1 class="mb-6 text-center text-2xl font-bold text-primary">Create Account</h1>
 
         <form wire:submit="register" class="space-y-5">
             <div>
@@ -52,7 +52,7 @@ new #[Layout('components.layouts.auth')]
                     autofocus
                 />
                 @error('name')
-                    <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
                 @enderror
             </div>
 
@@ -65,7 +65,7 @@ new #[Layout('components.layouts.auth')]
                     required
                 />
                 @error('email')
-                    <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
                 @enderror
             </div>
 
@@ -78,7 +78,7 @@ new #[Layout('components.layouts.auth')]
                     required
                 />
                 @error('password')
-                    <p class="mt-1 text-sm text-red-400">{{ $message }}</p>
+                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
                 @enderror
             </div>
 
@@ -92,14 +92,14 @@ new #[Layout('components.layouts.auth')]
                 />
             </div>
 
-            <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700 w-full">
+            <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover w-full">
                 Create Account
             </flux:button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-slate-400">
+        <p class="mt-6 text-center text-sm text-muted">
             Already have an account?
-            <a href="{{ route('login') }}" class="text-red-400 hover:text-red-300 font-medium" wire:navigate>
+            <a href="{{ route('login') }}" class="text-accent hover:text-accent-hover font-medium" wire:navigate>
                 Sign In
             </a>
         </p>

@@ -14,7 +14,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @fluxAppearance
 </head>
-<body class="min-h-screen bg-slate-900 text-white antialiased">
+<body class="min-h-screen bg-app text-primary antialiased">
 
     <div class="flex min-h-screen items-center justify-center px-4 py-12">
         <div class="w-full max-w-md">

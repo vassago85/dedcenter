@@ -18,9 +18,9 @@ class ScoreController extends Controller
     {
         $user = $request->user();
 
-        $canScore = $user->isAdmin()
+        $canScore = $user->isOwner()
             || $match->created_by === $user->id
-            || ($match->organization_id && $user->isOrgAdmin($match->organization));
+            || ($match->organization && $user->isOrgRangeOfficer($match->organization));
 
         if (! $canScore) {
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);

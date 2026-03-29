@@ -182,13 +182,13 @@ new #[Layout('components.layouts.scoreboard')]
     }
 }; ?>
 
-<div wire:poll.10s class="min-h-screen bg-slate-950 text-white">
+<div wire:poll.10s class="min-h-screen bg-app text-primary">
     {{-- Header --}}
-    <div class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/95 backdrop-blur-sm px-4 py-3">
+    <div class="sticky top-0 z-10 border-b border-border bg-app/95 backdrop-blur-sm px-4 py-3">
         <div class="flex items-center justify-between">
             <div class="min-w-0 flex-1">
                 <h1 class="text-lg font-bold truncate">{{ $match->name }}</h1>
-                <p class="text-xs text-slate-400">
+                <p class="text-xs text-muted">
                     {{ $match->date?->format('d M Y') }}
                     @if($match->location) &mdash; {{ $match->location }} @endif
                 </p>
@@ -205,14 +205,14 @@ new #[Layout('components.layouts.scoreboard')]
             <div class="mt-2 space-y-1.5">
                 @if($divisions->isNotEmpty())
                     <div class="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-                        <span class="flex-shrink-0 text-[9px] text-slate-600 self-center pr-1">DIV</span>
+                        <span class="flex-shrink-0 text-[9px] text-muted/60 self-center pr-1">DIV</span>
                         <button wire:click="filterDivision(null)"
-                                class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors {{ !$activeDivision ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700' }}">
+                                class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors {{ !$activeDivision ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                             All
                         </button>
                         @foreach($divisions as $div)
                             <button wire:click="filterDivision({{ $div->id }})"
-                                    class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $activeDivision === $div->id ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700' }}">
+                                    class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $activeDivision === $div->id ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                                 {{ $div->name }}
                             </button>
                         @endforeach
@@ -220,14 +220,14 @@ new #[Layout('components.layouts.scoreboard')]
                 @endif
                 @if($categories->isNotEmpty())
                     <div class="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-                        <span class="flex-shrink-0 text-[9px] text-slate-600 self-center pr-1">CAT</span>
+                        <span class="flex-shrink-0 text-[9px] text-muted/60 self-center pr-1">CAT</span>
                         <button wire:click="filterCategory(null)"
-                                class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ !$activeCategory ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700' }}">
+                                class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ !$activeCategory ? 'bg-blue-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                             All
                         </button>
                         @foreach($categories as $cat)
                             <button wire:click="filterCategory({{ $cat->id }})"
-                                    class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $activeCategory === $cat->id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700' }}">
+                                    class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $activeCategory === $cat->id ? 'bg-blue-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                                 {{ $cat->name }}
                             </button>
                         @endforeach
@@ -240,11 +240,11 @@ new #[Layout('components.layouts.scoreboard')]
     @if($sideBetEnabled)
         <div class="px-3 pt-2 flex gap-1.5">
             <button wire:click="setTab('main')"
-                    class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'main' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400' }}">
+                    class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted' }}">
                 Scoreboard
             </button>
             <button wire:click="setTab('sidebet')"
-                    class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400' }}">
+                    class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'sidebet' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted' }}">
                 Side Bet
             </button>
         </div>
@@ -255,38 +255,38 @@ new #[Layout('components.layouts.scoreboard')]
             @forelse($sideBetEntries as $entry)
                 @php
                     $borderColor = match($entry->rank) { 1 => 'border-l-amber-400', 2 => 'border-l-slate-400', 3 => 'border-l-orange-600', default => 'border-l-transparent' };
-                    $rankBg = match($entry->rank) { 1 => 'bg-amber-500 text-black', 2 => 'bg-slate-400 text-black', 3 => 'bg-orange-600 text-white', default => '' };
+                    $rankBg = match($entry->rank) { 1 => 'bg-amber-500 text-black', 2 => 'bg-slate-400 text-black', 3 => 'bg-orange-600 text-primary', default => '' };
                 @endphp
-                <div class="flex items-center gap-3 rounded-lg border-l-4 {{ $borderColor }} bg-slate-900 px-3 py-2.5">
+                <div class="flex items-center gap-3 rounded-lg border-l-4 {{ $borderColor }} bg-app px-3 py-2.5">
                     @if($entry->rank <= 3)
                         <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold {{ $rankBg }}">{{ $entry->rank }}</span>
                     @else
-                        <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-slate-500 font-medium">{{ $entry->rank }}</span>
+                        <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted font-medium">{{ $entry->rank }}</span>
                     @endif
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm font-semibold text-white truncate">{{ $entry->name }}</p>
-                        <span class="text-[10px] text-slate-500">{{ $entry->squad_name }}</span>
+                        <p class="text-sm font-semibold text-primary truncate">{{ $entry->name }}</p>
+                        <span class="text-[10px] text-muted">{{ $entry->squad_name }}</span>
                     </div>
                     <div class="flex items-center gap-2.5 flex-shrink-0">
                         <div class="text-center">
                             <p class="text-base font-bold text-amber-400">{{ $entry->small_gong_hits }}</p>
-                            <p class="text-[9px] text-slate-600">hits</p>
+                            <p class="text-[9px] text-muted/60">hits</p>
                         </div>
                         <div class="text-center min-w-[3rem]">
-                            <p class="text-[10px] text-slate-300">
+                            <p class="text-[10px] text-secondary">
                                 @if(!empty($entry->distances))
                                     {{ implode(', ', array_map(fn($d) => $d . 'm', $entry->distances)) }}
                                 @else
                                     —
                                 @endif
                             </p>
-                            <p class="text-[9px] text-slate-600">distances</p>
+                            <p class="text-[9px] text-muted/60">distances</p>
                         </div>
                     </div>
                 </div>
             @empty
-                <div class="rounded-lg border border-slate-800 bg-slate-900 px-6 py-12 text-center">
-                    <p class="text-slate-500">No side bet scores yet.</p>
+                <div class="rounded-lg border border-border bg-app px-6 py-12 text-center">
+                    <p class="text-muted">No side bet scores yet.</p>
                 </div>
             @endforelse
         </div>
@@ -305,25 +305,25 @@ new #[Layout('components.layouts.scoreboard')]
                 $rankBg = match($rank) {
                     1 => 'bg-amber-500 text-black',
                     2 => 'bg-slate-400 text-black',
-                    3 => 'bg-orange-600 text-white',
+                    3 => 'bg-orange-600 text-primary',
                     default => '',
                 };
             @endphp
-            <div class="flex items-center gap-3 rounded-lg border-l-4 {{ $borderColor }} bg-slate-900 px-3 py-2.5">
+            <div class="flex items-center gap-3 rounded-lg border-l-4 {{ $borderColor }} bg-app px-3 py-2.5">
                 {{-- Rank --}}
                 @if($rank <= 3)
                     <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold {{ $rankBg }}">{{ $rank }}</span>
                 @else
-                    <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-slate-500 font-medium">{{ $rank }}</span>
+                    <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted font-medium">{{ $rank }}</span>
                 @endif
 
                 {{-- Name + Division --}}
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm font-semibold text-white truncate">{{ $shooter->name }}</p>
+                    <p class="text-sm font-semibold text-primary truncate">{{ $shooter->name }}</p>
                     <div class="flex items-center gap-1.5">
-                        <span class="text-[10px] text-slate-500">{{ $shooter->squad?->name ?? '' }}</span>
+                        <span class="text-[10px] text-muted">{{ $shooter->squad?->name ?? '' }}</span>
                         @if($shooter->division)
-                            <span class="rounded bg-slate-800 px-1 py-0.5 text-[9px] font-medium text-slate-400">{{ $shooter->division->name }}</span>
+                            <span class="rounded bg-surface px-1 py-0.5 text-[9px] font-medium text-muted">{{ $shooter->division->name }}</span>
                         @endif
                     </div>
                 </div>
@@ -332,33 +332,33 @@ new #[Layout('components.layouts.scoreboard')]
                 <div class="flex items-center gap-2.5 flex-shrink-0">
                     <div class="text-center">
                         <p class="text-xs text-green-400 font-bold">{{ $shooter->hits_count }}</p>
-                        <p class="text-[9px] text-slate-600">hits</p>
+                        <p class="text-[9px] text-muted/60">hits</p>
                     </div>
                     @if($isPrs)
                         <div class="text-center">
-                            <p class="text-xs text-red-400">{{ $shooter->misses_count }}</p>
-                            <p class="text-[9px] text-slate-600">miss</p>
+                            <p class="text-xs text-accent">{{ $shooter->misses_count }}</p>
+                            <p class="text-[9px] text-muted/60">miss</p>
                         </div>
                         <div class="text-center">
                             <p class="text-xs text-amber-400/50">{{ $shooter->not_taken ?? 0 }}</p>
-                            <p class="text-[9px] text-slate-600">n/t</p>
+                            <p class="text-[9px] text-muted/60">n/t</p>
                         </div>
                     @endif
                     @if($isPrs && $shooter->total_time > 0)
                         <div class="text-center">
-                            <p class="text-xs font-mono text-slate-300">{{ sprintf('%02d:%05.2f', floor($shooter->total_time / 60), fmod($shooter->total_time, 60)) }}</p>
-                            <p class="text-[9px] text-slate-600">time</p>
+                            <p class="text-xs font-mono text-secondary">{{ sprintf('%02d:%05.2f', floor($shooter->total_time / 60), fmod($shooter->total_time, 60)) }}</p>
+                            <p class="text-[9px] text-muted/60">time</p>
                         </div>
                     @endif
                     <div class="text-center min-w-[2rem]">
                         <p class="text-base font-bold text-amber-400">{{ $isPrs ? $shooter->total_score : number_format($shooter->total_score, 1) }}</p>
-                        <p class="text-[9px] text-slate-600">score</p>
+                        <p class="text-[9px] text-muted/60">score</p>
                     </div>
                 </div>
             </div>
         @empty
-            <div class="rounded-lg border border-slate-800 bg-slate-900 px-6 py-12 text-center">
-                <p class="text-slate-500">No scores recorded yet.</p>
+            <div class="rounded-lg border border-border bg-app px-6 py-12 text-center">
+                <p class="text-muted">No scores recorded yet.</p>
             </div>
         @endforelse
     </div>
@@ -366,11 +366,11 @@ new #[Layout('components.layouts.scoreboard')]
     @endif
 
     {{-- Footer --}}
-    <div class="border-t border-slate-800 px-4 py-3 text-center">
-        <div class="flex items-center justify-center gap-2 text-xs text-slate-600">
+    <div class="border-t border-border px-4 py-3 text-center">
+        <div class="flex items-center justify-center gap-2 text-xs text-muted/60">
             <span class="inline-flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
             <span>Auto-refreshes every 10s</span>
         </div>
-        <p class="mt-1 text-[10px] text-slate-700">&copy; {{ date('Y') }} <span class="font-semibold"><span class="text-slate-600">DEAD</span><span class="text-red-500/40">CENTER</span></span></p>
+        <p class="mt-1 text-[10px] text-slate-700">&copy; {{ date('Y') }} <span class="font-semibold"><span class="text-muted/60">DEAD</span><span class="text-accent/40">CENTER</span></span></p>
     </div>
 </div>

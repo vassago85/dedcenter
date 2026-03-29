@@ -29,6 +29,10 @@ class Organization extends Model
         'portal_enabled',
         'best_of',
         'entry_fee_default',
+        'bank_name',
+        'bank_account_holder',
+        'bank_account_number',
+        'bank_branch_code',
     ];
 
     protected function casts(): array

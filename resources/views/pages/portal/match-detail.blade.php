@@ -113,18 +113,18 @@ new #[Layout('components.layouts.portal')]
 <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
     {{-- Header --}}
     <div class="flex items-center gap-4">
-        <a href="{{ route('portal.matches', $organization) }}" class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+        <a href="{{ route('portal.matches', $organization) }}" class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium text-secondary hover:text-primary hover:bg-white/10 transition-colors">
             <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             Back
         </a>
     </div>
 
     {{-- Match info --}}
-    <div class="rounded-xl border border-white/10 bg-slate-900 p-8 space-y-4">
+    <div class="rounded-xl border border-white/10 bg-app p-8 space-y-4">
         <div class="flex items-start justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white">{{ $match->name }}</h1>
-                <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                <h1 class="text-3xl font-bold text-primary">{{ $match->name }}</h1>
+                <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
                     @if($match->date)
                         <span>{{ $match->date->format('d M Y') }}</span>
                     @endif
@@ -133,23 +133,23 @@ new #[Layout('components.layouts.portal')]
                     @endif
                 </div>
             </div>
-            <span class="text-3xl font-bold {{ $match->entry_fee ? 'text-white' : 'text-green-400' }} whitespace-nowrap">
+            <span class="text-3xl font-bold {{ $match->entry_fee ? 'text-primary' : 'text-green-400' }} whitespace-nowrap">
                 {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}
             </span>
         </div>
 
         @if($match->notes)
-            <p class="text-sm text-slate-300 leading-relaxed">{{ $match->notes }}</p>
+            <p class="text-sm text-secondary leading-relaxed">{{ $match->notes }}</p>
         @endif
 
         @if($targetSets->isNotEmpty())
             <div class="space-y-2">
-                <h3 class="text-sm font-medium text-slate-400">Target Sets</h3>
+                <h3 class="text-sm font-medium text-muted">Target Sets</h3>
                 <div class="flex flex-wrap gap-2">
                     @foreach($targetSets as $ts)
                         <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                            <span class="text-sm font-medium text-white">{{ $ts->label }}</span>
-                            <span class="ml-1 text-xs text-slate-400">({{ $ts->gongs->count() }} targets)</span>
+                            <span class="text-sm font-medium text-primary">{{ $ts->label }}</span>
+                            <span class="ml-1 text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
                         </div>
                     @endforeach
                 </div>
@@ -158,22 +158,22 @@ new #[Layout('components.layouts.portal')]
     </div>
 
     {{-- Registration --}}
-    <div class="rounded-xl border border-white/10 bg-slate-900 p-8 space-y-4">
-        <h2 class="text-xl font-bold text-white">Registration</h2>
+    <div class="rounded-xl border border-white/10 bg-app p-8 space-y-4">
+        <h2 class="text-xl font-bold text-primary">Registration</h2>
 
         @guest
-            <p class="text-sm text-slate-400">Sign in or register to participate in this match.</p>
+            <p class="text-sm text-muted">Sign in or register to participate in this match.</p>
             <div class="flex gap-3">
-                <a href="{{ route('login') }}" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors">Sign In</a>
-                <a href="{{ route('register') }}" class="rounded-lg border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition-colors">Register Account</a>
+                <a href="{{ route('login') }}" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-5 py-2.5 text-sm font-medium text-primary transition-colors">Sign In</a>
+                <a href="{{ route('register') }}" class="rounded-lg border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-primary hover:bg-white/10 transition-colors">Register Account</a>
             </div>
         @endguest
 
         @auth
             @if(! $registration)
-                <p class="text-sm text-slate-400">Register to participate in this match.</p>
+                <p class="text-sm text-muted">Register to participate in this match.</p>
                 <button wire:click="register" wire:confirm="Register for this match?"
-                        class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-colors">
+                        class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">
                     Register for this Match
                 </button>
 
@@ -183,17 +183,17 @@ new #[Layout('components.layouts.portal')]
                         <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                         <span class="text-sm font-medium text-green-400">Your registration is confirmed!</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-400">Reference: {{ $registration->payment_reference }}</p>
+                    <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
                 </div>
 
             @elseif($registration->isRejected())
                 <div class="rounded-lg border border-red-800 bg-red-900/20 p-4">
                     <div class="flex items-center gap-2">
-                        <svg class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                        <span class="text-sm font-medium text-red-400">Registration rejected.</span>
+                        <svg class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <span class="text-sm font-medium text-accent">Registration rejected.</span>
                     </div>
                     @if($registration->admin_notes)
-                        <p class="mt-1 text-xs text-slate-400">Reason: {{ $registration->admin_notes }}</p>
+                        <p class="mt-1 text-xs text-muted">Reason: {{ $registration->admin_notes }}</p>
                     @endif
                 </div>
 
@@ -203,44 +203,44 @@ new #[Layout('components.layouts.portal')]
                         <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                         <span class="text-sm font-medium text-blue-400">Proof of payment is under review.</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-400">Reference: {{ $registration->payment_reference }}</p>
+                    <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
                 </div>
 
             @elseif($registration->isPending())
                 <div class="space-y-4">
                     <div class="rounded-lg border border-amber-800 bg-amber-900/20 p-4">
                         <p class="text-sm font-medium text-amber-400">Payment Required</p>
-                        <p class="mt-1 text-xs text-slate-400">Make an EFT payment and upload your proof below.</p>
+                        <p class="mt-1 text-xs text-muted">Make an EFT payment and upload your proof below.</p>
                     </div>
 
                     <div class="rounded-lg border border-white/10 bg-white/5 p-4 space-y-2">
-                        <h3 class="text-sm font-semibold text-white">Bank Details</h3>
+                        <h3 class="text-sm font-semibold text-primary">Bank Details</h3>
                         <dl class="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
-                            <div><dt class="text-slate-400">Bank</dt><dd class="font-medium text-white">{{ $bankDetails['bank_name'] ?: '—' }}</dd></div>
-                            <div><dt class="text-slate-400">Account Name</dt><dd class="font-medium text-white">{{ $bankDetails['bank_account_name'] ?: '—' }}</dd></div>
-                            <div><dt class="text-slate-400">Account Number</dt><dd class="font-medium text-white">{{ $bankDetails['bank_account_number'] ?: '—' }}</dd></div>
-                            <div><dt class="text-slate-400">Branch Code</dt><dd class="font-medium text-white">{{ $bankDetails['bank_branch_code'] ?: '—' }}</dd></div>
+                            <div><dt class="text-muted">Bank</dt><dd class="font-medium text-primary">{{ $bankDetails['bank_name'] ?: '—' }}</dd></div>
+                            <div><dt class="text-muted">Account Name</dt><dd class="font-medium text-primary">{{ $bankDetails['bank_account_name'] ?: '—' }}</dd></div>
+                            <div><dt class="text-muted">Account Number</dt><dd class="font-medium text-primary">{{ $bankDetails['bank_account_number'] ?: '—' }}</dd></div>
+                            <div><dt class="text-muted">Branch Code</dt><dd class="font-medium text-primary">{{ $bankDetails['bank_branch_code'] ?: '—' }}</dd></div>
                         </dl>
                         <div class="border-t border-white/10 pt-2 mt-2"></div>
                         <dl class="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
-                            <div><dt class="text-slate-400">Reference</dt><dd class="font-mono font-bold portal-primary">{{ $registration->payment_reference }}</dd></div>
-                            <div><dt class="text-slate-400">Amount</dt><dd class="font-bold text-white">R{{ number_format($registration->amount, 2) }}</dd></div>
+                            <div><dt class="text-muted">Reference</dt><dd class="font-mono font-bold portal-primary">{{ $registration->payment_reference }}</dd></div>
+                            <div><dt class="text-muted">Amount</dt><dd class="font-bold text-primary">R{{ number_format($registration->amount, 2) }}</dd></div>
                         </dl>
                     </div>
 
                     <div class="space-y-3">
-                        <h3 class="text-sm font-semibold text-white">Upload Proof of Payment</h3>
+                        <h3 class="text-sm font-semibold text-primary">Upload Proof of Payment</h3>
                         <form wire:submit="uploadProof">
                             <div class="flex items-end gap-3">
                                 <div class="flex-1">
                                     <input type="file" wire:model="proofOfPayment" accept=".jpg,.jpeg,.png,.pdf"
-                                           class="block w-full text-sm text-slate-400 file:mr-4 file:rounded-lg file:border-0 file:portal-bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-white file:cursor-pointer" />
-                                    <p class="mt-1 text-xs text-slate-500">JPG, PNG, or PDF. Max 5MB.</p>
+                                           class="block w-full text-sm text-muted file:mr-4 file:rounded-lg file:border-0 file:portal-bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary file:cursor-pointer" />
+                                    <p class="mt-1 text-xs text-muted">JPG, PNG, or PDF. Max 5MB.</p>
                                     @error('proofOfPayment')
-                                        <p class="mt-1 text-xs text-red-400">{{ $message }}</p>
+                                        <p class="mt-1 text-xs text-accent">{{ $message }}</p>
                                     @enderror
                                 </div>
-                                <button type="submit" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors">Upload</button>
+                                <button type="submit" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-5 py-2.5 text-sm font-medium text-primary transition-colors">Upload</button>
                             </div>
                         </form>
                     </div>
@@ -251,7 +251,7 @@ new #[Layout('components.layouts.portal')]
 
     {{-- Scoreboard link --}}
     <div class="text-center">
-        <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center rounded-lg border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition-colors">
+        <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center rounded-lg border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-primary hover:bg-white/10 transition-colors">
             View Scoreboard
         </a>
     </div>

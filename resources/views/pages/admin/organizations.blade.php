@@ -46,30 +46,30 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6">
     <div>
         <flux:heading size="xl">Organizations</flux:heading>
-        <p class="mt-1 text-sm text-slate-400">Approve and manage organizations.</p>
+        <p class="mt-1 text-sm text-muted">Approve and manage organizations.</p>
     </div>
 
     {{-- Filter --}}
     <div class="flex gap-2 flex-wrap">
         @foreach(['pending' => 'Pending', 'approved' => 'Approved', 'active' => 'Active', 'archived' => 'Archived', 'all' => 'All'] as $value => $label)
             <button wire:click="$set('filter', '{{ $value }}')"
-                    class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600' }}">
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                 {{ $label }}
             </button>
         @endforeach
     </div>
 
     {{-- Table --}}
-    <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+    <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($organizations->isEmpty())
             <div class="px-6 py-12 text-center">
-                <p class="text-slate-400">No organizations matching this filter.</p>
+                <p class="text-muted">No organizations matching this filter.</p>
             </div>
         @else
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-slate-700 text-left text-slate-400">
+                        <tr class="border-b border-border text-left text-muted">
                             <th class="px-6 py-3 font-medium">Name</th>
                             <th class="px-6 py-3 font-medium">Type</th>
                             <th class="px-6 py-3 font-medium">Parent</th>
@@ -83,11 +83,11 @@ new #[Layout('components.layouts.app')]
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($organizations as $org)
-                            <tr class="hover:bg-slate-700/30 transition-colors" wire:key="org-{{ $org->id }}">
-                                <td class="px-6 py-3 font-medium text-white">{{ $org->name }}</td>
-                                <td class="px-6 py-3 capitalize text-slate-300">{{ $org->type }}</td>
-                                <td class="px-6 py-3 text-slate-400 text-xs">{{ $org->parent?->name ?? '—' }}</td>
-                                <td class="px-6 py-3 text-slate-300">{{ $org->creator->name }}</td>
+                            <tr class="hover:bg-surface-2/30 transition-colors" wire:key="org-{{ $org->id }}">
+                                <td class="px-6 py-3 font-medium text-primary">{{ $org->name }}</td>
+                                <td class="px-6 py-3 capitalize text-secondary">{{ $org->type }}</td>
+                                <td class="px-6 py-3 text-muted text-xs">{{ $org->parent?->name ?? '—' }}</td>
+                                <td class="px-6 py-3 text-secondary">{{ $org->creator->name }}</td>
                                 <td class="px-6 py-3">
                                     @switch($org->status)
                                         @case('pending')
@@ -104,9 +104,9 @@ new #[Layout('components.layouts.app')]
                                             @break
                                     @endswitch
                                 </td>
-                                <td class="px-6 py-3 text-right text-slate-300">{{ $org->matches_count }}</td>
-                                <td class="px-6 py-3 text-right text-slate-300">{{ $org->admins_count }}</td>
-                                <td class="px-6 py-3 text-slate-400 text-xs">{{ $org->created_at->format('d M Y') }}</td>
+                                <td class="px-6 py-3 text-right text-secondary">{{ $org->matches_count }}</td>
+                                <td class="px-6 py-3 text-right text-secondary">{{ $org->admins_count }}</td>
+                                <td class="px-6 py-3 text-muted text-xs">{{ $org->created_at->format('d M Y') }}</td>
                                 <td class="px-6 py-3 text-right">
                                     <div class="flex items-center justify-end gap-2">
                                         @if($org->status === 'pending')
@@ -115,7 +115,7 @@ new #[Layout('components.layouts.app')]
                                                          wire:confirm="Approve '{{ $org->name }}'? The creator will become the owner.">
                                                 Approve
                                             </flux:button>
-                                            <flux:button size="sm" variant="ghost" class="!text-red-400 hover:!text-red-300"
+                                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
                                                          wire:click="reject({{ $org->id }})"
                                                          wire:confirm="Reject '{{ $org->name }}'?">
                                                 Reject

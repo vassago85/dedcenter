@@ -129,7 +129,7 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6">
     <div>
         <flux:heading size="xl">{{ $organization->name }} — Leaderboard</flux:heading>
-        <p class="mt-1 text-sm text-slate-400">
+        <p class="mt-1 text-sm text-muted">
             Ranking based on completed matches.
             @if($bestOf)
                 Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
@@ -143,14 +143,14 @@ new #[Layout('components.layouts.app')]
         <div class="space-y-2">
             @if($divisionNames->isNotEmpty())
                 <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-[10px] text-slate-600">DIV</span>
+                    <span class="text-[10px] text-muted/60">DIV</span>
                     <button wire:click="$set('divisionFilter', '')"
-                            class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $divisionFilter === '' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600' }}">
+                            class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $divisionFilter === '' ? 'bg-accent text-primary' : 'bg-surface-2 text-muted hover:bg-surface-2' }}">
                         All
                     </button>
                     @foreach($divisionNames as $dn)
                         <button wire:click="$set('divisionFilter', '{{ $dn }}')"
-                                class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $divisionFilter === $dn ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600' }}">
+                                class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $divisionFilter === $dn ? 'bg-accent text-primary' : 'bg-surface-2 text-muted hover:bg-surface-2' }}">
                             {{ $dn }}
                         </button>
                     @endforeach
@@ -158,14 +158,14 @@ new #[Layout('components.layouts.app')]
             @endif
             @if($categoryNames->isNotEmpty())
                 <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-[10px] text-slate-600">CAT</span>
+                    <span class="text-[10px] text-muted/60">CAT</span>
                     <button wire:click="$set('categoryFilter', '')"
-                            class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $categoryFilter === '' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600' }}">
+                            class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $categoryFilter === '' ? 'bg-blue-600 text-primary' : 'bg-surface-2 text-muted hover:bg-surface-2' }}">
                         All
                     </button>
                     @foreach($categoryNames as $cn)
                         <button wire:click="$set('categoryFilter', '{{ $cn }}')"
-                                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $categoryFilter === $cn ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600' }}">
+                                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $categoryFilter === $cn ? 'bg-blue-600 text-primary' : 'bg-surface-2 text-muted hover:bg-surface-2' }}">
                             {{ $cn }}
                         </button>
                     @endforeach
@@ -175,15 +175,15 @@ new #[Layout('components.layouts.app')]
     @endif
 
     @if($leaderboard->isEmpty())
-        <div class="rounded-xl border border-slate-700 bg-slate-800 px-6 py-12 text-center">
-            <p class="text-slate-400">No completed matches with scores yet.</p>
+        <div class="rounded-xl border border-border bg-surface px-6 py-12 text-center">
+            <p class="text-muted">No completed matches with scores yet.</p>
         </div>
     @else
-        <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+        <div class="rounded-xl border border-border bg-surface overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-slate-700 text-left text-slate-400">
+                        <tr class="border-b border-border text-left text-muted">
                             <th class="px-4 py-3 font-medium w-12">#</th>
                             <th class="px-4 py-3 font-medium">Shooter</th>
                             <th class="px-4 py-3 font-medium text-right">Total</th>
@@ -191,20 +191,20 @@ new #[Layout('components.layouts.app')]
                             @foreach($matches as $match)
                                 <th class="px-3 py-3 font-medium text-right text-xs whitespace-nowrap" title="{{ $match->name }}">
                                     {{ Str::limit($match->name, 12) }}
-                                    <br><span class="text-slate-500">{{ $match->date?->format('d/m') }}</span>
+                                    <br><span class="text-muted">{{ $match->date?->format('d/m') }}</span>
                                 </th>
                             @endforeach
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700">
+                    <tbody class="divide-y divide-border">
                         @foreach($leaderboard as $rank => $entry)
-                            <tr class="hover:bg-slate-700/30 transition-colors {{ $rank < 3 ? 'bg-slate-700/10' : '' }}">
-                                <td class="px-4 py-3 font-bold {{ $rank === 0 ? 'text-amber-400' : ($rank === 1 ? 'text-slate-300' : ($rank === 2 ? 'text-amber-700' : 'text-slate-500')) }}">
+                            <tr class="hover:bg-surface-2/30 transition-colors {{ $rank < 3 ? 'bg-surface-2/10' : '' }}">
+                                <td class="px-4 py-3 font-bold {{ $rank === 0 ? 'text-amber-400' : ($rank === 1 ? 'text-secondary' : ($rank === 2 ? 'text-amber-700' : 'text-muted')) }}">
                                     {{ $rank + 1 }}
                                 </td>
-                                <td class="px-4 py-3 font-medium text-white">{{ $entry['name'] }}</td>
-                                <td class="px-4 py-3 text-right font-bold text-white">{{ number_format($entry['total_score'], 2) }}</td>
-                                <td class="px-4 py-3 text-right text-slate-400">
+                                <td class="px-4 py-3 font-medium text-primary">{{ $entry['name'] }}</td>
+                                <td class="px-4 py-3 text-right font-bold text-primary">{{ number_format($entry['total_score'], 2) }}</td>
+                                <td class="px-4 py-3 text-right text-muted">
                                     {{ $entry['counted_matches'] }}{{ $bestOf ? '/' . $entry['match_count'] : '' }}
                                 </td>
                                 @foreach($matches as $match)
@@ -216,7 +216,7 @@ new #[Layout('components.layouts.app')]
                                             $isTop = $sorted->contains($score);
                                         }
                                     @endphp
-                                    <td class="px-3 py-3 text-right text-xs {{ $score !== null ? ($isTop ? 'text-green-400 font-medium' : 'text-slate-500') : 'text-slate-700' }}">
+                                    <td class="px-3 py-3 text-right text-xs {{ $score !== null ? ($isTop ? 'text-green-400 font-medium' : 'text-muted') : 'text-slate-700' }}">
                                         {{ $score !== null ? number_format($score, 2) : '—' }}
                                     </td>
                                 @endforeach
@@ -227,7 +227,7 @@ new #[Layout('components.layouts.app')]
             </div>
         </div>
 
-        <div class="text-xs text-slate-500 space-y-1">
+        <div class="text-xs text-muted space-y-1">
             @if($bestOf)
                 <p>* Green scores are the top {{ $bestOf }} counted toward the total.</p>
             @endif

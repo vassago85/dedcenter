@@ -13,7 +13,7 @@
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,900" rel="stylesheet" />
     @vite(['resources/css/scoring.css', 'resources/js/scoring-app/main.js'])
 </head>
-<body class="bg-slate-900">
+<body class="bg-app">
     <div id="scoring-app"></div>
 </body>
 </html>
