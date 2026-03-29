@@ -38,7 +38,7 @@ new #[Layout('components.layouts.auth')]
 }; ?>
 
 <div>
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-8">
+    <div class="rounded-xl border border-slate-700 bg-slate-800 p-8 [&_label]:!text-slate-300">
         <h1 class="mb-6 text-center text-2xl font-bold text-white">Create Account</h1>
 
         <form wire:submit="register" class="space-y-5">

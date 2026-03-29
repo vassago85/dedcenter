@@ -35,7 +35,7 @@ new #[Layout('components.layouts.auth')]
 }; ?>
 
 <div>
-    <div class="rounded-xl border border-slate-700 bg-slate-800 p-8">
+    <div class="rounded-xl border border-slate-700 bg-slate-800 p-8 [&_label]:!text-slate-300">
         <h1 class="mb-6 text-center text-2xl font-bold text-white">Sign In</h1>
 
         <form wire:submit="login" class="space-y-5">
@@ -66,9 +66,11 @@ new #[Layout('components.layouts.auth')]
                 @enderror
             </div>
 
-            <div class="flex items-center justify-between">
-                <flux:checkbox wire:model="remember" label="Remember me" />
-            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                <input type="checkbox" wire:model="remember"
+                    class="rounded border-slate-600 bg-slate-700 text-red-600 focus:ring-red-500 focus:ring-offset-slate-800" />
+                Remember me
+            </label>
 
             <flux:button type="submit" variant="primary" class="!bg-red-600 hover:!bg-red-700 w-full">
                 Sign In
