@@ -343,7 +343,7 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Division deleted.', variant: 'success');
     }
 
-    public function addSaprfDivisionPreset(): void
+    public function addPrsDivisionPreset(): void
     {
         $maxSort = $this->match->divisions()->max('sort_order') ?? 0;
         $presets = [
@@ -369,19 +369,19 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Category added.', variant: 'success');
     }
 
-    public function addSaprfCategoryPreset(): void
+    public function addStandardCategoryPreset(): void
     {
         $maxSort = $this->match->categories()->max('sort_order') ?? 0;
         $presets = [
             ['name' => 'Overall', 'slug' => 'overall', 'description' => 'All shooters — default catch-all'],
             ['name' => 'Ladies', 'slug' => 'ladies', 'description' => 'Female shooters'],
-            ['name' => 'Junior', 'slug' => 'junior', 'description' => 'Shooters under 21'],
+            ['name' => 'Junior', 'slug' => 'junior', 'description' => 'Under 21 (centrefire) / Under 18 (rimfire) as of 1 Jan'],
             ['name' => 'Senior', 'slug' => 'senior', 'description' => 'Shooters 55+'],
         ];
         foreach ($presets as $i => $p) {
             $this->match->categories()->create([...$p, 'sort_order' => $maxSort + $i + 1]);
         }
-        Flux::toast('SAPRF category presets added.', variant: 'success');
+        Flux::toast('Standard category presets added.', variant: 'success');
     }
 
     public function updateCategory(int $id, string $name): void
@@ -617,7 +617,7 @@ new #[Layout('components.layouts.app')]
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <flux:button wire:click="addMinorMajorPreset" size="sm" variant="ghost">+ Minor/Major</flux:button>
-                    <flux:button wire:click="addSaprfDivisionPreset" size="sm" variant="ghost">+ Open/Factory/Limited</flux:button>
+                    <flux:button wire:click="addPrsDivisionPreset" size="sm" variant="ghost">+ Open/Factory/Limited</flux:button>
                 </div>
                 <p class="text-[10px] text-slate-600">Divisions classify by equipment class. Single-select per shooter.</p>
             </div>
@@ -650,7 +650,7 @@ new #[Layout('components.layouts.app')]
                     <flux:button wire:click="addCategory" size="sm" variant="primary" class="!bg-red-600 hover:!bg-red-700">Add Category</flux:button>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <flux:button wire:click="addSaprfCategoryPreset" size="sm" variant="ghost">+ SAPRF Preset (Overall/Ladies/Junior/Senior)</flux:button>
+                    <flux:button wire:click="addStandardCategoryPreset" size="sm" variant="ghost">+ Standard Preset (Overall/Ladies/Junior/Senior)</flux:button>
                 </div>
                 <p class="text-[10px] text-slate-600">Categories classify by demographics. Multi-select per shooter (a score appears in all matching category leaderboards).</p>
             </div>

@@ -424,14 +424,14 @@
                         </div>
                         <div class="flex items-center gap-3 rounded-lg bg-slate-800/50 px-4 py-2">
                             <span class="rounded bg-blue-600/20 px-2 py-0.5 text-xs font-bold text-blue-400">Junior</span>
-                            <span class="text-sm text-slate-400">Under 21</span>
+                            <span class="text-sm text-slate-400">Under 21 (centrefire) / Under 18 (rimfire) as of 1 Jan</span>
                         </div>
                         <div class="flex items-center gap-3 rounded-lg bg-slate-800/50 px-4 py-2">
                             <span class="rounded bg-blue-600/20 px-2 py-0.5 text-xs font-bold text-blue-400">Senior</span>
                             <span class="text-sm text-slate-400">55+</span>
                         </div>
                     </div>
-                    <p class="mt-4 text-xs text-slate-600">SAPRF presets included or create your own.</p>
+                    <p class="mt-4 text-xs text-slate-600">Standard presets included or create your own.</p>
                 </div>
             </div>
             <div class="mt-10 rounded-2xl border border-slate-700 bg-slate-800/50 p-6 lg:p-8">
@@ -569,7 +569,7 @@
                         <h4 class="font-semibold text-lg text-white">Set up divisions &amp; categories (optional)</h4>
                         <p class="mt-1 text-sm text-slate-400 leading-relaxed">
                             Add divisions for equipment classes (use the Open/Factory/Limited or Minor/Major presets, or create your own).
-                            Add categories for demographics (use the SAPRF preset for Overall/Ladies/Junior/Senior, or create custom ones).
+                            Add categories for demographics (use the standard preset for Overall/Ladies/Junior/Senior, or create custom ones).
                             Both are optional &mdash; without them, all shooters compete in a single pool.
                         </p>
                     </div>
