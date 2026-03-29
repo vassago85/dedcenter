@@ -18,7 +18,7 @@ new #[Layout('components.layouts.app')]
         return [
             'totalMatches' => ShootingMatch::count(),
             'activeMatches' => ShootingMatch::where('status', MatchStatus::Active)->count(),
-            'totalMembers' => User::where('role', 'member')->count(),
+            'totalMembers' => User::where('role', 'shooter')->count(),
             'pendingRegistrations' => MatchRegistration::where('payment_status', 'proof_submitted')->count(),
             'pendingOrgs' => Organization::pending()->count(),
             'totalOrgs' => Organization::count(),
@@ -34,8 +34,8 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-8">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <flux:heading size="xl">Admin Dashboard</flux:heading>
-            <p class="mt-1 text-sm text-muted">Overview of your shooting platform.</p>
+            <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+            <p class="mt-1 text-sm text-secondary">Logged in as <span class="font-medium text-amber-400">{{ auth()->user()->roleLabel() }}</span></p>
         </div>
         <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="!bg-accent hover:!bg-accent-hover">
             <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -49,26 +49,26 @@ new #[Layout('components.layouts.app')]
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div class="rounded-xl border border-border bg-surface p-6">
             <p class="text-sm font-medium text-muted">Total Matches</p>
-            <p class="mt-2 text-3xl font-bold text-primary">{{ $totalMatches }}</p>
+            <p class="mt-2 text-3xl font-bold text-white">{{ $totalMatches }}</p>
         </div>
         <div class="rounded-xl border border-border bg-surface p-6">
             <p class="text-sm font-medium text-muted">Active Matches</p>
             <p class="mt-2 text-3xl font-bold text-green-400">{{ $activeMatches }}</p>
         </div>
         <div class="rounded-xl border border-border bg-surface p-6">
-            <p class="text-sm font-medium text-muted">Registered Members</p>
-            <p class="mt-2 text-3xl font-bold text-primary">{{ $totalMembers }}</p>
+            <p class="text-sm font-medium text-muted">Registered Shooters</p>
+            <p class="mt-2 text-3xl font-bold text-white">{{ $totalMembers }}</p>
         </div>
         <a href="{{ route('admin.organizations') }}" class="rounded-xl border border-border bg-surface p-6 hover:border-amber-600/50 transition-colors">
             <p class="text-sm font-medium text-muted">Organizations</p>
-            <p class="mt-2 text-3xl font-bold text-primary">{{ $totalOrgs }}</p>
+            <p class="mt-2 text-3xl font-bold text-white">{{ $totalOrgs }}</p>
             @if($pendingOrgs > 0)
                 <p class="mt-1 text-xs text-amber-400">{{ $pendingOrgs }} pending approval</p>
             @endif
         </a>
         <a href="{{ route('admin.registrations') }}" class="rounded-xl border border-border bg-surface p-6 hover:border-red-600/50 transition-colors">
             <p class="text-sm font-medium text-muted">Pending Approvals</p>
-            <p class="mt-2 text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-accent' : 'text-primary' }}">{{ $pendingRegistrations }}</p>
+            <p class="mt-2 text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-accent' : 'text-white' }}">{{ $pendingRegistrations }}</p>
         </a>
     </div>
 
@@ -81,7 +81,7 @@ new #[Layout('components.layouts.app')]
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-medium text-primary">Manage Matches</p>
+                <p class="text-sm font-medium text-white">Manage Matches</p>
                 <p class="text-xs text-muted">Create and edit matches</p>
             </div>
         </a>
@@ -92,7 +92,7 @@ new #[Layout('components.layouts.app')]
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-medium text-primary">Registrations</p>
+                <p class="text-sm font-medium text-white">Registrations</p>
                 <p class="text-xs text-muted">Review payment proofs</p>
             </div>
         </a>
@@ -104,7 +104,7 @@ new #[Layout('components.layouts.app')]
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-medium text-primary">Settings</p>
+                <p class="text-sm font-medium text-white">Settings</p>
                 <p class="text-xs text-muted">Bank details &amp; configuration</p>
             </div>
         </a>
@@ -113,7 +113,7 @@ new #[Layout('components.layouts.app')]
     {{-- Recent matches --}}
     <div class="rounded-xl border border-border bg-surface">
         <div class="border-b border-border px-6 py-4">
-            <h2 class="text-lg font-semibold text-primary">Recent Matches</h2>
+            <h2 class="text-lg font-semibold text-white">Recent Matches</h2>
         </div>
 
         @if($recentMatches->isEmpty())
@@ -141,7 +141,7 @@ new #[Layout('components.layouts.app')]
                     <tbody class="divide-y divide-slate-700">
                         @foreach($recentMatches as $match)
                             <tr class="hover:bg-surface-2/30 transition-colors">
-                                <td class="px-6 py-3 font-medium text-primary">{{ $match->name }}</td>
+                                <td class="px-6 py-3 font-medium text-white">{{ $match->name }}</td>
                                 <td class="px-6 py-3 text-secondary text-xs">{{ $match->organization?->name ?? '—' }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
                                 <td class="px-6 py-3">

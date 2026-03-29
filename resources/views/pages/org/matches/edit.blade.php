@@ -442,7 +442,7 @@ new #[Layout('components.layouts.app')]
                     <flux:button wire:click="startMatch" variant="primary" class="!bg-green-600 hover:!bg-green-700" wire:confirm="Start this match?">Start Match</flux:button>
                 @elseif($match->status === MatchStatus::Active)
                     <flux:button wire:click="completeMatch" variant="primary" class="!bg-blue-600 hover:!bg-blue-700" wire:confirm="Complete this match?">Complete Match</flux:button>
-                    <flux:button href="{{ route('scoring') }}" target="_blank" variant="ghost">Open Scoring</flux:button>
+                    <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">Open Scoring</flux:button>
                     <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">View Scoreboard</flux:button>
                 @elseif($match->status === MatchStatus::Completed)
                     <flux:button wire:click="reopenMatch" variant="ghost" wire:confirm="Reopen this match?">Reopen Match</flux:button>

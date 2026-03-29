@@ -20,7 +20,7 @@ Route::get('/', function () {
 
 Route::get('/score/{any?}', function () {
     return view('scoring');
-})->where('any', '.*')->middleware('auth')->name('scoring');
+})->where('any', '.*')->middleware('auth')->name('score');
 
 Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
 Volt::route('/live/{match}', 'live')->name('live');

@@ -557,7 +557,7 @@ new #[Layout('components.layouts.app')]
                                  wire:confirm="Complete this match? It will be marked as finished.">
                         Complete Match
                     </flux:button>
-                    <flux:button href="{{ route('scoring') }}" target="_blank" variant="ghost">
+                    <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">
                         Open Scoring
                     </flux:button>
                     <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">

@@ -28,12 +28,18 @@
                     <a href="{{ route('dashboard') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Dashboard
                     </a>
+                    <a href="{{ route('scoring') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);" onmouseover="this.style.borderColor='rgba(255,255,255,0.18)'; this.style.color='#fff'" onmouseout="this.style.borderColor='var(--lp-border)'; this.style.color='var(--lp-text-soft)'">
+                        Open Scoring
+                    </a>
                 @else
                     <a href="{{ route('login') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white" style="color: var(--lp-text-soft);">
                         Sign In
                     </a>
                     <a href="{{ route('register') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Get Started
+                    </a>
+                    <a href="{{ route('scoring') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);" onmouseover="this.style.borderColor='rgba(255,255,255,0.18)'; this.style.color='#fff'" onmouseout="this.style.borderColor='var(--lp-border)'; this.style.color='var(--lp-text-soft)'">
+                        Open Scoring
                     </a>
                 @endauth
             </div>
@@ -220,6 +226,81 @@
                 <a href="{{ route('features') }}" class="text-sm font-medium transition-colors" style="color: var(--lp-red);">
                     View all features &rarr;
                 </a>
+            </div>
+        </div>
+    </section>
+
+    {{-- Scoring Modes --}}
+    <section style="border-top: 1px solid var(--lp-border);">
+        <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+            <div class="mb-16 text-center">
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Two Scoring Modes</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Choose the right format for your match.</p>
+            </div>
+            <div class="grid gap-8 lg:grid-cols-2">
+
+                <div class="rounded-2xl p-8 lg:p-10" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
+                        Standard Scoring
+                    </div>
+                    <h3 class="mb-3 text-xl font-bold" style="color: var(--lp-text);">Gong Multiplier System</h3>
+                    <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
+                        Each gong has a point multiplier based on size and difficulty. Shooters rotate through gongs in relay order.
+                        Range Officers tap HIT or MISS for each shooter at each gong.
+                    </p>
+                    <ul class="space-y-2 text-sm" style="color: var(--lp-text-soft);">
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Gongs with custom multipliers (e.g. 2.5 MOA = 1.0x, 0.5 MOA = 2.0x)</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Round-robin relay scoring flow</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Score = sum of multipliers for successful hits</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Quick-add presets: 5 standard MOA targets</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-amber-500">&#10003;</span> Optional <strong class="text-amber-400">Side Bet</strong>: rank by smallest gong hits with distance tiebreaker</li>
+                    </ul>
+                </div>
+
+                <div class="rounded-2xl p-8 lg:p-10 ring-1 ring-amber-600/10" style="border: 1px solid rgba(146, 64, 14, 0.3); background: var(--lp-surface);">
+                    <div class="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(146, 64, 14, 0.3); color: rgb(251, 191, 36);">
+                        PRS Scoring
+                    </div>
+                    <h3 class="mb-3 text-xl font-bold" style="color: var(--lp-text);">Hit / Miss / Shot Not Taken</h3>
+                    <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
+                        Each shooter completes an entire stage at once. Every target has three state buttons: <strong class="text-green-400">Hit</strong>,
+                        <strong style="color: var(--lp-red);">Miss</strong>, or <strong class="text-amber-400">Shot Not Taken</strong> (the default).
+                    </p>
+                    <ul class="space-y-2 text-sm" style="color: var(--lp-text-soft);">
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Three-button scoring per target (Hit / Miss / Not Taken)</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Timed stages with app timer or smart manual input</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Tiebreaker stage: impacts first, then time</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Par time auto-fill when not all targets are engaged</li>
+                        <li class="flex items-start gap-2"><span class="mt-1 text-green-500">&#10003;</span> Enter seconds with optional decimal (e.g. 105.23)</li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <div class="mt-10 text-center">
+                <a href="{{ route('scoring') }}" class="text-sm font-medium transition-colors" style="color: var(--lp-red);">
+                    Learn more about scoring modes &rarr;
+                </a>
+            </div>
+        </div>
+    </section>
+
+    {{-- Side Bet --}}
+    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+        <div class="mx-auto max-w-3xl px-6 py-20 lg:py-24">
+            <div class="rounded-2xl p-8 lg:p-10 ring-1 ring-amber-600/10" style="border: 1px solid rgba(146, 64, 14, 0.3); background: var(--lp-surface);">
+                <div class="flex items-start gap-5">
+                    <div class="flex-shrink-0 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(245, 158, 11, 0.08);">
+                        <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" /></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold" style="color: var(--lp-text);">Side Bet &mdash; Royal Flush</h3>
+                        <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
+                            Optional side competition for standard (round-robin) matches. The winner is whoever hits the most smallest gongs.
+                            Ties break by furthest distance, then cascade to the next gong size. A fun, high-stakes addition to any match day.
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

@@ -145,6 +145,16 @@
                             Settings
                         </a>
 
+                        <div class="pt-4 pb-2 px-3">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-muted">Account</p>
+                        </div>
+
+                        <a href="{{ route('settings') }}"
+                           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-secondary hover:bg-surface-2/50 hover:text-primary">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+                            My Account
+                        </a>
+
                     @else
                         {{-- Member Navigation --}}
                         <a href="{{ route('dashboard') }}"
@@ -229,7 +239,7 @@
 
                 @auth
                     @if(auth()->user()->canScore())
-                        <a href="{{ route('scoring') }}" target="_blank"
+                        <a href="{{ route('score') }}" target="_blank"
                            class="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-primary hover:bg-accent-hover transition-colors">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />

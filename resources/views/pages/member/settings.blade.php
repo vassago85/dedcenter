@@ -51,13 +51,13 @@ new #[Layout('components.layouts.app')]
 
 <div class="space-y-8 max-w-2xl">
     <div>
-        <flux:heading size="xl">Settings</flux:heading>
-        <p class="mt-1 text-sm text-muted">Manage your account details.</p>
+        <h1 class="text-2xl font-bold text-white">My Account</h1>
+        <p class="mt-1 text-sm text-secondary">Manage your name and password.</p>
     </div>
 
     {{-- Profile --}}
     <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
-        <h2 class="text-lg font-semibold text-primary">Profile</h2>
+        <h2 class="text-lg font-semibold text-white">Profile</h2>
 
         <form wire:submit="updateProfile" class="space-y-4">
             <div>
@@ -96,7 +96,7 @@ new #[Layout('components.layouts.app')]
 
     {{-- Password --}}
     <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
-        <h2 class="text-lg font-semibold text-primary">Change Password</h2>
+        <h2 class="text-lg font-semibold text-white">Change Password</h2>
 
         <form wire:submit="updatePassword" class="space-y-4">
             <div>

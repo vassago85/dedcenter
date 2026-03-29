@@ -46,13 +46,13 @@ new #[Layout('components.layouts.app')]
 
 <div class="space-y-6 max-w-2xl">
     <div>
-        <flux:heading size="xl">Settings</flux:heading>
-        <p class="mt-1 text-sm text-muted">Configure bank details for EFT payments.</p>
+        <h1 class="text-2xl font-bold text-white">Platform Settings</h1>
+        <p class="mt-1 text-sm text-secondary">Configure bank details for EFT payments.</p>
     </div>
 
     <form wire:submit="save" class="space-y-6">
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-primary">Bank Details</h2>
+            <h2 class="text-lg font-semibold text-white">Bank Details</h2>
             <p class="text-sm text-muted">These details are shown to members when they register for a match.</p>
 
             <flux:input wire:model="bank_name" label="Bank Name" placeholder="e.g. FNB" required />

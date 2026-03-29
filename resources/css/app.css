@@ -69,3 +69,23 @@
 :where([data-flux-label]) {
     color: var(--color-secondary) !important;
 }
+
+:where([data-flux-heading]) {
+    color: #ffffff !important;
+}
+
+:where([data-flux-button][data-variant="ghost"]) {
+    color: var(--color-secondary) !important;
+}
+:where([data-flux-button][data-variant="ghost"]):hover {
+    color: #ffffff !important;
+    background: var(--color-surface-2) !important;
+}
+
+:where([data-flux-badge]) {
+    border-color: var(--color-border) !important;
+}
+
+:where([data-flux-separator]) {
+    border-color: var(--color-border) !important;
+}
