@@ -8,8 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>DeadCenter Scoring</title>
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="icon" href="/logo.png">
-    <link rel="apple-touch-icon" href="/logo.png">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,900" rel="stylesheet" />
     @vite(['resources/css/scoring.css', 'resources/js/scoring-app/main.js'])

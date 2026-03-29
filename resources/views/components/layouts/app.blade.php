@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $title ?? 'DeadCenter' }}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
@@ -37,9 +38,10 @@
                class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-800 border-r border-slate-700 transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto">
 
             {{-- Logo --}}
-            <div class="flex h-16 items-center gap-3 px-6 border-b border-slate-700">
-                <img src="/logo.png" alt="DeadCenter" class="h-8 w-auto">
-                <span class="text-lg font-bold tracking-tight text-white">DeadCenter</span>
+            <div class="flex h-16 items-center px-6 border-b border-slate-700">
+                <a href="/" class="group">
+                    <x-app-logo size="md" class="opacity-90 group-hover:opacity-100 transition-opacity" />
+                </a>
             </div>
 
             {{-- Navigation --}}
@@ -203,7 +205,7 @@
                     </button>
                 </form>
                 @endauth
-                <p class="px-2 text-xs text-slate-500">&copy; {{ date('Y') }} DeadCenter</p>
+                <p class="px-2 text-xs text-slate-500">&copy; {{ date('Y') }} <span class="font-semibold"><span class="text-slate-500">DEAD</span><span class="text-red-500/50">CENTER</span></span></p>
             </div>
         </aside>
 

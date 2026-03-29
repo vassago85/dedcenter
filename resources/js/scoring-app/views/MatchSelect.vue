@@ -2,8 +2,14 @@
     <div class="min-h-screen bg-slate-900 text-white">
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <img :src="'/logo.png'" alt="DeadCenter" class="h-8 w-auto" />
-                <h1 class="text-xl font-bold tracking-tight">DeadCenter</h1>
+                <svg class="h-5 w-5 text-red-500" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+                    <line x1="12" y1="3" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="3" y1="12" x2="7" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="17" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <h1 class="text-xl font-bold tracking-tight"><span class="text-white/90">DEAD</span><span class="text-red-500">CENTER</span></h1>
             </div>
         </header>
 

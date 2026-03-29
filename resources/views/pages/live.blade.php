@@ -371,6 +371,6 @@ new #[Layout('components.layouts.scoreboard')]
             <span class="inline-flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
             <span>Auto-refreshes every 10s</span>
         </div>
-        <p class="mt-1 text-[10px] text-slate-700">&copy; {{ date('Y') }} DeadCenter</p>
+        <p class="mt-1 text-[10px] text-slate-700">&copy; {{ date('Y') }} <span class="font-semibold"><span class="text-slate-600">DEAD</span><span class="text-red-500/40">CENTER</span></span></p>
     </div>
 </div>

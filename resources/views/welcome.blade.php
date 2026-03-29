@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DeadCenter — Multi-Discipline Shooting Scoring Platform</title>
     <meta name="description" content="A modern scoring platform for shooting sports. Capture scores offline on tablets, sync across devices, and publish live results for shooters, spectators, and organizers.">
-    <link rel="icon" href="/logo.png">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,900" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -15,18 +15,8 @@
     {{-- Nav --}}
     <nav class="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <a href="/" class="flex items-center gap-2.5 group">
-                {{-- Precision mark --}}
-                <svg class="h-5 w-5 text-red-500 opacity-80 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
-                    <line x1="12" y1="3" x2="12" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <line x1="3" y1="12" x2="7" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <line x1="17" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-                <span class="text-lg font-bold tracking-tight">
-                    <span class="text-white/90">DEAD</span><span class="text-red-500">CENTER</span>
-                </span>
+            <a href="/" class="group opacity-90 hover:opacity-100 transition-opacity">
+                <x-app-logo size="md" />
             </a>
             <div class="hidden md:flex items-center gap-7 text-[13px] font-medium text-slate-500">
                 <a href="#features" class="hover:text-white transition-colors duration-200">Features</a>
@@ -673,7 +663,7 @@
     <footer class="border-t border-white/[0.06] bg-[#0a0a0f]">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
             <div class="flex items-center gap-2">
-                <span class="text-xs font-bold tracking-tight"><span class="text-white/40">DEAD</span><span class="text-red-500/40">CENTER</span></span>
+                <x-app-logo size="sm" class="opacity-40" />
                 <span class="text-xs text-slate-600">&copy; {{ date('Y') }}</span>
             </div>
             <span class="text-xs text-slate-600">deadcenter.co.za</span>

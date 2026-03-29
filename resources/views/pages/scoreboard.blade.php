@@ -212,7 +212,7 @@ new #[Layout('components.layouts.scoreboard')]
                 @if($match->location) &mdash; {{ $match->location }} @endif
             </p>
         </div>
-        <img src="/logo.png" alt="DeadCenter" class="h-12 w-auto opacity-60 lg:h-16">
+        <x-app-logo size="lg" class="opacity-60" />
     </div>
 
     @if($divisions->isNotEmpty() || $categories->isNotEmpty())
