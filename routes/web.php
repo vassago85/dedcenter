@@ -35,6 +35,9 @@ Route::prefix('p/{organization}')->name('portal.')->group(function () {
 });
 
 Volt::route('/features', 'features')->name('features');
+Volt::route('/scoring', 'scoring-info')->name('scoring');
+Volt::route('/offline', 'offline')->name('offline');
+Volt::route('/setup', 'setup')->name('setup');
 
 // ── Member (auth) ──
 Route::middleware('auth')->group(function () {

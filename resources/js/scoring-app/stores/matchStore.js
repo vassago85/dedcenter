@@ -23,6 +23,8 @@ export const useMatchStore = defineStore('match', {
         error: null,
         lockedSquadId: null,
         lockedSquadName: null,
+        cachedMatchIds: new Set(),
+        cachingMatchId: null,
     }),
 
     getters: {
@@ -111,6 +113,34 @@ export const useMatchStore = defineStore('match', {
 
         async cacheMatch(match) {
             await db.matches.put(match);
+            this.cachedMatchIds.add(match.id);
+        },
+
+        async checkCachedMatches() {
+            const cached = await db.matches.toArray();
+            this.cachedMatchIds = new Set(
+                cached.filter(m => m.squads && m.squads.length > 0).map(m => m.id)
+            );
+        },
+
+        isMatchCached(matchId) {
+            return this.cachedMatchIds.has(matchId);
+        },
+
+        async cacheMatchForOffline(matchId) {
+            this.cachingMatchId = matchId;
+            try {
+                const { data } = await axios.get(`/api/matches/${matchId}`);
+                await this.cacheMatch(data.data);
+                return data.data;
+            } finally {
+                this.cachingMatchId = null;
+            }
+        },
+
+        async clearMatchCache(matchId) {
+            await db.matches.delete(matchId);
+            this.cachedMatchIds.delete(matchId);
         },
     },
 });
