@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useMatchStore } from '../stores/matchStore';
 import ScoringFlow from './ScoringFlow.vue';
 import PrsScoringFlow from './PrsScoringFlow.vue';
+import ElrScoringFlow from './ElrScoringFlow.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
@@ -18,6 +19,9 @@ const scoringComponent = computed(() => {
     const match = matchStore.currentMatch;
     if (match && match.scoring_type === 'prs') {
         return PrsScoringFlow;
+    }
+    if (match && match.scoring_type === 'elr') {
+        return ElrScoringFlow;
     }
     return ScoringFlow;
 });

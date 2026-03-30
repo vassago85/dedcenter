@@ -21,6 +21,7 @@ class ShootingMatch extends Model
         'status',
         'scoring_type',
         'side_bet_enabled',
+        'elr_scoring_profile_id',
         'notes',
         'created_by',
         'organization_id',
@@ -79,6 +80,17 @@ class ShootingMatch extends Model
         return $this->hasMany(MatchCategory::class, 'match_id');
     }
 
+    public function elrStages(): HasMany
+    {
+        return $this->hasMany(ElrStage::class, 'match_id')->orderBy('sort_order');
+    }
+
+    public function elrScoringProfile(): BelongsTo
+    {
+        return $this->belongsTo(ElrScoringProfile::class, 'elr_scoring_profile_id');
+    }
+
+
     // ── Computed Attributes ──
 
     public function getTotalShootersAttribute(): int
@@ -109,5 +121,10 @@ class ShootingMatch extends Model
     public function isStandard(): bool
     {
         return $this->scoring_type === 'standard' || ! $this->scoring_type;
+    }
+
+    public function isElr(): bool
+    {
+        return $this->scoring_type === 'elr';
     }
 }

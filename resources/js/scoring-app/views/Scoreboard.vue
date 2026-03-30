@@ -12,6 +12,7 @@
                 </router-link>
                 <h1 class="text-lg font-bold">Results</h1>
                 <span v-if="isPrs" class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">PRS</span>
+                <span v-if="isElr" class="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">ELR</span>
                 <div class="ml-auto flex items-center gap-3">
                     <span v-if="autoRefresh" class="flex items-center gap-1 text-[10px] text-muted">
                         <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
@@ -61,7 +62,7 @@
                         Detailed Breakdown
                     </button>
                     <button
-                        v-if="sideBetEnabled"
+                        v-if="sideBetEnabled && !isElr"
                         @click="viewMode = 'sidebet'"
                         class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
                         :class="viewMode === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
@@ -71,7 +72,7 @@
                 </div>
 
                 <!-- =================== SUMMARY LEADERBOARD =================== -->
-                <template v-if="viewMode === 'summary'">
+                <template v-if="viewMode === 'summary' && !isElr">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -131,8 +132,58 @@
                     </div>
                 </template>
 
+                <!-- =================== ELR SUMMARY LEADERBOARD =================== -->
+                <template v-else-if="viewMode === 'summary' && isElr">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
+                    </div>
+
+                    <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-3 py-3 text-center w-10">#</th>
+                                    <th class="px-3 py-3">Shooter</th>
+                                    <th class="px-3 py-3">Relay</th>
+                                    <th class="px-3 py-3 text-center">Points</th>
+                                    <th class="px-3 py-3 text-center">Hits</th>
+                                    <th class="px-3 py-3 text-center">1st Rd</th>
+                                    <th class="px-3 py-3 text-center">Furthest (m)</th>
+                                    <th class="px-3 py-3 text-right font-bold">Norm %</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <tr
+                                    v-for="(entry, idx) in standings"
+                                    :key="'elr-sum-' + idx"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(entry.rank)"
+                                >
+                                    <td class="px-3 py-3 text-center">
+                                        <span
+                                            v-if="entry.rank <= 3"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
+                                            :class="medalClass(entry.rank)"
+                                        >{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-3 py-3 text-muted">{{ entry.squad_name }}</td>
+                                    <td class="px-3 py-3 text-center tabular-nums font-bold">{{ entry.total_points }}</td>
+                                    <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.total_hits }}</td>
+                                    <td class="px-3 py-3 text-center tabular-nums">{{ entry.first_round_hits }}</td>
+                                    <td class="px-3 py-3 text-center tabular-nums">{{ entry.furthest_hit_m ?? '&mdash;' }}</td>
+                                    <td class="px-3 py-3 text-right text-lg font-bold tabular-nums">
+                                        {{ entry.normalized_score != null ? entry.normalized_score.toFixed(1) + '%' : '&mdash;' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+
                 <!-- =================== DETAILED BREAKDOWN =================== -->
-                <template v-else-if="viewMode === 'detailed'">
+                <template v-else-if="viewMode === 'detailed' && !isElr">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -199,6 +250,84 @@
                                             </span>
                                             <span v-if="gong.is_hit === true" class="font-bold text-green-400">HIT +{{ gong.multiplier }}</span>
                                             <span v-else-if="gong.is_hit === false" class="font-bold text-red-400">MISS</span>
+                                            <span v-else class="text-muted/50">&mdash;</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- =================== ELR DETAILED BREAKDOWN =================== -->
+                <template v-else-if="viewMode === 'detailed' && isElr">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            v-for="(entry, idx) in standings"
+                            :key="'elr-detail-' + idx"
+                            class="rounded-xl border border-border bg-surface overflow-hidden"
+                        >
+                            <button
+                                @click="toggleExpand('elr-' + idx)"
+                                class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                            >
+                                <span
+                                    v-if="entry.rank <= 3"
+                                    class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                                    :class="medalClass(entry.rank)"
+                                >{{ entry.rank }}</span>
+                                <span v-else class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted">{{ entry.rank }}</span>
+
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate font-semibold">{{ entry.name }}</p>
+                                    <p class="text-xs text-muted">{{ entry.squad_name }} &middot; {{ entry.total_hits }} hits &middot; {{ entry.total_points }} pts</p>
+                                </div>
+
+                                <div class="text-right">
+                                    <span class="text-xl font-bold tabular-nums">
+                                        {{ entry.normalized_score != null ? entry.normalized_score.toFixed(1) + '%' : '&mdash;' }}
+                                    </span>
+                                </div>
+
+                                <svg
+                                    class="h-5 w-5 flex-shrink-0 text-muted transition-transform"
+                                    :class="{ 'rotate-180': expandedIds.has('elr-' + idx) }"
+                                    fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+
+                            <div v-if="expandedIds.has('elr-' + idx)" class="border-t border-border">
+                                <div
+                                    v-for="stage in (entry.stages ?? [])"
+                                    :key="'elr-stage-' + entry.rank + '-' + stage.stage_id"
+                                    class="border-b border-border/50 last:border-b-0"
+                                >
+                                    <div class="flex items-center justify-between bg-surface-2/50 px-4 py-2">
+                                        <span class="text-sm font-semibold">{{ stage.label }}</span>
+                                        <div class="flex items-center gap-3 text-xs">
+                                            <span class="uppercase text-muted">{{ stage.stage_type }}</span>
+                                            <span class="font-bold">{{ stage.points }} pts</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 gap-px bg-border/30 sm:grid-cols-2 md:grid-cols-3">
+                                        <div
+                                            v-for="(target, tIdx) in (stage.targets ?? [])"
+                                            :key="'elr-t-' + stage.stage_id + '-' + tIdx"
+                                            class="flex items-center justify-between bg-app px-3 py-2 text-xs"
+                                        >
+                                            <span class="text-muted">
+                                                {{ target.distance_m ? target.distance_m + 'm' : 'Target ' + (tIdx + 1) }}
+                                                <span v-if="target.label" class="text-secondary">({{ target.label }})</span>
+                                            </span>
+                                            <span v-if="target.result === 'hit'" class="font-bold text-green-400">HIT +{{ target.points }}</span>
+                                            <span v-else-if="target.result === 'miss'" class="font-bold text-red-400">MISS</span>
                                             <span v-else class="text-muted/50">&mdash;</span>
                                         </div>
                                     </div>
@@ -275,6 +404,8 @@ const sideBetEnabled = ref(false);
 const matchName = ref('');
 const matchDate = ref('');
 const isPrs = ref(false);
+const isElr = ref(false);
+const elrStages = ref([]);
 const viewMode = ref('summary');
 const loading = ref(false);
 const error = ref(null);
@@ -314,13 +445,20 @@ async function fetchData() {
         matchName.value = data.match?.name ?? '';
         matchDate.value = data.match?.date ?? '';
         isPrs.value = data.match?.scoring_type === 'prs';
-        targetSets.value = data.target_sets ?? [];
-        standings.value = data.standings ?? [];
+        isElr.value = data.match?.scoring_type === 'elr';
 
-        if (data.match?.side_bet_enabled) {
-            sideBetEnabled.value = true;
-            const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
-            sideBet.value = sbRes.data.side_bet ?? [];
+        if (isElr.value) {
+            standings.value = data.standings ?? [];
+            elrStages.value = data.stages ?? [];
+        } else {
+            targetSets.value = data.target_sets ?? [];
+            standings.value = data.standings ?? [];
+
+            if (data.match?.side_bet_enabled) {
+                sideBetEnabled.value = true;
+                const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
+                sideBet.value = sbRes.data.side_bet ?? [];
+            }
         }
 
         lastUpdated.value = new Date().toLocaleTimeString('en-ZA');

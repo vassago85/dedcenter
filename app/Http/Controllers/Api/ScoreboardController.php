@@ -16,6 +16,10 @@ class ScoreboardController extends Controller
 {
     public function show(Request $request, ShootingMatch $match)
     {
+        if ($match->isElr()) {
+            return $this->elrScoreboard($match);
+        }
+
         if ($request->boolean('detailed')) {
             return $this->detailedScoreboard($match, $request);
         }
@@ -25,6 +29,12 @@ class ScoreboardController extends Controller
         }
 
         return $this->standardScoreboard($match, $request);
+    }
+
+    private function elrScoreboard(ShootingMatch $match)
+    {
+        $service = new \App\Services\Scoring\ELRScoringService();
+        return response()->json($service->calculateStandings($match));
     }
 
     private function detailedScoreboard(ShootingMatch $match, Request $request)
@@ -157,7 +167,7 @@ class ScoreboardController extends Controller
         $meta = [
             'id' => $match->id,
             'name' => $match->name,
-            'scoring_type' => $match->isPrs() ? 'prs' : 'standard',
+            'scoring_type' => $match->scoring_type ?? 'standard',
             'total_targets' => $totalTargets,
         ];
 

@@ -36,4 +36,9 @@ class ShootingMatchFactory extends Factory
     {
         return $this->state(['scoring_type' => 'prs']);
     }
+
+    public function elr(): static
+    {
+        return $this->state(['scoring_type' => 'elr']);
+    }
 }

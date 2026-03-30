@@ -14,3 +14,15 @@ db.version(2).stores({
 }).upgrade(tx => {
     // v2 adds stageTimes table - no data migration needed
 });
+
+db.version(3).stores({
+    matches: 'id, status',
+    targetSets: 'id, matchId, sortOrder',
+    gongs: 'id, targetSetId, number',
+    squads: 'id, matchId, sortOrder',
+    shooters: 'id, squadId, sortOrder',
+    scores: '++localId, [shooterId+gongId], matchId, synced',
+    stageTimes: '++localId, [shooterId+targetSetId], matchId, synced',
+    pendingSync: '++id, matchId, createdAt',
+    elrShots: '++localId, matchId, shooterId, elrTargetId, shotNumber, [shooterId+elrTargetId+shotNumber]',
+});

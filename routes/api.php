@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ElrScoreController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
@@ -18,6 +19,22 @@ Route::post('matches/{match}/scores', [ScoreController::class, 'store'])
     ]);
 
 Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus'])
+    ->middleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        'auth',
+    ]);
+
+Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store'])
+    ->middleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        'auth',
+    ]);
+
+Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress'])
     ->middleware([
         \Illuminate\Cookie\Middleware\EncryptCookies::class,
         \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,

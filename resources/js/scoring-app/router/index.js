@@ -56,6 +56,12 @@ const routes = [
             targetSetId: Number(route.params.targetSetId),
         }),
     },
+    {
+        path: '/score/:matchId/elr',
+        name: 'elr-scoring',
+        component: () => import('../views/ElrScoringFlow.vue'),
+        props: (route) => ({ matchId: Number(route.params.matchId) }),
+    },
 ];
 
 const router = createRouter({

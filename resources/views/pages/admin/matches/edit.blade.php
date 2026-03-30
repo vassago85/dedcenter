@@ -44,6 +44,20 @@ new #[Layout('components.layouts.app')]
     public string $categoryName = '';
     public array $shooterCategories = [];
 
+    // ELR stage properties
+    public string $elrStageLabel = '';
+    public string $elrStageType = 'ladder';
+    public ?int $editingElrStageId = null;
+
+    public string $elrTargetName = '';
+    public string $elrTargetDistance = '';
+    public string $elrTargetBasePoints = '20';
+    public string $elrTargetMaxShots = '3';
+    public bool $elrTargetMustHit = true;
+    public ?int $addingElrTargetToStageId = null;
+
+    public string $elrProfileMultipliers = '1.00, 0.70, 0.50';
+
     public function mount(?ShootingMatch $match = null): void
     {
         if ($match && $match->exists) {
@@ -66,7 +80,7 @@ new #[Layout('components.layouts.app')]
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:5000',
             'entry_fee' => 'nullable|numeric|min:0',
-            'scoring_type' => 'required|in:standard,prs',
+            'scoring_type' => 'required|in:standard,prs,elr',
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
@@ -238,6 +252,137 @@ new #[Layout('components.layouts.app')]
     {
         Gong::destroy($id);
         Flux::toast('Gong deleted.', variant: 'success');
+    }
+
+    // ── ELR Stages ──
+
+    public function addElrStage(): void
+    {
+        $this->validate([
+            'elrStageLabel' => 'required|string|max:255',
+            'elrStageType' => 'required|in:static,ladder',
+        ]);
+
+        $profileMultipliers = array_map('floatval', array_map('trim', explode(',', $this->elrProfileMultipliers)));
+
+        $profile = \App\Models\ElrScoringProfile::firstOrCreate(
+            ['match_id' => $this->match->id, 'name' => 'Default'],
+            ['multipliers' => $profileMultipliers]
+        );
+
+        if (!$this->match->elr_scoring_profile_id) {
+            $this->match->update(['elr_scoring_profile_id' => $profile->id]);
+        }
+
+        $maxOrder = $this->match->elrStages()->max('sort_order') ?? 0;
+        $this->match->elrStages()->create([
+            'label' => $this->elrStageLabel,
+            'stage_type' => $this->elrStageType,
+            'elr_scoring_profile_id' => $profile->id,
+            'sort_order' => $maxOrder + 1,
+        ]);
+
+        $this->elrStageLabel = '';
+        $this->elrStageType = 'ladder';
+        $this->match->refresh();
+    }
+
+    public function removeElrStage(int $stageId): void
+    {
+        $this->match->elrStages()->where('id', $stageId)->delete();
+        $this->match->refresh();
+    }
+
+    public function addElrTarget(): void
+    {
+        $this->validate([
+            'elrTargetName' => 'required|string|max:255',
+            'elrTargetDistance' => 'required|integer|min:1',
+            'elrTargetBasePoints' => 'required|numeric|min:0.01',
+            'elrTargetMaxShots' => 'required|integer|min:1|max:20',
+        ]);
+
+        $stage = \App\Models\ElrStage::findOrFail($this->addingElrTargetToStageId);
+        $maxOrder = $stage->targets()->max('sort_order') ?? 0;
+
+        $stage->targets()->create([
+            'name' => $this->elrTargetName,
+            'distance_m' => (int) $this->elrTargetDistance,
+            'base_points' => (float) $this->elrTargetBasePoints,
+            'max_shots' => (int) $this->elrTargetMaxShots,
+            'must_hit_to_advance' => $this->elrTargetMustHit,
+            'sort_order' => $maxOrder + 1,
+        ]);
+
+        $this->elrTargetName = '';
+        $this->elrTargetDistance = '';
+        $this->elrTargetBasePoints = '20';
+        $this->elrTargetMaxShots = '3';
+        $this->elrTargetMustHit = true;
+        $this->addingElrTargetToStageId = null;
+        $this->match->refresh();
+    }
+
+    public function removeElrTarget(int $targetId): void
+    {
+        \App\Models\ElrTarget::where('id', $targetId)->delete();
+        $this->match->refresh();
+    }
+
+    public function applyElrTemplate(): void
+    {
+        $profileMultipliers = [1.00, 0.70, 0.50];
+        $profile = \App\Models\ElrScoringProfile::updateOrCreate(
+            ['match_id' => $this->match->id, 'name' => 'Default'],
+            ['multipliers' => $profileMultipliers]
+        );
+        $this->match->update(['elr_scoring_profile_id' => $profile->id]);
+
+        $this->match->elrStages()->delete();
+
+        $stage = $this->match->elrStages()->create([
+            'label' => 'Stage 1',
+            'stage_type' => 'ladder',
+            'elr_scoring_profile_id' => $profile->id,
+            'sort_order' => 1,
+        ]);
+
+        $targets = [
+            ['name' => 'T1', 'distance_m' => 1000, 'base_points' => 10],
+            ['name' => 'T2', 'distance_m' => 1200, 'base_points' => 15],
+            ['name' => 'T3', 'distance_m' => 1500, 'base_points' => 20],
+            ['name' => 'T4', 'distance_m' => 1800, 'base_points' => 25],
+        ];
+
+        foreach ($targets as $i => $t) {
+            $stage->targets()->create([
+                ...$t,
+                'max_shots' => 3,
+                'must_hit_to_advance' => true,
+                'sort_order' => $i + 1,
+            ]);
+        }
+
+        $this->elrProfileMultipliers = '1.00, 0.70, 0.50';
+        $this->match->refresh();
+    }
+
+    public function updateElrProfile(): void
+    {
+        $multipliers = array_map('floatval', array_map('trim', explode(',', $this->elrProfileMultipliers)));
+
+        $profile = $this->match->elrScoringProfile;
+        if ($profile) {
+            $profile->update(['multipliers' => $multipliers]);
+        } else {
+            $profile = \App\Models\ElrScoringProfile::create([
+                'match_id' => $this->match->id,
+                'name' => 'Default',
+                'multipliers' => $multipliers,
+            ]);
+            $this->match->update(['elr_scoring_profile_id' => $profile->id]);
+        }
+        $this->match->refresh();
     }
 
     // ── Squads ──
@@ -536,10 +681,16 @@ new #[Layout('components.layouts.app')]
                                 class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             PRS
                         </button>
+                        <button type="button" wire:click="$set('scoring_type', 'elr')"
+                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                            ELR
+                        </button>
                     </div>
                     <p class="mt-1 text-xs text-muted">
                         @if($scoring_type === 'prs')
                             PRS: Hit/miss (1pt each), shooter completes full stage, optional timer for tiebreaker.
+                        @elseif($scoring_type === 'elr')
+                            ELR: Extreme Long Range — shot-by-shot scoring with distance-based point values and optional ladder progression.
                         @else
                             Standard: Gong multipliers, relay-style scoring.
                         @endif
@@ -685,7 +836,8 @@ new #[Layout('components.layouts.app')]
 
         <flux:separator />
 
-        {{-- Target Sets --}}
+        {{-- Target Sets (Standard & PRS only) --}}
+        @if($scoring_type !== 'elr')
         <div class="space-y-4">
             <h2 class="text-lg font-semibold text-primary">Target Sets</h2>
 
@@ -825,6 +977,135 @@ new #[Layout('components.layouts.app')]
                 </div>
             </div>
         </div>
+        @endif
+
+        {{-- ELR Stages (ELR only) --}}
+        @if($scoring_type === 'elr' && $match)
+        <div class="space-y-6" wire:key="elr-stages">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-primary">ELR Stages</h2>
+                <button wire:click="applyElrTemplate" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                    Apply Default Template
+                </button>
+            </div>
+
+            {{-- Scoring profile --}}
+            <div class="rounded-xl border border-border bg-surface p-4">
+                <h3 class="mb-2 text-sm font-semibold text-secondary uppercase tracking-wider">Scoring Profile</h3>
+                <div class="flex items-end gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs text-muted mb-1">Shot multipliers (comma-separated)</label>
+                        <input type="text" wire:model="elrProfileMultipliers" placeholder="1.00, 0.70, 0.50"
+                               class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                    </div>
+                    <button wire:click="updateElrProfile" class="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+                        Save Profile
+                    </button>
+                </div>
+                <p class="mt-1 text-xs text-muted">Shot 1 = first value, Shot 2 = second value, etc. Values are multiplied by target base points.</p>
+                @if($match->elrScoringProfile)
+                    <p class="mt-2 text-xs text-secondary">Active: {{ $match->elrScoringProfile->name }} — [{{ implode(', ', $match->elrScoringProfile->multipliers) }}]</p>
+                @endif
+            </div>
+
+            {{-- Existing stages --}}
+            @foreach($match->elrStages()->with('targets')->orderBy('sort_order')->get() as $stage)
+            <div class="rounded-xl border {{ $stage->stage_type->value === 'ladder' ? 'border-emerald-500/50' : 'border-border' }} bg-surface overflow-hidden" wire:key="elr-stage-{{ $stage->id }}">
+                <div class="flex items-center justify-between border-b border-border px-6 py-3">
+                    <div class="flex items-center gap-3">
+                        <span class="font-semibold text-primary">{{ $stage->label }}</span>
+                        <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase {{ $stage->stage_type->value === 'ladder' ? 'bg-emerald-600 text-white' : 'bg-surface-2 text-muted' }}">
+                            {{ $stage->stage_type->value }}
+                        </span>
+                        <span class="text-xs text-muted">({{ $stage->targets->count() }} targets)</span>
+                    </div>
+                    <flux:button wire:click="removeElrStage({{ $stage->id }})" wire:confirm="Delete this stage and all its targets?" size="xs" variant="ghost" class="!text-red-400">
+                        Delete Stage
+                    </flux:button>
+                </div>
+
+                {{-- Targets --}}
+                <div class="divide-y divide-border/50">
+                    @forelse($stage->targets as $target)
+                    <div class="flex items-center justify-between px-6 py-2">
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm font-medium text-primary">{{ $target->name }}</span>
+                            <span class="text-xs text-muted">{{ $target->distance_m }}m</span>
+                            <span class="text-xs text-secondary">{{ $target->base_points }} pts</span>
+                            <span class="text-xs text-muted">{{ $target->max_shots }} shots</span>
+                            @if($target->must_hit_to_advance)
+                                <span class="rounded bg-amber-600/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 uppercase">Must Hit</span>
+                            @endif
+                        </div>
+                        <button wire:click="removeElrTarget({{ $target->id }})" wire:confirm="Remove this target?" class="text-xs text-red-400 hover:text-red-300">×</button>
+                    </div>
+                    @empty
+                    <div class="px-6 py-3 text-sm text-muted">No targets yet.</div>
+                    @endforelse
+                </div>
+
+                {{-- Add target form --}}
+                @if($addingElrTargetToStageId === $stage->id)
+                <div class="border-t border-border bg-surface-2/30 px-6 py-3">
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Name</label>
+                            <input type="text" wire:model="elrTargetName" placeholder="T1" class="w-full rounded-lg border border-border bg-app px-2 py-1.5 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Distance (m)</label>
+                            <input type="number" wire:model="elrTargetDistance" placeholder="1000" min="1" class="w-full rounded-lg border border-border bg-app px-2 py-1.5 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Base Points</label>
+                            <input type="number" wire:model="elrTargetBasePoints" placeholder="20" step="0.01" min="0.01" class="w-full rounded-lg border border-border bg-app px-2 py-1.5 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Max Shots</label>
+                            <input type="number" wire:model="elrTargetMaxShots" placeholder="3" min="1" max="20" class="w-full rounded-lg border border-border bg-app px-2 py-1.5 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                        </div>
+                        <div class="flex items-end">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" wire:model="elrTargetMustHit" class="rounded border-border bg-app text-accent focus:ring-accent" />
+                                <span class="text-xs text-secondary">Must Hit</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex gap-2">
+                        <button wire:click="addElrTarget" class="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover">Add Target</button>
+                        <button wire:click="$set('addingElrTargetToStageId', null)" class="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted hover:text-primary">Cancel</button>
+                    </div>
+                </div>
+                @else
+                <div class="border-t border-border px-6 py-2">
+                    <button wire:click="$set('addingElrTargetToStageId', {{ $stage->id }})" class="text-xs font-medium text-accent hover:text-accent-hover">+ Add Target</button>
+                </div>
+                @endif
+            </div>
+            @endforeach
+
+            {{-- Add stage form --}}
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-secondary">Add Stage</h3>
+                <div class="flex items-end gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs text-muted mb-1">Stage Label</label>
+                        <input type="text" wire:model="elrStageLabel" placeholder="Stage 1" class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                    </div>
+                    <div class="w-32">
+                        <label class="block text-xs text-muted mb-1">Type</label>
+                        <select wire:model="elrStageType" class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary focus:border-accent focus:outline-none">
+                            <option value="ladder">Ladder</option>
+                            <option value="static">Static</option>
+                        </select>
+                    </div>
+                    <button wire:click="addElrStage" class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+                        Add Stage
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <flux:separator />
 

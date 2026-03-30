@@ -22,25 +22,37 @@ class MatchController extends Controller
 
     public function show(ShootingMatch $match)
     {
-        $match->load([
-            'targetSets' => fn ($q) => $q->orderBy('sort_order'),
-            'targetSets.gongs' => fn ($q) => $q->orderBy('number'),
+        $eagerLoads = [
             'squads' => fn ($q) => $q->orderBy('sort_order'),
             'squads.shooters' => fn ($q) => $q->active()->orderBy('sort_order'),
             'squads.shooters.division',
             'squads.shooters.categories',
             'divisions' => fn ($q) => $q->orderBy('sort_order'),
             'categories' => fn ($q) => $q->orderBy('sort_order'),
-        ]);
+        ];
+
+        if ($match->isElr()) {
+            $eagerLoads['elrStages'] = fn ($q) => $q->orderBy('sort_order');
+            $eagerLoads['elrStages.targets'] = fn ($q) => $q->orderBy('sort_order');
+            $eagerLoads['elrStages.scoringProfile'] = fn ($q) => $q;
+            $eagerLoads['elrScoringProfile'] = fn ($q) => $q;
+        } else {
+            $eagerLoads['targetSets'] = fn ($q) => $q->orderBy('sort_order');
+            $eagerLoads['targetSets.gongs'] = fn ($q) => $q->orderBy('number');
+        }
+
+        $match->load($eagerLoads);
 
         $shooterIds = $match->squads->flatMap->shooters->pluck('id');
 
-        $scores = Score::whereIn('shooter_id', $shooterIds)->get();
-        $match->setRelation('scores', $scores);
+        if (! $match->isElr()) {
+            $scores = Score::whereIn('shooter_id', $shooterIds)->get();
+            $match->setRelation('scores', $scores);
 
-        if ($match->isPrs()) {
-            $stageTimes = StageTime::whereIn('shooter_id', $shooterIds)->get();
-            $match->setRelation('stageTimes', $stageTimes);
+            if ($match->isPrs()) {
+                $stageTimes = StageTime::whereIn('shooter_id', $shooterIds)->get();
+                $match->setRelation('stageTimes', $stageTimes);
+            }
         }
 
         return new MatchResource($match);

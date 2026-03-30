@@ -62,6 +62,25 @@ class MatchResource extends JsonResource
                 'time_seconds' => (float) $st->time_seconds,
                 'recorded_at' => $st->recorded_at?->toIso8601String(),
             ])),
+            'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
+                'id' => $s->id,
+                'label' => $s->label,
+                'stage_type' => $s->stage_type->value,
+                'sort_order' => $s->sort_order,
+                'profile' => $s->resolvedProfile() ? [
+                    'name' => $s->resolvedProfile()->name,
+                    'multipliers' => $s->resolvedProfile()->multipliers,
+                ] : null,
+                'targets' => $s->targets->map(fn ($t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'distance_m' => $t->distance_m,
+                    'base_points' => (float) $t->base_points,
+                    'max_shots' => $t->max_shots,
+                    'must_hit_to_advance' => $t->must_hit_to_advance,
+                    'sort_order' => $t->sort_order,
+                ]),
+            ])),
         ];
     }
 }
