@@ -120,6 +120,31 @@
             </div>
         </div>
 
+        <!-- Gong transition interstitial -->
+        <div v-else-if="showGongTransition" class="flex flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
+            <p class="text-sm font-medium uppercase tracking-widest text-slate-400">Next Gong</p>
+
+            <div class="rounded-2xl border border-slate-700 bg-slate-800 px-8 py-8 shadow-lg">
+                <p class="text-5xl font-black">#{{ currentGong?.number }}</p>
+                <p v-if="currentGong?.label" class="mt-2 text-lg text-slate-300">{{ currentGong.label }}</p>
+                <p class="mt-2 text-lg font-semibold text-amber-400">{{ currentGong?.multiplier }}x multiplier</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-700 bg-slate-800/50 px-5 py-3">
+                <p class="text-sm text-slate-400">{{ currentTargetSet?.label }}</p>
+                <p class="text-lg font-bold">{{ currentTargetSet?.distance_meters }}m</p>
+            </div>
+
+            <p class="text-xs text-slate-500">Gong {{ scoringStore.currentGongIndex + 1 }} of {{ currentGongs.length }}</p>
+
+            <button
+                @click="dismissGongTransition"
+                class="w-full max-w-xs rounded-xl bg-red-600 py-4 text-lg font-bold text-white shadow-lg transition-colors hover:bg-red-700 active:scale-95 active:bg-red-800"
+            >
+                Continue Scoring
+            </button>
+        </div>
+
         <!-- Match complete -->
         <div v-else-if="matchComplete" class="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
             <div class="rounded-full bg-green-600/20 p-4">
@@ -279,6 +304,7 @@ const scoringStore = useScoringStore();
 const ready = ref(false);
 const matchComplete = ref(false);
 const showRelaySummary = ref(false);
+const showGongTransition = ref(false);
 
 const isScoped = computed(() => route.name === 'scoped-scoring' && props.squadId && props.targetSetId);
 
@@ -386,13 +412,20 @@ async function recordScore(isHit) {
 function advance() {
     const s = scoringStore;
     if (s.advanceToNextShooter(shooters.value.length)) return;
-    if (s.advanceToNextGong(currentGongs.value.length, shooters.value.length)) return;
+    if (s.advanceToNextGong(currentGongs.value.length, shooters.value.length)) {
+        showGongTransition.value = true;
+        return;
+    }
     if (isScoped.value) {
         showRelaySummary.value = true;
         return;
     }
     if (s.advanceToNextTargetSet(targetSets.value.length)) return;
     matchComplete.value = true;
+}
+
+function dismissGongTransition() {
+    showGongTransition.value = false;
 }
 
 function dismissSummary() {
