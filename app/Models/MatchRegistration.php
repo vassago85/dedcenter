@@ -18,12 +18,28 @@ class MatchRegistration extends Model
         'proof_of_payment_path',
         'amount',
         'admin_notes',
+        'sa_id_number',
+        'caliber',
+        'bullet_brand_type',
+        'bullet_weight',
+        'action_brand',
+        'barrel_brand_length',
+        'trigger_brand',
+        'stock_chassis_brand',
+        'muzzle_brake_silencer_brand',
+        'scope_brand_type',
+        'scope_mount_brand',
+        'bipod_brand',
+        'share_rifle_with',
+        'contact_number',
+        'is_free_entry',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
+            'is_free_entry' => 'boolean',
         ];
     }
 
@@ -75,5 +91,15 @@ class MatchRegistration extends Model
     public function isRejected(): bool
     {
         return $this->payment_status === 'rejected';
+    }
+
+    public function isFreeEntry(): bool
+    {
+        return (bool) $this->is_free_entry;
+    }
+
+    public function scopeSharesRifleWith($query, string $name)
+    {
+        return $query->where('share_rifle_with', $name);
     }
 }

@@ -26,6 +26,7 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $side_bet_enabled = false;
+    public int $concurrent_relays = 2;
     public ?int $season_id = null;
 
     public string $tsDistance = '';
@@ -71,6 +72,7 @@ new #[Layout('components.layouts.app')]
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
+            $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->season_id = $match->season_id;
         }
     }
@@ -88,6 +90,7 @@ new #[Layout('components.layouts.app')]
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['side_bet_enabled'] = $this->scoring_type === 'standard' && $this->side_bet_enabled;
+        $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['season_id'] = $this->season_id;
 
         if ($this->match) {
@@ -707,7 +710,7 @@ new #[Layout('components.layouts.app')]
             </div>
 
             @if($scoring_type === 'standard')
-                <div class="rounded-lg border border-border bg-surface-2/30 p-4">
+                <div class="rounded-lg border border-border bg-surface-2/30 p-4 space-y-4">
                     <label class="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" wire:model="side_bet_enabled"
                                class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
@@ -716,8 +719,17 @@ new #[Layout('components.layouts.app')]
                             <p class="text-xs text-muted">Rank by smallest gong hits with furthest-distance tiebreaker. Winner is whoever hits the most small gongs.</p>
                         </div>
                     </label>
+                    <div class="border-t border-border pt-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-32">
+                                <label class="block text-sm font-medium text-secondary mb-1">Concurrent Relays</label>
+                                <input type="number" wire:model="concurrent_relays" min="1" max="10"
+                                       class="w-full rounded-md border border-slate-600 bg-surface-2 px-3 py-2 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                            </div>
+                            <p class="text-xs text-muted flex-1">How many relays shoot at the same time. Shared-rifle partners will be placed in different concurrent groups.</p>
+                        </div>
+                    </div>
                 </div>
-
             @endif
 
             <div>
@@ -752,10 +764,16 @@ new #[Layout('components.layouts.app')]
                                  wire:confirm="Start this match? Scoring will become available.">
                         Start Match
                     </flux:button>
+                    <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="ghost">
+                        Squadding
+                    </flux:button>
                 @elseif($match->status === MatchStatus::Active)
                     <flux:button wire:click="completeMatch" variant="primary" class="!bg-blue-600 hover:!bg-blue-700"
                                  wire:confirm="Complete this match? It will be marked as finished.">
                         Complete Match
+                    </flux:button>
+                    <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="ghost">
+                        Squadding
                     </flux:button>
                     <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">
                         Open Scoring

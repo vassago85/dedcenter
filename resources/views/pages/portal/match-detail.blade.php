@@ -18,6 +18,22 @@ new #[Layout('components.layouts.portal')]
     public ?MatchRegistration $registration = null;
     public $proofOfPayment;
 
+    // Equipment / registration fields
+    public string $caliber = '';
+    public string $bullet_brand_type = '';
+    public string $bullet_weight = '';
+    public string $action_brand = '';
+    public string $barrel_brand_length = '';
+    public string $trigger_brand = '';
+    public string $stock_chassis_brand = '';
+    public string $muzzle_brake_silencer_brand = '';
+    public string $scope_brand_type = '';
+    public string $scope_mount_brand = '';
+    public string $bipod_brand = '';
+    public string $share_rifle_with = '';
+    public string $contact_number = '';
+    public string $sa_id_number = '';
+
     public function mount(Organization $organization, ShootingMatch $match): void
     {
         $this->organization = $organization;
@@ -46,6 +62,23 @@ new #[Layout('components.layouts.portal')]
             return;
         }
 
+        $this->validate([
+            'caliber' => 'required|string|max:255',
+            'bullet_brand_type' => 'required|string|max:255',
+            'bullet_weight' => 'required|string|max:100',
+            'barrel_brand_length' => 'required|string|max:255',
+            'trigger_brand' => 'required|string|max:255',
+            'stock_chassis_brand' => 'required|string|max:255',
+            'muzzle_brake_silencer_brand' => 'required|string|max:255',
+            'scope_brand_type' => 'required|string|max:255',
+            'scope_mount_brand' => 'required|string|max:255',
+            'bipod_brand' => 'required|string|max:255',
+            'contact_number' => 'required|string|max:50',
+            'sa_id_number' => 'nullable|string|max:20',
+            'action_brand' => 'nullable|string|max:255',
+            'share_rifle_with' => 'nullable|string|max:255',
+        ]);
+
         $ref = MatchRegistration::generatePaymentReference(auth()->user());
 
         $this->registration = MatchRegistration::create([
@@ -54,6 +87,20 @@ new #[Layout('components.layouts.portal')]
             'payment_reference' => $ref,
             'payment_status' => $this->match->isFree() ? 'confirmed' : 'pending_payment',
             'amount' => $this->match->entry_fee,
+            'sa_id_number' => $this->sa_id_number ?: null,
+            'caliber' => $this->caliber,
+            'bullet_brand_type' => $this->bullet_brand_type,
+            'bullet_weight' => $this->bullet_weight,
+            'action_brand' => $this->action_brand ?: null,
+            'barrel_brand_length' => $this->barrel_brand_length,
+            'trigger_brand' => $this->trigger_brand,
+            'stock_chassis_brand' => $this->stock_chassis_brand,
+            'muzzle_brake_silencer_brand' => $this->muzzle_brake_silencer_brand,
+            'scope_brand_type' => $this->scope_brand_type,
+            'scope_mount_brand' => $this->scope_mount_brand,
+            'bipod_brand' => $this->bipod_brand,
+            'share_rifle_with' => $this->share_rifle_with ?: null,
+            'contact_number' => $this->contact_number,
         ]);
 
         if ($this->match->isFree()) {
@@ -171,11 +218,107 @@ new #[Layout('components.layouts.portal')]
 
         @auth
             @if(! $registration)
-                <p class="text-sm text-muted">Register to participate in this match.</p>
-                <button wire:click="register" wire:confirm="Register for this match?"
-                        class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">
-                    Register for this Match
-                </button>
+                <p class="text-sm text-muted">Fill in your equipment details and register for this match.</p>
+
+                <form wire:submit="register" class="space-y-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium text-secondary mb-1">SA ID Number</label>
+                            <input type="text" wire:model="sa_id_number" placeholder="Optional"
+                                   class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-secondary mb-1">Contact Number *</label>
+                            <input type="text" wire:model="contact_number" placeholder="e.g. 071 480 7251" required
+                                   class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                            @error('contact_number') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="border-t border-white/10 pt-4">
+                        <h3 class="text-sm font-semibold text-primary mb-3">Rifle & Equipment</h3>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Caliber *</label>
+                                <input type="text" wire:model="caliber" placeholder="e.g. .308 Win" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('caliber') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Action Brand</label>
+                                <input type="text" wire:model="action_brand" placeholder="Optional"
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Bullet Brand & Type *</label>
+                                <input type="text" wire:model="bullet_brand_type" placeholder="e.g. Lapua Scenar" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('bullet_brand_type') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Bullet Weight *</label>
+                                <input type="text" wire:model="bullet_weight" placeholder="e.g. 175gr" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('bullet_weight') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Barrel Brand & Length *</label>
+                                <input type="text" wire:model="barrel_brand_length" placeholder="e.g. Krieger 26&quot;" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('barrel_brand_length') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Trigger Brand *</label>
+                                <input type="text" wire:model="trigger_brand" placeholder="e.g. Triggertech Diamond" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('trigger_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Stock / Chassis Brand *</label>
+                                <input type="text" wire:model="stock_chassis_brand" placeholder="e.g. MDT ACC" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('stock_chassis_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Muzzle Brake / Silencer Brand *</label>
+                                <input type="text" wire:model="muzzle_brake_silencer_brand" placeholder="e.g. Area 419 Hellfire" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('muzzle_brake_silencer_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Scope Brand & Type *</label>
+                                <input type="text" wire:model="scope_brand_type" placeholder="e.g. Nightforce ATACR" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('scope_brand_type') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Scope Mount Brand *</label>
+                                <input type="text" wire:model="scope_mount_brand" placeholder="e.g. Spuhr" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('scope_mount_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Bipod Brand *</label>
+                                <input type="text" wire:model="bipod_brand" placeholder="e.g. Atlas CAL" required
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                @error('bipod_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-secondary mb-1">Share Rifle with?</label>
+                                <input type="text" wire:model="share_rifle_with" placeholder="Name of person (leave blank if N/A)"
+                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                                <p class="mt-1 text-xs text-muted">If sharing, you won't be placed in relays that shoot at the same time.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="submit"
+                                class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">
+                            Register for this Match
+                        </button>
+                    </div>
+                </form>
 
             @elseif($registration->isConfirmed())
                 <div class="rounded-lg border border-green-800 bg-green-900/20 p-4">

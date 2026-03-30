@@ -13,6 +13,8 @@ new #[Layout('components.layouts.app')]
     class extends Component {
     public string $filter = 'proof_submitted';
 
+    public ?int $expandedRegId = null;
+
     public function approve(int $id): void
     {
         $reg = MatchRegistration::findOrFail($id);
@@ -36,12 +38,36 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Registration approved. Shooter added to match.', variant: 'success');
     }
 
+    public function approveFreeEntry(int $id): void
+    {
+        $reg = MatchRegistration::findOrFail($id);
+        $reg->update(['payment_status' => 'confirmed', 'is_free_entry' => true, 'amount' => 0]);
+
+        $match = $reg->match;
+        $squad = $match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
+        $maxSort = $squad->shooters()->max('sort_order') ?? 0;
+
+        Shooter::create([
+            'squad_id' => $squad->id,
+            'name' => $reg->user->name,
+            'user_id' => $reg->user_id,
+            'sort_order' => $maxSort + 1,
+        ]);
+
+        Flux::toast('Free entry approved. Shooter added to match.', variant: 'success');
+    }
+
     public function reject(int $id): void
     {
         $reg = MatchRegistration::findOrFail($id);
         $reg->update(['payment_status' => 'rejected']);
 
         Flux::toast('Registration rejected.', variant: 'warning');
+    }
+
+    public function toggleDetails(int $id): void
+    {
+        $this->expandedRegId = $this->expandedRegId === $id ? null : $id;
     }
 
     public function with(): array
@@ -94,8 +120,13 @@ new #[Layout('components.layouts.app')]
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($registrations as $reg)
-                            <tr class="hover:bg-surface-2/30 transition-colors" wire:key="reg-{{ $reg->id }}">
-                                <td class="px-6 py-3 text-primary">{{ $reg->user->name }}</td>
+                            <tr class="hover:bg-surface-2/30 transition-colors cursor-pointer" wire:key="reg-{{ $reg->id }}" wire:click="toggleDetails({{ $reg->id }})">
+                                <td class="px-6 py-3 text-primary">
+                                    {{ $reg->user->name }}
+                                    @if($reg->share_rifle_with)
+                                        <span class="ml-1 rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">Shares rifle</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-3 text-secondary">{{ $reg->match->name }}</td>
                                 <td class="px-6 py-3 font-mono text-xs text-muted">{{ $reg->payment_reference }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $reg->amount ? 'R'.number_format($reg->amount, 2) : 'Free' }}</td>
@@ -118,7 +149,7 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3">
                                     @if($reg->proof_of_payment_path)
                                         <a href="{{ Storage::url($reg->proof_of_payment_path) }}" target="_blank"
-                                           class="text-accent hover:text-accent text-xs font-medium">
+                                           class="text-accent hover:text-accent text-xs font-medium" onclick="event.stopPropagation()">
                                             View POP
                                         </a>
                                     @else
@@ -126,7 +157,7 @@ new #[Layout('components.layouts.app')]
                                     @endif
                                 </td>
                                 <td class="px-6 py-3 text-muted text-xs">{{ $reg->created_at->format('d M Y H:i') }}</td>
-                                <td class="px-6 py-3 text-right">
+                                <td class="px-6 py-3 text-right" onclick="event.stopPropagation()">
                                     @if($reg->payment_status === 'proof_submitted')
                                         <div class="flex items-center justify-end gap-2">
                                             <flux:button size="sm" variant="primary" class="!bg-green-600 hover:!bg-green-700"
@@ -141,8 +172,37 @@ new #[Layout('components.layouts.app')]
                                             </flux:button>
                                         </div>
                                     @endif
+                                    @if($reg->payment_status === 'pending_payment' || $reg->payment_status === 'proof_submitted')
+                                        <flux:button size="sm" variant="ghost" class="!text-emerald-400 hover:!text-emerald-300 mt-1"
+                                                     wire:click="approveFreeEntry({{ $reg->id }})"
+                                                     wire:confirm="Mark as free entry and approve? Payment will be waived.">
+                                            Free Entry
+                                        </flux:button>
+                                    @endif
                                 </td>
                             </tr>
+                            @if($expandedRegId === $reg->id && $reg->caliber)
+                                <tr wire:key="reg-detail-{{ $reg->id }}">
+                                    <td colspan="8" class="px-6 py-4 bg-surface-2/20">
+                                        <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-xs sm:grid-cols-4">
+                                            @if($reg->caliber)<div><span class="text-muted">Caliber:</span> <span class="text-secondary">{{ $reg->caliber }}</span></div>@endif
+                                            @if($reg->bullet_brand_type)<div><span class="text-muted">Bullet:</span> <span class="text-secondary">{{ $reg->bullet_brand_type }}</span></div>@endif
+                                            @if($reg->bullet_weight)<div><span class="text-muted">Weight:</span> <span class="text-secondary">{{ $reg->bullet_weight }}</span></div>@endif
+                                            @if($reg->action_brand)<div><span class="text-muted">Action:</span> <span class="text-secondary">{{ $reg->action_brand }}</span></div>@endif
+                                            @if($reg->barrel_brand_length)<div><span class="text-muted">Barrel:</span> <span class="text-secondary">{{ $reg->barrel_brand_length }}</span></div>@endif
+                                            @if($reg->trigger_brand)<div><span class="text-muted">Trigger:</span> <span class="text-secondary">{{ $reg->trigger_brand }}</span></div>@endif
+                                            @if($reg->stock_chassis_brand)<div><span class="text-muted">Stock/Chassis:</span> <span class="text-secondary">{{ $reg->stock_chassis_brand }}</span></div>@endif
+                                            @if($reg->muzzle_brake_silencer_brand)<div><span class="text-muted">Muzzle/Silencer:</span> <span class="text-secondary">{{ $reg->muzzle_brake_silencer_brand }}</span></div>@endif
+                                            @if($reg->scope_brand_type)<div><span class="text-muted">Scope:</span> <span class="text-secondary">{{ $reg->scope_brand_type }}</span></div>@endif
+                                            @if($reg->scope_mount_brand)<div><span class="text-muted">Mount:</span> <span class="text-secondary">{{ $reg->scope_mount_brand }}</span></div>@endif
+                                            @if($reg->bipod_brand)<div><span class="text-muted">Bipod:</span> <span class="text-secondary">{{ $reg->bipod_brand }}</span></div>@endif
+                                            @if($reg->contact_number)<div><span class="text-muted">Contact:</span> <span class="text-secondary">{{ $reg->contact_number }}</span></div>@endif
+                                            @if($reg->sa_id_number)<div><span class="text-muted">SA ID:</span> <span class="text-secondary">{{ $reg->sa_id_number }}</span></div>@endif
+                                            @if($reg->share_rifle_with)<div class="col-span-2"><span class="text-amber-400 font-medium">Shares rifle with:</span> <span class="text-secondary">{{ $reg->share_rifle_with }}</span></div>@endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>

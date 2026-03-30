@@ -22,6 +22,7 @@ class ShootingMatch extends Model
         'status',
         'scoring_type',
         'side_bet_enabled',
+        'concurrent_relays',
         'elr_scoring_profile_id',
         'notes',
         'created_by',
@@ -36,6 +37,7 @@ class ShootingMatch extends Model
             'date' => 'date',
             'status' => MatchStatus::class,
             'side_bet_enabled' => 'boolean',
+            'concurrent_relays' => 'integer',
             'entry_fee' => 'decimal:2',
         ];
     }
@@ -133,5 +135,17 @@ class ShootingMatch extends Model
     public function isElr(): bool
     {
         return $this->scoring_type === 'elr';
+    }
+
+    /**
+     * Group relays into concurrent blocks based on concurrent_relays setting.
+     * E.g. concurrent_relays=2, 8 squads → [[1,2],[3,4],[5,6],[7,8]] (using squad IDs).
+     */
+    public function concurrentRelayGroups(): array
+    {
+        $squads = $this->squads()->orderBy('sort_order')->pluck('id')->all();
+        $size = max(1, $this->concurrent_relays ?? 2);
+
+        return array_chunk($squads, $size);
     }
 }
