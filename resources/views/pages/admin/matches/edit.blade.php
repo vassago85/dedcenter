@@ -576,7 +576,7 @@ new #[Layout('components.layouts.app')]
                 <div class="mt-4 border-t border-border pt-4">
                     <h3 class="text-sm font-medium text-secondary mb-3">Live Scoreboard</h3>
                     <div class="flex items-start gap-4">
-                        <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0">{!! $qrCodeSvg !!}</div>
+                        <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0"><img src="{{ $qrCodeSvg }}" alt="QR Code" class="w-full h-full" /></div>
                         <div class="space-y-2">
                             <p class="text-xs text-muted">Share this QR code for spectators to follow scores live on their phones.</p>
                             <div class="flex items-center gap-2">
