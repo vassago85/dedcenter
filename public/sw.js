@@ -1,7 +1,8 @@
 const CACHE_NAME = 'deadcenter-v1';
 const STATIC_ASSETS = [
     '/score',
-    '/manifest.webmanifest',
+    '/offline.html',
+    '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
 ];
