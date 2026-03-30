@@ -18,6 +18,7 @@ class Shooter extends Model
         'user_id',
         'match_division_id',
         'sort_order',
+        'status',
     ];
 
     protected function casts(): array
@@ -25,6 +26,21 @@ class Shooter extends Model
         return [
             'sort_order' => 'integer',
         ];
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function isWithdrawn(): bool
+    {
+        return $this->status === 'withdrawn';
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
     }
 
     // ── Relationships ──

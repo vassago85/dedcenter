@@ -26,7 +26,7 @@ class MatchController extends Controller
             'targetSets' => fn ($q) => $q->orderBy('sort_order'),
             'targetSets.gongs' => fn ($q) => $q->orderBy('number'),
             'squads' => fn ($q) => $q->orderBy('sort_order'),
-            'squads.shooters' => fn ($q) => $q->orderBy('sort_order'),
+            'squads.shooters' => fn ($q) => $q->active()->orderBy('sort_order'),
             'squads.shooters.division',
             'squads.shooters.categories',
             'divisions' => fn ($q) => $q->orderBy('sort_order'),

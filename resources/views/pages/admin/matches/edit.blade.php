@@ -301,10 +301,35 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Shooter added.', variant: 'success');
     }
 
+    public function toggleShooterStatus(int $id): void
+    {
+        $shooter = Shooter::findOrFail($id);
+        $shooter->update([
+            'status' => $shooter->isActive() ? 'withdrawn' : 'active',
+        ]);
+
+        $label = $shooter->isActive() ? 'reactivated' : 'withdrawn';
+        Flux::toast("Shooter {$label}.", variant: 'success');
+    }
+
     public function deleteShooter(int $id): void
     {
         Shooter::destroy($id);
-        Flux::toast('Shooter deleted.', variant: 'success');
+        Flux::toast('Shooter removed permanently.', variant: 'success');
+    }
+
+    public function moveShooter(int $shooterId, int $targetSquadId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
+
+        $maxSort = Shooter::where('squad_id', $targetSquadId)->max('sort_order') ?? 0;
+        $shooter->update([
+            'squad_id' => $targetSquadId,
+            'sort_order' => $maxSort + 1,
+        ]);
+
+        Flux::toast("Moved {$shooter->name} to {$targetSquad->name}.", variant: 'success');
     }
 
     public function updateShooterDivision(int $shooterId, string $value): void
@@ -833,11 +858,17 @@ new #[Layout('components.layouts.app')]
                                     </thead>
                                     <tbody class="divide-y divide-slate-700/50">
                                         @foreach($squad->shooters->sortBy('sort_order') as $shooter)
-                                            <tr wire:key="shooter-{{ $shooter->id }}">
-                                                <td class="px-3 py-2 text-secondary">{{ $shooter->name }}</td>
+                                            <tr wire:key="shooter-{{ $shooter->id }}" class="{{ $shooter->isWithdrawn() ? 'opacity-40' : '' }}">
+                                                <td class="px-3 py-2 {{ $shooter->isWithdrawn() ? 'line-through text-muted' : 'text-secondary' }}">
+                                                    {{ $shooter->name }}
+                                                    @if($shooter->isWithdrawn())
+                                                        <span class="ml-1 text-[10px] font-medium uppercase text-amber-400 no-underline inline-block" style="text-decoration:none;">DNS</span>
+                                                    @endif
+                                                </td>
                                                 <td class="px-3 py-2 text-secondary">{{ $shooter->bib_number ?? '—' }}</td>
                                                 @if($divisions->isNotEmpty())
                                                     <td class="px-3 py-2">
+                                                        @if($shooter->isActive())
                                                         <select class="rounded border border-slate-600 bg-surface-2 px-2 py-1 text-xs text-primary focus:border-red-500"
                                                                 wire:change="updateShooterDivision({{ $shooter->id }}, $event.target.value)">
                                                             <option value="" {{ !$shooter->match_division_id ? 'selected' : '' }}>—</option>
@@ -845,10 +876,14 @@ new #[Layout('components.layouts.app')]
                                                                 <option value="{{ $d->id }}" {{ $shooter->match_division_id == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
                                                             @endforeach
                                                         </select>
+                                                        @else
+                                                            <span class="text-xs text-muted">{{ $shooter->division?->name ?? '—' }}</span>
+                                                        @endif
                                                     </td>
                                                 @endif
                                                 @if($categories->isNotEmpty())
                                                     <td class="px-3 py-2">
+                                                        @if($shooter->isActive())
                                                         <div class="flex flex-wrap gap-1" x-data="{ cats: {{ json_encode($shooter->categories->pluck('id')->toArray()) }} }">
                                                             @foreach($categories as $cat)
                                                                 <label class="inline-flex items-center gap-0.5 cursor-pointer">
@@ -864,13 +899,52 @@ new #[Layout('components.layouts.app')]
                                                                 </label>
                                                             @endforeach
                                                         </div>
+                                                        @else
+                                                            <span class="text-xs text-muted">—</span>
+                                                        @endif
                                                     </td>
                                                 @endif
-                                                <td class="px-3 py-2 text-right">
-                                                    <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
-                                                                 wire:click="deleteShooter({{ $shooter->id }})">
-                                                        &times;
-                                                    </flux:button>
+                                                <td class="px-3 py-2 text-right whitespace-nowrap">
+                                                    <div class="flex items-center justify-end gap-1" x-data="{ showMenu: false }">
+                                                        @if($shooter->isActive())
+                                                            <button wire:click="toggleShooterStatus({{ $shooter->id }})"
+                                                                    class="rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-400 hover:bg-amber-400/10 transition-colors"
+                                                                    title="Mark as no-show / withdrawn">
+                                                                DNS
+                                                            </button>
+                                                        @else
+                                                            <button wire:click="toggleShooterStatus({{ $shooter->id }})"
+                                                                    class="rounded px-1.5 py-0.5 text-[10px] font-medium text-green-400 hover:bg-green-400/10 transition-colors"
+                                                                    title="Reactivate shooter">
+                                                                Activate
+                                                            </button>
+                                                        @endif
+                                                        @if($this->match->squads->count() > 1)
+                                                            <div class="relative" @click.away="showMenu = false">
+                                                                <button @click="showMenu = !showMenu"
+                                                                        class="rounded px-1 py-0.5 text-xs text-muted hover:text-secondary transition-colors"
+                                                                        title="Move to squad">
+                                                                    &#8644;
+                                                                </button>
+                                                                <div x-show="showMenu" x-transition
+                                                                     class="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
+                                                                    @foreach($this->match->squads->where('id', '!=', $squad->id) as $otherSquad)
+                                                                        <button wire:click="moveShooter({{ $shooter->id }}, {{ $otherSquad->id }})"
+                                                                                @click="showMenu = false"
+                                                                                class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors">
+                                                                            {{ $otherSquad->name }}
+                                                                        </button>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                        @endif
+                                                        <button wire:click="deleteShooter({{ $shooter->id }})"
+                                                                wire:confirm="Permanently delete {{ $shooter->name }}? This removes all their scores."
+                                                                class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors"
+                                                                title="Delete permanently">
+                                                            &times;
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         @endforeach
