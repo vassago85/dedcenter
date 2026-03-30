@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
-import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
     plugins: [
@@ -17,56 +16,6 @@ export default defineConfig({
         }),
         tailwindcss(),
         vue(),
-        VitePWA({
-            registerType: 'autoUpdate',
-            manifest: {
-                name: 'DeadCenter Scoring',
-                short_name: 'DeadCenter',
-                description: 'Offline-first shooting match scoring',
-                start_url: '/score',
-                scope: '/score',
-                display: 'standalone',
-                orientation: 'portrait',
-                theme_color: '#08142b',
-                background_color: '#08142b',
-                icons: [
-                    {
-                        src: '/icons/icon-192.png',
-                        sizes: '192x192',
-                        type: 'image/png',
-                        purpose: 'any',
-                    },
-                    {
-                        src: '/icons/icon-512.png',
-                        sizes: '512x512',
-                        type: 'image/png',
-                        purpose: 'any',
-                    },
-                    {
-                        src: '/icons/icon-maskable-512.png',
-                        sizes: '512x512',
-                        type: 'image/png',
-                        purpose: 'maskable',
-                    },
-                ],
-            },
-            workbox: {
-                runtimeCaching: [
-                    {
-                        urlPattern: /^https?:\/\/.*\/api\/.*/i,
-                        handler: 'NetworkFirst',
-                        options: {
-                            cacheName: 'api-cache',
-                            expiration: {
-                                maxEntries: 100,
-                                maxAgeSeconds: 60 * 60 * 24,
-                            },
-                            networkTimeoutSeconds: 10,
-                        },
-                    },
-                ],
-            },
-        }),
     ],
     server: {
         watch: {
