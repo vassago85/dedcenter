@@ -10,6 +10,7 @@ use App\Models\Squad;
 use App\Models\Shooter;
 use App\Enums\MatchStatus;
 use chillerlan\QRCode\{QRCode, QROptions};
+use chillerlan\QRCode\Output\QRMarkupSVG;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -358,7 +359,7 @@ new #[Layout('components.layouts.app')]
 
             if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed])) {
                 $liveUrl = route('live', $this->match);
-                $options = new QROptions(['outputType' => QRCode::OUTPUT_MARKUP_SVG, 'svgUseCssProperties' => false, 'scale' => 5]);
+                $options = new QROptions(['outputInterface' => QRMarkupSVG::class, 'svgUseCssProperties' => false, 'scale' => 5]);
                 $data['qrCodeSvg'] = (new QRCode($options))->render($liveUrl);
                 $data['liveUrl'] = $liveUrl;
             }
