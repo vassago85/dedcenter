@@ -13,30 +13,64 @@ new #[Layout('components.layouts.app')]
     class extends Component {
     public Organization $organization;
     public string $search = '';
+    public string $tab = 'active';
 
-    public function deleteMatch(int $id): void
+    private function authorizeMatch(ShootingMatch $match): bool
+    {
+        if ($match->created_by !== auth()->id() && !auth()->user()->isAdmin()) {
+            Flux::toast('Only the match creator can manage this match.', variant: 'danger');
+            return false;
+        }
+        return true;
+    }
+
+    public function archiveMatch(int $id): void
     {
         $match = $this->organization->matches()->findOrFail($id);
-
-        if ($match->created_by !== auth()->id() && !auth()->user()->isAdmin()) {
-            Flux::toast('Only the match creator can delete this match.', variant: 'danger');
-            return;
-        }
+        if (!$this->authorizeMatch($match)) return;
 
         $match->delete();
-        Flux::toast('Match deleted.', variant: 'success');
+        Flux::toast('Match archived.', variant: 'success');
+    }
+
+    public function restoreMatch(int $id): void
+    {
+        $match = $this->organization->matches()->onlyTrashed()->findOrFail($id);
+        if (!$this->authorizeMatch($match)) return;
+
+        $match->restore();
+        Flux::toast('Match restored.', variant: 'success');
+    }
+
+    public function forceDeleteMatch(int $id): void
+    {
+        $match = $this->organization->matches()->onlyTrashed()->findOrFail($id);
+        if (!$this->authorizeMatch($match)) return;
+
+        $match->forceDelete();
+        Flux::toast('Match permanently deleted.', variant: 'danger');
     }
 
     public function with(): array
     {
-        $matches = $this->organization->matches()
+        $query = $this->tab === 'archived'
+            ? $this->organization->matches()->onlyTrashed()
+            : $this->organization->matches();
+
+        $matches = $query
             ->with('creator:id,name')
             ->withCount(['shooters', 'registrations'])
             ->when($this->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->latest('date')
             ->get();
 
-        return ['matches' => $matches, 'isGlobalAdmin' => auth()->user()->isAdmin()];
+        $archivedCount = $this->organization->matches()->onlyTrashed()->count();
+
+        return [
+            'matches' => $matches,
+            'isGlobalAdmin' => auth()->user()->isAdmin(),
+            'archivedCount' => $archivedCount,
+        ];
     }
 }; ?>
 
@@ -54,14 +88,37 @@ new #[Layout('components.layouts.app')]
         </flux:button>
     </div>
 
-    <div class="max-w-sm">
-        <flux:input wire:model.live.debounce.300ms="search" placeholder="Search matches..." icon="magnifying-glass" />
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex gap-2">
+            <button wire:click="$set('tab', 'active')"
+                    class="rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $tab === 'active' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary' }}">
+                Active
+            </button>
+            <button wire:click="$set('tab', 'archived')"
+                    class="rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $tab === 'archived' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary' }}">
+                Archived
+                @if($archivedCount > 0)
+                    <span class="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-xs">{{ $archivedCount }}</span>
+                @endif
+            </button>
+        </div>
+        <div class="max-w-sm flex-1">
+            <flux:input wire:model.live.debounce.300ms="search" placeholder="Search matches..." icon="magnifying-glass" />
+        </div>
     </div>
 
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($matches->isEmpty())
             <div class="px-6 py-12 text-center">
-                <p class="text-muted">{{ $search ? "No matches found for \"{$search}\"." : 'No matches yet.' }}</p>
+                <p class="text-muted">
+                    @if($search)
+                        No matches found for "{{ $search }}".
+                    @elseif($tab === 'archived')
+                        No archived matches.
+                    @else
+                        No matches yet. Create your first one!
+                    @endif
+                </p>
             </div>
         @else
             <div class="overflow-x-auto">
@@ -84,11 +141,15 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3 font-medium text-primary">{{ $match->name }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
                                 <td class="px-6 py-3">
-                                    @switch($match->status)
-                                        @case(MatchStatus::Draft) <flux:badge size="sm" color="zinc">Draft</flux:badge> @break
-                                        @case(MatchStatus::Active) <flux:badge size="sm" color="green">Active</flux:badge> @break
-                                        @case(MatchStatus::Completed) <flux:badge size="sm" color="blue">Completed</flux:badge> @break
-                                    @endswitch
+                                    @if($tab === 'archived')
+                                        <flux:badge size="sm" color="zinc">Archived</flux:badge>
+                                    @else
+                                        @switch($match->status)
+                                            @case(MatchStatus::Draft) <flux:badge size="sm" color="zinc">Draft</flux:badge> @break
+                                            @case(MatchStatus::Active) <flux:badge size="sm" color="green">Active</flux:badge> @break
+                                            @case(MatchStatus::Completed) <flux:badge size="sm" color="blue">Completed</flux:badge> @break
+                                        @endswitch
+                                    @endif
                                 </td>
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->registrations_count }}</td>
@@ -101,12 +162,29 @@ new #[Layout('components.layouts.app')]
                                 </td>
                                 <td class="px-6 py-3 text-right">
                                     @if($match->created_by === auth()->id() || $isGlobalAdmin)
-                                        <div class="flex items-center justify-end gap-2">
-                                            <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" size="sm" variant="ghost">Edit</flux:button>
-                                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
-                                                         wire:click="deleteMatch({{ $match->id }})"
-                                                         wire:confirm="Delete this match?">Delete</flux:button>
-                                        </div>
+                                        @if($tab === 'archived')
+                                            <div class="flex items-center justify-end gap-2">
+                                                <flux:button size="sm" variant="ghost"
+                                                             wire:click="restoreMatch({{ $match->id }})"
+                                                             wire:confirm="Restore this match?">
+                                                    Restore
+                                                </flux:button>
+                                                <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
+                                                             wire:click="forceDeleteMatch({{ $match->id }})"
+                                                             wire:confirm="Permanently delete this match? This cannot be undone.">
+                                                    Delete Forever
+                                                </flux:button>
+                                            </div>
+                                        @else
+                                            <div class="flex items-center justify-end gap-2">
+                                                <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" size="sm" variant="ghost">Edit</flux:button>
+                                                <flux:button size="sm" variant="ghost" class="!text-amber-500 hover:!text-amber-400"
+                                                             wire:click="archiveMatch({{ $match->id }})"
+                                                             wire:confirm="Archive this match? You can restore it later.">
+                                                    Archive
+                                                </flux:button>
+                                            </div>
+                                        @endif
                                     @else
                                         <span class="text-xs text-muted/60">—</span>
                                     @endif
