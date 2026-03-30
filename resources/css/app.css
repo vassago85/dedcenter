@@ -145,6 +145,23 @@
 }
 
 /* ── Buttons ── */
+:where([data-flux-button]) {
+    color: #ffffff !important;
+}
+:where([data-flux-button][data-variant="primary"]) {
+    color: #ffffff !important;
+    background: var(--color-accent) !important;
+}
+:where([data-flux-button][data-variant="primary"]):hover {
+    background: var(--color-accent-hover) !important;
+}
+:where([data-flux-button][data-variant="filled"]) {
+    color: #ffffff !important;
+    background: var(--color-surface-2) !important;
+}
+:where([data-flux-button][data-variant="filled"]):hover {
+    background: var(--color-border) !important;
+}
 :where([data-flux-button][data-variant="ghost"]) {
     color: var(--color-secondary) !important;
 }
@@ -159,6 +176,13 @@
 :where([data-flux-button][data-variant="subtle"]):hover {
     color: #ffffff !important;
     background: var(--color-surface-2) !important;
+}
+:where([data-flux-button][data-variant="danger"]) {
+    color: #ffffff !important;
+    background: #dc2626 !important;
+}
+:where([data-flux-button][data-variant="danger"]):hover {
+    background: #b91c1c !important;
 }
 
 /* ── Separator ── */

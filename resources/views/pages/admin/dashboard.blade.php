@@ -37,12 +37,12 @@ new #[Layout('components.layouts.app')]
             <h1 class="text-2xl font-bold text-white">Dashboard</h1>
             <p class="mt-1 text-sm text-secondary">Logged in as <span class="font-medium text-amber-400">{{ auth()->user()->roleLabel() }}</span></p>
         </div>
-        <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="!bg-accent hover:!bg-accent-hover">
-            <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <a href="{{ route('admin.matches.create') }}" class="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover transition-colors">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             New Match
-        </flux:button>
+        </a>
     </div>
 
     {{-- Stats --}}
