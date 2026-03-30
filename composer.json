@@ -15,7 +15,9 @@
         "livewire/flux": "^2.13",
         "livewire/livewire": "^4.2",
         "livewire/volt": "^1.10",
-        "pestphp/pest": "^4.4"
+        "pestphp/pest": "^4.4",
+        "symfony/http-client": "^7.0",
+        "symfony/mailgun-mailer": "^7.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
