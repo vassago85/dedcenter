@@ -47,6 +47,75 @@
             <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-red-500"></div>
         </div>
 
+        <!-- Relay summary -->
+        <div v-else-if="showRelaySummary" class="flex flex-1 flex-col px-4 py-6">
+            <div class="mx-auto w-full max-w-lg space-y-4">
+                <div class="text-center">
+                    <h2 class="text-xl font-bold">Relay {{ scopedRelayIndex }} Summary</h2>
+                    <p class="text-sm text-slate-400">{{ currentTargetSet?.label }} &mdash; {{ currentTargetSet?.distance_meters }}m</p>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-700 text-slate-400">
+                                <th class="px-3 py-2.5 text-left font-medium">Shooter</th>
+                                <th
+                                    v-for="gong in (currentTargetSet?.gongs ?? [])"
+                                    :key="'gh-' + gong.id"
+                                    class="px-2 py-2.5 text-center font-medium whitespace-nowrap"
+                                >
+                                    #{{ gong.number }}
+                                </th>
+                                <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
+                                <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
+                                <th class="px-3 py-2.5 text-right font-bold">Score</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700/50">
+                            <tr
+                                v-for="row in relaySummary"
+                                :key="'sr-' + row.shooter.id"
+                                class="transition-colors hover:bg-slate-700/30"
+                            >
+                                <td class="px-3 py-2 font-medium">
+                                    {{ row.shooter.name }}
+                                    <span v-if="row.shooter.bib_number" class="text-xs text-slate-500 ml-1">#{{ row.shooter.bib_number }}</span>
+                                </td>
+                                <td
+                                    v-for="(result, gi) in row.gongResults"
+                                    :key="'sg-' + row.shooter.id + '-' + gi"
+                                    class="px-2 py-2 text-center"
+                                >
+                                    <span v-if="result === 'hit'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-600/30 text-xs font-bold text-green-400">&#10003;</span>
+                                    <span v-else-if="result === 'miss'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600/30 text-xs font-bold text-red-400">&#10007;</span>
+                                    <span v-else class="text-slate-600">&mdash;</span>
+                                </td>
+                                <td class="px-3 py-2 text-center tabular-nums text-green-400">{{ row.hits }}</td>
+                                <td class="px-3 py-2 text-center tabular-nums text-red-400">{{ row.misses }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums font-bold">{{ row.total }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex flex-col gap-3 pt-2">
+                    <button
+                        @click="scoringStore.syncScores()"
+                        class="w-full rounded-xl bg-green-600 py-3 font-semibold text-white transition-colors hover:bg-green-700"
+                    >
+                        Sync Scores
+                    </button>
+                    <button
+                        @click="dismissSummary"
+                        class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Match complete -->
         <div v-else-if="matchComplete" class="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
             <div class="rounded-full bg-green-600/20 p-4">
@@ -205,6 +274,7 @@ const matchStore = useMatchStore();
 const scoringStore = useScoringStore();
 const ready = ref(false);
 const matchComplete = ref(false);
+const showRelaySummary = ref(false);
 
 const isScoped = computed(() => route.name === 'scoped-scoring' && props.squadId && props.targetSetId);
 
@@ -285,6 +355,25 @@ const isFirst = computed(() => {
         scoringStore.currentShooterIndex === 0;
 });
 
+const relaySummary = computed(() => {
+    if (!currentTargetSet.value || !shooters.value.length) return [];
+    const gongs = currentTargetSet.value.gongs ?? [];
+    return shooters.value.map(shooter => {
+        let hits = 0;
+        let misses = 0;
+        const gongResults = gongs.map(gong => {
+            const score = scoringStore.getScore(shooter.id, gong.id);
+            if (score?.isHit === true) { hits++; return 'hit'; }
+            if (score?.isHit === false) { misses++; return 'miss'; }
+            return null;
+        });
+        const total = gongs.reduce((sum, gong, i) => {
+            return sum + (gongResults[i] === 'hit' ? (gong.multiplier ?? 1) : 0);
+        }, 0);
+        return { shooter, gongResults, hits, misses, total };
+    });
+});
+
 async function recordScore(isHit) {
     if (!currentShooter.value || !currentGong.value) return;
     await scoringStore.recordScore(currentShooter.value.id, currentGong.value.id, isHit);
@@ -295,7 +384,21 @@ function advance() {
     const s = scoringStore;
     if (s.advanceToNextShooter(shooters.value.length)) return;
     if (s.advanceToNextGong(currentGongs.value.length, shooters.value.length)) return;
+    if (isScoped.value) {
+        showRelaySummary.value = true;
+        return;
+    }
     if (s.advanceToNextTargetSet(targetSets.value.length)) return;
+    matchComplete.value = true;
+}
+
+function dismissSummary() {
+    showRelaySummary.value = false;
+    if (isScoped.value) {
+        matchComplete.value = true;
+        return;
+    }
+    if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
     matchComplete.value = true;
 }
 
