@@ -16,11 +16,135 @@ class ScoreboardController extends Controller
 {
     public function show(Request $request, ShootingMatch $match)
     {
+        if ($request->boolean('detailed')) {
+            return $this->detailedScoreboard($match, $request);
+        }
+
         if ($match->isPrs()) {
             return $this->prsScoreboard($match, $request);
         }
 
         return $this->standardScoreboard($match, $request);
+    }
+
+    private function detailedScoreboard(ShootingMatch $match, Request $request)
+    {
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        $targetSetsPayload = $targetSets->map(fn ($ts) => [
+            'id' => $ts->id,
+            'label' => $ts->label,
+            'distance_meters' => $ts->distance_meters,
+            'gongs' => $ts->gongs->map(fn ($g) => [
+                'id' => $g->id,
+                'number' => $g->number,
+                'label' => $g->label,
+                'multiplier' => $g->multiplier,
+            ]),
+        ]);
+
+        $allGongs = $targetSets->flatMap->gongs;
+        $totalGongCount = $allGongs->count();
+
+        $gongTargetSetMap = [];
+        foreach ($targetSets as $ts) {
+            foreach ($ts->gongs as $g) {
+                $gongTargetSetMap[$g->id] = $ts->id;
+            }
+        }
+
+        $shooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.id', 'shooters.name', 'shooters.bib_number', 'shooters.status', 'squads.name as squad_name')
+            ->get();
+
+        $allScores = Score::query()
+            ->whereIn('shooter_id', $shooters->pluck('id'))
+            ->whereIn('gong_id', $allGongs->pluck('id'))
+            ->get()
+            ->groupBy('shooter_id');
+
+        $standings = $shooters->map(function ($shooter) use ($allScores, $targetSets, $gongTargetSetMap, $totalGongCount) {
+            $shooterScores = $allScores->get($shooter->id, collect());
+            $scoresByGong = $shooterScores->keyBy('gong_id');
+
+            $totalScore = 0;
+            $totalHits = 0;
+            $totalMisses = 0;
+
+            $distances = [];
+            foreach ($targetSets as $ts) {
+                $distHits = 0;
+                $distMisses = 0;
+                $distSubtotal = 0;
+                $gongDetails = [];
+
+                foreach ($ts->gongs as $g) {
+                    $score = $scoresByGong->get($g->id);
+                    $isHit = $score ? (bool) $score->is_hit : null;
+
+                    if ($score) {
+                        if ($isHit) {
+                            $distHits++;
+                            $totalHits++;
+                            $distSubtotal += $g->multiplier;
+                            $totalScore += $g->multiplier;
+                        } else {
+                            $distMisses++;
+                            $totalMisses++;
+                        }
+                    }
+
+                    $gongDetails[] = [
+                        'gong_id' => $g->id,
+                        'gong_number' => $g->number,
+                        'gong_label' => $g->label,
+                        'multiplier' => $g->multiplier,
+                        'is_hit' => $isHit,
+                    ];
+                }
+
+                $distances[$ts->id] = [
+                    'target_set_id' => $ts->id,
+                    'label' => $ts->label,
+                    'distance_meters' => $ts->distance_meters,
+                    'hits' => $distHits,
+                    'misses' => $distMisses,
+                    'subtotal' => round($distSubtotal, 2),
+                    'gongs' => $gongDetails,
+                ];
+            }
+
+            return [
+                'id' => $shooter->id,
+                'name' => $shooter->name,
+                'bib_number' => $shooter->bib_number,
+                'squad_name' => $shooter->squad_name,
+                'status' => $shooter->status ?? 'active',
+                'total_score' => round($totalScore, 2),
+                'total_hits' => $totalHits,
+                'total_misses' => $totalMisses,
+                'total_gongs' => $totalGongCount,
+                'distances' => $distances,
+            ];
+        })
+        ->sortByDesc('total_score')
+        ->values();
+
+        return response()->json([
+            'match' => [
+                'name' => $match->name,
+                'date' => $match->date?->toDateString(),
+                'location' => $match->location,
+                'scoring_type' => $match->scoring_type ?? 'standard',
+            ],
+            'target_sets' => $targetSetsPayload,
+            'standings' => $standings,
+        ]);
     }
 
     private function matchMeta(ShootingMatch $match): array

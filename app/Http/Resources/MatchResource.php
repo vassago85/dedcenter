@@ -52,6 +52,7 @@ class MatchResource extends JsonResource
                     'division_id' => $sh->match_division_id,
                     'division' => $sh->division?->name,
                     'category_ids' => $sh->relationLoaded('categories') ? $sh->categories->pluck('id')->values() : [],
+                    'status' => $sh->status ?? 'active',
                 ]),
             ])),
             'scores' => $this->whenLoaded('scores', fn () => ScoreResource::collection($this->scores)),

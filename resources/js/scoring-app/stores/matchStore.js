@@ -53,6 +53,37 @@ export const useMatchStore = defineStore('match', {
             );
         },
         hasSquadLock: (state) => !!state.lockedSquadId,
+
+        completionMatrix: (state) => {
+            if (!state.currentMatch) return {};
+            const scores = state.currentMatch.scores || [];
+            const matrix = {};
+
+            for (const squad of (state.currentMatch.squads || [])) {
+                matrix[squad.id] = {};
+                const activeShooters = squad.shooters.filter(s => s.status === 'active');
+
+                for (const ts of (state.currentMatch.target_sets || [])) {
+                    const gongIds = new Set(ts.gongs.map(g => g.id));
+                    const shooterIds = new Set(activeShooters.map(s => s.id));
+                    const expected = activeShooters.length * ts.gongs.length;
+
+                    let actual = 0;
+                    for (const score of scores) {
+                        if (shooterIds.has(score.shooter_id) && gongIds.has(score.gong_id)) {
+                            actual++;
+                        }
+                    }
+
+                    matrix[squad.id][ts.id] = {
+                        expected,
+                        actual,
+                        status: actual === 0 ? 'pending' : (actual >= expected ? 'scored' : 'in-progress'),
+                    };
+                }
+            }
+            return matrix;
+        },
     },
 
     actions: {
@@ -152,6 +183,19 @@ export const useMatchStore = defineStore('match', {
         async clearMatchCache(matchId) {
             await db.matches.delete(matchId);
             this.cachedMatchIds.delete(matchId);
+        },
+
+        async updateShooterStatus(matchId, shooterId, status) {
+            await axios.patch(`/api/matches/${matchId}/shooters/${shooterId}/status`, { status });
+            if (this.currentMatch) {
+                for (const squad of this.currentMatch.squads) {
+                    const shooter = squad.shooters.find(s => s.id === shooterId);
+                    if (shooter) {
+                        shooter.status = status;
+                        break;
+                    }
+                }
+            }
         },
     },
 });

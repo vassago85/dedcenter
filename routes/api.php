@@ -16,3 +16,11 @@ Route::post('matches/{match}/scores', [ScoreController::class, 'store'])
         \Illuminate\Session\Middleware\StartSession::class,
         'auth',
     ]);
+
+Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus'])
+    ->middleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        'auth',
+    ]);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ScoreResource;
 use App\Models\Gong;
 use App\Models\Score;
+use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use App\Models\TargetSet;
@@ -93,5 +94,18 @@ class ScoreController extends Controller
         }
 
         return ScoreResource::collection($savedScores);
+    }
+
+    public function updateShooterStatus(ShootingMatch $match, Shooter $shooter, Request $request)
+    {
+        $matchShooterIds = $match->shooters()->pluck('shooters.id');
+        if (!$matchShooterIds->contains($shooter->id)) {
+            abort(404);
+        }
+
+        $request->validate(['status' => 'required|in:active,withdrawn']);
+        $shooter->update(['status' => $request->status]);
+
+        return response()->json(['status' => $shooter->status]);
     }
 }

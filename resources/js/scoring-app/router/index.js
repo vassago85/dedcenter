@@ -30,6 +30,32 @@ const routes = [
         component: () => import('../views/Scoreboard.vue'),
         props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
+    {
+        path: '/score/:matchId/matrix',
+        name: 'scoring-matrix',
+        component: () => import('../views/ScoringMatrix.vue'),
+        props: (route) => ({ matchId: Number(route.params.matchId) }),
+    },
+    {
+        path: '/score/:matchId/relay/:squadId/distance/:targetSetId/rollcall',
+        name: 'roll-call',
+        component: () => import('../views/RollCall.vue'),
+        props: (route) => ({
+            matchId: Number(route.params.matchId),
+            squadId: Number(route.params.squadId),
+            targetSetId: Number(route.params.targetSetId),
+        }),
+    },
+    {
+        path: '/score/:matchId/relay/:squadId/distance/:targetSetId/scoring',
+        name: 'scoped-scoring',
+        component: () => import('../views/ScoringFlow.vue'),
+        props: (route) => ({
+            matchId: Number(route.params.matchId),
+            squadId: Number(route.params.squadId),
+            targetSetId: Number(route.params.targetSetId),
+        }),
+    },
 ];
 
 const router = createRouter({

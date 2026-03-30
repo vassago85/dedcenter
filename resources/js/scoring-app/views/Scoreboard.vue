@@ -1,22 +1,26 @@
 <template>
-    <div class="min-h-screen bg-slate-900 text-white">
-        <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
-            <div class="mx-auto flex max-w-2xl items-center gap-3">
+    <div class="min-h-screen bg-app text-primary">
+        <header class="border-b border-border bg-surface px-4 py-4">
+            <div class="mx-auto flex max-w-4xl items-center gap-3">
                 <router-link
                     :to="{ name: 'match-overview', params: { matchId: props.matchId } }"
-                    class="text-slate-400 hover:text-white"
+                    class="text-muted hover:text-primary"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
                 </router-link>
-                <h1 class="text-lg font-bold">Scoreboard</h1>
+                <h1 class="text-lg font-bold">Results</h1>
                 <span v-if="isPrs" class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">PRS</span>
                 <div class="ml-auto flex items-center gap-3">
+                    <span v-if="autoRefresh" class="flex items-center gap-1 text-[10px] text-muted">
+                        <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        LIVE
+                    </span>
                     <button
-                        @click="fetchScoreboard"
+                        @click="fetchData"
                         :disabled="loading"
-                        class="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-slate-600"
+                        class="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-border"
                     >
                         Refresh
                     </button>
@@ -25,9 +29,9 @@
             </div>
         </header>
 
-        <main class="mx-auto max-w-2xl px-4 py-6">
-            <div v-if="loading && !leaderboard.length" class="flex justify-center py-12">
-                <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-red-500"></div>
+        <main class="mx-auto max-w-4xl px-4 py-6">
+            <div v-if="loading && !standings.length" class="flex justify-center py-12">
+                <div class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"></div>
             </div>
 
             <div v-else-if="error" class="rounded-xl border border-red-800 bg-red-900/30 p-4 text-center">
@@ -37,171 +41,217 @@
             <div v-else>
                 <div v-if="matchName" class="mb-4 text-center">
                     <h2 class="text-xl font-bold">{{ matchName }}</h2>
+                    <p v-if="matchDate" class="text-sm text-muted">{{ matchDate }}</p>
                 </div>
 
-                <div v-if="divisions.length || categories.length" class="mb-3 space-y-1.5">
-                    <div v-if="divisions.length" class="flex gap-1.5 overflow-x-auto pb-0.5">
-                        <span class="self-center text-[9px] text-slate-600 pr-1">DIV</span>
-                        <button @click="setDivisionFilter(null)"
-                                class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors"
-                                :class="activeDivision === null ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'">
-                            All
-                        </button>
-                        <button v-for="d in divisions" :key="d.id" @click="setDivisionFilter(d.id)"
-                                class="flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors"
-                                :class="activeDivision === d.id ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'">
-                            {{ d.name }}
-                        </button>
-                    </div>
-                    <div v-if="categories.length" class="flex gap-1.5 overflow-x-auto pb-0.5">
-                        <span class="self-center text-[9px] text-slate-600 pr-1">CAT</span>
-                        <button @click="setCategoryFilter(null)"
-                                class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors"
-                                :class="activeCategory === null ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'">
-                            All
-                        </button>
-                        <button v-for="c in categories" :key="c.id" @click="setCategoryFilter(c.id)"
-                                class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors"
-                                :class="activeCategory === c.id ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'">
-                            {{ c.name }}
-                        </button>
-                    </div>
-                </div>
-
-                <div v-if="sideBetEnabled" class="mb-3 flex gap-1.5">
-                    <button @click="activeTab = 'main'"
-                            class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
-                            :class="activeTab === 'main' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'">
-                        Scoreboard
+                <!-- View toggle -->
+                <div class="mb-4 flex gap-1.5">
+                    <button
+                        @click="viewMode = 'summary'"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                        :class="viewMode === 'summary' ? 'bg-accent text-white' : 'bg-surface text-muted hover:bg-surface-2'"
+                    >
+                        Leaderboard
                     </button>
-                    <button @click="activeTab = 'sidebet'"
-                            class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
-                            :class="activeTab === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'">
+                    <button
+                        @click="viewMode = 'detailed'"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                        :class="viewMode === 'detailed' ? 'bg-accent text-white' : 'bg-surface text-muted hover:bg-surface-2'"
+                    >
+                        Detailed Breakdown
+                    </button>
+                    <button
+                        v-if="sideBetEnabled"
+                        @click="viewMode = 'sidebet'"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                        :class="viewMode === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
+                    >
                         Side Bet
                     </button>
                 </div>
 
-                <div v-if="sideBetEnabled && activeTab === 'sidebet'">
-                    <div v-if="!sideBet.length" class="rounded-xl border border-slate-700 bg-slate-800 p-8 text-center">
-                        <p class="text-slate-400">No side bet scores yet.</p>
+                <!-- =================== SUMMARY LEADERBOARD =================== -->
+                <template v-if="viewMode === 'summary'">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
                     </div>
-                    <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-slate-800">
+
+                    <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="border-b border-slate-700 text-left text-slate-400">
-                                    <th class="px-4 py-3 font-medium text-center w-12">#</th>
-                                    <th class="px-4 py-3 font-medium">Shooter</th>
-                                    <th class="px-4 py-3 font-medium">Squad</th>
-                                    <th class="px-4 py-3 font-medium text-center text-amber-400">Small Gong Hits</th>
-                                    <th class="px-4 py-3 font-medium">Distances</th>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-3 py-3 text-center w-10">#</th>
+                                    <th class="px-3 py-3">Shooter</th>
+                                    <th class="px-3 py-3">Relay</th>
+                                    <th
+                                        v-for="ts in targetSets"
+                                        :key="'hdr-' + ts.id"
+                                        class="px-3 py-3 text-center whitespace-nowrap"
+                                    >
+                                        {{ ts.distance_meters }}m
+                                    </th>
+                                    <th class="px-3 py-3 text-center">Hits</th>
+                                    <th class="px-3 py-3 text-center">Miss</th>
+                                    <th class="px-3 py-3 text-right font-bold">Total</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-700">
+                            <tbody class="divide-y divide-border">
+                                <tr
+                                    v-for="(entry, idx) in standings"
+                                    :key="entry.id"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(idx + 1)"
+                                >
+                                    <td class="px-3 py-3 text-center">
+                                        <span
+                                            v-if="idx < 3"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
+                                            :class="medalClass(idx + 1)"
+                                        >{{ idx + 1 }}</span>
+                                        <span v-else class="text-muted">{{ idx + 1 }}</span>
+                                    </td>
+                                    <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-3 py-3 text-muted">{{ entry.squad_name }}</td>
+                                    <td
+                                        v-for="ts in targetSets"
+                                        :key="'cell-' + entry.id + '-' + ts.id"
+                                        class="px-3 py-3 text-center tabular-nums"
+                                    >
+                                        <span v-if="entry.distances[ts.id]" :class="entry.distances[ts.id].subtotal > 0 ? 'text-green-400' : 'text-muted'">
+                                            {{ entry.distances[ts.id].subtotal }}
+                                        </span>
+                                        <span v-else class="text-muted">&mdash;</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.total_hits }}</td>
+                                    <td class="px-3 py-3 text-center text-red-400 tabular-nums">{{ entry.total_misses }}</td>
+                                    <td class="px-3 py-3 text-right text-lg font-bold tabular-nums">{{ entry.total_score }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+
+                <!-- =================== DETAILED BREAKDOWN =================== -->
+                <template v-else-if="viewMode === 'detailed'">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            v-for="(entry, idx) in standings"
+                            :key="'detail-' + entry.id"
+                            class="rounded-xl border border-border bg-surface overflow-hidden"
+                        >
+                            <!-- Shooter header (tappable to expand) -->
+                            <button
+                                @click="toggleExpand(entry.id)"
+                                class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                            >
+                                <span
+                                    v-if="idx < 3"
+                                    class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                                    :class="medalClass(idx + 1)"
+                                >{{ idx + 1 }}</span>
+                                <span v-else class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted">{{ idx + 1 }}</span>
+
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate font-semibold">{{ entry.name }}</p>
+                                    <p class="text-xs text-muted">{{ entry.squad_name }} &middot; {{ entry.total_hits }} hits &middot; {{ entry.total_misses }} misses</p>
+                                </div>
+
+                                <span class="text-xl font-bold tabular-nums">{{ entry.total_score }}</span>
+
+                                <svg
+                                    class="h-5 w-5 flex-shrink-0 text-muted transition-transform"
+                                    :class="{ 'rotate-180': expandedIds.has(entry.id) }"
+                                    fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+
+                            <!-- Expanded detail -->
+                            <div v-if="expandedIds.has(entry.id)" class="border-t border-border">
+                                <div
+                                    v-for="ts in targetSets"
+                                    :key="'dist-' + entry.id + '-' + ts.id"
+                                    class="border-b border-border/50 last:border-b-0"
+                                >
+                                    <div class="flex items-center justify-between bg-surface-2/50 px-4 py-2">
+                                        <span class="text-sm font-semibold">{{ ts.label }} ({{ ts.distance_meters }}m)</span>
+                                        <div class="flex items-center gap-3 text-xs">
+                                            <span class="text-green-400">{{ entry.distances[ts.id]?.hits ?? 0 }} hits</span>
+                                            <span class="text-red-400">{{ entry.distances[ts.id]?.misses ?? 0 }} miss</span>
+                                            <span class="font-bold">{{ entry.distances[ts.id]?.subtotal ?? 0 }} pts</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-px bg-border/30 sm:grid-cols-3 md:grid-cols-4">
+                                        <div
+                                            v-for="gong in (entry.distances[ts.id]?.gongs ?? [])"
+                                            :key="'gong-' + gong.gong_id"
+                                            class="flex items-center justify-between bg-app px-3 py-2 text-xs"
+                                        >
+                                            <span class="text-muted">
+                                                Gong #{{ gong.gong_number }}
+                                                <span v-if="gong.gong_label" class="text-secondary">({{ gong.gong_label }})</span>
+                                            </span>
+                                            <span v-if="gong.is_hit === true" class="font-bold text-green-400">HIT +{{ gong.multiplier }}</span>
+                                            <span v-else-if="gong.is_hit === false" class="font-bold text-red-400">MISS</span>
+                                            <span v-else class="text-muted/50">&mdash;</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- =================== SIDE BET =================== -->
+                <template v-else-if="viewMode === 'sidebet'">
+                    <div v-if="!sideBet.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No side bet scores yet.</p>
+                    </div>
+                    <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-4 py-3 text-center w-12">#</th>
+                                    <th class="px-4 py-3">Shooter</th>
+                                    <th class="px-4 py-3">Relay</th>
+                                    <th class="px-4 py-3 text-center text-amber-400">Small Gong Hits</th>
+                                    <th class="px-4 py-3">Distances</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
                                 <tr
                                     v-for="entry in sideBet"
                                     :key="entry.shooter_id"
-                                    class="transition-colors hover:bg-slate-700/30"
-                                    :class="{
-                                        'bg-amber-900/20': entry.rank === 1,
-                                        'bg-slate-600/10': entry.rank === 2,
-                                        'bg-orange-900/10': entry.rank === 3,
-                                    }"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(entry.rank)"
                                 >
                                     <td class="px-4 py-3 text-center">
                                         <span
                                             v-if="entry.rank <= 3"
                                             class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
-                                            :class="{
-                                                'bg-amber-500 text-black': entry.rank === 1,
-                                                'bg-slate-400 text-black': entry.rank === 2,
-                                                'bg-orange-600 text-white': entry.rank === 3,
-                                            }"
+                                            :class="medalClass(entry.rank)"
                                         >{{ entry.rank }}</span>
-                                        <span v-else class="text-slate-400">{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
                                     </td>
-                                    <td class="px-4 py-3 font-medium text-white">{{ entry.name }}</td>
-                                    <td class="px-4 py-3 text-slate-400">{{ entry.squad }}</td>
+                                    <td class="px-4 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-4 py-3 text-muted">{{ entry.squad }}</td>
                                     <td class="px-4 py-3 text-center text-lg font-bold text-amber-400">{{ entry.small_gong_hits }}</td>
-                                    <td class="px-4 py-3 text-slate-300">
+                                    <td class="px-4 py-3 text-secondary">
                                         {{ entry.distances_hit?.length ? entry.distances_hit.map(d => d + 'm').join(', ') : '—' }}
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="mt-3 text-center text-xs text-slate-500">
-                        Ranked by smallest gong hits, furthest distance tiebreaker.
-                    </p>
-                </div>
-
-                <template v-else>
-                <div v-if="!leaderboard.length" class="rounded-xl border border-slate-700 bg-slate-800 p-8 text-center">
-                    <p class="text-slate-400">No scores recorded yet.</p>
-                </div>
-
-                <div v-else class="overflow-hidden rounded-xl border border-slate-700 bg-slate-800">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-left text-slate-400">
-                                <th class="px-4 py-3 font-medium text-center w-12">#</th>
-                                <th class="px-4 py-3 font-medium">Shooter</th>
-                                <th class="px-4 py-3 font-medium">Squad</th>
-                                <th v-if="divisions.length" class="px-4 py-3 font-medium">Division</th>
-                                <th class="px-4 py-3 font-medium text-center">Hits</th>
-                                <th class="px-4 py-3 font-medium text-center">Misses</th>
-                                <th v-if="isPrs" class="px-4 py-3 font-medium text-center">Not Taken</th>
-                                <th v-if="isPrs" class="px-4 py-3 font-medium text-right">Time</th>
-                                <th class="px-4 py-3 font-medium text-right">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700">
-                            <tr
-                                v-for="entry in leaderboard"
-                                :key="entry.shooter_id"
-                                class="transition-colors hover:bg-slate-700/30"
-                                :class="{
-                                    'bg-amber-900/20': entry.rank === 1,
-                                    'bg-slate-600/10': entry.rank === 2,
-                                    'bg-orange-900/10': entry.rank === 3,
-                                }"
-                            >
-                                <td class="px-4 py-3 text-center">
-                                    <span
-                                        v-if="entry.rank <= 3"
-                                        class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
-                                        :class="{
-                                            'bg-amber-500 text-black': entry.rank === 1,
-                                            'bg-slate-400 text-black': entry.rank === 2,
-                                            'bg-orange-600 text-white': entry.rank === 3,
-                                        }"
-                                    >
-                                        {{ entry.rank }}
-                                    </span>
-                                    <span v-else class="text-slate-400">{{ entry.rank }}</span>
-                                </td>
-                                <td class="px-4 py-3 font-medium text-white">{{ entry.name }}</td>
-                                <td class="px-4 py-3 text-slate-400">{{ entry.squad }}</td>
-                                <td v-if="divisions.length" class="px-4 py-3 text-slate-400">{{ entry.division || '—' }}</td>
-                                <td class="px-4 py-3 text-center text-green-400">{{ entry.hits }}</td>
-                                <td class="px-4 py-3 text-center text-red-400">{{ entry.misses }}</td>
-                                <td v-if="isPrs" class="px-4 py-3 text-center text-amber-400/60">{{ entry.not_taken ?? 0 }}</td>
-                                <td v-if="isPrs" class="px-4 py-3 text-right font-mono text-slate-300">
-                                    {{ formatTime(entry.total_time) }}
-                                </td>
-                                <td class="px-4 py-3 text-right text-lg font-bold text-white">
-                                    {{ entry.total_score }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p v-if="isPrs" class="mt-3 text-center text-xs text-slate-500">
-                    Ranked by total hits, then tiebreaker stage hits, then tiebreaker stage time.
-                </p>
                 </template>
 
-                <p v-if="lastUpdated" class="mt-3 text-center text-xs text-slate-500">
+                <p v-if="lastUpdated" class="mt-4 text-center text-xs text-muted">
                     Last updated: {{ lastUpdated }}
                 </p>
             </div>
@@ -218,56 +268,61 @@ const props = defineProps({
     matchId: { type: Number, required: true },
 });
 
-const leaderboard = ref([]);
+const standings = ref([]);
+const targetSets = ref([]);
 const sideBet = ref([]);
 const sideBetEnabled = ref(false);
-const activeTab = ref('main');
 const matchName = ref('');
+const matchDate = ref('');
 const isPrs = ref(false);
-const divisions = ref([]);
-const categories = ref([]);
-const activeDivision = ref(null);
-const activeCategory = ref(null);
+const viewMode = ref('summary');
 const loading = ref(false);
 const error = ref(null);
 const lastUpdated = ref('');
+const autoRefresh = ref(true);
+const expandedIds = ref(new Set());
 
 let refreshInterval;
 
-function formatTime(seconds) {
-    if (!seconds) return '—';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${secs.toFixed(2).padStart(5, '0')}`;
+function toggleExpand(id) {
+    if (expandedIds.value.has(id)) {
+        expandedIds.value.delete(id);
+    } else {
+        expandedIds.value.add(id);
+    }
 }
 
-function setDivisionFilter(id) {
-    activeDivision.value = id;
-    fetchScoreboard();
+function medalClass(rank) {
+    if (rank === 1) return 'bg-amber-500 text-black';
+    if (rank === 2) return 'bg-slate-400 text-black';
+    if (rank === 3) return 'bg-orange-600 text-white';
+    return '';
 }
 
-function setCategoryFilter(id) {
-    activeCategory.value = id;
-    fetchScoreboard();
+function rankRowClass(rank) {
+    if (rank === 1) return 'bg-amber-900/15';
+    if (rank === 2) return 'bg-slate-600/10';
+    if (rank === 3) return 'bg-orange-900/10';
+    return '';
 }
 
-async function fetchScoreboard() {
+async function fetchData() {
     loading.value = true;
     error.value = null;
     try {
-        let url = `/api/matches/${props.matchId}/scoreboard`;
-        const params = [];
-        if (activeDivision.value) params.push(`division=${activeDivision.value}`);
-        if (activeCategory.value) params.push(`category=${activeCategory.value}`);
-        if (params.length) url += '?' + params.join('&');
-        const { data } = await axios.get(url);
+        const { data } = await axios.get(`/api/matches/${props.matchId}/scoreboard?detailed=1`);
         matchName.value = data.match?.name ?? '';
+        matchDate.value = data.match?.date ?? '';
         isPrs.value = data.match?.scoring_type === 'prs';
-        divisions.value = data.match?.divisions ?? [];
-        categories.value = data.match?.categories ?? [];
-        leaderboard.value = data.leaderboard;
-        sideBetEnabled.value = !!data.match?.side_bet_enabled;
-        sideBet.value = data.side_bet ?? [];
+        targetSets.value = data.target_sets ?? [];
+        standings.value = data.standings ?? [];
+
+        if (data.match?.side_bet_enabled) {
+            sideBetEnabled.value = true;
+            const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
+            sideBet.value = sbRes.data.side_bet ?? [];
+        }
+
         lastUpdated.value = new Date().toLocaleTimeString('en-ZA');
     } catch (e) {
         error.value = 'Unable to load scoreboard.';
@@ -277,8 +332,8 @@ async function fetchScoreboard() {
 }
 
 onMounted(() => {
-    fetchScoreboard();
-    refreshInterval = setInterval(fetchScoreboard, 10000);
+    fetchData();
+    refreshInterval = setInterval(fetchData, 12000);
 });
 
 onUnmounted(() => {

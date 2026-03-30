@@ -4,7 +4,7 @@
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-3">
             <div class="mx-auto flex max-w-lg items-center gap-3">
                 <router-link
-                    :to="{ name: 'match-overview', params: { matchId: props.matchId } }"
+                    :to="backRoute"
                     class="text-slate-400 hover:text-white"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -13,8 +13,11 @@
                 </router-link>
                 <div class="min-w-0 flex-1">
                     <h1 class="truncate text-sm font-bold">{{ matchStore.currentMatch?.name }}</h1>
+                    <p v-if="isScoped" class="text-[11px] text-amber-400">
+                        Relay {{ scopedRelayIndex }} &mdash; {{ scopedDistanceLabel }}
+                    </p>
                     <router-link
-                        v-if="matchStore.lockedSquadName"
+                        v-else-if="matchStore.lockedSquadName"
                         :to="{ name: 'squad-select', params: { matchId: props.matchId } }"
                         class="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300"
                     >
@@ -51,15 +54,24 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
             </div>
-            <h2 class="text-2xl font-bold">Scoring Complete!</h2>
-            <p class="text-slate-400">All shooters have engaged all targets.</p>
-            <div class="flex gap-3 pt-4">
+            <h2 class="text-2xl font-bold">{{ isScoped ? 'Stage Complete!' : 'Scoring Complete!' }}</h2>
+            <p class="text-slate-400">
+                {{ isScoped ? `Relay ${scopedRelayIndex} at ${scopedDistanceLabel} scored.` : 'All shooters have engaged all targets.' }}
+            </p>
+            <div class="flex flex-col gap-3 pt-4">
                 <button
                     @click="scoringStore.syncScores()"
                     class="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-700"
                 >
                     Sync Scores
                 </button>
+                <router-link
+                    v-if="isScoped"
+                    :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
+                    class="rounded-xl bg-red-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                >
+                    Back to Matrix
+                </router-link>
                 <router-link
                     :to="{ name: 'scoreboard', params: { matchId: props.matchId } }"
                     class="rounded-xl border border-slate-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-slate-800"
@@ -75,7 +87,7 @@
             <div class="bg-slate-800 px-4 py-2">
                 <div class="mx-auto max-w-lg">
                     <div class="flex items-center justify-between text-xs text-slate-400">
-                        <span>Set {{ scoringStore.currentTargetSetIndex + 1 }}/{{ targetSets.length }}</span>
+                        <span v-if="!isScoped">Set {{ scoringStore.currentTargetSetIndex + 1 }}/{{ targetSets.length }}</span>
                         <span>Gong {{ scoringStore.currentGongIndex + 1 }}/{{ currentGongs.length }}</span>
                         <span>Shooter {{ scoringStore.currentShooterIndex + 1 }}/{{ shooters.length }}</span>
                     </div>
@@ -176,6 +188,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -183,18 +196,63 @@ import SyncBadge from '../components/SyncBadge.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
+    squadId: { type: Number, default: null },
+    targetSetId: { type: Number, default: null },
 });
 
+const route = useRoute();
 const matchStore = useMatchStore();
 const scoringStore = useScoringStore();
 const ready = ref(false);
 const matchComplete = ref(false);
 
-const targetSets = computed(() => matchStore.targetSets);
+const isScoped = computed(() => route.name === 'scoped-scoring' && props.squadId && props.targetSetId);
+
+const scopedSquad = computed(() => {
+    if (!isScoped.value) return null;
+    return matchStore.squads.find(s => s.id === props.squadId);
+});
+
+const scopedRelayIndex = computed(() => {
+    if (!isScoped.value) return 0;
+    const idx = matchStore.squads.findIndex(s => s.id === props.squadId);
+    return idx >= 0 ? idx + 1 : '?';
+});
+
+const scopedTargetSet = computed(() => {
+    if (!isScoped.value) return null;
+    return matchStore.targetSets.find(ts => ts.id === props.targetSetId);
+});
+
+const scopedDistanceLabel = computed(() => {
+    return scopedTargetSet.value ? `${scopedTargetSet.value.distance_meters}m` : '';
+});
+
+const backRoute = computed(() => {
+    if (isScoped.value) {
+        return { name: 'scoring-matrix', params: { matchId: props.matchId } };
+    }
+    return { name: 'match-overview', params: { matchId: props.matchId } };
+});
+
+const targetSets = computed(() => {
+    if (isScoped.value && scopedTargetSet.value) {
+        return [scopedTargetSet.value];
+    }
+    return matchStore.targetSets;
+});
 const currentTargetSet = computed(() => targetSets.value[scoringStore.currentTargetSetIndex]);
 const currentGongs = computed(() => currentTargetSet.value?.gongs ?? []);
 const currentGong = computed(() => currentGongs.value[scoringStore.currentGongIndex]);
-const shooters = computed(() => matchStore.hasSquadLock ? matchStore.squadShooters : matchStore.allShooters);
+
+const shooters = computed(() => {
+    if (isScoped.value && scopedSquad.value) {
+        return scopedSquad.value.shooters
+            .filter(s => s.status === 'active')
+            .map(s => ({ ...s, squadName: scopedSquad.value.name }));
+    }
+    return matchStore.hasSquadLock ? matchStore.squadShooters : matchStore.allShooters;
+});
 const currentShooter = computed(() => shooters.value[scoringStore.currentShooterIndex]);
 
 const existingScore = computed(() => {
