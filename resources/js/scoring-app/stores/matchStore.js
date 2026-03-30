@@ -60,11 +60,14 @@ export const useMatchStore = defineStore('match', {
                 this.matches = data.data;
                 await db.matches.bulkPut(this.matches);
             } catch (e) {
+                console.error('fetchMatches failed:', e);
                 const cached = await db.matches.toArray();
                 if (cached.length) {
                     this.matches = cached;
                 } else {
-                    this.error = 'Unable to load matches. Check your connection.';
+                    const status = e.response?.status || 'network';
+                    const detail = e.response?.data?.message || e.message || 'Unknown error';
+                    this.error = `Unable to load matches (${status}: ${detail})`;
                 }
             } finally {
                 this.loading = false;
