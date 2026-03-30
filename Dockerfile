@@ -54,6 +54,9 @@ COPY . .
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
+# Generate PWA icons (requires GD)
+RUN php generate-icons.php
+
 # Install Node dependencies and build frontend assets
 RUN npm install --legacy-peer-deps && npm run build && rm -rf node_modules
 
