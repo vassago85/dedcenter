@@ -25,6 +25,7 @@ class ShootingMatch extends Model
         'notes',
         'created_by',
         'organization_id',
+        'season_id',
         'entry_fee',
     ];
 
@@ -48,6 +49,11 @@ class ShootingMatch extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function season(): BelongsTo
+    {
+        return $this->belongsTo(Season::class);
     }
 
     public function targetSets(): HasMany

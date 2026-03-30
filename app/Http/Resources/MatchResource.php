@@ -21,6 +21,7 @@ class MatchResource extends JsonResource
                 'id' => $ts->id,
                 'label' => $ts->label,
                 'distance_meters' => $ts->distance_meters,
+                'distance_multiplier' => (float) ($ts->distance_multiplier ?? 1),
                 'sort_order' => $ts->sort_order,
                 'is_tiebreaker' => (bool) $ts->is_tiebreaker,
                 'par_time_seconds' => $ts->par_time_seconds ? (float) $ts->par_time_seconds : null,

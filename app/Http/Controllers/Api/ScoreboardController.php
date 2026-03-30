@@ -48,6 +48,7 @@ class ScoreboardController extends Controller
             'id' => $ts->id,
             'label' => $ts->label,
             'distance_meters' => $ts->distance_meters,
+            'distance_multiplier' => (float) ($ts->distance_multiplier ?? 1),
             'gongs' => $ts->gongs->map(fn ($g) => [
                 'id' => $g->id,
                 'number' => $g->number,
@@ -58,13 +59,6 @@ class ScoreboardController extends Controller
 
         $allGongs = $targetSets->flatMap->gongs;
         $totalGongCount = $allGongs->count();
-
-        $gongTargetSetMap = [];
-        foreach ($targetSets as $ts) {
-            foreach ($ts->gongs as $g) {
-                $gongTargetSetMap[$g->id] = $ts->id;
-            }
-        }
 
         $shooters = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
@@ -78,7 +72,7 @@ class ScoreboardController extends Controller
             ->get()
             ->groupBy('shooter_id');
 
-        $standings = $shooters->map(function ($shooter) use ($allScores, $targetSets, $gongTargetSetMap, $totalGongCount) {
+        $standings = $shooters->map(function ($shooter) use ($allScores, $targetSets, $totalGongCount) {
             $shooterScores = $allScores->get($shooter->id, collect());
             $scoresByGong = $shooterScores->keyBy('gong_id');
 
@@ -88,6 +82,7 @@ class ScoreboardController extends Controller
 
             $distances = [];
             foreach ($targetSets as $ts) {
+                $distMult = (float) ($ts->distance_multiplier ?? 1);
                 $distHits = 0;
                 $distMisses = 0;
                 $distSubtotal = 0;
@@ -96,13 +91,14 @@ class ScoreboardController extends Controller
                 foreach ($ts->gongs as $g) {
                     $score = $scoresByGong->get($g->id);
                     $isHit = $score ? (bool) $score->is_hit : null;
+                    $points = round($distMult * $g->multiplier, 2);
 
                     if ($score) {
                         if ($isHit) {
                             $distHits++;
                             $totalHits++;
-                            $distSubtotal += $g->multiplier;
-                            $totalScore += $g->multiplier;
+                            $distSubtotal += $points;
+                            $totalScore += $points;
                         } else {
                             $distMisses++;
                             $totalMisses++;
@@ -114,6 +110,7 @@ class ScoreboardController extends Controller
                         'gong_number' => $g->number,
                         'gong_label' => $g->label,
                         'multiplier' => $g->multiplier,
+                        'points' => $points,
                         'is_hit' => $isHit,
                     ];
                 }
@@ -122,6 +119,7 @@ class ScoreboardController extends Controller
                     'target_set_id' => $ts->id,
                     'label' => $ts->label,
                     'distance_meters' => $ts->distance_meters,
+                    'distance_multiplier' => $distMult,
                     'hits' => $distHits,
                     'misses' => $distMisses,
                     'subtotal' => round($distSubtotal, 2),
@@ -144,6 +142,13 @@ class ScoreboardController extends Controller
         })
         ->sortByDesc('total_score')
         ->values();
+
+        $maxScore = $standings->max('total_score') ?: 1;
+        $standings = $standings->map(function ($entry) use ($maxScore, $totalGongCount) {
+            $entry['relative_score'] = round($entry['total_score'] / $maxScore * 100, 2);
+            $entry['hit_rate'] = $totalGongCount > 0 ? round($entry['total_hits'] / $totalGongCount * 100, 2) : 0;
+            return $entry;
+        });
 
         return response()->json([
             'match' => [
@@ -224,6 +229,7 @@ class ScoreboardController extends Controller
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
             ->leftJoin('gongs', 'scores.gong_id', '=', 'gongs.id')
+            ->leftJoin('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
             ->where('squads.match_id', $match->id);
 
         if ($divisionFilter) {
@@ -238,10 +244,12 @@ class ScoreboardController extends Controller
             ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
             ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
             ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
-            ->selectRaw('COALESCE(SUM(CASE WHEN scores.is_hit = 1 THEN gongs.multiplier ELSE 0 END), 0) as agg_total')
+            ->selectRaw('COALESCE(SUM(CASE WHEN scores.is_hit = 1 THEN COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier ELSE 0 END), 0) as agg_total')
             ->groupBy('shooters.id', 'shooters.name', 'squads.name')
             ->orderByDesc('agg_total')
             ->get();
+
+        $maxScore = (float) ($shooters->max('agg_total') ?: 1);
 
         $leaderboard = $shooters->values()->map(fn ($shooter, $index) => [
             'rank' => $index + 1,
@@ -253,6 +261,7 @@ class ScoreboardController extends Controller
             'hits' => (int) $shooter->agg_hits,
             'misses' => (int) $shooter->agg_misses,
             'total_score' => round((float) $shooter->agg_total, 2),
+            'relative_score' => round((float) $shooter->agg_total / $maxScore * 100, 2),
         ]);
 
         $response = [

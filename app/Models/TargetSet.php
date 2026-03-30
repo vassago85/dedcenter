@@ -14,6 +14,7 @@ class TargetSet extends Model
         'match_id',
         'label',
         'distance_meters',
+        'distance_multiplier',
         'sort_order',
         'is_tiebreaker',
         'par_time_seconds',
@@ -23,6 +24,7 @@ class TargetSet extends Model
     {
         return [
             'distance_meters' => 'integer',
+            'distance_multiplier' => 'decimal:2',
             'sort_order' => 'integer',
             'is_tiebreaker' => 'boolean',
             'par_time_seconds' => 'decimal:2',

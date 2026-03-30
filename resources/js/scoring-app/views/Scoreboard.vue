@@ -93,7 +93,9 @@
                                     </th>
                                     <th class="px-3 py-3 text-center">Hits</th>
                                     <th class="px-3 py-3 text-center">Miss</th>
-                                    <th class="px-3 py-3 text-right font-bold">Total</th>
+                                    <th class="px-3 py-3 text-center font-bold">Total</th>
+                                    <th class="px-3 py-3 text-center">Hit %</th>
+                                    <th class="px-3 py-3 text-right font-bold">Rel %</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-border">
@@ -125,7 +127,9 @@
                                     </td>
                                     <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.total_hits }}</td>
                                     <td class="px-3 py-3 text-center text-red-400 tabular-nums">{{ entry.total_misses }}</td>
-                                    <td class="px-3 py-3 text-right text-lg font-bold tabular-nums">{{ entry.total_score }}</td>
+                                    <td class="px-3 py-3 text-center text-lg font-bold tabular-nums">{{ entry.total_score }}</td>
+                                    <td class="px-3 py-3 text-center tabular-nums text-muted">{{ entry.hit_rate != null ? entry.hit_rate + '%' : '—' }}</td>
+                                    <td class="px-3 py-3 text-right tabular-nums font-bold text-amber-400">{{ entry.relative_score != null ? entry.relative_score + '%' : '—' }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -248,7 +252,7 @@
                                                 Gong #{{ gong.gong_number }}
                                                 <span v-if="gong.gong_label" class="text-secondary">({{ gong.gong_label }})</span>
                                             </span>
-                                            <span v-if="gong.is_hit === true" class="font-bold text-green-400">HIT +{{ gong.multiplier }}</span>
+                                            <span v-if="gong.is_hit === true" class="font-bold text-green-400">HIT +{{ gong.points ?? gong.multiplier }}</span>
                                             <span v-else-if="gong.is_hit === false" class="font-bold text-red-400">MISS</span>
                                             <span v-else class="text-muted/50">&mdash;</span>
                                         </div>

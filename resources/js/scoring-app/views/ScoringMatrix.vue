@@ -36,47 +36,72 @@
                 </div>
             </div>
 
-            <!-- Distance column headers -->
-            <div class="mb-2 grid gap-2" :style="gridStyle">
-                <div class="text-xs text-muted"></div>
+            <!-- Distance cards -->
+            <div class="space-y-3">
                 <div
                     v-for="ts in targetSets"
-                    :key="'hdr-' + ts.id"
-                    class="truncate text-center text-xs font-semibold text-secondary"
+                    :key="ts.id"
+                    class="rounded-xl border overflow-hidden transition-all"
+                    :class="distanceCardClass(ts.id)"
                 >
-                    {{ ts.distance_meters }}m
-                </div>
-            </div>
-
-            <!-- Matrix rows -->
-            <div class="space-y-2">
-                <div
-                    v-for="(squad, idx) in squads"
-                    :key="squad.id"
-                    class="grid items-center gap-2"
-                    :style="gridStyle"
-                >
-                    <div class="truncate text-sm font-medium text-secondary">Relay {{ idx + 1 }}</div>
-
+                    <!-- Distance header (tappable) -->
                     <button
-                        v-for="ts in targetSets"
-                        :key="squad.id + '-' + ts.id"
-                        class="flex h-14 items-center justify-center rounded-lg border-2 transition-all active:scale-95"
-                        :class="cellClass(squad.id, ts.id)"
-                        @click="openCell(squad.id, ts.id)"
+                        class="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-surface-2"
+                        @click="toggleDistance(ts.id)"
                     >
-                        <template v-if="cellStatus(squad.id, ts.id) === 'scored'">
-                            <svg class="h-6 w-6 text-[#22c55e]" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                            </svg>
-                        </template>
-                        <template v-else-if="cellStatus(squad.id, ts.id) === 'in-progress'">
-                            <span class="text-xs font-bold text-[#f59e0b]">{{ cellFraction(squad.id, ts.id) }}</span>
-                        </template>
-                        <template v-else>
-                            <span class="text-xs text-muted">&mdash;</span>
-                        </template>
+                        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-bold"
+                             :class="distanceBadgeClass(ts.id)">
+                            {{ distanceStatus(ts.id).scored }}/{{ distanceStatus(ts.id).total }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold">{{ ts.label }}</p>
+                            <p class="text-xs text-muted">{{ ts.distance_meters }}m &middot; {{ distanceStatusLabel(ts.id) }}</p>
+                        </div>
+                        <div v-if="ts.distance_multiplier" class="text-xs font-bold text-amber-400">{{ ts.distance_multiplier }}x</div>
+                        <svg
+                            class="h-5 w-5 flex-shrink-0 text-muted transition-transform duration-200"
+                            :class="{ 'rotate-180': selectedDistance === ts.id }"
+                            fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
                     </button>
+
+                    <!-- Expanded relay list -->
+                    <div v-if="selectedDistance === ts.id" class="border-t border-border">
+                        <div class="divide-y divide-border/50">
+                            <button
+                                v-for="(squad, idx) in squads"
+                                :key="squad.id"
+                                class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2 active:scale-[0.98]"
+                                @click="openCell(squad.id, ts.id)"
+                            >
+                                <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-xs font-bold"
+                                     :class="relayCellBadge(squad.id, ts.id)">
+                                    <template v-if="cellStatus(squad.id, ts.id) === 'scored'">
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                        </svg>
+                                    </template>
+                                    <template v-else>
+                                        {{ idx + 1 }}
+                                    </template>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium">Relay {{ idx + 1 }}</p>
+                                    <p class="text-xs text-muted">{{ squad.name }} &middot; {{ activeShooterCount(squad) }} shooters</p>
+                                </div>
+                                <div class="text-right">
+                                    <span v-if="cellStatus(squad.id, ts.id) === 'scored'" class="text-xs font-bold text-[#22c55e]">Complete</span>
+                                    <span v-else-if="cellStatus(squad.id, ts.id) === 'in-progress'" class="text-xs font-bold text-[#f59e0b]">{{ cellFraction(squad.id, ts.id) }}</span>
+                                    <span v-else class="text-xs text-muted">Pending</span>
+                                </div>
+                                <svg class="h-4 w-4 flex-shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -84,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -100,10 +125,7 @@ const matchId = computed(() => props.matchId);
 const targetSets = computed(() => matchStore.targetSets);
 const squads = computed(() => matchStore.squads);
 const matrix = computed(() => matchStore.completionMatrix);
-
-const gridStyle = computed(() => ({
-    gridTemplateColumns: `5rem repeat(${targetSets.value.length}, minmax(0, 1fr))`,
-}));
+const selectedDistance = ref(null);
 
 const totalCells = computed(() => squads.value.length * targetSets.value.length);
 const scoredCount = computed(() => {
@@ -120,6 +142,39 @@ const progressPercent = computed(() => {
     return Math.round((scoredCount.value / totalCells.value) * 100);
 });
 
+function distanceStatus(tsId) {
+    let scored = 0;
+    let inProgress = 0;
+    const total = squads.value.length;
+    for (const squad of squads.value) {
+        const status = cellStatus(squad.id, tsId);
+        if (status === 'scored') scored++;
+        else if (status === 'in-progress') inProgress++;
+    }
+    return { scored, inProgress, total };
+}
+
+function distanceStatusLabel(tsId) {
+    const s = distanceStatus(tsId);
+    if (s.scored === s.total) return 'All relays complete';
+    if (s.scored === 0 && s.inProgress === 0) return 'Not started';
+    return `${s.scored} complete, ${s.inProgress} in progress`;
+}
+
+function distanceCardClass(tsId) {
+    const s = distanceStatus(tsId);
+    if (s.scored === s.total) return 'border-[#22c55e]/60 bg-[#22c55e]/5';
+    if (s.scored > 0 || s.inProgress > 0) return 'border-[#f59e0b]/60 bg-[#f59e0b]/5';
+    return 'border-border bg-surface';
+}
+
+function distanceBadgeClass(tsId) {
+    const s = distanceStatus(tsId);
+    if (s.scored === s.total) return 'bg-[#22c55e]/20 text-[#22c55e]';
+    if (s.scored > 0 || s.inProgress > 0) return 'bg-[#f59e0b]/20 text-[#f59e0b]';
+    return 'bg-surface-2 text-muted';
+}
+
 function cellStatus(squadId, tsId) {
     return matrix.value[squadId]?.[tsId]?.status ?? 'pending';
 }
@@ -130,11 +185,19 @@ function cellFraction(squadId, tsId) {
     return `${cell.actual}/${cell.expected}`;
 }
 
-function cellClass(squadId, tsId) {
+function relayCellBadge(squadId, tsId) {
     const status = cellStatus(squadId, tsId);
-    if (status === 'scored') return 'border-[#22c55e]/60 bg-[#22c55e]/10';
-    if (status === 'in-progress') return 'border-[#f59e0b]/60 bg-[#f59e0b]/10';
-    return 'border-border bg-surface';
+    if (status === 'scored') return 'bg-[#22c55e]/20 text-[#22c55e]';
+    if (status === 'in-progress') return 'bg-[#f59e0b]/20 text-[#f59e0b]';
+    return 'bg-surface-2 text-muted';
+}
+
+function activeShooterCount(squad) {
+    return (squad.shooters ?? []).filter(s => s.status === 'active').length;
+}
+
+function toggleDistance(tsId) {
+    selectedDistance.value = selectedDistance.value === tsId ? null : tsId;
 }
 
 function openCell(squadId, tsId) {
@@ -147,6 +210,14 @@ function openCell(squadId, tsId) {
 onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== matchId.value) {
         await matchStore.fetchMatch(matchId.value);
+    }
+    // Auto-expand the first incomplete distance
+    for (const ts of targetSets.value) {
+        const s = distanceStatus(ts.id);
+        if (s.scored < s.total) {
+            selectedDistance.value = ts.id;
+            break;
+        }
     }
 });
 </script>

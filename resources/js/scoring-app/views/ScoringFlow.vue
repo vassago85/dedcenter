@@ -127,7 +127,7 @@
             <div class="rounded-2xl border border-slate-700 bg-slate-800 px-8 py-8 shadow-lg">
                 <p class="text-5xl font-black">#{{ currentGong?.number }}</p>
                 <p v-if="currentGong?.label" class="mt-2 text-lg text-slate-300">{{ currentGong.label }}</p>
-                <p class="mt-2 text-lg font-semibold text-amber-400">{{ currentGong?.multiplier }}x multiplier</p>
+                <p class="mt-2 text-lg font-semibold text-amber-400">{{ effectiveMultiplier }}x points</p>
             </div>
 
             <div class="rounded-xl border border-slate-700 bg-slate-800/50 px-5 py-3">
@@ -216,7 +216,7 @@
                             #{{ currentGong?.number }}
                             <span v-if="currentGong?.label" class="text-lg text-slate-400">{{ currentGong.label }}</span>
                         </p>
-                        <p class="mt-1 text-sm text-amber-400">{{ currentGong?.multiplier }}x multiplier</p>
+                        <p class="mt-1 text-sm text-amber-400">{{ effectiveMultiplier }}x points</p>
                     </div>
 
                     <!-- Current shooter -->
@@ -344,6 +344,12 @@ const targetSets = computed(() => {
 const currentTargetSet = computed(() => targetSets.value[scoringStore.currentTargetSetIndex]);
 const currentGongs = computed(() => currentTargetSet.value?.gongs ?? []);
 const currentGong = computed(() => currentGongs.value[scoringStore.currentGongIndex]);
+const distanceMultiplier = computed(() => parseFloat(currentTargetSet.value?.distance_multiplier) || 1);
+const effectiveMultiplier = computed(() => {
+    const dm = distanceMultiplier.value;
+    const gm = parseFloat(currentGong.value?.multiplier) || 1;
+    return Math.round(dm * gm * 100) / 100;
+});
 
 const shooters = computed(() => {
     if (isScoped.value && scopedSquad.value) {
@@ -388,14 +394,15 @@ const isFirst = computed(() => {
 const relaySummary = computed(() => {
     if (!currentTargetSet.value || !shooters.value.length) return [];
     const gongs = currentTargetSet.value.gongs ?? [];
+    const distMult = parseFloat(currentTargetSet.value.distance_multiplier) || 1;
     return shooters.value.map(shooter => {
         let hits = 0;
         let misses = 0;
         let total = 0;
         const gongResults = gongs.map(gong => {
             const score = scoringStore.getScore(shooter.id, gong.id);
-            const mult = parseFloat(gong.multiplier) || 1;
-            if (score?.isHit === true) { hits++; total += mult; return { result: 'hit', points: mult }; }
+            const points = Math.round(distMult * (parseFloat(gong.multiplier) || 1) * 100) / 100;
+            if (score?.isHit === true) { hits++; total += points; return { result: 'hit', points }; }
             if (score?.isHit === false) { misses++; return { result: 'miss', points: 0 }; }
             return { result: null, points: 0 };
         });

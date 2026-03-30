@@ -82,7 +82,9 @@ class Shooter extends Model
         return (float) $this->scores()
             ->where('is_hit', true)
             ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-            ->sum('gongs.multiplier');
+            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->selectRaw('COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total')
+            ->value('total');
     }
 
     public function getHitCountAttribute(): int

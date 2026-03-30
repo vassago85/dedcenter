@@ -62,6 +62,17 @@ const routes = [
         component: () => import('../views/ElrScoringFlow.vue'),
         props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
+    {
+        path: '/score/seasons',
+        name: 'season-list',
+        component: () => import('../views/SeasonList.vue'),
+    },
+    {
+        path: '/score/seasons/:seasonId',
+        name: 'season-leaderboard',
+        component: () => import('../views/SeasonLeaderboard.vue'),
+        props: (route) => ({ seasonId: Number(route.params.seasonId) }),
+    },
 ];
 
 const router = createRouter({

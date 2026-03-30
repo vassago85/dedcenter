@@ -69,6 +69,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Volt::route('/matches/create', 'admin.matches.edit')->name('matches.create');
     Volt::route('/matches/{match}', 'admin.matches.edit')->name('matches.edit');
     Volt::route('/registrations', 'admin.registrations')->name('registrations');
+    Volt::route('/seasons', 'admin.seasons')->name('seasons');
     Volt::route('/settings', 'admin.settings')->name('settings');
 });
 

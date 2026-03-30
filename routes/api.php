@@ -4,11 +4,15 @@ use App\Http\Controllers\Api\ElrScoreController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
+use App\Http\Controllers\Api\SeasonController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('matches', [MatchController::class, 'index']);
 Route::get('matches/{match}', [MatchController::class, 'show']);
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
+
+Route::get('seasons', [SeasonController::class, 'index']);
+Route::get('seasons/{season}/standings', [SeasonController::class, 'standings']);
 
 Route::post('matches/{match}/scores', [ScoreController::class, 'store'])
     ->middleware([

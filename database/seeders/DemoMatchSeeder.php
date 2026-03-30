@@ -79,7 +79,7 @@ class DemoMatchSeeder extends Seeder
         foreach ($distances as $i => $bank) {
             $ts = TargetSet::firstOrCreate(
                 ['match_id' => $match->id, 'label' => $bank['label']],
-                ['distance_meters' => $bank['distance'], 'sort_order' => $i + 1, 'is_tiebreaker' => false]
+                ['distance_meters' => $bank['distance'], 'distance_multiplier' => $bank['distance'] / 100, 'sort_order' => $i + 1, 'is_tiebreaker' => false]
             );
 
             foreach ($bank['gongs'] as $j => $g) {

@@ -119,6 +119,7 @@ new #[Layout('components.layouts.app')]
         $this->match->targetSets()->create([
             'label' => "{$distance}m",
             'distance_meters' => $distance,
+            'distance_multiplier' => $distance / 100,
             'sort_order' => $maxSort + 1,
         ]);
         $this->reset('tsDistance');
@@ -131,6 +132,8 @@ new #[Layout('components.layouts.app')]
         if ($field === 'distance_meters') {
             $distance = max(1, (int) $value);
             $ts->update(['distance_meters' => $distance, 'label' => "{$distance}m"]);
+        } elseif ($field === 'distance_multiplier') {
+            $ts->update(['distance_multiplier' => max(0.01, (float) $value)]);
         } elseif ($field === 'label') {
             $ts->update(['label' => $value]);
         }
@@ -156,6 +159,7 @@ new #[Layout('components.layouts.app')]
         $clone = $this->match->targetSets()->create([
             'label' => $source->label . ' (copy)',
             'distance_meters' => $source->distance_meters,
+            'distance_multiplier' => $source->distance_multiplier,
             'sort_order' => $maxSort + 1,
         ]);
         foreach ($source->gongs as $gong) {
@@ -718,6 +722,12 @@ new #[Layout('components.layouts.app')]
                                        class="w-20 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                        wire:change="updateTargetSet({{ $ts->id }}, 'distance_meters', $event.target.value)" />
                                 <span class="text-sm text-muted">m</span>
+                            </div>
+                            <div class="flex items-center gap-1" title="Distance multiplier applied to all gong scores">
+                                <span class="text-xs text-muted">&times;</span>
+                                <input type="number" value="{{ $ts->distance_multiplier ?? 1 }}" step="0.01" min="0.01"
+                                       class="w-16 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm text-amber-400 text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                       wire:change="updateTargetSet({{ $ts->id }}, 'distance_multiplier', $event.target.value)" />
                             </div>
                             <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
                             @if($scoring_type === 'prs' && $ts->is_tiebreaker)

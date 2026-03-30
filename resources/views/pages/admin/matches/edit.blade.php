@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ShootingMatch;
+use App\Models\Season;
 use App\Models\MatchDivision;
 use App\Models\MatchCategory;
 use App\Models\TargetSet;
@@ -25,6 +26,7 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $side_bet_enabled = false;
+    public ?int $season_id = null;
 
     public string $tsDistance = '';
 
@@ -69,6 +71,7 @@ new #[Layout('components.layouts.app')]
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
+            $this->season_id = $match->season_id;
         }
     }
 
@@ -85,6 +88,7 @@ new #[Layout('components.layouts.app')]
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['side_bet_enabled'] = $this->scoring_type === 'standard' && $this->side_bet_enabled;
+        $validated['season_id'] = $this->season_id;
 
         if ($this->match) {
             $this->match->update($validated);
@@ -112,6 +116,7 @@ new #[Layout('components.layouts.app')]
         $this->match->targetSets()->create([
             'label' => "{$distance}m",
             'distance_meters' => $distance,
+            'distance_multiplier' => $distance / 100,
             'sort_order' => $maxSort + 1,
         ]);
 
@@ -126,6 +131,8 @@ new #[Layout('components.layouts.app')]
         if ($field === 'distance_meters') {
             $distance = max(1, (int) $value);
             $ts->update(['distance_meters' => $distance, 'label' => "{$distance}m"]);
+        } elseif ($field === 'distance_multiplier') {
+            $ts->update(['distance_multiplier' => max(0.01, (float) $value)]);
         } elseif ($field === 'label') {
             $ts->update(['label' => $value]);
         }
@@ -152,6 +159,7 @@ new #[Layout('components.layouts.app')]
         $clone = $this->match->targetSets()->create([
             'label' => $source->label . ' (copy)',
             'distance_meters' => $source->distance_meters,
+            'distance_multiplier' => $source->distance_multiplier,
             'sort_order' => $maxSort + 1,
         ]);
 
@@ -709,7 +717,21 @@ new #[Layout('components.layouts.app')]
                         </div>
                     </label>
                 </div>
+
             @endif
+
+            <div>
+                <label class="block text-sm font-medium text-secondary mb-1">Season</label>
+                <select wire:model="season_id"
+                        class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                    <option value="">No season</option>
+                    @foreach(\App\Models\Season::orderByDesc('year')->get() as $season)
+                        <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-xs text-muted">Assign this match to a season for aggregate leaderboards.</p>
+            </div>
+
             <flux:textarea wire:model="notes" label="Notes" placeholder="Optional notes about this match..." rows="3" />
 
             <div class="flex justify-end pt-2">
@@ -850,6 +872,12 @@ new #[Layout('components.layouts.app')]
                                        class="w-20 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                        wire:change="updateTargetSet({{ $ts->id }}, 'distance_meters', $event.target.value)" />
                                 <span class="text-sm text-muted">m</span>
+                            </div>
+                            <div class="flex items-center gap-1" title="Distance multiplier applied to all gong scores">
+                                <span class="text-xs text-muted">&times;</span>
+                                <input type="number" value="{{ $ts->distance_multiplier ?? 1 }}" step="0.01" min="0.01"
+                                       class="w-16 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-amber-400 text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                       wire:change="updateTargetSet({{ $ts->id }}, 'distance_multiplier', $event.target.value)" />
                             </div>
                             <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
                             @if($scoring_type === 'prs' && $ts->is_tiebreaker)
