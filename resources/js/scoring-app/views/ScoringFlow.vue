@@ -51,8 +51,13 @@
         <div v-else-if="showRelaySummary" class="flex flex-1 flex-col px-4 py-6">
             <div class="mx-auto w-full max-w-lg space-y-4">
                 <div class="text-center">
-                    <h2 class="text-xl font-bold">Relay {{ scopedRelayIndex }} Summary</h2>
-                    <p class="text-sm text-slate-400">{{ currentTargetSet?.label }} &mdash; {{ currentTargetSet?.distance_meters }}m</p>
+                    <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-600/20">
+                        <svg class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">{{ scopedDistanceLabel }} &mdash; Relay {{ scopedRelayIndex }} Complete</h2>
+                    <p class="text-sm text-slate-400">{{ scopedSquad?.name ?? currentTargetSet?.label }}</p>
                 </div>
 
                 <div class="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
@@ -110,7 +115,15 @@
                     >
                         Sync Scores
                     </button>
+                    <router-link
+                        v-if="isScoped"
+                        :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
+                        class="block w-full rounded-xl bg-red-600 py-3 text-center font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Back to Matrix
+                    </router-link>
                     <button
+                        v-else
                         @click="dismissSummary"
                         class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
                     >
@@ -437,10 +450,6 @@ function dismissGongTransition() {
 
 function dismissSummary() {
     showRelaySummary.value = false;
-    if (isScoped.value) {
-        matchComplete.value = true;
-        return;
-    }
     if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
     matchComplete.value = true;
 }

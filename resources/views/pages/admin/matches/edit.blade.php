@@ -683,7 +683,7 @@ new #[Layout('components.layouts.app')]
                     <div class="flex gap-2">
                         <button type="button" wire:click="$set('scoring_type', 'standard')"
                                 class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
-                            Standard
+                            Relay-Based
                         </button>
                         <button type="button" wire:click="$set('scoring_type', 'prs')"
                                 class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">

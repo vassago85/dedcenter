@@ -19,7 +19,7 @@ new #[Layout('components.layouts.marketing')]
 
             <div class="rounded-2xl p-8 lg:p-10" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
-                    Standard Scoring
+                    Relay-Based Scoring
                 </div>
                 <h3 class="mb-3 text-xl font-bold">Gong Multiplier System</h3>
                 <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">

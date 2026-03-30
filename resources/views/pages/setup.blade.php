@@ -38,7 +38,7 @@ new #[Layout('components.layouts.marketing')]
                     <h4 class="text-lg font-semibold" style="color: var(--lp-text);">Create a match</h4>
                     <p class="mt-1 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
                         Go to your org dashboard, click <strong style="color: var(--lp-text);">New Match</strong>, and fill in the name, date, location, and entry fee.
-                        Choose <strong style="color: var(--lp-text);">Standard</strong> for multiplier-based scoring or <strong style="color: var(--lp-text);">PRS</strong> for hit/miss/timed scoring.
+                        Choose <strong style="color: var(--lp-text);">Relay-Based</strong> for gong multiplier scoring, <strong style="color: var(--lp-text);">PRS</strong> for hit/miss/timed scoring, or <strong style="color: var(--lp-text);">ELR</strong> for extreme long range.
                     </p>
                 </div>
             </div>

@@ -208,10 +208,7 @@ function openCell(squadId, tsId) {
 }
 
 onMounted(async () => {
-    if (!matchStore.currentMatch || matchStore.currentMatch.id !== matchId.value) {
-        await matchStore.fetchMatch(matchId.value);
-    }
-    // Auto-expand the first incomplete distance
+    await matchStore.fetchMatch(matchId.value);
     for (const ts of targetSets.value) {
         const s = distanceStatus(ts.id);
         if (s.scored < s.total) {
