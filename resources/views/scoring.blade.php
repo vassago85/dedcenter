@@ -16,6 +16,12 @@
 </head>
 <body class="bg-app">
     <div id="scoring-app"></div>
+    <script>
+        fetch('/api/matches', { headers: { 'Accept': 'application/json' } })
+            .then(r => { console.log('API status:', r.status); return r.text(); })
+            .then(t => console.log('API response:', t.substring(0, 200)))
+            .catch(e => console.error('API raw error:', e.message));
+    </script>
     @RegisterServiceWorkerScript
 </body>
 </html>
