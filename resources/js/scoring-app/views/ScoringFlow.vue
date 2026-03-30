@@ -65,7 +65,8 @@
                                     :key="'gh-' + gong.id"
                                     class="px-2 py-2.5 text-center font-medium whitespace-nowrap"
                                 >
-                                    #{{ gong.number }}
+                                    <div>#{{ gong.number }}</div>
+                                    <div class="text-[10px] text-amber-400">{{ gong.multiplier }}x</div>
                                 </th>
                                 <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
                                 <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
@@ -83,17 +84,20 @@
                                     <span v-if="row.shooter.bib_number" class="text-xs text-slate-500 ml-1">#{{ row.shooter.bib_number }}</span>
                                 </td>
                                 <td
-                                    v-for="(result, gi) in row.gongResults"
+                                    v-for="(g, gi) in row.gongResults"
                                     :key="'sg-' + row.shooter.id + '-' + gi"
                                     class="px-2 py-2 text-center"
                                 >
-                                    <span v-if="result === 'hit'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-600/30 text-xs font-bold text-green-400">&#10003;</span>
-                                    <span v-else-if="result === 'miss'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600/30 text-xs font-bold text-red-400">&#10007;</span>
+                                    <div v-if="g.result === 'hit'" class="flex flex-col items-center">
+                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-600/30 text-xs font-bold text-green-400">&#10003;</span>
+                                        <span class="text-[10px] text-green-400/80 tabular-nums">+{{ g.points }}</span>
+                                    </div>
+                                    <span v-else-if="g.result === 'miss'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600/30 text-xs font-bold text-red-400">&#10007;</span>
                                     <span v-else class="text-slate-600">&mdash;</span>
                                 </td>
-                                <td class="px-3 py-2 text-center tabular-nums text-green-400">{{ row.hits }}</td>
-                                <td class="px-3 py-2 text-center tabular-nums text-red-400">{{ row.misses }}</td>
-                                <td class="px-3 py-2 text-right tabular-nums font-bold">{{ row.total }}</td>
+                                <td class="px-3 py-2 text-center tabular-nums text-green-400 font-medium">{{ row.hits }}</td>
+                                <td class="px-3 py-2 text-center tabular-nums text-red-400 font-medium">{{ row.misses }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums font-bold text-amber-400">{{ row.total }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -361,16 +365,15 @@ const relaySummary = computed(() => {
     return shooters.value.map(shooter => {
         let hits = 0;
         let misses = 0;
+        let total = 0;
         const gongResults = gongs.map(gong => {
             const score = scoringStore.getScore(shooter.id, gong.id);
-            if (score?.isHit === true) { hits++; return 'hit'; }
-            if (score?.isHit === false) { misses++; return 'miss'; }
-            return null;
+            const mult = parseFloat(gong.multiplier) || 1;
+            if (score?.isHit === true) { hits++; total += mult; return { result: 'hit', points: mult }; }
+            if (score?.isHit === false) { misses++; return { result: 'miss', points: 0 }; }
+            return { result: null, points: 0 };
         });
-        const total = gongs.reduce((sum, gong, i) => {
-            return sum + (gongResults[i] === 'hit' ? (gong.multiplier ?? 1) : 0);
-        }, 0);
-        return { shooter, gongResults, hits, misses, total };
+        return { shooter, gongResults, hits, misses, total: Math.round(total * 100) / 100 };
     });
 });
 
