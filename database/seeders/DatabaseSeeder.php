@@ -63,5 +63,7 @@ class DatabaseSeeder extends Seeder
         $royalFlush->admins()->syncWithoutDetaching([
             $admin->id => ['role' => 'owner'],
         ]);
+
+        $this->call(DemoMatchSeeder::class);
     }
 }
