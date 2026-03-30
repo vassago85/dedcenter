@@ -51,8 +51,8 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Install PHP dependencies (update lock for any newly added packages, then install)
+RUN composer update --no-dev --optimize-autoloader --no-interaction
 
 # Generate PWA icons (requires GD)
 RUN php generate-icons.php
