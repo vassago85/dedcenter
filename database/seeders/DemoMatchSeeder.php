@@ -22,14 +22,14 @@ class DemoMatchSeeder extends Seeder
         $org = Organization::where('slug', 'royal-flush')->firstOrFail();
 
         $match = ShootingMatch::updateOrCreate(
-            ['name' => 'Royal Flush — Round Robin Demo', 'organization_id' => $org->id],
+            ['name' => 'Royal Flush — Relay Match', 'organization_id' => $org->id],
             [
                 'date' => now()->toDateString(),
                 'location' => 'Dullstroom Range',
                 'status' => MatchStatus::Active,
                 'scoring_type' => 'standard',
                 'side_bet_enabled' => true,
-                'notes' => 'Seeded demo match — 4 squads × 5 shooters, round-robin gong scoring.',
+                'notes' => 'Seeded relay-based match — 4 relays × 10 shooters, gong scoring at 400–700 m.',
                 'created_by' => $paul->id,
                 'entry_fee' => 150.00,
             ]
@@ -43,8 +43,11 @@ class DemoMatchSeeder extends Seeder
         $catOverall = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Overall', 'slug' => 'overall'], ['sort_order' => 1]);
         $catSenior  = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Senior',  'slug' => 'senior'],  ['sort_order' => 2]);
         $catJunior  = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Junior',  'slug' => 'junior'],  ['sort_order' => 3]);
+        $catLadies  = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Ladies',  'slug' => 'ladies'],  ['sort_order' => 4]);
 
-        // ── Target sets with gongs at 400m, 500m, 600m, 700m ──
+        // ── Target sets: 400 m, 500 m, 600 m, 700 m ──
+        // Each bank has 5 gongs sized by MOA with increasing multipliers.
+        // Distance multiplier = distance / 100 (e.g. 400 m → 4×).
         $distances = [
             ['label' => '400m Bank',  'distance' => 400, 'gongs' => [
                 ['label' => '2.5 MOA', 'multiplier' => 1.00],
@@ -90,32 +93,36 @@ class DemoMatchSeeder extends Seeder
             }
         }
 
-        // ── 4 Squads × 5 Shooters ──
+        // ── 4 Relays × 10 Shooters ──
         $shooterNames = [
-            // Squad Alpha
+            // Relay Alpha
             'Pieter van Zyl', 'Johan Botha', 'Riaan de Villiers', 'Henk Swart', 'Willem Pretorius',
-            // Squad Bravo
+            'Kobus Prinsloo', 'Stephan Louw', 'Fanie Naude', 'Corné van der Merwe', 'Jannie Potgieter',
+            // Relay Bravo
             'André Joubert', 'Francois Nel', 'Danie Erasmus', 'Marius Venter', 'Charl du Plessis',
-            // Squad Charlie
+            'Wynand Bosman', 'Gerhard Smit', 'Attie Greyling', 'Hugo Visagie', 'Frikkie Bester',
+            // Relay Charlie
             'Thabo Molefe', 'Jacques Kruger', 'Stefan le Roux', 'Gert Coetzee', 'Nico Marais',
-            // Squad Delta
+            'Christo Lombard', 'Jaco Rossouw', 'Petrus Snyman', 'Tienie Ferreira', 'Wessel van Wyk',
+            // Relay Delta
             'Paul Charsley', 'Ben Fourie', 'Jan Harmse', 'Louis Steyn', 'Werner Britz',
+            'Deon Cilliers', 'Rikus Janse van Rensburg', 'Anton Scheepers', 'Pieter-Steph Malan', 'Tjaart Lubbe',
         ];
 
-        $squadNames = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+        $relayNames = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
         $divisions  = [$divOpen, $divFactory];
-        $categories = [$catOverall, $catSenior, $catJunior];
+        $categories = [$catOverall, $catSenior, $catJunior, $catLadies];
 
         $bibNumber = 1;
 
-        foreach ($squadNames as $si => $squadName) {
+        foreach ($relayNames as $si => $relayName) {
             $squad = Squad::firstOrCreate(
-                ['match_id' => $match->id, 'name' => $squadName],
+                ['match_id' => $match->id, 'name' => $relayName],
                 ['sort_order' => $si + 1]
             );
 
-            $sliceStart = $si * 5;
-            $members    = array_slice($shooterNames, $sliceStart, 5);
+            $sliceStart = $si * 10;
+            $members    = array_slice($shooterNames, $sliceStart, 10);
 
             foreach ($members as $mi => $name) {
                 $userId = null;
@@ -140,6 +147,6 @@ class DemoMatchSeeder extends Seeder
             }
         }
 
-        $this->command->info("Demo match seeded: \"{$match->name}\" — {$match->date->format('d M Y')} — 4 squads, 20 shooters, 4 distances.");
+        $this->command->info("Demo match seeded: \"{$match->name}\" — {$match->date->format('d M Y')} — 4 relays, 40 shooters, 4 distances.");
     }
 }
