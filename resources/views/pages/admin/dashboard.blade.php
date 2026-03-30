@@ -32,43 +32,44 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-8">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+    <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
             <h1 class="text-2xl font-bold text-white">Dashboard</h1>
             <p class="mt-1 text-sm text-secondary">Logged in as <span class="font-medium text-amber-400">{{ auth()->user()->roleLabel() }}</span></p>
         </div>
-        <a href="{{ route('admin.matches.create') }}" class="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover transition-colors">
+        <a href="{{ route('admin.matches.create') }}" class="shrink-0 inline-flex items-center gap-2 rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-white transition-colors" style="background:#ff2b2b;">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            New Match
+            <span class="hidden sm:inline">New Match</span>
+            <span class="sm:hidden">New</span>
         </a>
     </div>
 
     {{-- Stats --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div class="rounded-xl border border-border bg-surface p-6">
-            <p class="text-sm font-medium text-muted">Total Matches</p>
-            <p class="mt-2 text-3xl font-bold text-white">{{ $totalMatches }}</p>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
+        <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <p class="text-xs sm:text-sm font-medium text-muted">Total Matches</p>
+            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalMatches }}</p>
         </div>
-        <div class="rounded-xl border border-border bg-surface p-6">
-            <p class="text-sm font-medium text-muted">Active Matches</p>
-            <p class="mt-2 text-3xl font-bold text-green-400">{{ $activeMatches }}</p>
+        <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <p class="text-xs sm:text-sm font-medium text-muted">Active Matches</p>
+            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-green-400">{{ $activeMatches }}</p>
         </div>
-        <div class="rounded-xl border border-border bg-surface p-6">
-            <p class="text-sm font-medium text-muted">Registered Shooters</p>
-            <p class="mt-2 text-3xl font-bold text-white">{{ $totalMembers }}</p>
+        <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
+            <p class="text-xs sm:text-sm font-medium text-muted">Registered Shooters</p>
+            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalMembers }}</p>
         </div>
-        <a href="{{ route('admin.organizations') }}" class="rounded-xl border border-border bg-surface p-6 hover:border-amber-600/50 transition-colors">
-            <p class="text-sm font-medium text-muted">Organizations</p>
-            <p class="mt-2 text-3xl font-bold text-white">{{ $totalOrgs }}</p>
+        <a href="{{ route('admin.organizations') }}" class="rounded-xl border border-border bg-surface p-4 sm:p-6 hover:border-amber-600/50 transition-colors">
+            <p class="text-xs sm:text-sm font-medium text-muted">Organizations</p>
+            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalOrgs }}</p>
             @if($pendingOrgs > 0)
-                <p class="mt-1 text-xs text-amber-400">{{ $pendingOrgs }} pending approval</p>
+                <p class="mt-1 text-xs text-amber-400">{{ $pendingOrgs }} pending</p>
             @endif
         </a>
-        <a href="{{ route('admin.registrations') }}" class="rounded-xl border border-border bg-surface p-6 hover:border-red-600/50 transition-colors">
-            <p class="text-sm font-medium text-muted">Pending Approvals</p>
-            <p class="mt-2 text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-accent' : 'text-white' }}">{{ $pendingRegistrations }}</p>
+        <a href="{{ route('admin.registrations') }}" class="rounded-xl border border-border bg-surface p-4 sm:p-6 hover:border-red-600/50 transition-colors col-span-2 sm:col-span-1">
+            <p class="text-xs sm:text-sm font-medium text-muted">Pending Approvals</p>
+            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-accent' : 'text-white' }}">{{ $pendingRegistrations }}</p>
         </a>
     </div>
 
@@ -112,19 +113,56 @@ new #[Layout('components.layouts.app')]
 
     {{-- Recent matches --}}
     <div class="rounded-xl border border-border bg-surface">
-        <div class="border-b border-border px-6 py-4">
+        <div class="border-b border-border px-4 sm:px-6 py-4">
             <h2 class="text-lg font-semibold text-white">Recent Matches</h2>
         </div>
 
         @if($recentMatches->isEmpty())
             <div class="px-6 py-12 text-center">
                 <p class="text-muted">No matches yet.</p>
-                <flux:button href="{{ route('admin.matches.create') }}" variant="primary" class="mt-4 !bg-accent hover:!bg-accent-hover">
+                <a href="{{ route('admin.matches.create') }}" class="mt-4 inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white" style="background:#ff2b2b;">
                     Create Your First Match
-                </flux:button>
+                </a>
             </div>
         @else
-            <div class="overflow-x-auto">
+            {{-- Mobile cards --}}
+            <div class="divide-y divide-border sm:hidden">
+                @foreach($recentMatches as $match)
+                    <div class="p-4 space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-white truncate">{{ $match->name }}</p>
+                                <p class="text-xs text-muted">{{ $match->organization?->name ?? '—' }}</p>
+                            </div>
+                            @switch($match->status)
+                                @case(MatchStatus::Draft)
+                                    <span class="shrink-0 rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs font-medium text-zinc-300">Draft</span>
+                                    @break
+                                @case(MatchStatus::Active)
+                                    <span class="shrink-0 rounded-full bg-green-900/40 px-2 py-0.5 text-xs font-medium text-green-400">Active</span>
+                                    @break
+                                @case(MatchStatus::Completed)
+                                    <span class="shrink-0 rounded-full bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-400">Completed</span>
+                                    @break
+                            @endswitch
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-secondary">
+                            <span>{{ $match->date?->format('d M Y') ?? '—' }}</span>
+                            <span>{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex gap-3 text-xs text-muted">
+                                <span>{{ $match->registrations_count }} reg</span>
+                                <span>{{ $match->shooters_count }} shooters</span>
+                            </div>
+                            <a href="{{ route('admin.matches.edit', $match) }}" class="text-xs font-medium text-secondary hover:text-white">Edit</a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Desktop table --}}
+            <div class="hidden sm:block overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-border text-left text-muted">
@@ -133,7 +171,7 @@ new #[Layout('components.layouts.app')]
                             <th class="px-6 py-3 font-medium">Date</th>
                             <th class="px-6 py-3 font-medium">Status</th>
                             <th class="px-6 py-3 font-medium text-right">Fee</th>
-                            <th class="px-6 py-3 font-medium text-right">Registrations</th>
+                            <th class="px-6 py-3 font-medium text-right">Reg</th>
                             <th class="px-6 py-3 font-medium text-right">Shooters</th>
                             <th class="px-6 py-3 font-medium"></th>
                         </tr>
@@ -147,13 +185,13 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3">
                                     @switch($match->status)
                                         @case(MatchStatus::Draft)
-                                            <flux:badge size="sm" color="zinc">Draft</flux:badge>
+                                            <span class="rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs font-medium text-zinc-300">Draft</span>
                                             @break
                                         @case(MatchStatus::Active)
-                                            <flux:badge size="sm" color="green">Active</flux:badge>
+                                            <span class="rounded-full bg-green-900/40 px-2 py-0.5 text-xs font-medium text-green-400">Active</span>
                                             @break
                                         @case(MatchStatus::Completed)
-                                            <flux:badge size="sm" color="blue">Completed</flux:badge>
+                                            <span class="rounded-full bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-400">Completed</span>
                                             @break
                                     @endswitch
                                 </td>
@@ -161,9 +199,7 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->registrations_count }}</td>
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->shooters_count }}</td>
                                 <td class="px-6 py-3 text-right">
-                                    <flux:button href="{{ route('admin.matches.edit', $match) }}" size="sm" variant="ghost">
-                                        Edit
-                                    </flux:button>
+                                    <a href="{{ route('admin.matches.edit', $match) }}" class="text-sm font-medium text-secondary hover:text-white">Edit</a>
                                 </td>
                             </tr>
                         @endforeach

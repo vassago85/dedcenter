@@ -1,6 +1,9 @@
-const CACHE_NAME = 'deadcenter-v1';
+if (typeof ServiceWorkerGlobalScope === 'undefined') {
+    // Loaded as a regular page script — do nothing
+} else {
+
+const CACHE_NAME = 'deadcenter-v2';
 const STATIC_ASSETS = [
-    '/score',
     '/offline.html',
     '/manifest.json',
     '/icons/icon-192.png',
@@ -72,3 +75,5 @@ async function cacheFirst(request) {
         return new Response('Offline', { status: 503 });
     }
 }
+
+} // end ServiceWorkerGlobalScope guard
