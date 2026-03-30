@@ -400,7 +400,8 @@ new #[Layout('components.layouts.app')]
     public function updateShooterCategories(int $shooterId, array $categoryIds): void
     {
         $shooter = Shooter::findOrFail($shooterId);
-        $shooter->categories()->sync(array_map('intval', $categoryIds));
+        $validIds = $this->match->categories()->whereIn('id', array_map('intval', $categoryIds))->pluck('id')->toArray();
+        $shooter->categories()->sync($validIds);
     }
 
     // ── Match Controls ──
