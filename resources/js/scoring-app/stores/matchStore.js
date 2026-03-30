@@ -4,6 +4,10 @@ import axios from 'axios';
 
 const SQUAD_LOCK_KEY = 'dc_locked_squad';
 
+function plain(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
 function readSquadLock(matchId) {
     try {
         const raw = localStorage.getItem(SQUAD_LOCK_KEY);
@@ -57,8 +61,9 @@ export const useMatchStore = defineStore('match', {
             this.error = null;
             try {
                 const { data } = await axios.get('/api/matches');
-                this.matches = data.data;
-                await db.matches.bulkPut(this.matches);
+                const matches = plain(data.data);
+                await db.matches.bulkPut(matches);
+                this.matches = matches;
             } catch (e) {
                 console.error('fetchMatches failed:', e);
                 const cached = await db.matches.toArray();
@@ -79,8 +84,9 @@ export const useMatchStore = defineStore('match', {
             this.error = null;
             try {
                 const { data } = await axios.get(`/api/matches/${matchId}`);
-                this.currentMatch = data.data;
-                await this.cacheMatch(data.data);
+                const match = plain(data.data);
+                await db.matches.put(match);
+                this.currentMatch = match;
             } catch (e) {
                 const cached = await db.matches.get(matchId);
                 if (cached) {
@@ -115,7 +121,7 @@ export const useMatchStore = defineStore('match', {
         },
 
         async cacheMatch(match) {
-            await db.matches.put(match);
+            await db.matches.put(plain(match));
             this.cachedMatchIds.add(match.id);
         },
 
@@ -134,8 +140,10 @@ export const useMatchStore = defineStore('match', {
             this.cachingMatchId = matchId;
             try {
                 const { data } = await axios.get(`/api/matches/${matchId}`);
-                await this.cacheMatch(data.data);
-                return data.data;
+                const match = plain(data.data);
+                await db.matches.put(match);
+                this.cachedMatchIds.add(match.id);
+                return match;
             } finally {
                 this.cachingMatchId = null;
             }
