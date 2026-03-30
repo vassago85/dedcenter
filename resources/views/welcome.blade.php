@@ -28,18 +28,12 @@
                     <a href="{{ route('dashboard') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Dashboard
                     </a>
-                    <a href="{{ route('scoring') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);" onmouseover="this.style.borderColor='rgba(255,255,255,0.18)'; this.style.color='#fff'" onmouseout="this.style.borderColor='var(--lp-border)'; this.style.color='var(--lp-text-soft)'">
-                        Open Scoring
-                    </a>
                 @else
                     <a href="{{ route('login') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white" style="color: var(--lp-text-soft);">
                         Sign In
                     </a>
                     <a href="{{ route('register') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Get Started
-                    </a>
-                    <a href="{{ route('scoring') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);" onmouseover="this.style.borderColor='rgba(255,255,255,0.18)'; this.style.color='#fff'" onmouseout="this.style.borderColor='var(--lp-border)'; this.style.color='var(--lp-text-soft)'">
-                        Open Scoring
                     </a>
                 @endauth
             </div>
