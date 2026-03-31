@@ -19,7 +19,9 @@ class ClbPretoriaMatchSeeder extends Seeder
     public function run(): void
     {
         $owner = User::where('email', 'paul@charsley.co.za')->first()
-            ?? User::where('role', 'owner')->first();
+            ?? User::where('role', 'owner')->first()
+            ?? User::where('role', 'admin')->first()
+            ?? User::first();
 
         if (! $owner) {
             $this->command->warn('No owner user found – skipping CLB Pretoria seeder.');
@@ -30,7 +32,9 @@ class ClbPretoriaMatchSeeder extends Seeder
             ['slug' => 'clb-pretoria-prc'],
             [
                 'name' => 'CLB Pretoria Precision Rifle Club',
-                'owner_id' => $owner->id,
+                'created_by' => $owner->id,
+                'type' => 'club',
+                'status' => 'active',
             ]
         );
 
