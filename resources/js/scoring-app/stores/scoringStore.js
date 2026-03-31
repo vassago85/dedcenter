@@ -18,6 +18,7 @@ export const useScoringStore = defineStore('scoring', {
         stageTimes: new Map(),
         deletedScores: [],
         currentTargetSetIndex: 0,
+        currentSquadIndex: 0,
         currentGongIndex: 0,
         currentShooterIndex: 0,
         syncing: false,
@@ -44,6 +45,7 @@ export const useScoringStore = defineStore('scoring', {
             this.stageTimes = new Map();
             this.deletedScores = [];
             this.currentTargetSetIndex = 0;
+            this.currentSquadIndex = 0;
             this.currentGongIndex = 0;
             this.currentShooterIndex = 0;
             this.authExpired = false;
@@ -256,9 +258,20 @@ export const useScoringStore = defineStore('scoring', {
             return false;
         },
 
+        advanceToNextSquad(totalSquads) {
+            this.currentShooterIndex = 0;
+            this.currentGongIndex = 0;
+            if (this.currentSquadIndex < totalSquads - 1) {
+                this.currentSquadIndex++;
+                return true;
+            }
+            return false;
+        },
+
         advanceToNextTargetSet(totalSets) {
             this.currentShooterIndex = 0;
             this.currentGongIndex = 0;
+            this.currentSquadIndex = 0;
             if (this.currentTargetSetIndex < totalSets - 1) {
                 this.currentTargetSetIndex++;
                 return true;

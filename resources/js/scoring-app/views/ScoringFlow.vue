@@ -16,6 +16,9 @@
                     <p v-if="isScoped" class="text-[11px] text-amber-400">
                         Relay {{ scopedRelayIndex }} &mdash; {{ scopedDistanceLabel }}
                     </p>
+                    <p v-else-if="isMultiSquad && currentScoringSquad" class="text-[11px] text-amber-400">
+                        {{ currentScoringSquad.name }} &mdash; {{ currentDistanceLabel }}
+                    </p>
                     <router-link
                         v-else-if="matchStore.lockedSquadName"
                         :to="{ name: 'squad-select', params: { matchId: props.matchId } }"
@@ -56,8 +59,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
                     </div>
-                    <h2 class="text-xl font-bold">{{ scopedDistanceLabel }} &mdash; Relay {{ scopedRelayIndex }} Complete</h2>
-                    <p class="text-sm text-slate-400">{{ scopedSquad?.name ?? currentTargetSet?.label }}</p>
+                    <h2 class="text-xl font-bold">{{ currentDistanceLabel }} &mdash; {{ currentRelayLabel }} Complete</h2>
+                    <p class="text-sm text-slate-400">{{ currentTargetSet?.label }}</p>
                 </div>
 
                 <div class="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
@@ -130,11 +133,11 @@
                         Back to Matrix
                     </router-link>
                     <button
-                        v-else
+                        v-if="!isScoped"
                         @click="dismissSummary"
                         class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
                     >
-                        Continue
+                        {{ nextSquadLabel }}
                     </button>
                 </div>
             </div>
@@ -174,7 +177,7 @@
             </div>
             <h2 class="text-2xl font-bold">{{ isScoped ? 'Stage Complete!' : 'Scoring Complete!' }}</h2>
             <p class="text-slate-400">
-                {{ isScoped ? `Relay ${scopedRelayIndex} at ${scopedDistanceLabel} scored.` : 'All shooters have engaged all targets.' }}
+                {{ isScoped ? `Relay ${scopedRelayIndex} at ${scopedDistanceLabel} scored.` : 'All squads have been scored at all distances.' }}
             </p>
             <div class="flex flex-col gap-3 pt-4">
                 <button
@@ -213,6 +216,7 @@
                 <div class="mx-auto max-w-lg">
                     <div class="flex items-center justify-between text-xs text-slate-400">
                         <span v-if="!isScoped">Set {{ scoringStore.currentTargetSetIndex + 1 }}/{{ targetSets.length }}</span>
+                        <span v-if="isMultiSquad">Squad {{ scoringStore.currentSquadIndex + 1 }}/{{ squadOrder.length }}</span>
                         <span>Gong {{ scoringStore.currentGongIndex + 1 }}/{{ currentGongs.length }}</span>
                         <span>Shooter {{ scoringStore.currentShooterIndex + 1 }}/{{ shooters.length }}</span>
                     </div>
@@ -312,7 +316,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
@@ -334,8 +338,11 @@ const matchComplete = ref(false);
 const showRelaySummary = ref(false);
 const showGongTransition = ref(false);
 
+// ── Mode detection ──
 const isScoped = computed(() => route.name === 'scoped-scoring' && props.squadId && props.targetSetId);
+const isMultiSquad = computed(() => !isScoped.value && !matchStore.hasSquadLock && matchStore.squads.length > 1);
 
+// ── Scoped-mode helpers (matrix-launched) ──
 const scopedSquad = computed(() => {
     if (!isScoped.value) return null;
     return matchStore.squads.find(s => s.id === props.squadId);
@@ -363,6 +370,31 @@ const backRoute = computed(() => {
     return { name: 'match-overview', params: { matchId: props.matchId } };
 });
 
+// ── Squad ordering (for multi-squad flow) ──
+const squadOrder = computed(() => {
+    if (!isMultiSquad.value) return [];
+    return [...matchStore.squads].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+});
+
+const currentScoringSquad = computed(() => {
+    if (!isMultiSquad.value) return null;
+    return squadOrder.value[scoringStore.currentSquadIndex] ?? null;
+});
+
+const currentRelayLabel = computed(() => {
+    if (isScoped.value) return `Relay ${scopedRelayIndex.value}`;
+    if (isMultiSquad.value && currentScoringSquad.value) {
+        return currentScoringSquad.value.name;
+    }
+    return '';
+});
+
+const currentDistanceLabel = computed(() => {
+    if (isScoped.value) return scopedDistanceLabel.value;
+    return currentTargetSet.value ? `${currentTargetSet.value.distance_meters}m` : '';
+});
+
+// ── Target sets ──
 const targetSets = computed(() => {
     if (isScoped.value && scopedTargetSet.value) {
         return [scopedTargetSet.value];
@@ -379,11 +411,18 @@ const effectiveMultiplier = computed(() => {
     return Math.round(dm * gm * 100) / 100;
 });
 
+// ── Shooters: scoped uses props squad, multi-squad uses currentScoringSquad, else locked/all ──
 const shooters = computed(() => {
     if (isScoped.value && scopedSquad.value) {
         return scopedSquad.value.shooters
             .filter(s => s.status === 'active')
             .map(s => ({ ...s, squadName: scopedSquad.value.name }));
+    }
+    if (isMultiSquad.value && currentScoringSquad.value) {
+        const squad = currentScoringSquad.value;
+        return (squad.shooters ?? [])
+            .filter(s => s.status === 'active')
+            .map(s => ({ ...s, squadName: squad.name }));
     }
     return matchStore.hasSquadLock ? matchStore.squadShooters : matchStore.allShooters;
 });
@@ -394,11 +433,43 @@ const existingScore = computed(() => {
     return scoringStore.getScore(currentShooter.value.id, currentGong.value.id);
 });
 
+// ── Progress (accounts for squad dimension in multi-squad mode) ──
 const totalSteps = computed(() => {
+    if (isMultiSquad.value) {
+        let total = 0;
+        for (const ts of targetSets.value) {
+            for (const squad of squadOrder.value) {
+                const activeCount = (squad.shooters ?? []).filter(s => s.status === 'active').length;
+                total += ts.gongs.length * activeCount;
+            }
+        }
+        return total;
+    }
     return targetSets.value.reduce((sum, ts) => sum + ts.gongs.length * shooters.value.length, 0);
 });
 
 const currentStep = computed(() => {
+    if (isMultiSquad.value) {
+        let step = 0;
+        for (let t = 0; t < scoringStore.currentTargetSetIndex; t++) {
+            const ts = targetSets.value[t];
+            for (const squad of squadOrder.value) {
+                const activeCount = (squad.shooters ?? []).filter(s => s.status === 'active').length;
+                step += ts.gongs.length * activeCount;
+            }
+        }
+        const ts = currentTargetSet.value;
+        if (ts) {
+            for (let sq = 0; sq < scoringStore.currentSquadIndex; sq++) {
+                const squad = squadOrder.value[sq];
+                const activeCount = (squad?.shooters ?? []).filter(s => s.status === 'active').length;
+                step += ts.gongs.length * activeCount;
+            }
+        }
+        step += scoringStore.currentGongIndex * shooters.value.length;
+        step += scoringStore.currentShooterIndex;
+        return step;
+    }
     let step = 0;
     for (let t = 0; t < scoringStore.currentTargetSetIndex; t++) {
         step += targetSets.value[t].gongs.length * shooters.value.length;
@@ -415,10 +486,12 @@ const progressPercent = computed(() => {
 
 const isFirst = computed(() => {
     return scoringStore.currentTargetSetIndex === 0 &&
+        scoringStore.currentSquadIndex === 0 &&
         scoringStore.currentGongIndex === 0 &&
         scoringStore.currentShooterIndex === 0;
 });
 
+// ── Relay summary data ──
 const relaySummary = computed(() => {
     if (!currentTargetSet.value || !shooters.value.length) return [];
     const gongs = currentTargetSet.value.gongs ?? [];
@@ -438,6 +511,7 @@ const relaySummary = computed(() => {
     });
 });
 
+// ── Next-squad suggestion (scoped mode only, uses concurrent_relays stride) ──
 const nextSquadSuggestion = computed(() => {
     if (!isScoped.value || !props.targetSetId) return null;
     const squads = matchStore.squads;
@@ -447,8 +521,6 @@ const nextSquadSuggestion = computed(() => {
     if (currentIdx < 0) return null;
 
     const stride = Math.max(1, concurrentRelays);
-    const nextIdx = currentIdx + stride;
-
     for (let offset = stride; offset < squads.length; offset += stride) {
         const idx = (currentIdx + offset) % squads.length;
         const squad = squads[idx];
@@ -472,6 +544,22 @@ function goToNextSquad() {
     });
 }
 
+// ── Continue button label for multi-squad relay summary ──
+const nextSquadLabel = computed(() => {
+    if (!isMultiSquad.value) return 'Continue';
+    const s = scoringStore;
+    if (s.currentSquadIndex < squadOrder.value.length - 1) {
+        const next = squadOrder.value[s.currentSquadIndex + 1];
+        return `Continue \u2192 ${next.name}`;
+    }
+    if (s.currentTargetSetIndex < targetSets.value.length - 1) {
+        const nextTs = targetSets.value[s.currentTargetSetIndex + 1];
+        return `Continue \u2192 ${nextTs.label}`;
+    }
+    return 'Finish Scoring';
+});
+
+// ── Scoring actions ──
 async function recordScore(isHit) {
     if (!currentShooter.value || !currentGong.value) return;
     await scoringStore.recordScore(currentShooter.value.id, currentGong.value.id, isHit);
@@ -485,7 +573,8 @@ function advance() {
         showGongTransition.value = true;
         return;
     }
-    if (isScoped.value) {
+    // Squad finished all gongs at this distance -> show summary
+    if (isMultiSquad.value || isScoped.value) {
         showRelaySummary.value = true;
         return;
     }
@@ -499,7 +588,12 @@ function dismissGongTransition() {
 
 function dismissSummary() {
     showRelaySummary.value = false;
-    if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
+    if (isMultiSquad.value) {
+        if (scoringStore.advanceToNextSquad(squadOrder.value.length)) return;
+        if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
+    } else {
+        if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
+    }
     matchComplete.value = true;
 }
 
@@ -518,11 +612,29 @@ function goBack() {
         s.currentShooterIndex = shooters.value.length - 1;
         return;
     }
+    if (isMultiSquad.value && s.currentSquadIndex > 0) {
+        s.currentSquadIndex--;
+        const prevSquad = squadOrder.value[s.currentSquadIndex];
+        const prevShooterCount = (prevSquad?.shooters ?? []).filter(sh => sh.status === 'active').length;
+        const prevGongs = currentTargetSet.value?.gongs ?? [];
+        s.currentGongIndex = prevGongs.length - 1;
+        s.currentShooterIndex = prevShooterCount - 1;
+        return;
+    }
     if (s.currentTargetSetIndex > 0) {
         s.currentTargetSetIndex--;
-        const prevGongs = targetSets.value[s.currentTargetSetIndex].gongs;
-        s.currentGongIndex = prevGongs.length - 1;
-        s.currentShooterIndex = shooters.value.length - 1;
+        if (isMultiSquad.value) {
+            s.currentSquadIndex = squadOrder.value.length - 1;
+            const prevSquad = squadOrder.value[s.currentSquadIndex];
+            const prevShooterCount = (prevSquad?.shooters ?? []).filter(sh => sh.status === 'active').length;
+            const prevGongs = targetSets.value[s.currentTargetSetIndex].gongs;
+            s.currentGongIndex = prevGongs.length - 1;
+            s.currentShooterIndex = prevShooterCount - 1;
+        } else {
+            const prevGongs = targetSets.value[s.currentTargetSetIndex].gongs;
+            s.currentGongIndex = prevGongs.length - 1;
+            s.currentShooterIndex = shooters.value.length - 1;
+        }
     }
 }
 
