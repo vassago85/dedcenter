@@ -5,7 +5,7 @@ use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.marketing')]
-    #[Title('Features — DeadCenter')]
+    #[Title('Match Scoring Features — DeadCenter Platform')]
     class extends Component {
 }; ?>
 
@@ -114,7 +114,7 @@ new #[Layout('components.layouts.marketing')]
                     </svg>
                 </div>
                 <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Side Bet (Royal Flush)</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Optional side competition for round-robin matches. The winner is whoever hits the most smallest gongs. Ties break by furthest distance, then cascade to the next gong size.</p>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Optional side competition for relay-format matches. The winner is whoever hits the most smallest gongs. Ties break by furthest distance, then cascade to the next gong size.</p>
             </div>
 
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
@@ -133,8 +133,8 @@ new #[Layout('components.layouts.marketing')]
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
                     </svg>
                 </div>
-                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Relay-Based Gong Scoring</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Point multipliers based on gong size and difficulty. Round-robin relay flow with auto-advancing scorer. Quick-add preset targets included.</p>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Relay Scoring</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Point multipliers based on gong size and difficulty. Synchronized relay flow with auto-advancing scorer. Quick-add preset targets included.</p>
             </div>
 
         </div>
@@ -147,14 +147,14 @@ new #[Layout('components.layouts.marketing')]
         <p class="mx-auto mt-3 max-w-md" style="color: var(--lp-text-soft);">Set up your first match in minutes. Free to use.</p>
         <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             @auth
-                <a href="{{ route('dashboard') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                <a href="{{ app_url('/dashboard') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                     Go to Dashboard
                 </a>
             @else
-                <a href="{{ route('register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                <a href="{{ app_url('/register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                     Get Started Free
                 </a>
-                <a href="{{ route('login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-surface)'" onmouseout="this.style.background='transparent'">
+                <a href="{{ app_url('/login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-surface)'" onmouseout="this.style.background='transparent'">
                     Sign In
                 </a>
             @endauth

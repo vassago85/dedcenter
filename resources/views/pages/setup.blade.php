@@ -38,7 +38,7 @@ new #[Layout('components.layouts.marketing')]
                     <h4 class="text-lg font-semibold" style="color: var(--lp-text);">Create a match</h4>
                     <p class="mt-1 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
                         Go to your org dashboard, click <strong style="color: var(--lp-text);">New Match</strong>, and fill in the name, date, location, and entry fee.
-                        Choose <strong style="color: var(--lp-text);">Relay-Based</strong> for gong multiplier scoring, <strong style="color: var(--lp-text);">PRS</strong> for hit/miss/timed scoring, or <strong style="color: var(--lp-text);">ELR</strong> for extreme long range.
+                        Choose <strong style="color: var(--lp-text);">Relay Scoring</strong> for gong multiplier scoring, <strong style="color: var(--lp-text);">PRS</strong> for hit/miss/timed scoring, or <strong style="color: var(--lp-text);">ELR</strong> for extreme long range.
                     </p>
                 </div>
             </div>
@@ -135,14 +135,14 @@ new #[Layout('components.layouts.marketing')]
         <p class="mx-auto mt-3 max-w-md" style="color: var(--lp-text-soft);">Set up your first match in minutes. Free to use.</p>
         <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             @auth
-                <a href="{{ route('dashboard') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='#b80500'; this.style.boxShadow='0 6px 24px rgba(225, 6, 0, 0.35)';" onmouseout="this.style.background='var(--lp-red)'; this.style.boxShadow='0 4px 20px rgba(225, 6, 0, 0.25)';">
+                <a href="{{ app_url('/dashboard') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='#b80500'; this.style.boxShadow='0 6px 24px rgba(225, 6, 0, 0.35)';" onmouseout="this.style.background='var(--lp-red)'; this.style.boxShadow='0 4px 20px rgba(225, 6, 0, 0.25)';">
                     Go to Dashboard
                 </a>
             @else
-                <a href="{{ route('register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='#b80500'; this.style.boxShadow='0 6px 24px rgba(225, 6, 0, 0.35)';" onmouseout="this.style.background='var(--lp-red)'; this.style.boxShadow='0 4px 20px rgba(225, 6, 0, 0.25)';">
+                <a href="{{ app_url('/register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='#b80500'; this.style.boxShadow='0 6px 24px rgba(225, 6, 0, 0.35)';" onmouseout="this.style.background='var(--lp-red)'; this.style.boxShadow='0 4px 20px rgba(225, 6, 0, 0.25)';">
                     Get Started Free
                 </a>
-                <a href="{{ route('login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-bg-2)';" onmouseout="this.style.background='transparent';">
+                <a href="{{ app_url('/login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-bg-2)';" onmouseout="this.style.background='transparent';">
                     Sign In
                 </a>
             @endauth

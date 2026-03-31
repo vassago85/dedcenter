@@ -25,14 +25,14 @@
             </div>
             <div class="flex items-center gap-3">
                 @auth
-                    <a href="{{ route('dashboard') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                    <a href="{{ app_url('/dashboard') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Dashboard
                     </a>
                 @else
-                    <a href="{{ route('login') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white" style="color: var(--lp-text-soft);">
+                    <a href="{{ app_url('/login') }}" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white" style="color: var(--lp-text-soft);">
                         Sign In
                     </a>
-                    <a href="{{ route('register') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                    <a href="{{ app_url('/register') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Get Started
                     </a>
                 @endauth
@@ -106,7 +106,7 @@
 
                 <div class="mt-10 flex flex-col items-center gap-3.5 sm:flex-row sm:justify-center">
                     @auth
-                        <a href="{{ route('dashboard') }}"
+                        <a href="{{ app_url('/dashboard') }}"
                            class="group relative inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold text-white transition-all duration-200"
                            style="background: var(--lp-red); box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25);"
                            onmouseover="this.style.background='var(--lp-red-hover)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(225, 6, 0, 0.35)';"
@@ -114,14 +114,14 @@
                             Go to Dashboard
                         </a>
                     @else
-                        <a href="{{ route('register') }}"
+                        <a href="{{ app_url('/register') }}"
                            class="group relative inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold text-white transition-all duration-200"
                            style="background: var(--lp-red); box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25);"
                            onmouseover="this.style.background='var(--lp-red-hover)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(225, 6, 0, 0.35)';"
                            onmouseout="this.style.background='var(--lp-red)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25)';">
                             Get Started Free
                         </a>
-                        <a href="{{ route('login') }}"
+                        <a href="{{ app_url('/login') }}"
                            class="inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold backdrop-blur-sm transition-all duration-200 hover:!text-white"
                            style="border: 1px solid var(--lp-border); background: var(--lp-surface); color: var(--lp-text-soft);"
                            onmouseover="this.style.borderColor='rgba(255,255,255,0.18)'; this.style.background='var(--lp-surface-2)';"
@@ -169,16 +169,16 @@
 
                 <div class="rounded-2xl p-8 flex flex-col" style="border: 1px solid rgba(225, 6, 0, 0.15); background: var(--lp-surface);">
                     <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
-                        Relay-Based
+                        Relay Scoring
                     </div>
-                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Gong Multiplier System</h3>
+                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Synchronized Relay Format</h3>
                     <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                        Shooters rotate through gongs in relay order. Each gong has a point multiplier based on size &amp; difficulty. Range Officers tap HIT or MISS.
+                        All relays complete each stage before advancing together. Distance-based target and gong multipliers reward accuracy at range. Range Officers tap HIT or MISS.
                     </p>
                     <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
                         <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Gong multipliers (2.5 MOA = 1.0x, 0.5 MOA = 2.0x)</li>
                         <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Distance multipliers (400m = 4x, 700m = 7x)</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Round-robin relay scoring flow</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Synchronized relay scoring flow</li>
                         <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Quick-add presets: 5 standard MOA targets</li>
                         <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Auto-squadding with shared-rifle constraints</li>
                         <li class="flex items-start gap-2"><span class="mt-0.5 text-amber-500">&#10003;</span> Optional <strong class="text-amber-400">Side Bet</strong> mode</li>
@@ -310,7 +310,7 @@
                     <div>
                         <h3 class="text-xl font-bold" style="color: var(--lp-text);">Side Bet &mdash; Royal Flush</h3>
                         <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                            Optional side competition for standard (round-robin) matches. The winner is whoever hits the most smallest gongs.
+                            Optional side competition for relay-format matches. The winner is whoever hits the most smallest gongs.
                             Ties break by furthest distance, then cascade to the next gong size. A fun, high-stakes addition to any match day.
                         </p>
                     </div>
@@ -377,14 +377,14 @@
             <p class="mx-auto mt-3 max-w-md" style="color: var(--lp-text-muted);">Set up your first match in minutes. Free to use.</p>
             <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                 @auth
-                    <a href="{{ route('dashboard') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                    <a href="{{ app_url('/dashboard') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Go to Dashboard
                     </a>
                 @else
-                    <a href="{{ route('register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                    <a href="{{ app_url('/register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
                         Get Started Free
                     </a>
-                    <a href="{{ route('login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-surface-2)'" onmouseout="this.style.background='transparent'">
+                    <a href="{{ app_url('/login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-surface-2)'" onmouseout="this.style.background='transparent'">
                         Sign In
                     </a>
                 @endauth

@@ -5,82 +5,73 @@ use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.marketing')]
-    #[Title('Scoring Modes — DeadCenter')]
+    #[Title('Relay, PRS & ELR Scoring Modes — DeadCenter')]
     class extends Component {
 }; ?>
 
 <section style="border-bottom: 1px solid var(--lp-border);">
     <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
         <div class="mb-16 text-center">
-            <h2 class="text-3xl font-bold tracking-tight lg:text-4xl">Two Scoring Modes</h2>
-            <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-soft);">Choose the right format for your match.</p>
+            <h2 class="text-3xl font-bold tracking-tight lg:text-4xl">Three Scoring Engines</h2>
+            <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-soft);">From gong shoots to precision rifle to extreme long range &mdash; pick the engine that fits your match.</p>
         </div>
-        <div class="grid gap-8 lg:grid-cols-2">
+        <div class="grid gap-8 lg:grid-cols-3">
 
-            <div class="rounded-2xl p-8 lg:p-10" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                <div class="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
-                    Relay-Based Scoring
+            <div class="rounded-2xl p-8 flex flex-col" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
+                    Relay Scoring
                 </div>
-                <h3 class="mb-3 text-xl font-bold">Gong Multiplier System</h3>
+                <h3 class="mb-2 text-xl font-bold">Synchronized Relay Format</h3>
                 <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                    Each gong has a point multiplier based on size and difficulty. Shooters rotate through gongs in relay order.
-                    Range Officers tap HIT or MISS for each shooter at each gong. The scorer auto-advances through the relay sequence.
+                    All relays complete each stage before advancing together. Distance-based target and gong multipliers reward accuracy at range.
+                    Range Officers tap HIT or MISS.
                 </p>
-                <ul class="space-y-2 text-sm" style="color: var(--lp-text-soft);">
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Gongs with custom multipliers (e.g. 2.5 MOA = 1.0x, 0.5 MOA = 2.0x)
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Round-robin relay scoring flow
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Score = sum of multipliers for successful hits
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Quick-add presets: 5 standard MOA targets
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-amber-500">&#10003;</span>
-                        Optional <strong class="text-amber-400">Side Bet</strong>: rank by smallest gong hits with distance tiebreaker
-                    </li>
+                <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Gong multipliers (2.5 MOA = 1.0x, 0.5 MOA = 2.0x)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Distance multipliers (400m = 4x, 700m = 7x)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Synchronized relay scoring flow</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Quick-add presets: 5 standard MOA targets</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Auto-squadding with shared-rifle constraints</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-amber-500">&#10003;</span> Optional <strong class="text-amber-400">Side Bet</strong> mode</li>
                 </ul>
             </div>
 
-            <div class="rounded-2xl border border-amber-800/30 p-8 lg:p-10 ring-1 ring-amber-600/10" style="background: var(--lp-surface);">
-                <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-800/30 px-4 py-1.5 text-sm font-semibold text-amber-400 bg-amber-600/10">
-                    PRS Scoring
+            <div class="rounded-2xl p-8 flex flex-col ring-1 ring-amber-600/10" style="border: 1px solid rgba(217, 119, 6, 0.3); background: var(--lp-surface);">
+                <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(217, 119, 6, 0.3); color: rgb(251, 191, 36);">
+                    PRS
                 </div>
-                <h3 class="mb-3 text-xl font-bold">Hit / Miss / Shot Not Taken</h3>
+                <h3 class="mb-2 text-xl font-bold">Hit / Miss / Shot Not Taken</h3>
                 <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                    Each shooter completes an entire stage at once. Every target has three state buttons: <strong class="text-green-400">Hit</strong>,
-                    <strong style="color: var(--lp-red);">Miss</strong>, or <strong class="text-amber-400">Shot Not Taken</strong> (the default).
+                    Each shooter completes an entire stage. Every target has three state buttons: <strong class="text-green-400">Hit</strong>,
+                    <strong style="color: var(--lp-red);">Miss</strong>, or <strong class="text-amber-400">Shot Not Taken</strong>.
                     If a shooter runs out of time, remaining targets stay as "shot not taken."
                 </p>
-                <ul class="space-y-2 text-sm" style="color: var(--lp-text-soft);">
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Three-button scoring per target (Hit / Miss / Not Taken)
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Timed stages with app timer or smart manual input
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Tiebreaker stage: impacts first, then time
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Par time auto-fill when not all targets are engaged
-                    </li>
-                    <li class="flex items-start gap-2">
-                        <span class="mt-1 text-green-500">&#10003;</span>
-                        Smart time input: enter seconds with optional decimal (e.g. 105.23)
-                    </li>
+                <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Three-button scoring per target (Hit / Miss / Not Taken)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Timed stages with app timer or smart manual input</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Tiebreaker stage: impacts first, then time</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Par time auto-fill for incomplete shooters</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Smart decimal time entry (e.g. 105.23s)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Open / Factory / Limited division presets</li>
+                </ul>
+            </div>
+
+            <div class="rounded-2xl p-8 flex flex-col ring-1 ring-emerald-600/10" style="border: 1px solid rgba(5, 150, 105, 0.3); background: var(--lp-surface);">
+                <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(5, 150, 105, 0.3); color: rgb(52, 211, 153);">
+                    ELR
+                </div>
+                <h3 class="mb-2 text-xl font-bold">Extreme Long Range</h3>
+                <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
+                    Shot-by-shot scoring at extreme distances. Each target has a base point value and shot multipliers reward first-round hits.
+                    Optional ladder progression requires a hit before advancing.
+                </p>
+                <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Distance-based base points (1000m = 10pts, 1800m = 25pts)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Shot multipliers (1st = 1.0x, 2nd = 0.7x, 3rd = 0.5x)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Ladder &amp; static stage types</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> "Must hit to advance" gate per target</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Configurable max shots per target</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> One-click default template</li>
                 </ul>
             </div>
 

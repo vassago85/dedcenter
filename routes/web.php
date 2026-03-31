@@ -3,20 +3,27 @@
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-// ── Auth (guest) ──
+// ══════════════════════════════════════════════════
+// Auth (guest)
+// ══════════════════════════════════════════════════
+
 Volt::route('/login', 'auth.login')->name('login');
 Volt::route('/register', 'auth.register')->name('register');
 
-// ── Public ──
-Route::get('/', function () {
-    if (! auth()->check()) {
-        return view('welcome');
-    }
+// ══════════════════════════════════════════════════
+// Public landing — domain-aware
+// ══════════════════════════════════════════════════
 
-    return auth()->user()->isOwner()
-        ? redirect()->route('admin.dashboard')
-        : redirect()->route('dashboard');
-});
+Route::get('/', [\App\Http\Controllers\HomeController::class, '__invoke'])->name('home');
+
+// ══════════════════════════════════════════════════
+// Public marketing pages
+// ══════════════════════════════════════════════════
+
+Volt::route('/features', 'features')->name('features');
+Volt::route('/scoring', 'scoring-info')->name('scoring');
+Volt::route('/offline', 'offline')->name('offline');
+Volt::route('/setup', 'setup')->name('setup');
 
 Route::get('/score/{any?}', function () {
     return view('scoring');
@@ -34,12 +41,10 @@ Route::prefix('p/{organization}')->name('portal.')->group(function () {
     Volt::route('/leaderboard', 'portal.leaderboard')->name('leaderboard');
 });
 
-Volt::route('/features', 'features')->name('features');
-Volt::route('/scoring', 'scoring-info')->name('scoring');
-Volt::route('/offline', 'offline')->name('offline');
-Volt::route('/setup', 'setup')->name('setup');
+// ══════════════════════════════════════════════════
+// Member (auth)
+// ══════════════════════════════════════════════════
 
-// ── Member (auth) ──
 Route::middleware('auth')->group(function () {
     Volt::route('/dashboard', 'member.dashboard')->name('dashboard');
     Volt::route('/matches', 'member.matches')->name('matches');
@@ -49,7 +54,10 @@ Route::middleware('auth')->group(function () {
     Volt::route('/settings', 'member.settings')->name('settings');
 });
 
-// ── Organization Admin (auth + org.admin) ──
+// ══════════════════════════════════════════════════
+// Organization Admin (auth + org.admin)
+// ══════════════════════════════════════════════════
+
 Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('org.')->group(function () {
     Volt::route('/dashboard', 'org.dashboard')->name('dashboard');
     Volt::route('/matches', 'org.matches.index')->name('matches.index');
@@ -62,7 +70,10 @@ Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('or
     Volt::route('/settings', 'org.settings')->name('settings');
 });
 
-// ── Site Admin (auth + admin) ──
+// ══════════════════════════════════════════════════
+// Site Admin (auth + admin)
+// ══════════════════════════════════════════════════
+
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Volt::route('/dashboard', 'admin.dashboard')->name('dashboard');
     Volt::route('/organizations', 'admin.organizations')->name('organizations');
@@ -72,10 +83,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Volt::route('/matches/{match}/squadding', 'admin.matches.squadding')->name('matches.squadding');
     Volt::route('/registrations', 'admin.registrations')->name('registrations');
     Volt::route('/seasons', 'admin.seasons')->name('seasons');
+    Volt::route('/homepage', 'admin.homepage')->name('homepage');
     Volt::route('/settings', 'admin.settings')->name('settings');
 });
 
-// ── Logout ──
+// ══════════════════════════════════════════════════
+// Logout
+// ══════════════════════════════════════════════════
+
 Route::post('/logout', function () {
     auth()->logout();
     request()->session()->invalidate();
