@@ -171,66 +171,6 @@
                 <!-- Scoring Body -->
                 <div class="flex-1 overflow-y-auto px-4 py-4">
                     <div class="mx-auto max-w-2xl space-y-4">
-                        <!-- Timer Panel (full) — shown when time is required -->
-                        <div v-if="stageRequiresTime" class="rounded-xl border border-slate-700 bg-slate-800 p-4">
-                            <div class="mb-2 flex items-center justify-between">
-                                <p class="text-sm font-medium text-slate-400">
-                                    Stage Time
-                                    <span class="ml-1 text-red-400">(Required)</span>
-                                </p>
-                                <div class="flex gap-1.5">
-                                    <button @click="prsStore.timerMode = 'app'" class="rounded px-2.5 py-1 text-xs font-bold uppercase" :class="prsStore.timerMode === 'app' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">App Timer</button>
-                                    <button @click="prsStore.timerMode = 'manual'" class="rounded px-2.5 py-1 text-xs font-bold uppercase" :class="prsStore.timerMode === 'manual' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">Manual</button>
-                                </div>
-                            </div>
-                            <p class="my-3 text-center font-mono text-4xl font-bold tracking-wider" :class="prsStore.isTimerRunning ? 'text-amber-400' : 'text-white'">
-                                {{ formattedTime }}
-                            </p>
-                            <div v-if="prsStore.timerMode === 'app'" class="grid grid-cols-3 gap-2">
-                                <button @click="startTimer" :disabled="prsStore.isTimerRunning" class="rounded-lg py-2.5 text-sm font-bold transition-colors" :class="prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-green-600 text-white hover:bg-green-700'">Start</button>
-                                <button @click="stopTimer" :disabled="!prsStore.isTimerRunning" class="rounded-lg py-2.5 text-sm font-bold transition-colors" :class="!prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-red-600 text-white hover:bg-red-700'">Stop</button>
-                                <button @click="resetTimer" class="rounded-lg bg-slate-700 py-2.5 text-sm font-bold text-white hover:bg-slate-600">Reset</button>
-                            </div>
-                            <div v-if="prsStore.timerMode === 'manual'" class="space-y-2">
-                                <label class="text-xs text-slate-500">Type digits (e.g. 6532 = 65.32s):</label>
-                                <div class="flex gap-2">
-                                    <input
-                                        ref="timeInput"
-                                        type="text"
-                                        inputmode="numeric"
-                                        :value="prsStore.rawDigits"
-                                        @input="onDigitInput"
-                                        @keydown="onDigitKeydown"
-                                        placeholder="Type digits..."
-                                        class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-center font-mono text-2xl text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                    />
-                                    <button @click="clearTimeInput" class="rounded-lg bg-slate-700 px-4 py-3 text-sm font-bold text-white hover:bg-slate-600">Clear</button>
-                                </div>
-                            </div>
-                            <p v-if="selectedStageObj?.par_time_seconds" class="mt-2 text-center text-xs text-slate-500">
-                                Par time: {{ formatTime(selectedStageObj.par_time_seconds) }}
-                            </p>
-                        </div>
-
-                        <!-- Optional time input — shown when time is NOT required -->
-                        <div v-else class="rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-3">
-                            <div class="flex items-center gap-3">
-                                <p class="text-sm text-slate-500">Time</p>
-                                <input
-                                    ref="timeInput"
-                                    type="text"
-                                    inputmode="numeric"
-                                    :value="prsStore.rawDigits"
-                                    @input="onDigitInput"
-                                    @keydown="onDigitKeydown"
-                                    placeholder="Optional"
-                                    class="flex-1 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 text-center font-mono text-lg text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                />
-                                <span v-if="prsStore.rawTimeSeconds" class="font-mono text-sm text-slate-400">{{ formattedTime }}</span>
-                                <button v-if="prsStore.rawDigits" @click="clearTimeInput" class="rounded bg-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:bg-slate-600 hover:text-white">Clear</button>
-                            </div>
-                        </div>
-
                         <!-- Score Summary -->
                         <div class="flex items-center justify-center gap-6 text-base">
                             <span class="font-bold text-green-400">{{ prsStore.hits }} <span class="font-normal text-sm">hits</span></span>
@@ -240,7 +180,7 @@
 
                         <!-- Shot Table -->
                         <div class="rounded-xl border border-slate-700 bg-slate-800">
-                            <div class="max-h-[40vh] overflow-y-auto">
+                            <div class="max-h-[50vh] overflow-y-auto">
                                 <div
                                     v-for="(shot, idx) in prsStore.shots"
                                     :key="shot.shot_number"
@@ -283,6 +223,55 @@
                 <!-- Fixed Bottom Actions -->
                 <div class="border-t border-slate-700 bg-slate-800 px-4 py-3">
                     <div class="mx-auto max-w-2xl space-y-3">
+                        <!-- Timer — only when stage requires time -->
+                        <div v-if="stageRequiresTime" class="rounded-xl border border-amber-600/30 bg-slate-900 p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs font-medium text-slate-400">
+                                    Stage Time <span class="text-red-400">(Required)</span>
+                                </p>
+                                <div class="flex gap-1">
+                                    <button @click="prsStore.timerMode = 'app'" class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="prsStore.timerMode === 'app' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">Timer</button>
+                                    <button @click="prsStore.timerMode = 'manual'" class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="prsStore.timerMode === 'manual' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">Manual</button>
+                                </div>
+                            </div>
+                            <div v-if="prsStore.timerMode === 'app'" class="flex items-center gap-3">
+                                <p class="flex-1 text-center font-mono text-3xl font-bold tracking-wider" :class="prsStore.isTimerRunning ? 'text-amber-400' : 'text-white'">
+                                    {{ formattedTime }}
+                                </p>
+                                <div class="flex gap-1.5">
+                                    <button @click="startTimer" :disabled="prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-green-600 text-white hover:bg-green-700'">Start</button>
+                                    <button @click="stopTimer" :disabled="!prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="!prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-red-600 text-white hover:bg-red-700'">Stop</button>
+                                    <button @click="resetTimer" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">Reset</button>
+                                </div>
+                            </div>
+                            <div v-else class="flex items-center gap-2">
+                                <input
+                                    ref="timeInput"
+                                    type="text"
+                                    inputmode="numeric"
+                                    :value="prsStore.rawDigits"
+                                    @input="onDigitInput"
+                                    @keydown="onDigitKeydown"
+                                    placeholder="Digits e.g. 6532 = 65.32s"
+                                    class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-center font-mono text-xl text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                />
+                                <span v-if="prsStore.rawTimeSeconds" class="font-mono text-sm text-slate-400 whitespace-nowrap">{{ formattedTime }}</span>
+                                <button v-if="prsStore.rawDigits" @click="clearTimeInput" class="rounded bg-slate-700 px-2 py-1.5 text-xs font-bold text-slate-400 hover:bg-slate-600">Clear</button>
+                            </div>
+                            <p v-if="selectedStageObj?.par_time_seconds" class="mt-1.5 text-center text-[10px] text-slate-500">
+                                Par: {{ formatTime(selectedStageObj.par_time_seconds) }}
+                            </p>
+                        </div>
+
+                        <!-- Low time warning -->
+                        <div v-if="showLowTimeWarning" class="rounded-lg border border-amber-500/50 bg-amber-900/30 px-3 py-2 text-center">
+                            <p class="text-sm font-medium text-amber-400">Time is under 15 seconds. Is this correct?</p>
+                            <div class="mt-2 flex justify-center gap-3">
+                                <button @click="confirmLowTime" class="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-700">Yes, it's correct</button>
+                                <button @click="cancelLowTime" class="rounded-lg bg-slate-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-600">No, fix it</button>
+                            </div>
+                        </div>
+
                         <!-- Undo -->
                         <button @click="undoShot" class="w-full rounded-xl border border-slate-600 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 active:scale-[0.98]">
                             Undo Last Shot
@@ -324,6 +313,8 @@ const prsStore = usePrsScoringStore();
 const ready = ref(false);
 const completeError = ref('');
 const timeInput = ref(null);
+const showLowTimeWarning = ref(false);
+const lowTimeConfirmed = ref(false);
 
 let timerInterval = null;
 let syncInterval = null;
@@ -415,6 +406,8 @@ function openScoring(shooter) {
     prsStore.initStage(totalShots);
     prsStore.resetTimer();
     completeError.value = '';
+    showLowTimeWarning.value = false;
+    lowTimeConfirmed.value = false;
     prsStore.navigateTo('scoring');
 }
 
@@ -432,6 +425,16 @@ function undoShot() { prsStore.undoLastShot(); }
 
 async function handleCompleteStage() {
     completeError.value = '';
+
+    const time = prsStore.effectiveTime;
+    if (stageRequiresTime.value && time > 0 && time < 15 && !lowTimeConfirmed.value) {
+        showLowTimeWarning.value = true;
+        return;
+    }
+
+    showLowTimeWarning.value = false;
+    lowTimeConfirmed.value = false;
+
     const result = await prsStore.completeStage(
         props.matchId,
         prsStore.selectedStageId,
@@ -445,6 +448,17 @@ async function handleCompleteStage() {
     }
     stopTimerInternal();
     prsStore.navigateTo('shooter-list');
+}
+
+function confirmLowTime() {
+    lowTimeConfirmed.value = true;
+    showLowTimeWarning.value = false;
+    handleCompleteStage();
+}
+
+function cancelLowTime() {
+    showLowTimeWarning.value = false;
+    lowTimeConfirmed.value = false;
 }
 
 function getShooterCompletion(shooterId) {
