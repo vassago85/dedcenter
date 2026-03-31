@@ -65,6 +65,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call(DemoMatchSeeder::class);
+        $this->call(PrsDemoMatchSeeder::class);
         $this->call(ElrDemoMatchSeeder::class);
     }
 }
