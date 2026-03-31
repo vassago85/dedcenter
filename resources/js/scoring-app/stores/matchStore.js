@@ -3,17 +3,35 @@ import { db } from '../db';
 import axios from 'axios';
 
 const SQUAD_LOCK_KEY = 'dc_locked_squad';
+const STAGE_LOCK_KEY = 'dc_locked_stage';
 
 function plain(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
-function readSquadLock(matchId) {
+function readLock(key, matchId) {
     try {
-        const raw = localStorage.getItem(SQUAD_LOCK_KEY);
+        const raw = localStorage.getItem(key);
         if (!raw) return null;
         const lock = JSON.parse(raw);
         return lock.matchId === matchId ? lock : null;
+    } catch {
+        return null;
+    }
+}
+
+function readSquadLock(matchId) {
+    return readLock(SQUAD_LOCK_KEY, matchId);
+}
+
+function readStageLock(matchId) {
+    return readLock(STAGE_LOCK_KEY, matchId);
+}
+
+function readPin(matchId) {
+    try {
+        const raw = localStorage.getItem(`dc_lock_pin_${matchId}`);
+        return raw ?? null;
     } catch {
         return null;
     }
@@ -27,6 +45,9 @@ export const useMatchStore = defineStore('match', {
         error: null,
         lockedSquadId: null,
         lockedSquadName: null,
+        lockedStageId: null,
+        lockedStageName: null,
+        hasPin: false,
         cachedMatchIds: new Set(),
         cachingMatchId: null,
     }),
@@ -53,6 +74,8 @@ export const useMatchStore = defineStore('match', {
             );
         },
         hasSquadLock: (state) => !!state.lockedSquadId,
+        hasStageLock: (state) => !!state.lockedStageId,
+        hasAnyLock: (state) => !!state.lockedSquadId || !!state.lockedStageId,
 
         completionMatrix: (state) => {
             if (!state.currentMatch) return {};
@@ -129,14 +152,25 @@ export const useMatchStore = defineStore('match', {
                 this.loading = false;
             }
 
-            const lock = readSquadLock(matchId);
-            if (lock) {
-                this.lockedSquadId = lock.squadId;
-                this.lockedSquadName = lock.squadName;
+            const squadLock = readSquadLock(matchId);
+            if (squadLock) {
+                this.lockedSquadId = squadLock.squadId;
+                this.lockedSquadName = squadLock.squadName;
             } else {
                 this.lockedSquadId = null;
                 this.lockedSquadName = null;
             }
+
+            const stageLock = readStageLock(matchId);
+            if (stageLock) {
+                this.lockedStageId = stageLock.stageId;
+                this.lockedStageName = stageLock.stageName;
+            } else {
+                this.lockedStageId = null;
+                this.lockedStageName = null;
+            }
+
+            this.hasPin = !!readPin(matchId);
         },
 
         lockSquad(matchId, squadId, squadName) {
@@ -149,6 +183,39 @@ export const useMatchStore = defineStore('match', {
             this.lockedSquadId = null;
             this.lockedSquadName = null;
             localStorage.removeItem(SQUAD_LOCK_KEY);
+        },
+
+        lockStage(matchId, stageId, stageName) {
+            this.lockedStageId = stageId;
+            this.lockedStageName = stageName;
+            localStorage.setItem(STAGE_LOCK_KEY, JSON.stringify({ matchId, stageId, stageName }));
+        },
+
+        unlockStage() {
+            this.lockedStageId = null;
+            this.lockedStageName = null;
+            localStorage.removeItem(STAGE_LOCK_KEY);
+        },
+
+        setPin(matchId, pin) {
+            localStorage.setItem(`dc_lock_pin_${matchId}`, pin);
+            this.hasPin = true;
+        },
+
+        verifyPin(matchId, pin) {
+            const stored = readPin(matchId);
+            return stored === pin;
+        },
+
+        clearPin(matchId) {
+            localStorage.removeItem(`dc_lock_pin_${matchId}`);
+            this.hasPin = false;
+        },
+
+        clearAllLocks(matchId) {
+            this.unlockSquad();
+            this.unlockStage();
+            this.clearPin(matchId);
         },
 
         async cacheMatch(match) {

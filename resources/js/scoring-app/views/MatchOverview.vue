@@ -8,7 +8,20 @@
                     </svg>
                 </router-link>
                 <h1 class="text-lg font-bold truncate">{{ matchStore.currentMatch?.name ?? 'Loading...' }}</h1>
-                <div class="ml-auto"><OnlineIndicator /></div>
+                <div class="ml-auto flex items-center gap-2">
+                    <button
+                        @click="toggleDeviceSettings"
+                        class="rounded-lg p-1.5 transition-colors"
+                        :class="showDeviceSettings ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'"
+                        title="Device Settings"
+                    >
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                    </button>
+                    <OnlineIndicator />
+                </div>
             </div>
         </header>
 
@@ -19,6 +32,133 @@
 
             <template v-else-if="matchStore.currentMatch">
                 <div class="space-y-4">
+                    <!-- Device Settings Panel -->
+                    <div v-if="showDeviceSettings" class="rounded-xl border border-amber-600/40 bg-slate-800 overflow-hidden">
+                        <div class="border-b border-amber-600/30 bg-amber-900/20 px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <svg class="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                </svg>
+                                <h3 class="text-sm font-bold text-amber-400">Device Lock Settings</h3>
+                                <span class="ml-auto text-[10px] uppercase text-slate-500">Local only</span>
+                            </div>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            <!-- PIN Setup / Gate -->
+                            <div v-if="!pinVerified && matchStore.hasPin" class="space-y-3">
+                                <p class="text-sm text-slate-400">Enter PIN to modify device settings</p>
+                                <div class="flex gap-2">
+                                    <input
+                                        v-model="pinInput"
+                                        type="password"
+                                        inputmode="numeric"
+                                        maxlength="6"
+                                        placeholder="Enter PIN"
+                                        class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-center font-mono text-lg tracking-[0.3em] text-white placeholder-slate-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                        @keyup.enter="verifyPin"
+                                    />
+                                    <button @click="verifyPin" class="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700">Unlock</button>
+                                </div>
+                                <p v-if="pinError" class="text-xs text-red-400">{{ pinError }}</p>
+                            </div>
+
+                            <template v-else>
+                                <!-- PIN Setup -->
+                                <div v-if="!matchStore.hasPin" class="space-y-2">
+                                    <label class="text-xs font-medium text-slate-400">Set a PIN to protect settings</label>
+                                    <div class="flex gap-2">
+                                        <input
+                                            v-model="newPin"
+                                            type="password"
+                                            inputmode="numeric"
+                                            maxlength="6"
+                                            placeholder="4-6 digit PIN"
+                                            class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-center font-mono text-lg tracking-[0.3em] text-white placeholder-slate-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                        />
+                                        <button
+                                            @click="savePin"
+                                            :disabled="!newPin || newPin.length < 4"
+                                            class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-amber-700 disabled:bg-slate-700 disabled:text-slate-500"
+                                        >Set PIN</button>
+                                    </div>
+                                </div>
+
+                                <!-- Squad Lock -->
+                                <div class="space-y-2">
+                                    <label class="text-xs font-medium text-slate-400">Lock to Squad</label>
+                                    <div v-if="matchStore.hasSquadLock" class="flex items-center gap-2">
+                                        <span class="flex-1 rounded-lg border border-green-700/50 bg-green-900/20 px-3 py-2 text-sm font-medium text-green-400">
+                                            {{ matchStore.lockedSquadName }}
+                                        </span>
+                                        <button @click="clearSquadLock" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-600">Clear</button>
+                                    </div>
+                                    <select
+                                        v-else
+                                        v-model="selectedSquadId"
+                                        @change="applySquadLock"
+                                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    >
+                                        <option :value="null">No squad lock</option>
+                                        <option v-for="squad in matchStore.squads" :key="squad.id" :value="squad.id">{{ squad.name }} ({{ squad.shooters.length }})</option>
+                                    </select>
+                                </div>
+
+                                <!-- Stage Lock -->
+                                <div class="space-y-2">
+                                    <label class="text-xs font-medium text-slate-400">Lock to Stage</label>
+                                    <div v-if="matchStore.hasStageLock" class="flex items-center gap-2">
+                                        <span class="flex-1 rounded-lg border border-green-700/50 bg-green-900/20 px-3 py-2 text-sm font-medium text-green-400">
+                                            {{ matchStore.lockedStageName }}
+                                        </span>
+                                        <button @click="clearStageLock" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-600">Clear</button>
+                                    </div>
+                                    <select
+                                        v-else
+                                        v-model="selectedStageId"
+                                        @change="applyStageLock"
+                                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    >
+                                        <option :value="null">No stage lock</option>
+                                        <option v-for="ts in matchStore.targetSets" :key="ts.id" :value="ts.id">{{ ts.label }}</option>
+                                    </select>
+                                </div>
+
+                                <!-- Active locks summary -->
+                                <div v-if="matchStore.hasAnyLock" class="rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2">
+                                    <div class="flex items-center justify-between">
+                                        <div class="space-y-0.5">
+                                            <p v-if="matchStore.hasSquadLock" class="text-xs text-slate-400">Squad: <span class="text-white font-medium">{{ matchStore.lockedSquadName }}</span></p>
+                                            <p v-if="matchStore.hasStageLock" class="text-xs text-slate-400">Stage: <span class="text-white font-medium">{{ matchStore.lockedStageName }}</span></p>
+                                        </div>
+                                        <button
+                                            @click="clearAllLocks"
+                                            class="rounded bg-red-600/20 px-2.5 py-1 text-[10px] font-bold uppercase text-red-400 hover:bg-red-600/30"
+                                        >Clear All</button>
+                                    </div>
+                                </div>
+
+                                <!-- Remove PIN -->
+                                <button
+                                    v-if="matchStore.hasPin"
+                                    @click="removePin"
+                                    class="w-full rounded-lg border border-red-700/50 bg-red-900/10 py-2 text-xs font-bold text-red-400 hover:bg-red-900/20"
+                                >Remove PIN Protection</button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Lock indicator bar -->
+                    <div v-if="!showDeviceSettings && matchStore.hasAnyLock" class="flex items-center gap-2 rounded-lg border border-amber-700/40 bg-amber-900/10 px-3 py-2">
+                        <svg class="h-3.5 w-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                        <span class="text-xs text-amber-400">
+                            Locked<template v-if="matchStore.hasSquadLock"> &middot; {{ matchStore.lockedSquadName }}</template><template v-if="matchStore.hasStageLock"> &middot; {{ matchStore.lockedStageName }}</template>
+                        </span>
+                        <button @click="showDeviceSettings = true" class="ml-auto text-[10px] font-bold uppercase text-amber-500 hover:text-amber-400">Edit</button>
+                    </div>
+
                     <!-- Match info -->
                     <div class="rounded-xl border border-slate-700 bg-slate-800 p-4">
                         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -77,7 +217,6 @@
 
                     <!-- Action buttons -->
                     <div class="grid grid-cols-1 gap-3 pt-2">
-                        <!-- Scoring Matrix (primary for round-robin) -->
                         <router-link
                             :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
                             class="flex items-center justify-center gap-2 rounded-xl bg-red-600 py-4 text-lg font-bold text-white shadow-lg transition-colors hover:bg-red-700 active:bg-red-800"
@@ -133,7 +272,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 
@@ -142,6 +281,73 @@ const props = defineProps({
 });
 
 const matchStore = useMatchStore();
+
+const showDeviceSettings = ref(false);
+const pinVerified = ref(false);
+const pinInput = ref('');
+const pinError = ref('');
+const newPin = ref('');
+const selectedSquadId = ref(null);
+const selectedStageId = ref(null);
+
+function toggleDeviceSettings() {
+    showDeviceSettings.value = !showDeviceSettings.value;
+    if (showDeviceSettings.value && !matchStore.hasPin) {
+        pinVerified.value = true;
+    }
+}
+
+function verifyPin() {
+    pinError.value = '';
+    if (matchStore.verifyPin(props.matchId, pinInput.value)) {
+        pinVerified.value = true;
+        pinInput.value = '';
+    } else {
+        pinError.value = 'Incorrect PIN';
+    }
+}
+
+function savePin() {
+    if (newPin.value.length >= 4) {
+        matchStore.setPin(props.matchId, newPin.value);
+        newPin.value = '';
+    }
+}
+
+function removePin() {
+    matchStore.clearPin(props.matchId);
+    pinVerified.value = true;
+}
+
+function applySquadLock() {
+    if (!selectedSquadId.value) return;
+    const squad = matchStore.squads.find(s => s.id === selectedSquadId.value);
+    if (squad) {
+        matchStore.lockSquad(props.matchId, squad.id, squad.name);
+    }
+    selectedSquadId.value = null;
+}
+
+function clearSquadLock() {
+    matchStore.unlockSquad();
+}
+
+function applyStageLock() {
+    if (!selectedStageId.value) return;
+    const stage = matchStore.targetSets.find(ts => ts.id === selectedStageId.value);
+    if (stage) {
+        matchStore.lockStage(props.matchId, stage.id, stage.label);
+    }
+    selectedStageId.value = null;
+}
+
+function clearStageLock() {
+    matchStore.unlockStage();
+}
+
+function clearAllLocks() {
+    matchStore.clearAllLocks(props.matchId);
+}
 
 function formatDate(d) {
     if (!d) return '';
