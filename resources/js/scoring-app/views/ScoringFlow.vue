@@ -139,9 +139,121 @@
                         @click="dismissSummary"
                         class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
                     >
-                        {{ nextSquadLabel }}
+                        Continue
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Squad picker interstitial (multi-squad mode) -->
+        <div v-else-if="showSquadPicker && isMultiSquad" class="flex flex-1 flex-col px-4 py-6">
+            <div class="mx-auto w-full max-w-lg space-y-4">
+                <div class="text-center">
+                    <p class="text-sm font-medium uppercase tracking-widest text-slate-400">Next Relay</p>
+                    <h2 class="mt-1 text-xl font-bold">{{ currentTargetSet?.label }}</h2>
+                    <p class="text-sm text-slate-400">Select the next squad to score at this stage</p>
+                </div>
+
+                <!-- Recommended squad highlight -->
+                <div v-if="recommendedSquad && !allSquadsScoredAtCurrentStage" class="rounded-xl border-2 border-red-600 bg-red-600/10 p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-medium uppercase text-red-400">Recommended</p>
+                            <p class="text-lg font-bold">{{ recommendedSquad.squad.name }}</p>
+                            <p class="text-xs text-slate-400">{{ (recommendedSquad.squad.shooters ?? []).filter(s => s.status === 'active').length }} active shooters</p>
+                        </div>
+                        <button
+                            @click="selectSquad(recommendedSquad.index)"
+                            class="rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-red-700 active:scale-95"
+                        >
+                            Score Next
+                        </button>
+                    </div>
+                </div>
+
+                <!-- All squads scored at this stage -->
+                <div v-if="allSquadsScoredAtCurrentStage" class="rounded-xl border border-green-700/50 bg-green-900/20 p-4 text-center">
+                    <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-600/20">
+                        <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                    </div>
+                    <p class="font-bold text-green-400">All squads scored at {{ currentTargetSet?.label }}</p>
+                    <button
+                        v-if="nextStageForAdvance"
+                        @click="advanceToNextStage"
+                        class="mt-3 w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Continue to {{ nextStageForAdvance.label }}
+                    </button>
+                    <button
+                        v-else
+                        @click="advanceToNextStage"
+                        class="mt-3 w-full rounded-xl bg-green-600 py-3 font-semibold text-white transition-colors hover:bg-green-700"
+                    >
+                        Finish Scoring
+                    </button>
+                </div>
+
+                <!-- Full squad list -->
+                <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+                    <div class="border-b border-slate-700 px-4 py-2.5">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">All Squads</p>
+                    </div>
+                    <div class="divide-y divide-slate-700/50">
+                        <button
+                            v-for="item in squadPickerItems"
+                            :key="item.squad.id"
+                            @click="item.status !== 'scored' ? selectSquad(item.index) : null"
+                            class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+                            :class="{
+                                'opacity-50 cursor-not-allowed': item.status === 'scored',
+                                'hover:bg-slate-700/50 active:scale-[0.99]': item.status !== 'scored',
+                                'bg-red-600/5 border-l-4 border-l-red-500': item.isRecommended && item.status !== 'scored',
+                                'border-l-4 border-l-transparent': !item.isRecommended || item.status === 'scored',
+                            }"
+                        >
+                            <div
+                                class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold"
+                                :class="{
+                                    'bg-green-600/20 text-green-400': item.status === 'scored',
+                                    'bg-amber-600/20 text-amber-400': item.status === 'in-progress',
+                                    'bg-slate-700 text-slate-400': item.status === 'pending',
+                                }"
+                            >
+                                <template v-if="item.status === 'scored'">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                    </svg>
+                                </template>
+                                <template v-else>{{ item.index + 1 }}</template>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium">
+                                    {{ item.squad.name }}
+                                    <span v-if="item.isRecommended && item.status !== 'scored'" class="ml-1.5 rounded bg-red-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-400">Next</span>
+                                </p>
+                                <p class="text-xs text-slate-500">{{ item.activeCount }} shooters</p>
+                            </div>
+                            <div class="text-right">
+                                <span v-if="item.status === 'scored'" class="text-xs font-bold text-green-400">Complete</span>
+                                <span v-else-if="item.status === 'in-progress'" class="text-xs font-bold text-amber-400">{{ item.fraction }}</span>
+                                <span v-else class="text-xs text-slate-500">Pending</span>
+                            </div>
+                            <svg v-if="item.status !== 'scored'" class="h-4 w-4 flex-shrink-0 text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Escape hatch -->
+                <router-link
+                    :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
+                    class="block w-full rounded-xl border border-slate-600 py-3 text-center text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                >
+                    Back to Matrix
+                </router-link>
             </div>
         </div>
 
@@ -340,6 +452,7 @@ const ready = ref(false);
 const matchComplete = ref(false);
 const showRelaySummary = ref(false);
 const showGongTransition = ref(false);
+const showSquadPicker = ref(false);
 
 // ── Mode detection ──
 const isScoped = computed(() => route.name === 'scoped-scoring' && props.squadId && props.targetSetId);
@@ -547,19 +660,66 @@ function goToNextSquad() {
     });
 }
 
-// ── Continue button label for multi-squad relay summary ──
-const nextSquadLabel = computed(() => {
-    if (!isMultiSquad.value) return 'Continue';
-    const s = scoringStore;
-    if (s.currentSquadIndex < squadOrder.value.length - 1) {
-        const next = squadOrder.value[s.currentSquadIndex + 1];
-        return `Continue \u2192 ${next.name}`;
+// ── Squad picker: recommended squad based on concurrent_relays stride + completion matrix ──
+const recommendedSquad = computed(() => {
+    if (!isMultiSquad.value || !currentTargetSet.value) return null;
+    const matrix = matchStore.completionMatrix;
+    const concurrentRelays = matchStore.currentMatch?.concurrent_relays ?? 2;
+    const currentIdx = scoringStore.currentSquadIndex;
+    const squads = squadOrder.value;
+    const tsId = currentTargetSet.value.id;
+    const stride = Math.max(1, concurrentRelays);
+
+    for (let offset = stride; offset < squads.length; offset += stride) {
+        const idx = (currentIdx + offset) % squads.length;
+        const squad = squads[idx];
+        const status = matrix[squad.id]?.[tsId]?.status;
+        if (status !== 'scored') {
+            return { squad, index: idx };
+        }
     }
-    if (s.currentTargetSetIndex < targetSets.value.length - 1) {
-        const nextTs = targetSets.value[s.currentTargetSetIndex + 1];
-        return `Continue \u2192 ${nextTs.label}`;
+    for (let i = 0; i < squads.length; i++) {
+        if (i === currentIdx) continue;
+        const squad = squads[i];
+        const status = matrix[squad.id]?.[tsId]?.status;
+        if (status !== 'scored') {
+            return { squad, index: i };
+        }
     }
-    return 'Finish Scoring';
+    return null;
+});
+
+const allSquadsScoredAtCurrentStage = computed(() => {
+    if (!isMultiSquad.value || !currentTargetSet.value) return false;
+    const matrix = matchStore.completionMatrix;
+    const tsId = currentTargetSet.value.id;
+    return squadOrder.value.every(sq => matrix[sq.id]?.[tsId]?.status === 'scored');
+});
+
+const nextStageForAdvance = computed(() => {
+    const nextIdx = scoringStore.currentTargetSetIndex + 1;
+    return nextIdx < targetSets.value.length ? targetSets.value[nextIdx] : null;
+});
+
+const squadPickerItems = computed(() => {
+    if (!isMultiSquad.value || !currentTargetSet.value) return [];
+    const matrix = matchStore.completionMatrix;
+    const tsId = currentTargetSet.value.id;
+    const recIdx = recommendedSquad.value?.index ?? -1;
+    return squadOrder.value.map((squad, idx) => {
+        const cell = matrix[squad.id]?.[tsId];
+        const status = cell?.status ?? 'pending';
+        const activeCount = (squad.shooters ?? []).filter(s => s.status === 'active').length;
+        return {
+            squad,
+            index: idx,
+            status,
+            activeCount,
+            fraction: cell ? `${cell.actual}/${cell.expected}` : '',
+            isRecommended: idx === recIdx,
+            isCurrent: idx === scoringStore.currentSquadIndex,
+        };
+    });
 });
 
 // ── Scoring actions ──
@@ -592,11 +752,21 @@ function dismissGongTransition() {
 function dismissSummary() {
     showRelaySummary.value = false;
     if (isMultiSquad.value) {
-        if (scoringStore.advanceToNextSquad(squadOrder.value.length)) return;
-        if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
-    } else {
-        if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
+        showSquadPicker.value = true;
+        return;
     }
+    if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
+    matchComplete.value = true;
+}
+
+function selectSquad(squadIndex) {
+    showSquadPicker.value = false;
+    scoringStore.jumpToSquad(squadIndex);
+}
+
+function advanceToNextStage() {
+    showSquadPicker.value = false;
+    if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) return;
     matchComplete.value = true;
 }
 

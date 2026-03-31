@@ -268,6 +268,12 @@ export const useScoringStore = defineStore('scoring', {
             return false;
         },
 
+        jumpToSquad(index) {
+            this.currentSquadIndex = index;
+            this.currentShooterIndex = 0;
+            this.currentGongIndex = 0;
+        },
+
         advanceToNextTargetSet(totalSets) {
             this.currentShooterIndex = 0;
             this.currentGongIndex = 0;
