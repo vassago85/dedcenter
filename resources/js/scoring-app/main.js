@@ -14,6 +14,11 @@ if (csrfToken) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
 }
 
+const apiToken = document.querySelector('meta[name="api-token"]');
+if (apiToken) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${apiToken.getAttribute('content')}`;
+}
+
 const app = createApp(App);
 app.use(createPinia());
 app.use(router);

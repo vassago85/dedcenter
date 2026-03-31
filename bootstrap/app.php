@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->statefulApi();
 
         $middleware->append(\App\Http\Middleware\DomainContext::class);
 

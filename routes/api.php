@@ -3,9 +3,11 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ElrScoreController;
 use App\Http\Controllers\Api\MatchController;
+use App\Http\Controllers\Api\PrsScoreController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\SeasonController;
+use App\Http\Middleware\EnforceDeviceLock;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login']);
@@ -26,4 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
     Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
     Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
+
+    Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);
+    Route::get('matches/{match}/stages/{stage}/scores', [PrsScoreController::class, 'show']);
 });

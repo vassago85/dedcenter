@@ -47,6 +47,9 @@ class MatchController extends Controller
         } else {
             $eagerLoads['targetSets'] = fn ($q) => $q->orderBy('sort_order');
             $eagerLoads['targetSets.gongs'] = fn ($q) => $q->orderBy('number');
+            if ($match->isPrs()) {
+                $eagerLoads['targetSets.stageTargets'] = fn ($q) => $q->orderBy('sequence_number');
+            }
         }
 
         $match->load($eagerLoads);
@@ -60,6 +63,10 @@ class MatchController extends Controller
             if ($match->isPrs()) {
                 $stageTimes = StageTime::whereIn('shooter_id', $shooterIds)->get();
                 $match->setRelation('stageTimes', $stageTimes);
+            }
+            if ($match->isPrs()) {
+                $prsResults = \App\Models\PrsStageResult::where('match_id', $match->id)->get();
+                $match->setRelation('prsResults', $prsResults);
             }
         }
 

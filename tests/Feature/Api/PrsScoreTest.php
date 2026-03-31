@@ -362,3 +362,331 @@ test('scores-only payload still works without deleted_scores', function () {
     $response->assertOk();
     expect(Score::where('shooter_id', $this->shooter1->id)->where('gong_id', $this->gong1a->id)->exists())->toBeTrue();
 });
+
+// ── New PRS Shot-Based Scoring Tests ──
+
+test('can submit prs stage score via new endpoint', function () {
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => true]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'raw_time_seconds' => 45.32,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'miss'],
+            ],
+        ]
+    );
+
+    $response->assertOk();
+    expect($response->json('stage_result.hits'))->toBe(1);
+    expect($response->json('stage_result.misses'))->toBe(1);
+    expect($response->json('stage_result.not_taken'))->toBe(0);
+
+    expect(\App\Models\PrsShotScore::count())->toBe(2);
+    expect(\App\Models\PrsStageResult::count())->toBe(1);
+});
+
+test('prs stage score validates shot count matches total_shots', function () {
+    $this->stage1->update(['total_shots' => 3]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'miss'],
+            ],
+        ]
+    );
+
+    $response->assertUnprocessable();
+});
+
+test('prs stage score requires time for timed stage', function () {
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => true]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'miss'],
+            ],
+        ]
+    );
+
+    $response->assertUnprocessable();
+});
+
+test('prs stage score allows null time for non-timed stage', function () {
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => false]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'not_taken'],
+            ],
+        ]
+    );
+
+    $response->assertOk();
+    expect($response->json('stage_result.hits'))->toBe(1);
+    expect($response->json('stage_result.not_taken'))->toBe(1);
+});
+
+test('prs stage score stores explicit not_taken results', function () {
+    $this->stage1->update(['total_shots' => 3]);
+
+    $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'not_taken'],
+                ['shot_number' => 3, 'result' => 'not_taken'],
+            ],
+        ]
+    );
+
+    $notTaken = \App\Models\PrsShotScore::where('result', 'not_taken')->count();
+    expect($notTaken)->toBe(2);
+});
+
+test('prs stage score upserts on resubmit', function () {
+    $this->stage1->update(['total_shots' => 2]);
+
+    $payload = [
+        'shooter_id' => $this->shooter1->id,
+        'squad_id' => $this->shooter1->squad_id,
+        'shots' => [
+            ['shot_number' => 1, 'result' => 'hit'],
+            ['shot_number' => 2, 'result' => 'miss'],
+        ],
+    ];
+
+    $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        $payload
+    )->assertOk();
+
+    $payload['shots'][1]['result'] = 'hit';
+    $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        $payload
+    )->assertOk();
+
+    expect(\App\Models\PrsShotScore::count())->toBe(2);
+    expect(\App\Models\PrsStageResult::first()->hits)->toBe(2);
+});
+
+test('prs stage score rejects non-prs match', function () {
+    $standardMatch = \App\Models\ShootingMatch::factory()->active()->create([
+        'created_by' => $this->admin->id,
+        'scoring_type' => 'standard',
+    ]);
+    $stage = \App\Models\TargetSet::factory()->create(['match_id' => $standardMatch->id, 'total_shots' => 2]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$standardMatch->id}/stages/{$stage->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => 1,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'hit'],
+            ],
+        ]
+    );
+
+    $response->assertStatus(422);
+});
+
+test('prs stage score rejects unauthorized user', function () {
+    $this->stage1->update(['total_shots' => 2]);
+    $regularUser = \App\Models\User::factory()->create();
+
+    $response = $this->actingAs($regularUser)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'hit'],
+            ],
+        ]
+    );
+
+    $response->assertForbidden();
+});
+
+test('prs stage scores endpoint returns stage data', function () {
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => true]);
+
+    $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'raw_time_seconds' => 30.50,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'hit'],
+            ],
+        ]
+    );
+
+    $response = $this->actingAs($this->admin)->getJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/scores"
+    );
+
+    $response->assertOk();
+    expect($response->json('results'))->toHaveCount(1);
+    expect($response->json('results.0.hits'))->toBe(2);
+});
+
+test('device lock blocks wrong stage', function () {
+    $this->match->update(['device_lock_mode' => 'locked_to_stage']);
+    $this->stage1->update(['total_shots' => 2]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'hit'],
+            ],
+        ],
+        ['X-Device-Lock-Stage' => $this->stage2->id]
+    );
+
+    $response->assertForbidden();
+});
+
+test('device lock allows correct stage', function () {
+    $this->match->update(['device_lock_mode' => 'locked_to_stage']);
+    $this->stage1->update(['total_shots' => 2]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'hit'],
+            ],
+        ],
+        ['X-Device-Lock-Stage' => $this->stage1->id]
+    );
+
+    $response->assertOk();
+});
+
+test('existing old-format prs scoreboard still works', function () {
+    // Old format: scores in `scores` table, times in `stage_times`
+    // No prs_stage_results -- should fall back to legacy scoreboard
+    Score::create(['shooter_id' => $this->shooter1->id, 'gong_id' => $this->gong1a->id, 'is_hit' => true, 'recorded_at' => now()]);
+    Score::create(['shooter_id' => $this->shooter1->id, 'gong_id' => $this->gong1b->id, 'is_hit' => true, 'recorded_at' => now()]);
+    StageTime::create(['shooter_id' => $this->shooter1->id, 'target_set_id' => $this->stage1->id, 'time_seconds' => 45.00, 'device_id' => 'test', 'recorded_at' => now()]);
+
+    $response = $this->getJson("/api/matches/{$this->match->id}/scoreboard");
+    $response->assertOk();
+
+    $leaderboard = $response->json('leaderboard');
+    expect($leaderboard)->toHaveCount(2);
+    $alpha = collect($leaderboard)->firstWhere('name', 'Alpha');
+    expect($alpha['hits'])->toBe(2);
+});
+
+test('new prs scoreboard uses prs_stage_results when available', function () {
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => true]);
+    $this->stage2->update(['total_shots' => 2, 'is_tiebreaker' => true, 'is_timed_stage' => true]);
+
+    \App\Models\PrsStageResult::create([
+        'match_id' => $this->match->id,
+        'stage_id' => $this->stage1->id,
+        'shooter_id' => $this->shooter1->id,
+        'hits' => 2, 'misses' => 0, 'not_taken' => 0,
+        'raw_time_seconds' => 40.00, 'official_time_seconds' => 40.00,
+        'completed_at' => now(),
+    ]);
+    \App\Models\PrsStageResult::create([
+        'match_id' => $this->match->id,
+        'stage_id' => $this->stage2->id,
+        'shooter_id' => $this->shooter1->id,
+        'hits' => 1, 'misses' => 1, 'not_taken' => 0,
+        'raw_time_seconds' => 30.00, 'official_time_seconds' => 30.00,
+        'completed_at' => now(),
+    ]);
+    \App\Models\PrsStageResult::create([
+        'match_id' => $this->match->id,
+        'stage_id' => $this->stage1->id,
+        'shooter_id' => $this->shooter2->id,
+        'hits' => 1, 'misses' => 1, 'not_taken' => 0,
+        'raw_time_seconds' => 35.00, 'official_time_seconds' => 35.00,
+        'completed_at' => now(),
+    ]);
+    \App\Models\PrsStageResult::create([
+        'match_id' => $this->match->id,
+        'stage_id' => $this->stage2->id,
+        'shooter_id' => $this->shooter2->id,
+        'hits' => 1, 'misses' => 1, 'not_taken' => 0,
+        'raw_time_seconds' => 25.00, 'official_time_seconds' => 25.00,
+        'completed_at' => now(),
+    ]);
+
+    $response = $this->getJson("/api/matches/{$this->match->id}/scoreboard");
+    $response->assertOk();
+
+    $leaderboard = $response->json('leaderboard');
+    // Alpha: 3 hits, Bravo: 2 hits -> Alpha first
+    expect($leaderboard[0]['name'])->toBe('Alpha');
+    expect($leaderboard[0]['hits'])->toBe(3);
+    expect($leaderboard[1]['name'])->toBe('Bravo');
+    expect($leaderboard[1]['hits'])->toBe(2);
+});
+
+test('match api returns prs stage fields', function () {
+    $this->stage1->update([
+        'total_shots' => 10,
+        'is_timed_stage' => true,
+        'stage_number' => 1,
+        'notes' => 'Test stage notes',
+    ]);
+
+    $response = $this->actingAs($this->admin)->getJson("/api/matches/{$this->match->id}");
+    $response->assertOk();
+
+    $ts = collect($response->json('data.target_sets'))->firstWhere('id', $this->stage1->id);
+    expect($ts['total_shots'])->toBe(10);
+    expect($ts['is_timed_stage'])->toBeTrue();
+    expect($ts['stage_number'])->toBe(1);
+    expect($ts['notes'])->toBe('Test stage notes');
+    expect($ts['display_name'])->not->toBeNull();
+});
+
+test('match api returns device_lock_mode', function () {
+    $this->match->update(['device_lock_mode' => 'locked_to_stage']);
+
+    $response = $this->actingAs($this->admin)->getJson("/api/matches/{$this->match->id}");
+    $response->assertOk();
+
+    expect($response->json('data.device_lock_mode'))->toBe('locked_to_stage');
+});

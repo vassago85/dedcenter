@@ -36,6 +36,8 @@ services:
       - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-tls}
       - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-noreply@deadcenter.co.za}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-DeadCenter}
+      - SANCTUM_STATEFUL_DOMAINS=deadcenter.co.za,md.deadcenter.co.za,app.deadcenter.co.za
+      - SESSION_DOMAIN=.deadcenter.co.za
     volumes:
       - app-logs:/var/www/html/storage/logs
     ports:

@@ -416,6 +416,111 @@ class ScoreboardController extends Controller
         $divisionIds = $this->divisionIdLookup($match);
         $catShooterIds = $this->categoryShooterIds($categoryFilter);
 
+        $hasNewResults = \App\Models\PrsStageResult::where('match_id', $match->id)->exists();
+
+        if ($hasNewResults) {
+            return $this->prsScoreboardNew($match, $divisionFilter, $catShooterIds, $divisionNames, $divisionIds);
+        }
+
+        return $this->prsScoreboardLegacy($match, $divisionFilter, $catShooterIds, $divisionNames, $divisionIds);
+    }
+
+    private function prsScoreboardNew(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)
+    {
+        $targetSets = $match->targetSets()->get();
+        $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
+
+        $query = \App\Models\Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->where('shooters.status', 'active');
+
+        if ($divisionFilter) {
+            $query->where('shooters.match_division_id', $divisionFilter);
+        }
+
+        if ($catShooterIds !== null) {
+            $query->whereIn('shooters.id', $catShooterIds);
+        }
+
+        $shooters = $query->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')->get();
+
+        $allResults = \App\Models\PrsStageResult::where('match_id', $match->id)->get()->groupBy('shooter_id');
+
+        $totalShots = $targetSets->sum('total_shots') ?: DB::table('gongs')
+            ->whereIn('target_set_id', $targetSets->pluck('id'))
+            ->count();
+
+        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $divisionNames, $divisionIds, $totalShots) {
+            $sid = (int) $shooter->shooter_id;
+            $results = $allResults->get($sid, collect());
+
+            $totalHits = $results->sum('hits');
+            $totalMisses = $results->sum('misses');
+            $totalNotTaken = $results->sum('not_taken');
+
+            $aggTime = $results->whereNotNull('official_time_seconds')->sum(fn ($r) => (float) $r->official_time_seconds);
+
+            $tbHits = 0;
+            $tbTime = null;
+            if ($tiebreakerStage) {
+                $tbResult = $results->firstWhere('stage_id', $tiebreakerStage->id);
+                if ($tbResult) {
+                    $tbHits = $tbResult->hits;
+                    $tbTime = $tbResult->official_time_seconds ? (float) $tbResult->official_time_seconds : null;
+                }
+            }
+
+            return [
+                'shooter_id' => $sid,
+                'name' => $shooter->name,
+                'squad' => $shooter->squad,
+                'division_id' => $divisionIds[$sid] ?? null,
+                'division' => $divisionNames[$sid] ?? null,
+                'hits' => $totalHits,
+                'misses' => $totalMisses,
+                'not_taken' => $totalNotTaken,
+                'agg_time' => round($aggTime, 2),
+                'tb_hits' => $tbHits,
+                'tb_time' => $tbTime,
+            ];
+        });
+
+        $sorted = $entries->sort(function ($a, $b) {
+            if ($a['hits'] !== $b['hits']) return $b['hits'] <=> $a['hits'];
+            if ($a['tb_hits'] !== $b['tb_hits']) return $b['tb_hits'] <=> $a['tb_hits'];
+
+            $aTbTime = $a['tb_time'] ?? PHP_FLOAT_MAX;
+            $bTbTime = $b['tb_time'] ?? PHP_FLOAT_MAX;
+            if ($aTbTime !== $bTbTime) return $aTbTime <=> $bTbTime;
+
+            return $a['agg_time'] <=> $b['agg_time'];
+        })->values();
+
+        $leaderboard = $sorted->map(fn ($entry, $index) => [
+            'rank' => $index + 1,
+            'shooter_id' => $entry['shooter_id'],
+            'name' => $entry['name'],
+            'squad' => $entry['squad'],
+            'division_id' => $entry['division_id'],
+            'division' => $entry['division'],
+            'hits' => $entry['hits'],
+            'misses' => $entry['misses'],
+            'not_taken' => $entry['not_taken'],
+            'total_score' => $entry['hits'],
+            'total_time' => $entry['agg_time'],
+            'tb_hits' => $entry['tb_hits'],
+            'tb_time' => $entry['tb_time'] !== null ? round($entry['tb_time'], 2) : 0.0,
+        ]);
+
+        return response()->json([
+            'match' => $this->matchMeta($match),
+            'leaderboard' => $leaderboard,
+        ]);
+    }
+
+    private function prsScoreboardLegacy(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)
+    {
         $targetSets = $match->targetSets()->get();
         $targetSetIds = $targetSets->pluck('id');
 

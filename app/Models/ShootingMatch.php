@@ -29,6 +29,7 @@ class ShootingMatch extends Model
         'organization_id',
         'season_id',
         'entry_fee',
+        'device_lock_mode',
     ];
 
     protected function casts(): array
@@ -99,6 +100,15 @@ class ShootingMatch extends Model
         return $this->belongsTo(ElrScoringProfile::class, 'elr_scoring_profile_id');
     }
 
+    public function prsShots(): HasMany
+    {
+        return $this->hasMany(PrsShotScore::class, 'match_id');
+    }
+
+    public function prsResults(): HasMany
+    {
+        return $this->hasMany(PrsStageResult::class, 'match_id');
+    }
 
     // ── Computed Attributes ──
 

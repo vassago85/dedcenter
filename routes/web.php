@@ -31,7 +31,11 @@ Route::get('/sitemap.xml', \App\Http\Controllers\SitemapController::class)->name
 Route::get('/app-login', [\App\Http\Controllers\Api\AuthController::class, 'tokenLogin'])->name('app.login');
 
 Route::get('/score/{any?}', function () {
-    return view('scoring');
+    $user = auth()->user();
+    $user->tokens()->where('name', 'scoring-session')->delete();
+    $token = $user->createToken('scoring-session')->plainTextToken;
+
+    return view('scoring', ['apiToken' => $token]);
 })->where('any', '.*')->middleware('auth')->name('score');
 
 Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');

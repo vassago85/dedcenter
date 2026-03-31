@@ -26,3 +26,17 @@ db.version(3).stores({
     pendingSync: '++id, matchId, createdAt',
     elrShots: '++localId, matchId, shooterId, elrTargetId, shotNumber, [shooterId+elrTargetId+shotNumber]',
 });
+
+db.version(4).stores({
+    matches: 'id, status',
+    targetSets: 'id, matchId, sortOrder',
+    gongs: 'id, targetSetId, number',
+    squads: 'id, matchId, sortOrder',
+    shooters: 'id, squadId, sortOrder',
+    scores: '++localId, [shooterId+gongId], matchId, synced',
+    stageTimes: '++localId, [shooterId+targetSetId], matchId, synced',
+    pendingSync: '++id, matchId, createdAt',
+    elrShots: '++localId, matchId, shooterId, elrTargetId, shotNumber, [shooterId+elrTargetId+shotNumber]',
+    prsShotScores: '++localId, [shooterId+stageId], [shooterId+stageId+shotNumber], matchId, synced',
+    prsStageResults: '++localId, [shooterId+stageId], matchId, synced',
+});
