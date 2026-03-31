@@ -56,28 +56,7 @@
             </div>
         </div>
 
-        <!-- SCREEN: Squad Select -->
-        <div v-else-if="prsStore.currentScreen === 'squad-select'" class="flex flex-1 flex-col px-4 py-6">
-            <div class="mx-auto w-full max-w-2xl">
-                <h2 class="mb-4 text-xl font-bold">Select Squad</h2>
-                <div class="grid gap-3 sm:grid-cols-2">
-                    <button
-                        v-for="squad in squads"
-                        :key="squad.id"
-                        @click="selectSquad(squad)"
-                        class="flex flex-col gap-1 rounded-xl border border-slate-700 bg-slate-800 p-5 text-left transition-all hover:border-amber-600 hover:bg-slate-700/80 active:scale-[0.98]"
-                    >
-                        <span class="text-lg font-bold">{{ squad.name }}</span>
-                        <span class="text-sm text-slate-400">{{ squad.shooters.length }} shooters</span>
-                        <div v-if="prsStore.selectedStageId" class="mt-1 text-xs text-slate-500">
-                            {{ squadStageProgress(squad.id) }}
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- SCREEN: Stage Select -->
+        <!-- SCREEN: Stage Select (first step) -->
         <div v-else-if="prsStore.currentScreen === 'stage-select'" class="flex flex-1 flex-col px-4 py-6">
             <div class="mx-auto w-full max-w-2xl">
                 <h2 class="mb-4 text-xl font-bold">Select Stage</h2>
@@ -97,7 +76,29 @@
                             </div>
                         </div>
                         <div class="text-right text-sm text-slate-500">
-                            {{ stageSquadProgress(ts.id) }}
+                            {{ stageOverallProgress(ts.id) }}
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: Squad Select (second step, after stage is chosen) -->
+        <div v-else-if="prsStore.currentScreen === 'squad-select'" class="flex flex-1 flex-col px-4 py-6">
+            <div class="mx-auto w-full max-w-2xl">
+                <h2 class="mb-2 text-xl font-bold">Select Squad</h2>
+                <p v-if="selectedStageObj" class="mb-4 text-sm text-slate-400">{{ selectedStageObj?.display_name || selectedStageObj?.label }}</p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <button
+                        v-for="squad in squads"
+                        :key="squad.id"
+                        @click="selectSquad(squad)"
+                        class="flex flex-col gap-1 rounded-xl border border-slate-700 bg-slate-800 p-5 text-left transition-all hover:border-amber-600 hover:bg-slate-700/80 active:scale-[0.98]"
+                    >
+                        <span class="text-lg font-bold">{{ squad.name }}</span>
+                        <span class="text-sm text-slate-400">{{ squad.shooters.length }} shooters</span>
+                        <div v-if="prsStore.selectedStageId" class="mt-1 text-xs text-slate-500">
+                            {{ squadStageProgress(squad.id) }}
                         </div>
                     </button>
                 </div>
@@ -113,8 +114,8 @@
                         <p class="text-sm text-slate-400">{{ selectedStageObj?.display_name || selectedStageObj?.label }}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button v-if="deviceLockMode === 'open'" @click="prsStore.navigateTo('squad-select')" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Squad</button>
-                        <button v-if="deviceLockMode !== 'locked_to_stage'" @click="prsStore.navigateTo('stage-select')" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Stage</button>
+                        <button v-if="deviceLockMode !== 'locked_to_stage'" @click="prsStore.navigateTo('stage-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Stage</button>
+                        <button v-if="deviceLockMode === 'open'" @click="prsStore.navigateTo('squad-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Squad</button>
                     </div>
                 </div>
                 <div class="space-y-2">
@@ -455,6 +456,52 @@ const stageRequiresTime = computed(() => {
     return selectedStageObj.value?.is_timed_stage || selectedStageObj.value?.is_tiebreaker;
 });
 
+const PRS_STATE_KEY = 'dc_prs_state';
+
+function savePrsProgress() {
+    try {
+        const state = {
+            matchId: props.matchId,
+            screen: prsStore.currentScreen,
+            stageId: prsStore.selectedStageId,
+            squadId: prsStore.selectedSquadId,
+        };
+        localStorage.setItem(PRS_STATE_KEY, JSON.stringify(state));
+    } catch { /* ignore */ }
+}
+
+function restorePrsProgress() {
+    try {
+        const raw = localStorage.getItem(PRS_STATE_KEY);
+        if (!raw) return false;
+        const state = JSON.parse(raw);
+        if (state.matchId !== props.matchId) return false;
+        const validScreens = ['stage-select', 'squad-select', 'shooter-list', 'squad-picker'];
+        if (!validScreens.includes(state.screen)) return false;
+        if (state.stageId) prsStore.selectStage(state.stageId);
+        if (state.squadId) prsStore.selectSquad(state.squadId);
+        prsStore.navigateTo(state.screen);
+        return true;
+    } catch { return false; }
+}
+
+function clearPrsProgress() {
+    try { localStorage.removeItem(PRS_STATE_KEY); } catch { /* ignore */ }
+}
+
+function stageOverallProgress(stageId) {
+    let totalActive = 0;
+    let totalCompleted = 0;
+    for (const squad of squads.value) {
+        const active = (squad.shooters ?? []).filter(s => s.status === 'active');
+        const completed = active.filter(s => prsStore.stageCompletions.has(`${s.id}-${stageId}`));
+        totalActive += active.length;
+        totalCompleted += completed.length;
+    }
+    if (totalActive === 0) return '';
+    return `${totalCompleted}/${totalActive} scored`;
+}
+
 function readStageLock(matchId) {
     try {
         const raw = localStorage.getItem('dc_locked_stage');
@@ -521,6 +568,7 @@ function isSquadDoneAtStage(squad, stageId) {
 function pickSquadFromBreak(squad) {
     prsStore.selectSquad(squad.id);
     prsStore.navigateTo('shooter-list');
+    savePrsProgress();
 }
 
 function checkAllShootersDone() {
@@ -532,42 +580,42 @@ function checkAllShootersDone() {
 
 function startScoring() {
     const lock = deviceLockMode.value;
-    if (lock === 'locked_to_squad' && matchStore.lockedSquadId) {
-        prsStore.selectSquad(matchStore.lockedSquadId);
-        prsStore.navigateTo('stage-select');
-    } else if (lock === 'locked_to_stage') {
+    if (lock === 'locked_to_stage') {
         const stageLock = readStageLock(props.matchId);
         if (stageLock && matchStore.lockedSquadId) {
-            prsStore.selectSquad(matchStore.lockedSquadId);
             prsStore.selectStage(stageLock.stageId);
+            prsStore.selectSquad(matchStore.lockedSquadId);
             prsStore.navigateTo('shooter-list');
         } else if (stageLock) {
             prsStore.selectStage(stageLock.stageId);
             prsStore.navigateTo('squad-select');
         } else {
-            prsStore.navigateTo('squad-select');
+            prsStore.navigateTo('stage-select');
         }
+    } else if (lock === 'locked_to_squad' && matchStore.lockedSquadId) {
+        prsStore.selectSquad(matchStore.lockedSquadId);
+        prsStore.navigateTo('stage-select');
     } else {
-        prsStore.navigateTo('squad-select');
+        prsStore.navigateTo('stage-select');
     }
-}
-
-function selectSquad(squad) {
-    prsStore.selectSquad(squad.id);
-    if (deviceLockMode.value === 'locked_to_stage') {
-        const stageLock = readStageLock(props.matchId);
-        if (stageLock) {
-            prsStore.selectStage(stageLock.stageId);
-            prsStore.navigateTo('shooter-list');
-            return;
-        }
-    }
-    prsStore.navigateTo('stage-select');
+    savePrsProgress();
 }
 
 function selectStage(ts) {
     prsStore.selectStage(ts.id);
+    if (deviceLockMode.value === 'locked_to_squad' && matchStore.lockedSquadId) {
+        prsStore.selectSquad(matchStore.lockedSquadId);
+        prsStore.navigateTo('shooter-list');
+    } else {
+        prsStore.navigateTo('squad-select');
+    }
+    savePrsProgress();
+}
+
+function selectSquad(squad) {
+    prsStore.selectSquad(squad.id);
     prsStore.navigateTo('shooter-list');
+    savePrsProgress();
 }
 
 function openScoring(shooter) {
@@ -584,10 +632,11 @@ function openScoring(shooter) {
 function goBack() {
     const s = prsStore.currentScreen;
     if (s === 'scoring') prsStore.navigateTo('shooter-list');
-    else if (s === 'shooter-list') prsStore.navigateTo('stage-select');
-    else if (s === 'stage-select') prsStore.navigateTo('squad-select');
-    else if (s === 'squad-select') prsStore.navigateTo('match-home');
+    else if (s === 'shooter-list') prsStore.navigateTo('squad-select');
+    else if (s === 'squad-select') prsStore.navigateTo('stage-select');
+    else if (s === 'stage-select') prsStore.navigateTo('match-home');
     else if (s === 'squad-picker') prsStore.navigateTo('shooter-list');
+    savePrsProgress();
 }
 
 function recordHit() { prsStore.recordShot('hit'); }
@@ -623,6 +672,7 @@ async function handleCompleteStage() {
     } else {
         prsStore.navigateTo('shooter-list');
     }
+    savePrsProgress();
 }
 
 function confirmLowTime() {
@@ -741,6 +791,10 @@ onMounted(async () => {
     const prsResults = matchStore.currentMatch?.prs_stage_results ?? [];
     await prsStore.initForMatch(props.matchId, prsResults);
     ready.value = true;
+
+    if (prsStore.currentScreen === 'match-home') {
+        restorePrsProgress();
+    }
 
     syncInterval = setInterval(() => {
         if (navigator.onLine && prsStore.pendingCount > 0) {
