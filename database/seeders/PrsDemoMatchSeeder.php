@@ -51,34 +51,45 @@ class PrsDemoMatchSeeder extends Seeder
         $catOverall = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Overall', 'slug' => 'overall'], ['sort_order' => 1]);
         $catSenior = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Senior', 'slug' => 'senior'], ['sort_order' => 2]);
 
-        // ── 6 PRS Stages with par times ──
+        // ── 6 PRS Stages — each target has its own distance, 1 hit = 1 pt ──
         $stages = [
-            ['label' => 'Stage 1 — 300m Prone', 'distance' => 300, 'par' => 90.0, 'gongs' => [
-                ['label' => '2 MOA', 'multiplier' => 1.0],
-                ['label' => '1 MOA', 'multiplier' => 2.0],
+            ['label' => 'Stage 1 — Prone', 'par' => 90.0, 'timed' => true, 'targets' => [
+                ['label' => 'T1', 'distance' => 300, 'size' => '2 MOA'],
+                ['label' => 'T2', 'distance' => 350, 'size' => '2 MOA'],
+                ['label' => 'T3', 'distance' => 300, 'size' => '1.5 MOA'],
+                ['label' => 'T4', 'distance' => 400, 'size' => '1 MOA'],
             ]],
-            ['label' => 'Stage 2 — 400m Barricade', 'distance' => 400, 'par' => 120.0, 'gongs' => [
-                ['label' => '2 MOA', 'multiplier' => 1.0],
-                ['label' => '1.5 MOA', 'multiplier' => 1.5],
-                ['label' => '1 MOA', 'multiplier' => 2.0],
+            ['label' => 'Stage 2 — Barricade', 'par' => 120.0, 'timed' => true, 'targets' => [
+                ['label' => 'T1', 'distance' => 350, 'size' => '2 MOA'],
+                ['label' => 'T2', 'distance' => 400, 'size' => '2 MOA'],
+                ['label' => 'T3', 'distance' => 450, 'size' => '1.5 MOA'],
+                ['label' => 'T4', 'distance' => 350, 'size' => '1.5 MOA'],
+                ['label' => 'T5', 'distance' => 500, 'size' => '1 MOA'],
             ]],
-            ['label' => 'Stage 3 — 500m Rooftop', 'distance' => 500, 'par' => 120.0, 'gongs' => [
-                ['label' => '2.5 MOA', 'multiplier' => 1.0],
-                ['label' => '1.5 MOA', 'multiplier' => 1.5],
-                ['label' => '1 MOA', 'multiplier' => 2.5],
+            ['label' => 'Stage 3 — Rooftop', 'par' => 120.0, 'timed' => true, 'targets' => [
+                ['label' => 'T1', 'distance' => 400, 'size' => '2.5 MOA'],
+                ['label' => 'T2', 'distance' => 500, 'size' => '2 MOA'],
+                ['label' => 'T3', 'distance' => 550, 'size' => '1.5 MOA'],
+                ['label' => 'T4', 'distance' => 600, 'size' => '1 MOA'],
             ]],
-            ['label' => 'Stage 4 — 600m Tripod', 'distance' => 600, 'par' => 150.0, 'gongs' => [
-                ['label' => '2 MOA', 'multiplier' => 1.0],
-                ['label' => '1 MOA', 'multiplier' => 2.0],
+            ['label' => 'Stage 4 — Tripod', 'par' => 150.0, 'timed' => true, 'targets' => [
+                ['label' => 'T1', 'distance' => 500, 'size' => '2 MOA'],
+                ['label' => 'T2', 'distance' => 600, 'size' => '2 MOA'],
+                ['label' => 'T3', 'distance' => 550, 'size' => '1.5 MOA'],
+                ['label' => 'T4', 'distance' => 700, 'size' => '1 MOA'],
             ]],
-            ['label' => 'Stage 5 — 700m Positional', 'distance' => 700, 'par' => 150.0, 'gongs' => [
-                ['label' => '3 MOA', 'multiplier' => 1.0],
-                ['label' => '2 MOA', 'multiplier' => 1.5],
-                ['label' => '1 MOA', 'multiplier' => 3.0],
+            ['label' => 'Stage 5 — Positional', 'par' => 150.0, 'timed' => true, 'targets' => [
+                ['label' => 'T1', 'distance' => 500, 'size' => '3 MOA'],
+                ['label' => 'T2', 'distance' => 600, 'size' => '2 MOA'],
+                ['label' => 'T3', 'distance' => 700, 'size' => '2 MOA'],
+                ['label' => 'T4', 'distance' => 650, 'size' => '1.5 MOA'],
+                ['label' => 'T5', 'distance' => 750, 'size' => '1 MOA'],
             ]],
-            ['label' => 'Stage 6 — 800m Prone (Tiebreaker)', 'distance' => 800, 'par' => 180.0, 'tiebreaker' => true, 'gongs' => [
-                ['label' => '2 MOA', 'multiplier' => 1.0],
-                ['label' => '1 MOA', 'multiplier' => 2.5],
+            ['label' => 'Stage 6 — Tiebreaker', 'par' => 180.0, 'timed' => true, 'tiebreaker' => true, 'targets' => [
+                ['label' => 'T1', 'distance' => 600, 'size' => '2 MOA'],
+                ['label' => 'T2', 'distance' => 700, 'size' => '1.5 MOA'],
+                ['label' => 'T3', 'distance' => 800, 'size' => '1 MOA'],
+                ['label' => 'T4', 'distance' => 750, 'size' => '1 MOA'],
             ]],
         ];
 
@@ -86,28 +97,34 @@ class PrsDemoMatchSeeder extends Seeder
             $ts = TargetSet::firstOrCreate(
                 ['match_id' => $match->id, 'label' => $stage['label']],
                 [
-                    'distance_meters' => $stage['distance'],
-                    'distance_multiplier' => $stage['distance'] / 100,
+                    'distance_meters' => 0,
+                    'distance_multiplier' => 1,
                     'sort_order' => $i + 1,
                     'is_tiebreaker' => $stage['tiebreaker'] ?? false,
                     'par_time_seconds' => $stage['par'],
-                    'total_shots' => count($stage['gongs']),
+                    'total_shots' => count($stage['targets']),
                     'stage_number' => $i + 1,
-                    'is_timed_stage' => true,
+                    'is_timed_stage' => $stage['timed'],
                 ]
             );
 
             $ts->update([
-                'total_shots' => count($stage['gongs']),
+                'total_shots' => count($stage['targets']),
                 'stage_number' => $i + 1,
-                'is_timed_stage' => true,
+                'is_timed_stage' => $stage['timed'],
             ]);
 
-            foreach ($stage['gongs'] as $j => $g) {
-                Gong::firstOrCreate(
-                    ['target_set_id' => $ts->id, 'number' => $j + 1],
-                    ['label' => $g['label'], 'multiplier' => $g['multiplier']]
-                );
+            $ts->gongs()->delete();
+
+            foreach ($stage['targets'] as $j => $t) {
+                Gong::create([
+                    'target_set_id' => $ts->id,
+                    'number' => $j + 1,
+                    'label' => $t['label'],
+                    'multiplier' => 1.00,
+                    'distance_meters' => $t['distance'],
+                    'target_size' => $t['size'],
+                ]);
             }
         }
 

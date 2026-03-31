@@ -30,10 +30,13 @@ new #[Layout('components.layouts.app')]
     public int $concurrent_relays = 2;
 
     public string $tsDistance = '';
+    public string $tsLabel = '';
 
     public string $gongNumber = '';
     public string $gongLabel = '';
     public string $gongMultiplier = '1.00';
+    public string $gongDistance = '';
+    public string $gongSize = '';
     public ?int $addingGongToTargetSetId = null;
 
     public string $squadName = '';
@@ -116,6 +119,11 @@ new #[Layout('components.layouts.app')]
 
     public function addTargetSet(): void
     {
+        if ($this->scoring_type === 'prs') {
+            $this->addPrsStage();
+            return;
+        }
+
         $this->validate(['tsDistance' => 'required|integer|min:1']);
         $distance = (int) $this->tsDistance;
         $maxSort = $this->match->targetSets()->max('sort_order') ?? 0;
@@ -129,6 +137,26 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Target set added.', variant: 'success');
     }
 
+    public function addPrsStage(): void
+    {
+        $this->validate(['tsLabel' => 'required|string|max:255']);
+
+        $maxSort = $this->match->targetSets()->max('sort_order') ?? 0;
+        $stageNumber = $maxSort + 1;
+
+        $this->match->targetSets()->create([
+            'label' => $this->tsLabel,
+            'distance_meters' => 0,
+            'distance_multiplier' => 1,
+            'sort_order' => $stageNumber,
+            'stage_number' => $stageNumber,
+            'is_timed_stage' => false,
+        ]);
+
+        $this->reset('tsLabel');
+        Flux::toast('PRS stage added.', variant: 'success');
+    }
+
     public function updateTargetSet(int $id, string $field, string $value): void
     {
         $ts = TargetSet::where('id', $id)->where('match_id', $this->match->id)->firstOrFail();
@@ -139,6 +167,8 @@ new #[Layout('components.layouts.app')]
             $ts->update(['distance_multiplier' => max(0.01, (float) $value)]);
         } elseif ($field === 'label') {
             $ts->update(['label' => $value]);
+        } elseif ($field === 'is_timed_stage') {
+            $ts->update(['is_timed_stage' => (bool) $value]);
         }
     }
 
@@ -164,11 +194,21 @@ new #[Layout('components.layouts.app')]
             'distance_meters' => $source->distance_meters,
             'distance_multiplier' => $source->distance_multiplier,
             'sort_order' => $maxSort + 1,
+            'stage_number' => $source->stage_number,
+            'total_shots' => $source->total_shots,
+            'is_timed_stage' => $source->is_timed_stage,
+            'par_time_seconds' => $source->par_time_seconds,
         ]);
         foreach ($source->gongs as $gong) {
-            $clone->gongs()->create(['number' => $gong->number, 'label' => $gong->label, 'multiplier' => $gong->multiplier]);
+            $clone->gongs()->create([
+                'number' => $gong->number,
+                'label' => $gong->label,
+                'multiplier' => $gong->multiplier,
+                'distance_meters' => $gong->distance_meters,
+                'target_size' => $gong->target_size,
+            ]);
         }
-        Flux::toast('Target set cloned.', variant: 'success');
+        Flux::toast('Stage cloned.', variant: 'success');
     }
 
     public function deleteTargetSet(int $id): void
@@ -197,37 +237,97 @@ new #[Layout('components.layouts.app')]
     {
         $maxNumber = Gong::where('target_set_id', $targetSetId)->max('number') ?? 0;
         for ($i = 1; $i <= $count; $i++) {
-            Gong::create(['target_set_id' => $targetSetId, 'number' => $maxNumber + $i, 'label' => "T{$i}", 'multiplier' => '1.00']);
+            Gong::create([
+                'target_set_id' => $targetSetId,
+                'number' => $maxNumber + $i,
+                'label' => "T" . ($maxNumber + $i),
+                'multiplier' => '1.00',
+            ]);
         }
-        Flux::toast("{$count} PRS targets added (1pt each).", variant: 'success');
+
+        $this->syncPrsTargetCount($targetSetId);
+        Flux::toast("{$count} PRS targets added.", variant: 'success');
+    }
+
+    private function syncPrsTargetCount(int $targetSetId): void
+    {
+        $count = Gong::where('target_set_id', $targetSetId)->count();
+        TargetSet::where('id', $targetSetId)->update(['total_shots' => $count]);
     }
 
     public function startAddGong(int $targetSetId): void
     {
         $this->addingGongToTargetSetId = $targetSetId;
-        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier');
+        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier', 'gongDistance', 'gongSize');
         $this->gongMultiplier = '1.00';
+
         $maxNumber = Gong::where('target_set_id', $targetSetId)->max('number') ?? 0;
         $this->gongNumber = (string) ($maxNumber + 1);
     }
 
     public function addGong(): void
     {
-        $this->validate(['gongNumber' => 'required|integer|min:1', 'gongLabel' => 'nullable|string|max:255', 'gongMultiplier' => 'required|numeric|min:0.01']);
-        Gong::create(['target_set_id' => $this->addingGongToTargetSetId, 'number' => (int) $this->gongNumber, 'label' => $this->gongLabel ?: null, 'multiplier' => $this->gongMultiplier]);
+        $isPrs = $this->scoring_type === 'prs';
+
+        $rules = [
+            'gongNumber' => 'required|integer|min:1',
+            'gongLabel' => 'nullable|string|max:255',
+        ];
+
+        if ($isPrs) {
+            $rules['gongDistance'] = 'nullable|integer|min:1';
+            $rules['gongSize'] = 'nullable|string|max:50';
+        } else {
+            $rules['gongMultiplier'] = 'required|numeric|min:0.01';
+        }
+
+        $this->validate($rules);
+
+        Gong::create([
+            'target_set_id' => $this->addingGongToTargetSetId,
+            'number' => (int) $this->gongNumber,
+            'label' => $this->gongLabel ?: null,
+            'multiplier' => $isPrs ? 1.00 : $this->gongMultiplier,
+            'distance_meters' => $isPrs && $this->gongDistance ? (int) $this->gongDistance : null,
+            'target_size' => $isPrs && $this->gongSize ? $this->gongSize : null,
+        ]);
+
+        if ($isPrs) {
+            $this->syncPrsTargetCount($this->addingGongToTargetSetId);
+        }
+
         $this->addingGongToTargetSetId = null;
-        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier');
-        Flux::toast('Gong added.', variant: 'success');
+        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier', 'gongDistance', 'gongSize');
+        Flux::toast('Target added.', variant: 'success');
     }
 
     public function updateGong(int $gongId, string $field, string $value): void
     {
         $gong = Gong::findOrFail($gongId);
-        if ($field === 'label') { $gong->update(['label' => $value ?: null]); }
-        elseif ($field === 'multiplier') { $gong->update(['multiplier' => max(0.01, (float) $value)]); }
+
+        if ($field === 'label') {
+            $gong->update(['label' => $value ?: null]);
+        } elseif ($field === 'multiplier') {
+            $gong->update(['multiplier' => max(0.01, (float) $value)]);
+        } elseif ($field === 'distance_meters') {
+            $gong->update(['distance_meters' => $value !== '' ? max(1, (int) $value) : null]);
+        } elseif ($field === 'target_size') {
+            $gong->update(['target_size' => $value ?: null]);
+        }
     }
 
-    public function deleteGong(int $id): void { Gong::destroy($id); Flux::toast('Gong deleted.', variant: 'success'); }
+    public function deleteGong(int $id): void
+    {
+        $gong = Gong::findOrFail($id);
+        $targetSetId = $gong->target_set_id;
+        $gong->delete();
+
+        if ($this->scoring_type === 'prs') {
+            $this->syncPrsTargetCount($targetSetId);
+        }
+
+        Flux::toast('Target deleted.', variant: 'success');
+    }
 
     // ── ELR Stages ──
 
@@ -728,12 +828,13 @@ new #[Layout('components.layouts.app')]
 
         <flux:separator />
 
-        {{-- Target Sets (Standard & PRS only) --}}
-        @if($scoring_type !== 'elr')
+        {{-- Target Sets — Standard scoring --}}
+        @if($scoring_type === 'standard')
         <div class="space-y-4">
             <h2 class="text-lg font-semibold text-primary">Target Sets</h2>
+
             @foreach($targetSets as $ts)
-                <div class="rounded-xl border {{ $ts->is_tiebreaker && $scoring_type === 'prs' ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-border' }} bg-surface overflow-hidden" wire:key="ts-{{ $ts->id }}">
+                <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="ts-{{ $ts->id }}">
                     <div class="flex items-center justify-between border-b border-border px-6 py-3">
                         <div class="flex items-center gap-3">
                             <div class="flex items-center gap-1">
@@ -749,43 +850,48 @@ new #[Layout('components.layouts.app')]
                                        wire:change="updateTargetSet({{ $ts->id }}, 'distance_multiplier', $event.target.value)" />
                             </div>
                             <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
-                            @if($scoring_type === 'prs' && $ts->is_tiebreaker)
-                                <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">Tiebreaker</span>
-                            @endif
                         </div>
                         <div class="flex items-center gap-2">
-                            @if($scoring_type === 'prs')
-                                <button wire:click="setTiebreakerStage({{ $ts->id }})"
-                                        class="rounded-lg px-2 py-1 text-xs font-medium transition-colors {{ $ts->is_tiebreaker ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-muted hover:bg-surface-2 hover:text-primary' }}"
-                                        title="Set as tiebreaker stage">
-                                    &#9201; TB
-                                </button>
-                            @endif
                             <flux:button size="sm" variant="ghost" wire:click="cloneTargetSet({{ $ts->id }})">Clone</flux:button>
-                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent" wire:click="deleteTargetSet({{ $ts->id }})" wire:confirm="Delete this target set?">Delete</flux:button>
+                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
+                                         wire:click="deleteTargetSet({{ $ts->id }})"
+                                         wire:confirm="Delete this target set and all its gongs?">Delete</flux:button>
                         </div>
                     </div>
-                    @if($scoring_type === 'prs')
-                        <div class="flex items-center gap-3 border-b border-border/50 bg-surface/50 px-6 py-2">
-                            <label class="text-xs font-medium text-muted whitespace-nowrap">Par Time (s):</label>
-                            <input type="number" value="{{ $ts->par_time_seconds }}" step="0.01" min="0" placeholder="e.g. 90.00"
-                                   class="w-28 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-                                   wire:change="updateParTime({{ $ts->id }}, $event.target.value)" />
-                            <span class="text-xs text-muted">Max time for this stage. Incomplete shooters get this time.</span>
-                        </div>
-                    @endif
+
                     <div class="p-4 space-y-3">
                         @if($ts->gongs->isNotEmpty())
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm">
-                                    <thead><tr class="text-left text-muted border-b border-border/50"><th class="px-3 py-2 font-medium w-12">#</th><th class="px-3 py-2 font-medium">Label</th><th class="px-3 py-2 font-medium w-28">Multiplier</th><th class="px-3 py-2 font-medium w-10"></th></tr></thead>
+                                    <thead>
+                                        <tr class="text-left text-muted border-b border-border/50">
+                                            <th class="px-3 py-2 font-medium w-12">#</th>
+                                            <th class="px-3 py-2 font-medium">Label</th>
+                                            <th class="px-3 py-2 font-medium w-28">Multiplier</th>
+                                            <th class="px-3 py-2 font-medium w-10"></th>
+                                        </tr>
+                                    </thead>
                                     <tbody class="divide-y divide-border/50">
                                         @foreach($ts->gongs->sortBy('number') as $gong)
                                             <tr wire:key="gong-{{ $gong->id }}">
                                                 <td class="px-3 py-1.5 text-muted font-mono">{{ $gong->number }}</td>
-                                                <td class="px-3 py-1.5"><input type="text" value="{{ $gong->label }}" placeholder="e.g. 2.5 MOA" class="w-full rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" wire:change="updateGong({{ $gong->id }}, 'label', $event.target.value)" /></td>
-                                                <td class="px-3 py-1.5"><div class="flex items-center gap-1"><input type="number" value="{{ $gong->multiplier }}" step="0.01" min="0.01" class="w-20 rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500" wire:change="updateGong({{ $gong->id }}, 'multiplier', $event.target.value)" /><span class="text-muted text-xs">x</span></div></td>
-                                                <td class="px-3 py-1.5 text-right"><button class="text-accent hover:text-accent text-lg leading-none" wire:click="deleteGong({{ $gong->id }})">&times;</button></td>
+                                                <td class="px-3 py-1.5">
+                                                    <input type="text" value="{{ $gong->label }}" placeholder="e.g. 2.5 MOA"
+                                                           class="w-full rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                                           wire:change="updateGong({{ $gong->id }}, 'label', $event.target.value)" />
+                                                </td>
+                                                <td class="px-3 py-1.5">
+                                                    <div class="flex items-center gap-1">
+                                                        <input type="number" value="{{ $gong->multiplier }}" step="0.01" min="0.01"
+                                                               class="w-20 rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                                               wire:change="updateGong({{ $gong->id }}, 'multiplier', $event.target.value)" />
+                                                        <span class="text-muted text-xs">x</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-1.5 text-right">
+                                                    <button class="text-accent hover:text-accent text-lg leading-none"
+                                                            wire:click="deleteGong({{ $gong->id }})">&times;</button>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -794,6 +900,7 @@ new #[Layout('components.layouts.app')]
                         @else
                             <p class="text-sm text-muted px-3">No targets yet.</p>
                         @endif
+
                         @if($addingGongToTargetSetId === $ts->id)
                             <div class="rounded-lg border border-border bg-surface-2/50 p-4 space-y-3">
                                 <div class="grid grid-cols-3 gap-3">
@@ -809,13 +916,10 @@ new #[Layout('components.layouts.app')]
                         @else
                             <div class="flex flex-wrap gap-2 px-3">
                                 @if($ts->gongs->isEmpty())
-                                    @if($match->scoring_type === 'prs')
-                                        <flux:button size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700" wire:click="populatePrsTargets({{ $ts->id }}, 5)">+ 5 PRS Targets</flux:button>
-                                        <flux:button size="sm" variant="ghost" wire:click="populatePrsTargets({{ $ts->id }}, 8)">+ 8 Targets</flux:button>
-                                        <flux:button size="sm" variant="ghost" wire:click="populatePrsTargets({{ $ts->id }}, 10)">+ 10 Targets</flux:button>
-                                    @else
-                                        <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover" wire:click="populateStandardTargets({{ $ts->id }})">+ Add Standard Targets (5 MOA)</flux:button>
-                                    @endif
+                                    <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover"
+                                                 wire:click="populateStandardTargets({{ $ts->id }})">
+                                        + Add Standard Targets (5 MOA)
+                                    </flux:button>
                                 @endif
                                 <flux:button size="sm" variant="ghost" wire:click="startAddGong({{ $ts->id }})">+ Add Custom Target</flux:button>
                             </div>
@@ -823,11 +927,146 @@ new #[Layout('components.layouts.app')]
                     </div>
                 </div>
             @endforeach
+
             <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
                 <h3 class="text-sm font-medium text-secondary">Add Target Set</h3>
                 <div class="flex gap-3 items-end">
-                    <div class="w-32"><flux:input wire:model="tsDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 100" /></div>
+                    <div class="w-32">
+                        <flux:input wire:model="tsDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 100" />
+                    </div>
                     <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Target Set</flux:button>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- PRS Stages --}}
+        @if($scoring_type === 'prs' && $match)
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold text-primary">PRS Stages</h2>
+            <p class="text-xs text-muted">Each stage has its own targets. 1 impact = 1 point. Targets can be at different distances.</p>
+
+            @foreach($targetSets as $ts)
+                <div class="rounded-xl border {{ $ts->is_tiebreaker ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-border' }} bg-surface overflow-hidden" wire:key="ts-{{ $ts->id }}">
+                    {{-- Stage header --}}
+                    <div class="flex items-center justify-between border-b border-border px-6 py-3">
+                        <div class="flex items-center gap-3">
+                            <input type="text" value="{{ $ts->label }}" placeholder="Stage name"
+                                   class="w-64 rounded-md border border-border bg-surface-2 px-3 py-1 text-sm font-semibold text-primary focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                   wire:change="updateTargetSet({{ $ts->id }}, 'label', $event.target.value)" />
+                            <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
+                            @if($ts->is_tiebreaker)
+                                <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">Tiebreaker</span>
+                            @endif
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button wire:click="setTiebreakerStage({{ $ts->id }})"
+                                    class="rounded-lg px-2 py-1 text-xs font-medium transition-colors {{ $ts->is_tiebreaker ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-muted hover:text-primary' }}"
+                                    title="Set as tiebreaker stage">&#9201; TB</button>
+                            <flux:button size="sm" variant="ghost" wire:click="cloneTargetSet({{ $ts->id }})">Clone</flux:button>
+                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
+                                         wire:click="deleteTargetSet({{ $ts->id }})"
+                                         wire:confirm="Delete this stage and all its targets?">Delete</flux:button>
+                        </div>
+                    </div>
+
+                    {{-- Par time & timed toggle --}}
+                    <div class="flex items-center gap-4 border-b border-border/50 bg-surface/50 px-6 py-2">
+                        <label class="flex items-center gap-2 text-xs">
+                            <input type="checkbox" {{ $ts->is_timed_stage ? 'checked' : '' }}
+                                   wire:change="updateTargetSet({{ $ts->id }}, 'is_timed_stage', $event.target.checked ? '1' : '0')"
+                                   class="rounded border-border bg-surface-2 text-amber-600 focus:ring-amber-500" />
+                            <span class="text-muted font-medium">Timed stage</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-medium text-muted whitespace-nowrap">Par Time (s):</label>
+                            <input type="number" value="{{ $ts->par_time_seconds }}" step="0.01" min="0" placeholder="Optional"
+                                   class="w-28 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                   wire:change="updateParTime({{ $ts->id }}, $event.target.value)" />
+                        </div>
+                    </div>
+
+                    {{-- PRS target table --}}
+                    <div class="p-4 space-y-3">
+                        @if($ts->gongs->isNotEmpty())
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="text-left text-muted border-b border-border/50">
+                                            <th class="px-3 py-2 font-medium w-12">#</th>
+                                            <th class="px-3 py-2 font-medium">Name</th>
+                                            <th class="px-3 py-2 font-medium w-28">Distance (m)</th>
+                                            <th class="px-3 py-2 font-medium w-28">Size</th>
+                                            <th class="px-3 py-2 font-medium w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border/50">
+                                        @foreach($ts->gongs->sortBy('number') as $gong)
+                                            <tr wire:key="gong-{{ $gong->id }}">
+                                                <td class="px-3 py-1.5 text-muted font-mono">{{ $gong->number }}</td>
+                                                <td class="px-3 py-1.5">
+                                                    <input type="text" value="{{ $gong->label }}" placeholder="e.g. T1"
+                                                           class="w-full rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary placeholder-muted focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                                           wire:change="updateGong({{ $gong->id }}, 'label', $event.target.value)" />
+                                                </td>
+                                                <td class="px-3 py-1.5">
+                                                    <input type="number" value="{{ $gong->distance_meters }}" min="1" placeholder="m"
+                                                           class="w-24 rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                                           wire:change="updateGong({{ $gong->id }}, 'distance_meters', $event.target.value)" />
+                                                </td>
+                                                <td class="px-3 py-1.5">
+                                                    <input type="text" value="{{ $gong->target_size }}" placeholder="e.g. 2 MOA"
+                                                           class="w-24 rounded border border-border bg-surface-2 px-2 py-1 text-sm text-primary text-center placeholder-muted focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                                           wire:change="updateGong({{ $gong->id }}, 'target_size', $event.target.value)" />
+                                                </td>
+                                                <td class="px-3 py-1.5 text-right">
+                                                    <button class="text-accent hover:text-accent text-lg leading-none"
+                                                            wire:click="deleteGong({{ $gong->id }})">&times;</button>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <p class="text-sm text-muted px-3">No targets yet.</p>
+                        @endif
+
+                        @if($addingGongToTargetSetId === $ts->id)
+                            <div class="rounded-lg border border-border bg-surface-2/50 p-4 space-y-3">
+                                <div class="grid grid-cols-4 gap-3">
+                                    <flux:input wire:model="gongNumber" label="#" type="number" min="1" required />
+                                    <flux:input wire:model="gongLabel" label="Name" placeholder="e.g. T1" />
+                                    <flux:input wire:model="gongDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 400" />
+                                    <flux:input wire:model="gongSize" label="Size" placeholder="e.g. 2 MOA" />
+                                </div>
+                                <div class="flex gap-2">
+                                    <flux:button wire:click="addGong" size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700">Add Target</flux:button>
+                                    <flux:button wire:click="$set('addingGongToTargetSetId', null)" size="sm" variant="ghost">Cancel</flux:button>
+                                </div>
+                            </div>
+                        @else
+                            <div class="flex flex-wrap gap-2 px-3">
+                                @if($ts->gongs->isEmpty())
+                                    <flux:button size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700" wire:click="populatePrsTargets({{ $ts->id }}, 5)">+ 5 Targets</flux:button>
+                                    <flux:button size="sm" variant="ghost" wire:click="populatePrsTargets({{ $ts->id }}, 8)">+ 8 Targets</flux:button>
+                                    <flux:button size="sm" variant="ghost" wire:click="populatePrsTargets({{ $ts->id }}, 10)">+ 10 Targets</flux:button>
+                                @endif
+                                <flux:button size="sm" variant="ghost" wire:click="startAddGong({{ $ts->id }})">+ Add Target</flux:button>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+
+            {{-- Add PRS Stage --}}
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
+                <h3 class="text-sm font-medium text-secondary">Add Stage</h3>
+                <div class="flex gap-3 items-end">
+                    <div class="flex-1 max-w-sm">
+                        <flux:input wire:model="tsLabel" label="Stage Name" placeholder="e.g. Stage 1 — Positional" />
+                    </div>
+                    <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700">Add Stage</flux:button>
                 </div>
             </div>
         </div>

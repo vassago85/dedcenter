@@ -13,6 +13,8 @@ class Gong extends Model
         'target_set_id',
         'number',
         'label',
+        'distance_meters',
+        'target_size',
         'multiplier',
     ];
 
@@ -20,6 +22,7 @@ class Gong extends Model
     {
         return [
             'number' => 'integer',
+            'distance_meters' => 'integer',
             'multiplier' => 'decimal:2',
         ];
     }

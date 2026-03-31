@@ -30,12 +30,14 @@ class MatchResource extends JsonResource
                 'total_shots' => $ts->total_shots,
                 'is_timed_stage' => (bool) $ts->is_timed_stage,
                 'notes' => $ts->notes,
-                'gongs' => $ts->gongs->map(fn ($g) => [
+                'gongs' => $ts->gongs->map(fn ($g) => array_filter([
                     'id' => $g->id,
                     'number' => $g->number,
                     'label' => $g->label,
                     'multiplier' => $g->multiplier,
-                ]),
+                    'distance_meters' => $g->distance_meters,
+                    'target_size' => $g->target_size,
+                ], fn ($v) => $v !== null)),
                 'stage_targets' => $ts->relationLoaded('stageTargets') ? $ts->stageTargets->map(fn ($st) => [
                     'id' => $st->id,
                     'sequence_number' => $st->sequence_number,
