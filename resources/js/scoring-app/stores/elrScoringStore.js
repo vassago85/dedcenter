@@ -80,6 +80,19 @@ export const useElrScoringStore = defineStore('elrScoring', {
             await this.updatePendingCount();
         },
 
+        async refreshShots(matchId) {
+            const merged = new Map();
+            try {
+                const localShots = await db.elrShots.where('matchId').equals(matchId).toArray();
+                for (const s of localShots) {
+                    const key = `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
+                    merged.set(key, s);
+                }
+            } catch { /* table may not exist */ }
+            this.shots = merged;
+            await this.updatePendingCount();
+        },
+
         async updatePendingCount() {
             try {
                 const pending = await db.elrShots

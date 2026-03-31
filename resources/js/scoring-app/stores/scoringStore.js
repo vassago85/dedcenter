@@ -141,6 +141,28 @@ export const useScoringStore = defineStore('scoring', {
             await this.updatePendingCount();
         },
 
+        async refreshScores(matchId, serverScores = []) {
+            const merged = new Map();
+            for (const s of serverScores) {
+                merged.set(`${s.shooter_id}-${s.gong_id}`, {
+                    shooterId: s.shooter_id,
+                    gongId: s.gong_id,
+                    isHit: s.is_hit,
+                    recordedAt: s.recorded_at,
+                    synced: true,
+                });
+            }
+            const localScores = await db.scores.where('matchId').equals(matchId).toArray();
+            for (const s of localScores) {
+                const key = `${s.shooterId}-${s.gongId}`;
+                if (!s.synced || !merged.has(key)) {
+                    merged.set(key, s);
+                }
+            }
+            this.scores = merged;
+            await this.updatePendingCount();
+        },
+
         async updatePendingCount() {
             const pendingScores = await db.scores
                 .where('matchId').equals(this.matchId)

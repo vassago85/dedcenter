@@ -292,6 +292,39 @@ export const usePrsScoringStore = defineStore('prsScoring', {
             }
         },
 
+        async refreshCompletions(matchId, prsStageResults = []) {
+            const merged = new Map();
+            for (const r of prsStageResults) {
+                const key = `${r.shooter_id}-${r.stage_id}`;
+                merged.set(key, {
+                    shooterId: r.shooter_id,
+                    stageId: r.stage_id,
+                    hits: r.hits,
+                    misses: r.misses,
+                    notTaken: r.not_taken,
+                    time: r.official_time_seconds,
+                    completedAt: r.completed_at,
+                });
+            }
+            const localResults = await db.prsStageResults.where('matchId').equals(matchId).toArray();
+            for (const r of localResults) {
+                const key = `${r.shooterId}-${r.stageId}`;
+                if (!r.synced || !merged.has(key)) {
+                    merged.set(key, {
+                        shooterId: r.shooterId,
+                        stageId: r.stageId,
+                        hits: r.hits,
+                        misses: r.misses,
+                        notTaken: r.notTaken,
+                        time: r.officialTime,
+                        completedAt: r.completedAt,
+                    });
+                }
+            }
+            this.stageCompletions = merged;
+            await this.updatePendingCount();
+        },
+
         async updatePendingCount() {
             const pendingShots = await db.prsShotScores
                 .where('matchId').equals(this.matchId)

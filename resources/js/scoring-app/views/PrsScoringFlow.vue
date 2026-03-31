@@ -56,10 +56,31 @@
             </div>
         </div>
 
-        <!-- SCREEN: Stage Select (first step) -->
+        <!-- SCREEN: Squad Select (first step — PRS is squad-first) -->
+        <div v-else-if="prsStore.currentScreen === 'squad-select'" class="flex flex-1 flex-col px-4 py-6">
+            <div class="mx-auto w-full max-w-2xl">
+                <h2 class="mb-2 text-xl font-bold">Select Squad</h2>
+                <p class="mb-4 text-sm text-slate-400">Choose the squad you are scoring</p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <button
+                        v-for="squad in squads"
+                        :key="squad.id"
+                        @click="selectSquad(squad)"
+                        class="flex flex-col gap-1 rounded-xl border border-slate-700 bg-slate-800 p-5 text-left transition-all hover:border-amber-600 hover:bg-slate-700/80 active:scale-[0.98]"
+                    >
+                        <span class="text-lg font-bold">{{ squad.name }}</span>
+                        <span class="text-sm text-slate-400">{{ squad.shooters.length }} shooters</span>
+                        <div class="mt-1 text-xs text-slate-500">{{ squadOverallProgress(squad.id) }}</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: Stage Select (second step — after squad is chosen) -->
         <div v-else-if="prsStore.currentScreen === 'stage-select'" class="flex flex-1 flex-col px-4 py-6">
             <div class="mx-auto w-full max-w-2xl">
-                <h2 class="mb-4 text-xl font-bold">Select Stage</h2>
+                <h2 class="mb-2 text-xl font-bold">Select Stage</h2>
+                <p v-if="selectedSquadObj" class="mb-4 text-sm text-slate-400">{{ selectedSquadObj.name }}</p>
                 <div class="space-y-3">
                     <button
                         v-for="ts in targetSets"
@@ -76,29 +97,7 @@
                             </div>
                         </div>
                         <div class="text-right text-sm text-slate-500">
-                            {{ stageOverallProgress(ts.id) }}
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- SCREEN: Squad Select (second step, after stage is chosen) -->
-        <div v-else-if="prsStore.currentScreen === 'squad-select'" class="flex flex-1 flex-col px-4 py-6">
-            <div class="mx-auto w-full max-w-2xl">
-                <h2 class="mb-2 text-xl font-bold">Select Squad</h2>
-                <p v-if="selectedStageObj" class="mb-4 text-sm text-slate-400">{{ selectedStageObj?.display_name || selectedStageObj?.label }}</p>
-                <div class="grid gap-3 sm:grid-cols-2">
-                    <button
-                        v-for="squad in squads"
-                        :key="squad.id"
-                        @click="selectSquad(squad)"
-                        class="flex flex-col gap-1 rounded-xl border border-slate-700 bg-slate-800 p-5 text-left transition-all hover:border-amber-600 hover:bg-slate-700/80 active:scale-[0.98]"
-                    >
-                        <span class="text-lg font-bold">{{ squad.name }}</span>
-                        <span class="text-sm text-slate-400">{{ squad.shooters.length }} shooters</span>
-                        <div v-if="prsStore.selectedStageId" class="mt-1 text-xs text-slate-500">
-                            {{ squadStageProgress(squad.id) }}
+                            {{ stageSquadProgress(ts.id) }}
                         </div>
                     </button>
                 </div>
@@ -118,6 +117,24 @@
                         <button v-if="deviceLockMode === 'open'" @click="prsStore.navigateTo('squad-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Squad</button>
                     </div>
                 </div>
+
+                <!-- All shooters completed banner -->
+                <div v-if="allShootersDoneAtStage" class="mb-4 rounded-xl border border-green-700/50 bg-green-900/20 p-4 text-center">
+                    <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-600/20">
+                        <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                    </div>
+                    <p class="font-bold text-green-400">All shooters scored at this stage!</p>
+                    <button
+                        v-if="deviceLockMode !== 'locked_to_stage'"
+                        @click="prsStore.navigateTo('stage-select'); savePrsProgress()"
+                        class="mt-3 w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Choose Next Stage
+                    </button>
+                </div>
+
                 <div class="space-y-2">
                     <button
                         v-for="shooter in currentShooters"
@@ -144,107 +161,6 @@
                         </div>
                     </button>
                 </div>
-            </div>
-        </div>
-
-        <!-- SCREEN: Squad Picker (break between squads) -->
-        <div v-else-if="prsStore.currentScreen === 'squad-picker'" class="flex flex-1 flex-col px-4 py-6">
-            <div class="mx-auto w-full max-w-2xl space-y-4">
-                <div class="text-center">
-                    <p class="text-sm font-medium uppercase tracking-widest text-slate-400">Next Relay</p>
-                    <h2 class="mt-1 text-xl font-bold">{{ selectedStageObj?.display_name || selectedStageObj?.label }}</h2>
-                    <p class="text-sm text-slate-400">Select the next squad to score at this stage</p>
-                </div>
-
-                <!-- Recommended squad -->
-                <div v-if="prsRecommendedSquad && !prsAllSquadsScoredAtStage" class="rounded-xl border-2 border-red-600 bg-red-600/10 p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs font-medium uppercase text-red-400">Recommended</p>
-                            <p class="text-lg font-bold">{{ prsRecommendedSquad.name }}</p>
-                            <p class="text-xs text-slate-400">{{ prsRecommendedSquad.shooters?.filter(s => s.status === 'active').length ?? 0 }} active shooters</p>
-                        </div>
-                        <button
-                            @click="pickSquadFromBreak(prsRecommendedSquad)"
-                            class="rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-red-700 active:scale-95"
-                        >
-                            Score Next
-                        </button>
-                    </div>
-                </div>
-
-                <!-- All squads scored -->
-                <div v-if="prsAllSquadsScoredAtStage" class="rounded-xl border border-green-700/50 bg-green-900/20 p-4 text-center">
-                    <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-600/20">
-                        <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
-                    </div>
-                    <p class="font-bold text-green-400">All squads scored at this stage!</p>
-                    <button
-                        @click="prsStore.navigateTo('stage-select')"
-                        class="mt-3 w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
-                    >
-                        Choose Next Stage
-                    </button>
-                </div>
-
-                <!-- Full squad list -->
-                <div class="rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
-                    <div class="border-b border-slate-700 px-4 py-2.5">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">All Squads</p>
-                    </div>
-                    <div class="divide-y divide-slate-700/50">
-                        <button
-                            v-for="item in prsSquadPickerItems"
-                            :key="item.squad.id"
-                            @click="pickSquadFromBreak(item.squad)"
-                            class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-700/50 active:scale-[0.99]"
-                            :class="{
-                                'bg-red-600/5 border-l-4 border-l-red-500': item.isRecommended,
-                                'border-l-4 border-l-transparent': !item.isRecommended,
-                            }"
-                        >
-                            <div
-                                class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold"
-                                :class="{
-                                    'bg-green-600/20 text-green-400': item.allDone,
-                                    'bg-amber-600/20 text-amber-400': item.someDone && !item.allDone,
-                                    'bg-slate-700 text-slate-400': !item.someDone,
-                                }"
-                            >
-                                <template v-if="item.allDone">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                    </svg>
-                                </template>
-                                <template v-else>{{ item.index + 1 }}</template>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium">
-                                    {{ item.squad.name }}
-                                    <span v-if="item.isRecommended && !item.allDone" class="ml-1.5 rounded bg-red-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-400">Next</span>
-                                </p>
-                                <p class="text-xs text-slate-500">{{ item.activeCount }} shooters</p>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-xs font-bold" :class="item.allDone ? 'text-green-400' : item.someDone ? 'text-amber-400' : 'text-slate-500'">
-                                    {{ item.completedCount }}/{{ item.activeCount }}
-                                </span>
-                            </div>
-                            <svg class="h-4 w-4 flex-shrink-0 text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <button
-                    @click="prsStore.navigateTo('stage-select')"
-                    class="w-full rounded-xl border border-slate-600 py-3 text-center text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                >
-                    Change Stage
-                </button>
             </div>
         </div>
 
@@ -456,6 +372,13 @@ const stageRequiresTime = computed(() => {
     return selectedStageObj.value?.is_timed_stage || selectedStageObj.value?.is_tiebreaker;
 });
 
+const allShootersDoneAtStage = computed(() => {
+    if (!selectedSquadObj.value || !prsStore.selectedStageId) return false;
+    const active = currentShooters.value;
+    if (active.length === 0) return false;
+    return active.every(s => prsStore.stageCompletions.has(`${s.id}-${prsStore.selectedStageId}`));
+});
+
 const PRS_STATE_KEY = 'dc_prs_state';
 
 function savePrsProgress() {
@@ -476,10 +399,10 @@ function restorePrsProgress() {
         if (!raw) return false;
         const state = JSON.parse(raw);
         if (state.matchId !== props.matchId) return false;
-        const validScreens = ['stage-select', 'squad-select', 'shooter-list', 'squad-picker'];
+        const validScreens = ['squad-select', 'stage-select', 'shooter-list'];
         if (!validScreens.includes(state.screen)) return false;
-        if (state.stageId) prsStore.selectStage(state.stageId);
         if (state.squadId) prsStore.selectSquad(state.squadId);
+        if (state.stageId) prsStore.selectStage(state.stageId);
         prsStore.navigateTo(state.screen);
         return true;
     } catch { return false; }
@@ -489,17 +412,17 @@ function clearPrsProgress() {
     try { localStorage.removeItem(PRS_STATE_KEY); } catch { /* ignore */ }
 }
 
-function stageOverallProgress(stageId) {
-    let totalActive = 0;
+function squadOverallProgress(squadId) {
+    const squad = squads.value.find(s => s.id === squadId);
+    if (!squad) return '';
+    const active = (squad.shooters ?? []).filter(s => s.status === 'active');
+    if (active.length === 0) return '';
     let totalCompleted = 0;
-    for (const squad of squads.value) {
-        const active = (squad.shooters ?? []).filter(s => s.status === 'active');
-        const completed = active.filter(s => prsStore.stageCompletions.has(`${s.id}-${stageId}`));
-        totalActive += active.length;
-        totalCompleted += completed.length;
+    const totalPossible = active.length * targetSets.value.length;
+    for (const ts of targetSets.value) {
+        totalCompleted += active.filter(s => prsStore.stageCompletions.has(`${s.id}-${ts.id}`)).length;
     }
-    if (totalActive === 0) return '';
-    return `${totalCompleted}/${totalActive} scored`;
+    return `${totalCompleted}/${totalPossible} scored`;
 }
 
 function readStageLock(matchId) {
@@ -511,101 +434,30 @@ function readStageLock(matchId) {
     } catch { return null; }
 }
 
-// ── Squad picker logic for PRS ──
-const prsRecommendedSquad = computed(() => {
-    if (!prsStore.selectedStageId) return null;
-    const stageId = prsStore.selectedStageId;
-    const currentSquadId = prsStore.selectedSquadId;
-    const concurrentRelays = matchStore.currentMatch?.concurrent_relays ?? 2;
-    const sortedSquads = [...squads.value].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const currentIdx = sortedSquads.findIndex(s => s.id === currentSquadId);
-    if (currentIdx < 0) return sortedSquads.find(s => !isSquadDoneAtStage(s, stageId)) ?? null;
-
-    const stride = Math.max(1, concurrentRelays);
-    for (let offset = stride; offset < sortedSquads.length; offset += stride) {
-        const idx = (currentIdx + offset) % sortedSquads.length;
-        const squad = sortedSquads[idx];
-        if (!isSquadDoneAtStage(squad, stageId)) return squad;
-    }
-    for (let i = 0; i < sortedSquads.length; i++) {
-        if (i === currentIdx) continue;
-        if (!isSquadDoneAtStage(sortedSquads[i], stageId)) return sortedSquads[i];
-    }
-    return null;
-});
-
-const prsAllSquadsScoredAtStage = computed(() => {
-    if (!prsStore.selectedStageId) return false;
-    return squads.value.every(s => isSquadDoneAtStage(s, prsStore.selectedStageId));
-});
-
-const prsSquadPickerItems = computed(() => {
-    if (!prsStore.selectedStageId) return [];
-    const stageId = prsStore.selectedStageId;
-    const recId = prsRecommendedSquad.value?.id;
-    const sortedSquads = [...squads.value].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    return sortedSquads.map((squad, idx) => {
-        const active = (squad.shooters ?? []).filter(s => s.status === 'active');
-        const completed = active.filter(s => prsStore.stageCompletions.has(`${s.id}-${stageId}`));
-        return {
-            squad,
-            index: idx,
-            activeCount: active.length,
-            completedCount: completed.length,
-            allDone: completed.length >= active.length && active.length > 0,
-            someDone: completed.length > 0,
-            isRecommended: squad.id === recId,
-        };
-    });
-});
-
-function isSquadDoneAtStage(squad, stageId) {
-    const active = (squad.shooters ?? []).filter(s => s.status === 'active');
-    if (active.length === 0) return true;
-    return active.every(s => prsStore.stageCompletions.has(`${s.id}-${stageId}`));
-}
-
-function pickSquadFromBreak(squad) {
-    prsStore.selectSquad(squad.id);
-    prsStore.navigateTo('shooter-list');
-    savePrsProgress();
-}
-
-function checkAllShootersDone() {
-    if (!selectedSquadObj.value || !prsStore.selectedStageId) return false;
-    const active = currentShooters.value;
-    if (active.length === 0) return false;
-    return active.every(s => prsStore.stageCompletions.has(`${s.id}-${prsStore.selectedStageId}`));
-}
-
+// PRS flow: Squad first → Stage → Shooter → Score
 function startScoring() {
     const lock = deviceLockMode.value;
-    if (lock === 'locked_to_stage') {
+    if (lock === 'locked_to_squad' && matchStore.lockedSquadId) {
+        prsStore.selectSquad(matchStore.lockedSquadId);
+        const stageLock = readStageLock(props.matchId);
+        if (stageLock) {
+            prsStore.selectStage(stageLock.stageId);
+            prsStore.navigateTo('shooter-list');
+        } else {
+            prsStore.navigateTo('stage-select');
+        }
+    } else if (lock === 'locked_to_stage') {
         const stageLock = readStageLock(props.matchId);
         if (stageLock && matchStore.lockedSquadId) {
-            prsStore.selectStage(stageLock.stageId);
             prsStore.selectSquad(matchStore.lockedSquadId);
+            prsStore.selectStage(stageLock.stageId);
             prsStore.navigateTo('shooter-list');
         } else if (stageLock) {
             prsStore.selectStage(stageLock.stageId);
             prsStore.navigateTo('squad-select');
         } else {
-            prsStore.navigateTo('stage-select');
+            prsStore.navigateTo('squad-select');
         }
-    } else if (lock === 'locked_to_squad' && matchStore.lockedSquadId) {
-        prsStore.selectSquad(matchStore.lockedSquadId);
-        prsStore.navigateTo('stage-select');
-    } else {
-        prsStore.navigateTo('stage-select');
-    }
-    savePrsProgress();
-}
-
-function selectStage(ts) {
-    prsStore.selectStage(ts.id);
-    if (deviceLockMode.value === 'locked_to_squad' && matchStore.lockedSquadId) {
-        prsStore.selectSquad(matchStore.lockedSquadId);
-        prsStore.navigateTo('shooter-list');
     } else {
         prsStore.navigateTo('squad-select');
     }
@@ -614,6 +466,18 @@ function selectStage(ts) {
 
 function selectSquad(squad) {
     prsStore.selectSquad(squad.id);
+    const stageLock = readStageLock(props.matchId);
+    if (deviceLockMode.value === 'locked_to_stage' && stageLock) {
+        prsStore.selectStage(stageLock.stageId);
+        prsStore.navigateTo('shooter-list');
+    } else {
+        prsStore.navigateTo('stage-select');
+    }
+    savePrsProgress();
+}
+
+function selectStage(ts) {
+    prsStore.selectStage(ts.id);
     prsStore.navigateTo('shooter-list');
     savePrsProgress();
 }
@@ -632,10 +496,9 @@ function openScoring(shooter) {
 function goBack() {
     const s = prsStore.currentScreen;
     if (s === 'scoring') prsStore.navigateTo('shooter-list');
-    else if (s === 'shooter-list') prsStore.navigateTo('squad-select');
-    else if (s === 'squad-select') prsStore.navigateTo('stage-select');
-    else if (s === 'stage-select') prsStore.navigateTo('match-home');
-    else if (s === 'squad-picker') prsStore.navigateTo('shooter-list');
+    else if (s === 'shooter-list') prsStore.navigateTo('stage-select');
+    else if (s === 'stage-select') prsStore.navigateTo('squad-select');
+    else if (s === 'squad-select') prsStore.navigateTo('match-home');
     savePrsProgress();
 }
 
@@ -667,11 +530,7 @@ async function handleCompleteStage() {
         return;
     }
     stopTimerInternal();
-    if (checkAllShootersDone()) {
-        prsStore.navigateTo('squad-picker');
-    } else {
-        prsStore.navigateTo('shooter-list');
-    }
+    prsStore.navigateTo('shooter-list');
     savePrsProgress();
 }
 
@@ -698,15 +557,6 @@ function getStatusLabel(shooterId) {
 function getStatusClass(shooterId) {
     const c = getShooterCompletion(shooterId);
     return c ? 'bg-green-600/20 text-green-400' : 'bg-slate-700/50 text-slate-500';
-}
-
-function squadStageProgress(squadId) {
-    if (!prsStore.selectedStageId) return '';
-    const squad = squads.value.find(s => s.id === squadId);
-    if (!squad) return '';
-    const active = squad.shooters.filter(s => s.status === 'active');
-    const completed = active.filter(s => prsStore.stageCompletions.has(`${s.id}-${prsStore.selectedStageId}`));
-    return `${completed.length}/${active.length} completed`;
 }
 
 function stageSquadProgress(stageId) {
@@ -804,7 +654,7 @@ onMounted(async () => {
         try {
             await matchStore.fetchMatch(props.matchId);
             const freshResults = matchStore.currentMatch?.prs_stage_results ?? [];
-            await prsStore.initForMatch(props.matchId, freshResults);
+            await prsStore.refreshCompletions(props.matchId, freshResults);
         } catch { /* offline or transient failure */ }
     }, 15000);
 });

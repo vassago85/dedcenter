@@ -717,7 +717,7 @@ onMounted(async () => {
         }
         try {
             await matchStore.fetchMatch(props.matchId);
-            await elrStore.initForMatch(props.matchId);
+            await elrStore.refreshShots(props.matchId);
         } catch { /* offline or transient failure */ }
     }, 15000);
 });

@@ -1076,7 +1076,7 @@ onMounted(async () => {
         try {
             await matchStore.fetchMatch(props.matchId);
             const freshScores = matchStore.currentMatch?.scores ?? [];
-            await scoringStore.initForMatch(props.matchId, freshScores);
+            await scoringStore.refreshScores(props.matchId, freshScores);
             syncLocalScoresToMatch();
         } catch { /* offline or transient failure */ }
     }, 15000);
