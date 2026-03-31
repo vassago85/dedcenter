@@ -20,7 +20,7 @@
 
             <template v-else-if="matchStore.currentMatch">
                 <p class="mb-4 text-sm text-slate-400">
-                    Choose a squad to score. This device will be locked to that squad until you change it.
+                    Choose a squad to score for this session.
                 </p>
 
                 <div v-if="!matchStore.squads.length" class="rounded-xl border border-slate-700 bg-slate-800 p-8 text-center">
@@ -71,7 +71,6 @@ const router = useRouter();
 const matchStore = useMatchStore();
 
 function selectSquad(squad) {
-    matchStore.lockSquad(props.matchId, squad.id, squad.name);
     router.push({ name: 'scoring', params: { matchId: props.matchId } });
 }
 
