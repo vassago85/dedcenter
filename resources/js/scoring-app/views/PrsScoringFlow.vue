@@ -171,12 +171,12 @@
                 <!-- Scoring Body -->
                 <div class="flex-1 overflow-y-auto px-4 py-4">
                     <div class="mx-auto max-w-2xl space-y-4">
-                        <!-- Timer Panel -->
-                        <div class="rounded-xl border border-slate-700 bg-slate-800 p-4">
+                        <!-- Timer Panel (full) — shown when time is required -->
+                        <div v-if="stageRequiresTime" class="rounded-xl border border-slate-700 bg-slate-800 p-4">
                             <div class="mb-2 flex items-center justify-between">
                                 <p class="text-sm font-medium text-slate-400">
                                     Stage Time
-                                    <span v-if="stageRequiresTime" class="ml-1 text-red-400">(Required)</span>
+                                    <span class="ml-1 text-red-400">(Required)</span>
                                 </p>
                                 <div class="flex gap-1.5">
                                     <button @click="prsStore.timerMode = 'app'" class="rounded px-2.5 py-1 text-xs font-bold uppercase" :class="prsStore.timerMode === 'app' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">App Timer</button>
@@ -210,6 +210,25 @@
                             <p v-if="selectedStageObj?.par_time_seconds" class="mt-2 text-center text-xs text-slate-500">
                                 Par time: {{ formatTime(selectedStageObj.par_time_seconds) }}
                             </p>
+                        </div>
+
+                        <!-- Optional time input — shown when time is NOT required -->
+                        <div v-else class="rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <p class="text-sm text-slate-500">Time</p>
+                                <input
+                                    ref="timeInput"
+                                    type="text"
+                                    inputmode="numeric"
+                                    :value="prsStore.rawDigits"
+                                    @input="onDigitInput"
+                                    @keydown="onDigitKeydown"
+                                    placeholder="Optional"
+                                    class="flex-1 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 text-center font-mono text-lg text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                />
+                                <span v-if="prsStore.rawTimeSeconds" class="font-mono text-sm text-slate-400">{{ formattedTime }}</span>
+                                <button v-if="prsStore.rawDigits" @click="clearTimeInput" class="rounded bg-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:bg-slate-600 hover:text-white">Clear</button>
+                            </div>
                         </div>
 
                         <!-- Score Summary -->
