@@ -35,6 +35,8 @@
             </div>
         </header>
 
+        <DeviceLockBanner />
+
         <!-- Auth expired warning -->
         <div v-if="scoringStore.authExpired" class="border-b border-amber-800 bg-amber-900/40 px-4 py-2">
             <div class="mx-auto flex max-w-lg items-center gap-2 text-sm text-amber-300">
@@ -322,6 +324,7 @@ import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
+import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

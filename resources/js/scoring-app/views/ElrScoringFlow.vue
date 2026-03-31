@@ -22,6 +22,8 @@
             </div>
         </header>
 
+        <DeviceLockBanner />
+
         <!-- Loading -->
         <div v-if="!ready" class="flex flex-1 items-center justify-center">
             <div class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"></div>
@@ -136,6 +138,7 @@ import { useMatchStore } from '../stores/matchStore';
 import { useElrScoringStore } from '../stores/elrScoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
+import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

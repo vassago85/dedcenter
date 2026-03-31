@@ -11,6 +11,8 @@
             </div>
         </header>
 
+        <DeviceLockBanner />
+
         <main class="mx-auto max-w-lg px-4 py-6">
             <div v-if="matchStore.loading" class="flex justify-center py-12">
                 <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-red-500"></div>
@@ -59,6 +61,7 @@
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

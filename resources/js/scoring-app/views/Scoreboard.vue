@@ -30,6 +30,8 @@
             </div>
         </header>
 
+        <DeviceLockBanner max-width-class="max-w-4xl" />
+
         <main class="mx-auto max-w-4xl px-4 py-6">
             <div v-if="loading && !standings.length" class="flex justify-center py-12">
                 <div class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"></div>
@@ -408,6 +410,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
+import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

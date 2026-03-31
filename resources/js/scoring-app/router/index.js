@@ -1,5 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
+const LAST_MATCH_KEY = 'dc_last_match_id';
+const SQUAD_LOCK_KEY = 'dc_locked_squad';
+const STAGE_LOCK_KEY = 'dc_locked_stage';
+
+function getLockedMatchId() {
+    try {
+        const squad = localStorage.getItem(SQUAD_LOCK_KEY);
+        if (squad) return JSON.parse(squad).matchId;
+        const stage = localStorage.getItem(STAGE_LOCK_KEY);
+        if (stage) return JSON.parse(stage).matchId;
+    } catch { /* ignore */ }
+    return null;
+}
+
 const routes = [
     {
         path: '/score',
@@ -78,6 +92,24 @@ const routes = [
 const router = createRouter({
     history: createWebHistory(),
     routes,
+});
+
+router.afterEach((to) => {
+    const matchId = to.params?.matchId;
+    if (matchId) {
+        localStorage.setItem(LAST_MATCH_KEY, matchId);
+    }
+});
+
+router.beforeEach((to, from, next) => {
+    if (to.name === 'match-select' && !from.name) {
+        const lockedMatchId = getLockedMatchId();
+        const lastMatchId = lockedMatchId || localStorage.getItem(LAST_MATCH_KEY);
+        if (lastMatchId && getLockedMatchId()) {
+            return next({ name: 'match-overview', params: { matchId: lastMatchId } });
+        }
+    }
+    next();
 });
 
 export default router;
