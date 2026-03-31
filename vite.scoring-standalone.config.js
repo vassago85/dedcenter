@@ -10,6 +10,7 @@ export default defineConfig({
     ],
     root: resolve(__dirname),
     base: '/',
+    publicDir: false,
     build: {
         outDir: resolve(__dirname, 'scoring-standalone-dist'),
         emptyOutDir: true,
