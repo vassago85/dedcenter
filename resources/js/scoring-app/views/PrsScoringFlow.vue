@@ -48,7 +48,7 @@
                     <span v-else-if="deviceLockMode === 'locked_to_squad'" class="text-slate-300">Locked to Squad: {{ lockedSquadName }}</span>
                 </div>
 
-                <button @click="startScoring" class="mt-4 w-full max-w-sm rounded-2xl bg-amber-600 px-8 py-5 text-xl font-bold text-white transition-all hover:bg-amber-700 active:scale-[0.98]">
+                <button @click="startScoring" class="mt-4 w-full max-w-sm rounded-2xl bg-red-600 px-8 py-5 text-xl font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
                     Start Scoring
                 </button>
             </div>
@@ -278,7 +278,7 @@
                             </button>
                         </div>
                         <!-- Complete Stage -->
-                        <button @click="handleCompleteStage" class="w-full rounded-2xl bg-amber-600 py-4 text-lg font-bold text-white transition-all hover:bg-amber-700 active:scale-[0.98]">
+                        <button @click="handleCompleteStage" class="w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
                             COMPLETE STAGE
                         </button>
                         <p v-if="completeError" class="text-center text-sm text-red-400">{{ completeError }}</p>
