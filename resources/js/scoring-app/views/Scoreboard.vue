@@ -324,15 +324,27 @@
                                         <div
                                             v-for="(target, tIdx) in (stage.targets ?? [])"
                                             :key="'elr-t-' + stage.stage_id + '-' + tIdx"
-                                            class="flex items-center justify-between bg-app px-3 py-2 text-xs"
+                                            class="bg-app px-3 py-2 text-xs"
                                         >
-                                            <span class="text-muted">
-                                                {{ target.distance_m ? target.distance_m + 'm' : 'Target ' + (tIdx + 1) }}
-                                                <span v-if="target.label" class="text-secondary">({{ target.label }})</span>
-                                            </span>
-                                            <span v-if="target.result === 'hit'" class="font-bold text-green-400">HIT +{{ target.points }}</span>
-                                            <span v-else-if="target.result === 'miss'" class="font-bold text-red-400">MISS</span>
-                                            <span v-else class="text-muted/50">&mdash;</span>
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-muted">
+                                                    {{ target.distance_m ? target.distance_m + 'm' : 'Target ' + (tIdx + 1) }}
+                                                    <span v-if="target.name" class="text-secondary">({{ target.name }})</span>
+                                                </span>
+                                                <span v-if="elrTargetHit(target)" class="font-bold text-green-400">HIT +{{ elrTargetPoints(target) }}</span>
+                                                <span v-else-if="target.shots?.length" class="font-bold text-red-400">MISS</span>
+                                                <span v-else class="text-muted/50">&mdash;</span>
+                                            </div>
+                                            <div v-if="target.shots?.length > 1" class="mt-1 flex gap-1.5">
+                                                <span
+                                                    v-for="shot in target.shots"
+                                                    :key="shot.shot_number"
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                                                    :class="shot.result === 'hit' ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'"
+                                                >
+                                                    Rd{{ shot.shot_number }}: {{ shot.result }}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -439,6 +451,14 @@ function rankRowClass(rank) {
     if (rank === 2) return 'bg-slate-600/10';
     if (rank === 3) return 'bg-orange-900/10';
     return '';
+}
+
+function elrTargetHit(target) {
+    return target.shots?.some(s => s.result === 'hit') ?? false;
+}
+
+function elrTargetPoints(target) {
+    return target.shots?.reduce((sum, s) => sum + (s.result === 'hit' ? (s.points ?? 0) : 0), 0) ?? 0;
 }
 
 async function fetchData() {
