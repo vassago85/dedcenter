@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MatchExportController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -24,6 +25,8 @@ Volt::route('/features', 'features')->name('features');
 Volt::route('/scoring', 'scoring-info')->name('scoring');
 Volt::route('/offline', 'offline')->name('offline');
 Volt::route('/setup', 'setup')->name('setup');
+
+Route::get('/sitemap.xml', \App\Http\Controllers\SitemapController::class)->name('sitemap');
 
 Route::get('/score/{any?}', function () {
     return view('scoring');
@@ -64,6 +67,8 @@ Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('or
     Volt::route('/matches/create', 'org.matches.edit')->name('matches.create');
     Volt::route('/matches/{match}', 'org.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'org.matches.squadding')->name('matches.squadding');
+    Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
+    Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Volt::route('/registrations', 'org.registrations')->name('registrations');
     Volt::route('/admins', 'org.admins')->name('admins');
     Volt::route('/clubs', 'org.clubs')->name('clubs');
@@ -81,6 +86,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Volt::route('/matches/create', 'admin.matches.edit')->name('matches.create');
     Volt::route('/matches/{match}', 'admin.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'admin.matches.squadding')->name('matches.squadding');
+    Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
+    Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Volt::route('/registrations', 'admin.registrations')->name('registrations');
     Volt::route('/seasons', 'admin.seasons')->name('seasons');
     Volt::route('/homepage', 'admin.homepage')->name('homepage');

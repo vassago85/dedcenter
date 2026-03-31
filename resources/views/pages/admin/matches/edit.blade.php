@@ -781,10 +781,22 @@ new #[Layout('components.layouts.app')]
                     <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">
                         View Scoreboard
                     </flux:button>
+                    <flux:button href="{{ route('admin.matches.export.standings', $match) }}" variant="ghost">
+                        Download Standings
+                    </flux:button>
+                    <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">
+                        Download Full Results
+                    </flux:button>
                 @elseif($match->status === MatchStatus::Completed)
                     <flux:button wire:click="reopenMatch" variant="ghost"
                                  wire:confirm="Reopen this match?">
                         Reopen Match
+                    </flux:button>
+                    <flux:button href="{{ route('admin.matches.export.standings', $match) }}" variant="ghost">
+                        Download Standings
+                    </flux:button>
+                    <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">
+                        Download Full Results
                     </flux:button>
                 @endif
             </div>
