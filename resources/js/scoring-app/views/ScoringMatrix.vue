@@ -114,6 +114,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import { useScoringStore } from '../stores/scoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 
@@ -123,6 +124,7 @@ const props = defineProps({
 
 const router = useRouter();
 const matchStore = useMatchStore();
+const scoringStore = useScoringStore();
 
 const matchId = computed(() => props.matchId);
 const targetSets = computed(() => matchStore.targetSets);
@@ -212,6 +214,15 @@ function openCell(squadId, tsId) {
 
 onMounted(async () => {
     await matchStore.fetchMatch(matchId.value);
+
+    const serverScores = matchStore.currentMatch?.scores ?? [];
+    await scoringStore.initForMatch(matchId.value, serverScores);
+    const merged = [];
+    for (const s of scoringStore.scores.values()) {
+        merged.push({ shooter_id: s.shooterId, gong_id: s.gongId, is_hit: s.isHit });
+    }
+    if (matchStore.currentMatch) matchStore.currentMatch.scores = merged;
+
     for (const ts of targetSets.value) {
         const s = distanceStatus(ts.id);
         if (s.scored < s.total) {

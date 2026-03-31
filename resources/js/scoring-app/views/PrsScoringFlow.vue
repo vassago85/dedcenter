@@ -796,10 +796,16 @@ onMounted(async () => {
         restorePrsProgress();
     }
 
-    syncInterval = setInterval(() => {
-        if (navigator.onLine && prsStore.pendingCount > 0) {
-            prsStore.syncPendingResults();
+    syncInterval = setInterval(async () => {
+        if (!navigator.onLine) return;
+        if (prsStore.pendingCount > 0) {
+            await prsStore.syncPendingResults();
         }
+        try {
+            await matchStore.fetchMatch(props.matchId);
+            const freshResults = matchStore.currentMatch?.prs_stage_results ?? [];
+            await prsStore.initForMatch(props.matchId, freshResults);
+        } catch { /* offline or transient failure */ }
     }, 15000);
 });
 

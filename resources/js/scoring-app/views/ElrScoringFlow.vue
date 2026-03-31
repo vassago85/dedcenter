@@ -710,10 +710,15 @@ onMounted(async () => {
             : 'scoring';
     }
 
-    syncInterval = setInterval(() => {
-        if (navigator.onLine && elrStore.pendingCount > 0) {
-            elrStore.syncShots();
+    syncInterval = setInterval(async () => {
+        if (!navigator.onLine) return;
+        if (elrStore.pendingCount > 0) {
+            await elrStore.syncShots();
         }
+        try {
+            await matchStore.fetchMatch(props.matchId);
+            await elrStore.initForMatch(props.matchId);
+        } catch { /* offline or transient failure */ }
     }, 15000);
 });
 

@@ -113,9 +113,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 
+const router = useRouter();
 const matchStore = useMatchStore();
 const cacheError = ref(null);
 
@@ -140,5 +142,9 @@ async function clearCache(matchId) {
 onMounted(async () => {
     await matchStore.fetchMatches();
     await matchStore.checkCachedMatches();
+
+    if (matchStore.matches.length === 1) {
+        router.replace({ name: 'match-overview', params: { matchId: matchStore.matches[0].id } });
+    }
 });
 </script>

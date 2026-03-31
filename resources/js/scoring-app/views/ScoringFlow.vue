@@ -941,6 +941,7 @@ function handleHeaderBack() {
 async function recordScore(isHit) {
     if (!currentShooter.value || !currentGong.value) return;
     await scoringStore.recordScore(currentShooter.value.id, currentGong.value.id, isHit);
+    syncLocalScoresToMatch();
     advance();
 }
 
@@ -1039,12 +1040,24 @@ function goBack() {
 
 let syncInterval;
 
+function syncLocalScoresToMatch() {
+    if (!matchStore.currentMatch) return;
+    const merged = [];
+    for (const s of scoringStore.scores.values()) {
+        merged.push({ shooter_id: s.shooterId, gong_id: s.gongId, is_hit: s.isHit });
+    }
+    matchStore.currentMatch.scores = merged;
+}
+
 onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
         await matchStore.fetchMatch(props.matchId);
     }
     const scores = matchStore.currentMatch?.scores ?? [];
     await scoringStore.initForMatch(props.matchId, scores);
+
+    syncLocalScoresToMatch();
+
     ready.value = true;
 
     if (!isScoped.value) {
@@ -1055,10 +1068,17 @@ onMounted(async () => {
         }
     }
 
-    syncInterval = setInterval(() => {
-        if (navigator.onLine && scoringStore.pendingCount > 0) {
-            scoringStore.syncScores();
+    syncInterval = setInterval(async () => {
+        if (!navigator.onLine) return;
+        if (scoringStore.pendingCount > 0) {
+            await scoringStore.syncScores();
         }
+        try {
+            await matchStore.fetchMatch(props.matchId);
+            const freshScores = matchStore.currentMatch?.scores ?? [];
+            await scoringStore.initForMatch(props.matchId, freshScores);
+            syncLocalScoresToMatch();
+        } catch { /* offline or transient failure */ }
     }, 15000);
 });
 
