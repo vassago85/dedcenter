@@ -8,12 +8,20 @@ use App\Http\Resources\MatchResource;
 use App\Models\Score;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
+use Illuminate\Http\Request;
 
 class MatchController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $user = $request->user();
+        $orgIds = $user->organizations()->pluck('organizations.id');
+
         $matches = ShootingMatch::where('status', MatchStatus::Active)
+            ->where(function ($q) use ($user, $orgIds) {
+                $q->where('created_by', $user->id)
+                  ->orWhereIn('organization_id', $orgIds);
+            })
             ->orderBy('date')
             ->get();
 

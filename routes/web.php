@@ -28,6 +28,8 @@ Volt::route('/setup', 'setup')->name('setup');
 
 Route::get('/sitemap.xml', \App\Http\Controllers\SitemapController::class)->name('sitemap');
 
+Route::get('/app-login', [\App\Http\Controllers\Api\AuthController::class, 'tokenLogin'])->name('app.login');
+
 Route::get('/score/{any?}', function () {
     return view('scoring');
 })->where('any', '.*')->middleware('auth')->name('score');
