@@ -314,6 +314,98 @@
             </button>
         </div>
 
+        <!-- Stage summary (break between stages for locked-squad / single-squad mode) -->
+        <div v-else-if="currentView === 'stage-summary'" class="flex flex-1 flex-col px-4 py-6">
+            <div class="mx-auto w-full max-w-lg space-y-4">
+                <div class="text-center">
+                    <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-600/20">
+                        <svg class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">{{ currentTargetSet?.label }} Complete</h2>
+                    <p class="text-sm text-slate-400">{{ currentTargetSet?.distance_meters }}m &mdash; All shooters scored</p>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-700 text-slate-400">
+                                <th class="px-3 py-2.5 text-left font-medium">Shooter</th>
+                                <th
+                                    v-for="gong in (currentTargetSet?.gongs ?? [])"
+                                    :key="'sgh-' + gong.id"
+                                    class="px-2 py-2.5 text-center font-medium whitespace-nowrap"
+                                >
+                                    <div>#{{ gong.number }}</div>
+                                    <div class="text-[10px] text-amber-400">{{ gong.multiplier }}x</div>
+                                </th>
+                                <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
+                                <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
+                                <th class="px-3 py-2.5 text-right font-bold">Score</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700/50">
+                            <tr
+                                v-for="row in relaySummary"
+                                :key="'ssr-' + row.shooter.id"
+                                class="transition-colors hover:bg-slate-700/30"
+                            >
+                                <td class="px-3 py-2 font-medium">
+                                    {{ row.shooter.name }}
+                                    <span v-if="row.shooter.bib_number" class="text-xs text-slate-500 ml-1">#{{ row.shooter.bib_number }}</span>
+                                </td>
+                                <td
+                                    v-for="(g, gi) in row.gongResults"
+                                    :key="'ssg-' + row.shooter.id + '-' + gi"
+                                    class="px-2 py-2 text-center"
+                                >
+                                    <div v-if="g.result === 'hit'" class="flex flex-col items-center">
+                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-600/30 text-xs font-bold text-green-400">&#10003;</span>
+                                        <span class="text-[10px] text-green-400/80 tabular-nums">+{{ g.points }}</span>
+                                    </div>
+                                    <span v-else-if="g.result === 'miss'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600/30 text-xs font-bold text-red-400">&#10007;</span>
+                                    <span v-else class="text-slate-600">&mdash;</span>
+                                </td>
+                                <td class="px-3 py-2 text-center tabular-nums text-green-400 font-medium">{{ row.hits }}</td>
+                                <td class="px-3 py-2 text-center tabular-nums text-red-400 font-medium">{{ row.misses }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums font-bold text-amber-400">{{ row.total }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex flex-col gap-3 pt-2">
+                    <button
+                        @click="scoringStore.syncScores()"
+                        class="w-full rounded-xl bg-green-600 py-3 font-semibold text-white transition-colors hover:bg-green-700"
+                    >
+                        Sync Scores
+                    </button>
+                    <button
+                        v-if="scoringStore.currentTargetSetIndex < targetSets.length - 1"
+                        @click="dismissStageSummary"
+                        class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Next Stage &rarr; {{ targetSets[scoringStore.currentTargetSetIndex + 1]?.label }} ({{ targetSets[scoringStore.currentTargetSetIndex + 1]?.distance_meters }}m)
+                    </button>
+                    <button
+                        v-else
+                        @click="dismissStageSummary"
+                        class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Finish
+                    </button>
+                    <button
+                        @click="goToStageSelect"
+                        class="block w-full rounded-xl border border-slate-600 py-3 text-center text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    >
+                        Choose Another Stage
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Match complete -->
         <div v-else-if="currentView === 'complete'" class="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
             <div class="rounded-full bg-green-600/20 p-4">
@@ -780,7 +872,7 @@ function restoreProgress() {
         const state = JSON.parse(raw);
         if (state.matchId !== props.matchId) return false;
 
-        const validViews = ['stage-select', 'squad-select', 'squad-picker', 'scoring', 'relay-summary', 'gong-transition', 'complete'];
+        const validViews = ['stage-select', 'squad-select', 'squad-picker', 'scoring', 'relay-summary', 'stage-summary', 'gong-transition', 'complete'];
         const view = validViews.includes(state.view) ? state.view : 'stage-select';
 
         scoringStore.currentTargetSetIndex = Math.min(state.targetSetIdx ?? 0, targetSets.value.length - 1);
@@ -835,6 +927,9 @@ function handleHeaderBack() {
     } else if (currentView.value === 'squad-select' || currentView.value === 'squad-picker') {
         currentView.value = 'stage-select';
         saveProgress();
+    } else if (currentView.value === 'stage-summary') {
+        currentView.value = 'stage-select';
+        saveProgress();
     } else if (currentView.value === 'stage-select') {
         router.push({ name: 'match-overview', params: { matchId: props.matchId } });
     } else {
@@ -862,9 +957,9 @@ function advance() {
         saveProgress();
         return;
     }
-    if (s.advanceToNextTargetSet(targetSets.value.length)) { saveProgress(); return; }
-    currentView.value = 'complete';
-    clearProgress();
+    currentView.value = 'stage-summary';
+    saveProgress();
+    return;
 }
 
 function dismissGongTransition() {
@@ -878,6 +973,16 @@ function dismissSummary() {
         saveProgress();
         return;
     }
+    if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) {
+        currentView.value = 'scoring';
+        saveProgress();
+        return;
+    }
+    currentView.value = 'complete';
+    clearProgress();
+}
+
+function dismissStageSummary() {
     if (scoringStore.advanceToNextTargetSet(targetSets.value.length)) {
         currentView.value = 'scoring';
         saveProgress();
