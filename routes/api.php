@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\PrsScoreController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
+use App\Http\Controllers\Api\ScoreManagementController;
 use App\Http\Controllers\Api\SeasonController;
 use App\Http\Middleware\EnforceDeviceLock;
 use Illuminate\Support\Facades\Route;
@@ -31,4 +32,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);
     Route::get('matches/{match}/stages/{stage}/scores', [PrsScoreController::class, 'show']);
+
+    // Score management (MD only)
+    Route::post('matches/{match}/scores/reassign', [ScoreManagementController::class, 'reassign']);
+    Route::post('matches/{match}/scores/reshoot', [ScoreManagementController::class, 'reshoot']);
+    Route::get('matches/{match}/audit-log', [ScoreManagementController::class, 'auditLog']);
+    Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
 });

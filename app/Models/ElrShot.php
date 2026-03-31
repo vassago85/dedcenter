@@ -17,6 +17,8 @@ class ElrShot extends Model
         'shot_number',
         'result',
         'points_awarded',
+        'is_reshoot',
+        'reshoot_reason',
         'recorded_by',
         'device_id',
         'recorded_at',
@@ -29,6 +31,7 @@ class ElrShot extends Model
             'shot_number' => 'integer',
             'result' => ElrShotResult::class,
             'points_awarded' => 'decimal:2',
+            'is_reshoot' => 'boolean',
             'recorded_at' => 'datetime',
             'synced_at' => 'datetime',
         ];

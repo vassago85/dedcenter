@@ -26,6 +26,7 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $side_bet_enabled = false;
+    public bool $scores_published = true;
     public int $concurrent_relays = 2;
     public ?int $season_id = null;
 
@@ -76,6 +77,7 @@ new #[Layout('components.layouts.app')]
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
+            $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->season_id = $match->season_id;
         }
     }
@@ -94,6 +96,7 @@ new #[Layout('components.layouts.app')]
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['side_bet_enabled'] = $this->scoring_type === 'standard' && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
+        $validated['scores_published'] = $this->scores_published;
         $validated['season_id'] = $this->season_id;
 
         if ($this->match) {
@@ -707,6 +710,15 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Match reopened.', variant: 'success');
     }
 
+    public function toggleScoresPublished(): void
+    {
+        $this->scores_published = ! $this->scores_published;
+        if ($this->match) {
+            $this->match->update(['scores_published' => $this->scores_published]);
+            Flux::toast($this->scores_published ? 'Scores are now live.' : 'Scores hidden from public.', variant: 'success');
+        }
+    }
+
     public function with(): array
     {
         $data = ['divisions' => collect(), 'categories' => collect(), 'qrCodeSvg' => null];
@@ -888,6 +900,9 @@ new #[Layout('components.layouts.app')]
                     </flux:button>
                     <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">
                         Download Full Results
+                    </flux:button>
+                    <flux:button wire:click="toggleScoresPublished" variant="{{ $scores_published ? 'ghost' : 'primary' }}" class="{{ $scores_published ? '' : '!bg-amber-600 hover:!bg-amber-700' }}">
+                        {{ $scores_published ? 'Hide Scores' : 'Publish Scores' }}
                     </flux:button>
                 @elseif($match->status === MatchStatus::Completed)
                     <flux:button wire:click="reopenMatch" variant="ghost"

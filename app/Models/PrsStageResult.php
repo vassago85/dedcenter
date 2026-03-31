@@ -19,6 +19,8 @@ class PrsStageResult extends Model
         'not_taken',
         'raw_time_seconds',
         'official_time_seconds',
+        'is_reshoot',
+        'reshoot_reason',
         'completed_at',
         'completed_by',
         'updated_by',
@@ -32,6 +34,7 @@ class PrsStageResult extends Model
             'not_taken' => 'integer',
             'raw_time_seconds' => 'decimal:2',
             'official_time_seconds' => 'decimal:2',
+            'is_reshoot' => 'boolean',
             'completed_at' => 'datetime',
         ];
     }

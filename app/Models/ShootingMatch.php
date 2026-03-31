@@ -21,6 +21,7 @@ class ShootingMatch extends Model
         'location',
         'status',
         'scoring_type',
+        'scores_published',
         'side_bet_enabled',
         'concurrent_relays',
         'elr_scoring_profile_id',
@@ -37,6 +38,7 @@ class ShootingMatch extends Model
         return [
             'date' => 'date',
             'status' => MatchStatus::class,
+            'scores_published' => 'boolean',
             'side_bet_enabled' => 'boolean',
             'concurrent_relays' => 'integer',
             'entry_fee' => 'decimal:2',
@@ -110,6 +112,11 @@ class ShootingMatch extends Model
         return $this->hasMany(PrsStageResult::class, 'match_id');
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(ScoreAuditLog::class, 'match_id');
+    }
+
     // ── Computed Attributes ──
 
     public function getTotalShootersAttribute(): int
@@ -145,6 +152,11 @@ class ShootingMatch extends Model
     public function isElr(): bool
     {
         return $this->scoring_type === 'elr';
+    }
+
+    public function scoresArePublic(): bool
+    {
+        return (bool) ($this->scores_published ?? true);
     }
 
     /**

@@ -42,6 +42,17 @@
             </div>
 
             <div v-else>
+                <div v-if="scoresHidden" class="mx-auto max-w-lg px-4 py-12 text-center">
+                    <div class="rounded-2xl border border-amber-700/50 bg-amber-900/20 p-8">
+                        <svg class="mx-auto h-12 w-12 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                        <h2 class="mt-4 text-xl font-bold text-amber-300">Scores Not Yet Published</h2>
+                        <p class="mt-2 text-sm text-amber-400/80">{{ hiddenMessage }}</p>
+                    </div>
+                </div>
+
+                <div v-else>
                 <div v-if="matchName" class="mb-4 text-center">
                     <h2 class="text-xl font-bold">{{ matchName }}</h2>
                     <p v-if="matchDate" class="text-sm text-muted">{{ matchDate }}</p>
@@ -401,6 +412,7 @@
                 <p v-if="lastUpdated" class="mt-4 text-center text-xs text-muted">
                     Last updated: {{ lastUpdated }}
                 </p>
+                </div>
             </div>
         </main>
     </div>
@@ -431,6 +443,8 @@ const error = ref(null);
 const lastUpdated = ref('');
 const autoRefresh = ref(true);
 const expandedIds = ref(new Set());
+const scoresHidden = ref(false);
+const hiddenMessage = ref('');
 
 let refreshInterval;
 
@@ -474,17 +488,30 @@ async function fetchData() {
         isPrs.value = data.match?.scoring_type === 'prs';
         isElr.value = data.match?.scoring_type === 'elr';
 
-        if (isElr.value) {
-            standings.value = data.standings ?? [];
-            elrStages.value = data.stages ?? [];
+        if (data.match?.scores_published === false) {
+            scoresHidden.value = true;
+            hiddenMessage.value = typeof data.message === 'string' ? data.message : '';
+            standings.value = [];
+            targetSets.value = [];
+            sideBet.value = [];
+            sideBetEnabled.value = false;
+            elrStages.value = [];
         } else {
-            targetSets.value = data.target_sets ?? [];
-            standings.value = data.standings ?? [];
+            scoresHidden.value = false;
+            hiddenMessage.value = '';
 
-            if (data.match?.side_bet_enabled) {
-                sideBetEnabled.value = true;
-                const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
-                sideBet.value = sbRes.data.side_bet ?? [];
+            if (isElr.value) {
+                standings.value = data.standings ?? [];
+                elrStages.value = data.stages ?? [];
+            } else {
+                targetSets.value = data.target_sets ?? [];
+                standings.value = data.standings ?? [];
+
+                if (data.match?.side_bet_enabled) {
+                    sideBetEnabled.value = true;
+                    const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
+                    sideBet.value = sbRes.data.side_bet ?? [];
+                }
             }
         }
 

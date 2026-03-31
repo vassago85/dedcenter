@@ -16,6 +16,25 @@ class ScoreboardController extends Controller
 {
     public function show(Request $request, ShootingMatch $match)
     {
+        if (! $match->scoresArePublic()) {
+            $user = $request->user();
+            $canView = $user && ($user->isOwner() || $match->created_by === $user->id
+                || ($match->organization && $user->isOrgRangeOfficer($match->organization)));
+
+            if (! $canView) {
+                return response()->json([
+                    'match' => [
+                        'id' => $match->id,
+                        'name' => $match->name,
+                        'scoring_type' => $match->scoring_type ?? 'standard',
+                        'scores_published' => false,
+                    ],
+                    'message' => 'Scores for this match have not been published yet.',
+                    'leaderboard' => [],
+                ]);
+            }
+        }
+
         if ($match->isElr()) {
             return $this->elrScoreboard($match);
         }

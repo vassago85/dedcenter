@@ -17,6 +17,8 @@ class PrsShotScore extends Model
         'shooter_id',
         'shot_number',
         'result',
+        'is_reshoot',
+        'reshoot_reason',
         'device_id',
         'recorded_at',
         'created_by',
@@ -28,6 +30,7 @@ class PrsShotScore extends Model
         return [
             'result' => PrsShotResult::class,
             'shot_number' => 'integer',
+            'is_reshoot' => 'boolean',
             'recorded_at' => 'datetime',
         ];
     }

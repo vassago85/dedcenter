@@ -8,6 +8,7 @@ use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
 use App\Models\ShootingMatch;
 use App\Models\TargetSet;
+use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -55,7 +56,13 @@ class PrsScoreController extends Controller
         $notTaken = 0;
 
         foreach ($validated['shots'] as $shot) {
-            PrsShotScore::updateOrCreate(
+            $existingShot = PrsShotScore::where('shooter_id', $validated['shooter_id'])
+                ->where('stage_id', $stage->id)
+                ->where('shot_number', $shot['shot_number'])
+                ->first();
+            $oldShotValues = $existingShot?->toArray();
+
+            $savedShot = PrsShotScore::updateOrCreate(
                 [
                     'shooter_id' => $validated['shooter_id'],
                     'stage_id' => $stage->id,
@@ -71,6 +78,12 @@ class PrsScoreController extends Controller
                 ]
             );
 
+            if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shot['result']) {
+                ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, null, $request);
+            } elseif (!$existingShot) {
+                ScoreAuditService::logCreated($match->id, $savedShot, $request);
+            }
+
             match ($shot['result']) {
                 'hit' => $hits++,
                 'miss' => $misses++,
@@ -85,6 +98,11 @@ class PrsScoreController extends Controller
                 $officialTime = max($officialTime, (float) $stage->par_time_seconds);
             }
         }
+
+        $existingResult = PrsStageResult::where('shooter_id', $validated['shooter_id'])
+            ->where('stage_id', $stage->id)
+            ->first();
+        $oldResultValues = $existingResult?->toArray();
 
         $stageResult = PrsStageResult::updateOrCreate(
             [
@@ -103,6 +121,12 @@ class PrsScoreController extends Controller
                 'updated_by' => $user->id,
             ]
         );
+
+        if ($existingResult && $oldResultValues) {
+            ScoreAuditService::logUpdated($match->id, $stageResult, $oldResultValues, null, $request);
+        } else {
+            ScoreAuditService::logCreated($match->id, $stageResult, $request);
+        }
 
         return response()->json([
             'message' => 'Stage score saved.',

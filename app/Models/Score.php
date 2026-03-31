@@ -13,6 +13,8 @@ class Score extends Model
         'shooter_id',
         'gong_id',
         'is_hit',
+        'is_reshoot',
+        'reshoot_reason',
         'recorded_by',
         'device_id',
         'recorded_at',
@@ -23,6 +25,7 @@ class Score extends Model
     {
         return [
             'is_hit' => 'boolean',
+            'is_reshoot' => 'boolean',
             'recorded_at' => 'datetime',
             'synced_at' => 'datetime',
         ];

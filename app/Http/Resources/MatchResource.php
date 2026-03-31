@@ -16,6 +16,7 @@ class MatchResource extends JsonResource
             'location' => $this->location,
             'status' => $this->status->value,
             'scoring_type' => $this->scoring_type ?? 'standard',
+            'scores_published' => (bool) ($this->scores_published ?? true),
             'notes' => $this->notes,
             'target_sets' => $this->whenLoaded('targetSets', fn () => $this->targetSets->map(fn ($ts) => [
                 'id' => $ts->id,

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ElrShot;
 use App\Models\ElrTarget;
 use App\Models\ShootingMatch;
+use App\Services\ScoreAuditService;
 use App\Services\Scoring\ELRScoringService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -41,7 +42,6 @@ class ElrScoreController extends Controller
             'shots.*.recorded_at' => ['required', 'date'],
         ]);
 
-        $service = new ELRScoringService();
         $saved = [];
 
         foreach ($validated['shots'] as $shotData) {
@@ -54,6 +54,12 @@ class ElrScoreController extends Controller
             if ($result === ElrShotResult::Hit) {
                 $pointsAwarded = $target->pointsForShot($shotData['shot_number']);
             }
+
+            $existingShot = ElrShot::where('shooter_id', $shotData['shooter_id'])
+                ->where('elr_target_id', $shotData['elr_target_id'])
+                ->where('shot_number', $shotData['shot_number'])
+                ->first();
+            $oldShotValues = $existingShot?->toArray();
 
             $shot = ElrShot::updateOrCreate(
                 [
@@ -70,6 +76,12 @@ class ElrScoreController extends Controller
                     'synced_at' => now(),
                 ]
             );
+
+            if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shotData['result']) {
+                ScoreAuditService::logUpdated($match->id, $shot, $oldShotValues, null, $request);
+            } elseif (! $existingShot) {
+                ScoreAuditService::logCreated($match->id, $shot, $request);
+            }
 
             $saved[] = [
                 'id' => $shot->id,

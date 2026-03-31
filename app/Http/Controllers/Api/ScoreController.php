@@ -10,6 +10,7 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use App\Models\TargetSet;
+use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -53,32 +54,58 @@ class ScoreController extends Controller
 
         if (! empty($validated['deleted_scores'])) {
             foreach ($validated['deleted_scores'] as $del) {
-                Score::where('shooter_id', $del['shooter_id'])
+                $existing = Score::where('shooter_id', $del['shooter_id'])
                     ->where('gong_id', $del['gong_id'])
-                    ->delete();
+                    ->first();
+                if ($existing) {
+                    ScoreAuditService::logDeleted($match->id, $existing, null, $request);
+                    $existing->delete();
+                }
             }
         }
 
         $savedScores = collect();
 
         foreach ($validated['scores'] ?? [] as $scoreData) {
-            $savedScores->push(Score::updateOrCreate(
+            $existing = Score::where('shooter_id', $scoreData['shooter_id'])
+                ->where('gong_id', $scoreData['gong_id'])
+                ->first();
+
+            $oldValues = $existing?->toArray();
+
+            $score = Score::updateOrCreate(
                 [
                     'shooter_id' => $scoreData['shooter_id'],
                     'gong_id' => $scoreData['gong_id'],
                 ],
                 [
                     'is_hit' => $scoreData['is_hit'],
+                    'recorded_by' => $user->id,
                     'device_id' => $scoreData['device_id'],
                     'recorded_at' => $scoreData['recorded_at'],
                     'synced_at' => now(),
                 ]
-            ));
+            );
+
+            if ($existing && $oldValues) {
+                if ((bool) ($oldValues['is_hit'] ?? false) !== (bool) $scoreData['is_hit']) {
+                    ScoreAuditService::logUpdated($match->id, $score, $oldValues, null, $request);
+                }
+            } else {
+                ScoreAuditService::logCreated($match->id, $score, $request);
+            }
+
+            $savedScores->push($score);
         }
 
         if (! empty($validated['stage_times'])) {
             foreach ($validated['stage_times'] as $timeData) {
-                StageTime::updateOrCreate(
+                $existingTime = StageTime::where('shooter_id', $timeData['shooter_id'])
+                    ->where('target_set_id', $timeData['target_set_id'])
+                    ->first();
+                $oldTimeValues = $existingTime?->toArray();
+
+                $stageTime = StageTime::updateOrCreate(
                     [
                         'shooter_id' => $timeData['shooter_id'],
                         'target_set_id' => $timeData['target_set_id'],
@@ -90,6 +117,14 @@ class ScoreController extends Controller
                         'synced_at' => now(),
                     ]
                 );
+
+                if ($existingTime && $oldTimeValues) {
+                    if ((float) ($oldTimeValues['time_seconds'] ?? 0) !== (float) $timeData['time_seconds']) {
+                        ScoreAuditService::logUpdated($match->id, $stageTime, $oldTimeValues, null, $request);
+                    }
+                } else {
+                    ScoreAuditService::logCreated($match->id, $stageTime, $request);
+                }
             }
         }
 
