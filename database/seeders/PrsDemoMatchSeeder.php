@@ -91,8 +91,17 @@ class PrsDemoMatchSeeder extends Seeder
                     'sort_order' => $i + 1,
                     'is_tiebreaker' => $stage['tiebreaker'] ?? false,
                     'par_time_seconds' => $stage['par'],
+                    'total_shots' => count($stage['gongs']),
+                    'stage_number' => $i + 1,
+                    'is_timed_stage' => true,
                 ]
             );
+
+            $ts->update([
+                'total_shots' => count($stage['gongs']),
+                'stage_number' => $i + 1,
+                'is_timed_stage' => true,
+            ]);
 
             foreach ($stage['gongs'] as $j => $g) {
                 Gong::firstOrCreate(

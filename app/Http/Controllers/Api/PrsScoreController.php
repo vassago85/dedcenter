@@ -37,12 +37,13 @@ class PrsScoreController extends Controller
         $validSquadIds = $match->squads()->pluck('id')->toArray();
 
         $timeRequired = $stage->is_timed_stage || $stage->is_tiebreaker;
+        $expectedShots = $stage->total_shots ?? $stage->gongs()->count();
 
         $validated = $request->validate([
             'shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
             'squad_id' => ['required', 'integer', Rule::in($validSquadIds)],
             'raw_time_seconds' => [$timeRequired ? 'required' : 'nullable', 'numeric', 'min:0'],
-            'shots' => ['required', 'array', 'size:' . ($stage->total_shots ?? 0)],
+            'shots' => ['required', 'array', $expectedShots > 0 ? "size:{$expectedShots}" : 'min:1'],
             'shots.*.shot_number' => ['required', 'integer', 'min:1'],
             'shots.*.result' => ['required', 'string', Rule::in(['hit', 'miss', 'not_taken'])],
         ]);

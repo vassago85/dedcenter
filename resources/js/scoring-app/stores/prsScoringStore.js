@@ -204,6 +204,7 @@ export const usePrsScoringStore = defineStore('prsScoring', {
                 matchId,
                 stageId,
                 shooterId,
+                squadId,
                 hits: this.hits,
                 misses: this.misses,
                 notTaken: this.notTaken,
@@ -262,7 +263,7 @@ export const usePrsScoringStore = defineStore('prsScoring', {
 
                     const payload = {
                         shooter_id: result.shooterId,
-                        squad_id: 0,
+                        squad_id: result.squadId,
                         raw_time_seconds: result.rawTime,
                         shots: shots.map(s => ({
                             shot_number: s.shotNumber,
