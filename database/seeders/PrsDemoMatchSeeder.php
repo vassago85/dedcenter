@@ -43,13 +43,16 @@ class PrsDemoMatchSeeder extends Seeder
             ]
         );
 
-        // ── Divisions ──
+        // ── Divisions (PRS standard: Open / Factory / Limited) ──
         $divOpen = MatchDivision::firstOrCreate(['match_id' => $match->id, 'name' => 'Open'], ['sort_order' => 1]);
-        $divProduction = MatchDivision::firstOrCreate(['match_id' => $match->id, 'name' => 'Production'], ['sort_order' => 2]);
+        $divFactory = MatchDivision::firstOrCreate(['match_id' => $match->id, 'name' => 'Factory'], ['sort_order' => 2]);
+        $divLimited = MatchDivision::firstOrCreate(['match_id' => $match->id, 'name' => 'Limited'], ['sort_order' => 3]);
 
-        // ── Categories ──
-        $catOverall = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Overall', 'slug' => 'overall'], ['sort_order' => 1]);
-        $catSenior = MatchCategory::firstOrCreate(['match_id' => $match->id, 'name' => 'Senior', 'slug' => 'senior'], ['sort_order' => 2]);
+        // ── Categories (PRS: Overall + demographic "Open" categories) ──
+        $catOverall = MatchCategory::firstOrCreate(['match_id' => $match->id, 'slug' => 'overall'], ['name' => 'Overall', 'sort_order' => 1]);
+        $catSenior = MatchCategory::firstOrCreate(['match_id' => $match->id, 'slug' => 'seniors-open'], ['name' => 'Seniors Open', 'sort_order' => 2]);
+        $catLadies = MatchCategory::firstOrCreate(['match_id' => $match->id, 'slug' => 'ladies-open'], ['name' => 'Ladies Open', 'sort_order' => 3]);
+        $catJunior = MatchCategory::firstOrCreate(['match_id' => $match->id, 'slug' => 'juniors-open'], ['name' => 'Juniors Open', 'sort_order' => 4]);
 
         // ── 6 PRS Stages — each target has its own distance, 1 hit = 1 pt ──
         $stages = [
@@ -137,7 +140,7 @@ class PrsDemoMatchSeeder extends Seeder
         ];
 
         $relayNames = ['Relay 1', 'Relay 2'];
-        $divisions = [$divOpen, $divProduction];
+        $divisions = [$divOpen, $divFactory, $divLimited];
 
         $bibNumber = 1;
 
@@ -161,7 +164,7 @@ class PrsDemoMatchSeeder extends Seeder
                     [
                         'bib_number' => 'PRS-' . str_pad($bibNumber, 2, '0', STR_PAD_LEFT),
                         'user_id' => $userId,
-                        'match_division_id' => $divisions[$mi % 2]->id,
+                        'match_division_id' => $divisions[$mi % count($divisions)]->id,
                         'sort_order' => $mi + 1,
                     ]
                 );

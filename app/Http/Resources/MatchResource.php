@@ -79,6 +79,7 @@ class MatchResource extends JsonResource
                 'time_seconds' => (float) $st->time_seconds,
                 'recorded_at' => $st->recorded_at?->toIso8601String(),
             ])),
+            'concurrent_relays' => (int) ($this->concurrent_relays ?? 2),
             'device_lock_mode' => $this->device_lock_mode ?? 'open',
             'prs_stage_results' => $this->whenLoaded('prsResults', fn () => $this->prsResults->map(fn ($r) => [
                 'shooter_id' => $r->shooter_id,

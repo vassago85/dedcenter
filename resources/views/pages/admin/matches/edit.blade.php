@@ -642,6 +642,32 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Standard category presets added.', variant: 'success');
     }
 
+    public function addPrsPresets(): void
+    {
+        $divSort = $this->match->divisions()->max('sort_order') ?? 0;
+        $divisions = [
+            ['name' => 'Open', 'description' => 'Unrestricted equipment class'],
+            ['name' => 'Factory', 'description' => 'Factory-stock rifle, no modifications'],
+            ['name' => 'Limited', 'description' => 'Limited modifications allowed'],
+        ];
+        foreach ($divisions as $i => $d) {
+            $this->match->divisions()->firstOrCreate(['name' => $d['name'], 'match_id' => $this->match->id], [...$d, 'sort_order' => $divSort + $i + 1]);
+        }
+
+        $catSort = $this->match->categories()->max('sort_order') ?? 0;
+        $categories = [
+            ['name' => 'Overall', 'slug' => 'overall'],
+            ['name' => 'Seniors Open', 'slug' => 'seniors-open'],
+            ['name' => 'Ladies Open', 'slug' => 'ladies-open'],
+            ['name' => 'Juniors Open', 'slug' => 'juniors-open'],
+        ];
+        foreach ($categories as $i => $c) {
+            $this->match->categories()->firstOrCreate(['slug' => $c['slug'], 'match_id' => $this->match->id], [...$c, 'sort_order' => $catSort + $i + 1]);
+        }
+
+        Flux::toast('PRS divisions & categories added.', variant: 'success');
+    }
+
     public function updateCategory(int $id, string $name): void
     {
         if (trim($name) === '') return;
@@ -961,6 +987,18 @@ new #[Layout('components.layouts.app')]
                 <p class="text-[10px] text-muted/60">Categories classify by demographics. Multi-select per shooter (a score appears in all matching category leaderboards).</p>
             </div>
         </div>
+
+        @if($scoring_type === 'prs')
+        <div class="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-semibold text-amber-400">PRS Quick Setup</h3>
+                    <p class="text-xs text-muted">Adds divisions (Open/Factory/Limited) and categories (Overall/Seniors Open/Ladies Open/Juniors Open) in one click.</p>
+                </div>
+                <flux:button wire:click="addPrsPresets" size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700">+ PRS Presets</flux:button>
+            </div>
+        </div>
+        @endif
 
         <flux:separator />
 

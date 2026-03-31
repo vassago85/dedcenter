@@ -115,10 +115,17 @@
                     >
                         Sync Scores
                     </button>
+                    <button
+                        v-if="isScoped && nextSquadSuggestion"
+                        @click="goToNextSquad"
+                        class="w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    >
+                        Score Next &rarr; {{ nextSquadSuggestion.name }} at {{ scopedDistanceLabel }}
+                    </button>
                     <router-link
                         v-if="isScoped"
                         :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
-                        class="block w-full rounded-xl bg-red-600 py-3 text-center font-semibold text-white transition-colors hover:bg-red-700"
+                        class="block w-full rounded-xl border border-slate-600 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
                     >
                         Back to Matrix
                     </router-link>
@@ -176,16 +183,23 @@
                 >
                     Sync Scores
                 </button>
+                <button
+                    v-if="isScoped && nextSquadSuggestion"
+                    @click="goToNextSquad"
+                    class="rounded-xl bg-red-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                >
+                    Score Next &rarr; {{ nextSquadSuggestion.name }} at {{ scopedDistanceLabel }}
+                </button>
                 <router-link
                     v-if="isScoped"
                     :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
-                    class="rounded-xl bg-red-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+                    class="rounded-xl border border-slate-600 px-6 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
                 >
                     Back to Matrix
                 </router-link>
                 <router-link
                     :to="{ name: 'scoreboard', params: { matchId: props.matchId } }"
-                    class="rounded-xl border border-slate-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-slate-800"
+                    class="rounded-xl border border-slate-600 px-6 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
                 >
                     View Scoreboard
                 </router-link>
@@ -299,7 +313,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -312,6 +326,7 @@ const props = defineProps({
 });
 
 const route = useRoute();
+const router = useRouter();
 const matchStore = useMatchStore();
 const scoringStore = useScoringStore();
 const ready = ref(false);
@@ -422,6 +437,40 @@ const relaySummary = computed(() => {
         return { shooter, gongResults, hits, misses, total: Math.round(total * 100) / 100 };
     });
 });
+
+const nextSquadSuggestion = computed(() => {
+    if (!isScoped.value || !props.targetSetId) return null;
+    const squads = matchStore.squads;
+    const matrix = matchStore.completionMatrix;
+    const concurrentRelays = matchStore.currentMatch?.concurrent_relays ?? 2;
+    const currentIdx = squads.findIndex(s => s.id === props.squadId);
+    if (currentIdx < 0) return null;
+
+    const stride = Math.max(1, concurrentRelays);
+    const nextIdx = currentIdx + stride;
+
+    for (let offset = stride; offset < squads.length; offset += stride) {
+        const idx = (currentIdx + offset) % squads.length;
+        const squad = squads[idx];
+        const status = matrix[squad.id]?.[props.targetSetId]?.status;
+        if (status !== 'scored') {
+            return squad;
+        }
+    }
+    return null;
+});
+
+function goToNextSquad() {
+    if (!nextSquadSuggestion.value) return;
+    router.push({
+        name: 'roll-call',
+        params: {
+            matchId: props.matchId,
+            squadId: nextSquadSuggestion.value.id,
+            targetSetId: props.targetSetId,
+        },
+    });
+}
 
 async function recordScore(isHit) {
     if (!currentShooter.value || !currentGong.value) return;
