@@ -51,35 +51,39 @@ new #[Layout('components.layouts.scoreboard')]
             $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
             $totalTargets = \App\Models\Gong::whereIn('target_set_id', $targetSetIds)->count();
 
-            $shooterTimes = StageTime::query()
-                ->whereIn('target_set_id', $targetSetIds)
-                ->select('shooter_id', DB::raw('SUM(time_seconds) as total_time'))
+            $shooterTimes = \App\Models\PrsStageResult::where('match_id', $this->match->id)
+                ->whereNotNull('official_time_seconds')
+                ->select('shooter_id', DB::raw('SUM(official_time_seconds) as total_time'))
                 ->groupBy('shooter_id')
                 ->pluck('total_time', 'shooter_id')
                 ->toArray();
 
             if ($tiebreakerStage) {
-                $tbGongIds = \App\Models\Gong::where('target_set_id', $tiebreakerStage->id)->pluck('id');
-                $tbHits = \App\Models\Score::whereIn('gong_id', $tbGongIds)
-                    ->where('is_hit', true)
-                    ->select('shooter_id', DB::raw('COUNT(*) as hit_count'))
-                    ->groupBy('shooter_id')
-                    ->pluck('hit_count', 'shooter_id')
+                $tbResults = \App\Models\PrsStageResult::where('match_id', $this->match->id)
+                    ->where('stage_id', $tiebreakerStage->id)
+                    ->get();
+
+                $tbHits = $tbResults->pluck('hits', 'shooter_id')
                     ->map(fn ($v) => (int) $v)
                     ->toArray();
-                $tbTimes = StageTime::where('target_set_id', $tiebreakerStage->id)
-                    ->pluck('time_seconds', 'shooter_id')
+
+                $tbTimes = $tbResults
+                    ->filter(fn ($r) => $r->official_time_seconds !== null)
+                    ->pluck('official_time_seconds', 'shooter_id')
                     ->map(fn ($v) => (float) $v)
                     ->toArray();
             }
         }
 
         $query = $this->match->shooters()
-            ->with(['squad', 'division'])
-            ->withCount([
+            ->with(['squad', 'division']);
+
+        if (!$isPrs) {
+            $query->withCount([
                 'scores as hits_count' => fn ($q) => $q->where('is_hit', true),
                 'scores as misses_count' => fn ($q) => $q->where('is_hit', false),
             ]);
+        }
 
         if ($this->activeDivision) {
             $query->where('shooters.match_division_id', $this->activeDivision);
@@ -92,9 +96,24 @@ new #[Layout('components.layouts.scoreboard')]
             $query->whereIn('shooters.id', $catShooterIds);
         }
 
+        $prsHitsMap = [];
+        $prsMissesMap = [];
+        if ($isPrs) {
+            $prsAgg = \App\Models\PrsStageResult::where('match_id', $this->match->id)
+                ->select('shooter_id', DB::raw('SUM(hits) as total_hits'), DB::raw('SUM(misses) as total_misses'))
+                ->groupBy('shooter_id')
+                ->get();
+            foreach ($prsAgg as $row) {
+                $prsHitsMap[$row->shooter_id] = (int) $row->total_hits;
+                $prsMissesMap[$row->shooter_id] = (int) $row->total_misses;
+            }
+        }
+
         $shooters = $query->get()
-            ->map(function ($shooter) use ($isPrs, $shooterTimes, $tbHits, $tbTimes, $totalTargets) {
+            ->map(function ($shooter) use ($isPrs, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap) {
                 if ($isPrs) {
+                    $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
+                    $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
                     $shooter->total_score = $shooter->hits_count;
                     $shooter->total_time = (float) ($shooterTimes[$shooter->id] ?? 0);
                     $shooter->tb_hits = $tbHits[$shooter->id] ?? 0;

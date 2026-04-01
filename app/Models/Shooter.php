@@ -60,6 +60,11 @@ class Shooter extends Model
         return $this->hasMany(StageTime::class);
     }
 
+    public function prsStageResults(): HasMany
+    {
+        return $this->hasMany(PrsStageResult::class);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

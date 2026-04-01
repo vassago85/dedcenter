@@ -754,6 +754,13 @@ function prsStageShortLabel(ts) {
 function prsGongClass(entry, tsId, gongNum) {
     const stageData = entry.stages?.[tsId];
     if (!stageData) return 'bg-surface-2 text-muted';
+    const shots = stageData.shots;
+    if (shots && shots.length >= gongNum) {
+        const result = shots[gongNum - 1];
+        if (result === 'hit') return 'bg-green-600/30 text-green-400';
+        if (result === 'miss') return 'bg-red-600/30 text-red-400';
+        return 'bg-surface-2 text-muted/50';
+    }
     const totalScored = (stageData.hits || 0) + (stageData.misses || 0);
     if (gongNum > totalScored) return 'bg-surface-2 text-muted/50';
     if (gongNum <= (stageData.hits || 0)) return 'bg-green-600/30 text-green-400';

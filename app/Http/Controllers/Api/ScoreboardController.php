@@ -630,7 +630,17 @@ class ScoreboardController extends Controller
 
         $allResults = \App\Models\PrsStageResult::where('match_id', $match->id)->get()->groupBy('shooter_id');
 
-        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds) {
+        $gongsByTs = [];
+        foreach ($targetSets as $ts) {
+            $gongsByTs[$ts->id] = DB::table('gongs')->where('target_set_id', $ts->id)->orderBy('number')->get();
+        }
+        $allGongIds = collect($gongsByTs)->flatMap(fn ($g) => $g->pluck('id'));
+        $allScores = Score::query()
+            ->whereIn('gong_id', $allGongIds)
+            ->get()
+            ->keyBy(fn ($s) => "{$s->shooter_id}-{$s->gong_id}");
+
+        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds, $gongsByTs, $allScores) {
             $sid = (int) $shooter->shooter_id;
             $results = $allResults->get($sid, collect());
 
@@ -653,9 +663,19 @@ class ScoreboardController extends Controller
             $stages = [];
             foreach ($targetSets as $ts) {
                 $stageResult = $results->firstWhere('stage_id', $ts->id);
+                $shots = [];
+                foreach ($gongsByTs[$ts->id] ?? [] as $gong) {
+                    $score = $allScores->get("{$sid}-{$gong->id}");
+                    if ($score) {
+                        $shots[] = $score->is_hit ? 'hit' : 'miss';
+                    } else {
+                        $shots[] = 'not_taken';
+                    }
+                }
                 $stages[$ts->id] = [
                     'hits' => $stageResult ? $stageResult->hits : 0,
                     'misses' => $stageResult ? $stageResult->misses : 0,
+                    'shots' => $shots,
                     'time' => $stageResult && $stageResult->official_time_seconds ? round((float) $stageResult->official_time_seconds, 2) : null,
                 ];
             }
@@ -758,11 +778,14 @@ class ScoreboardController extends Controller
             foreach ($targetSets as $ts) {
                 $stageHits = 0;
                 $stageMisses = 0;
+                $shots = [];
                 foreach ($gongsByTs[$ts->id] as $gong) {
                     $score = $allScores->get("{$sid}-{$gong->id}");
                     if ($score) {
-                        if ($score->is_hit) { $stageHits++; $totalHits++; }
-                        else { $stageMisses++; $totalMisses++; }
+                        if ($score->is_hit) { $stageHits++; $totalHits++; $shots[] = 'hit'; }
+                        else { $stageMisses++; $totalMisses++; $shots[] = 'miss'; }
+                    } else {
+                        $shots[] = 'not_taken';
                     }
                 }
                 if ($ts->id === $tiebreakerStageId) {
@@ -773,6 +796,7 @@ class ScoreboardController extends Controller
                 $stages[$ts->id] = [
                     'hits' => $stageHits,
                     'misses' => $stageMisses,
+                    'shots' => $shots,
                     'time' => $stageTime ? round((float) $stageTime->time_seconds, 2) : null,
                 ];
             }

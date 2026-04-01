@@ -77,6 +77,8 @@ class SyncController extends Controller
                 'stage_id' => $s->stage_id,
                 'shot_number' => $s->shot_number,
                 'result' => $s->result instanceof \BackedEnum ? $s->result->value : $s->result,
+                'device_id' => $s->device_id,
+                'recorded_at' => $s->recorded_at?->toIso8601String(),
                 'updated_at' => $s->updated_at?->toIso8601String(),
             ]);
             $prsResults = $resultQuery->get()->map(fn ($r) => [

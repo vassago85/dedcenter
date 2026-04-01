@@ -1,23 +1,23 @@
-<div id="dc-install-prompt" style="display:none;" class="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md rounded-2xl border border-white/10 bg-slate-800/95 p-4 shadow-2xl backdrop-blur-lg sm:left-auto sm:right-6 sm:bottom-6">
-    <div class="flex items-start gap-3">
-        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-red-600/20">
-            <svg class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+<div id="dc-install-prompt" style="display:none; position:fixed; bottom:1rem; left:1rem; right:1rem; z-index:9999; max-width:28rem; margin:0 auto; border-radius:1rem; border:1px solid rgba(255,255,255,0.1); background:rgba(30,41,59,0.97); padding:1rem; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); backdrop-filter:blur(16px);">
+    <div style="display:flex; align-items:flex-start; gap:0.75rem;">
+        <div style="flex-shrink:0; width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; border-radius:0.75rem; background:rgba(220,38,38,0.2);">
+            <svg style="width:1.25rem; height:1.25rem; color:#ef4444;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3" />
             </svg>
         </div>
-        <div class="flex-1">
-            <p class="text-sm font-semibold text-white">Add DeadCenter to Home Screen</p>
-            <p id="dc-install-desc" class="mt-0.5 text-xs text-slate-400"></p>
-            <div id="dc-install-buttons" class="mt-3 flex gap-2" style="display:none;">
-                <button id="dc-install-btn" class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700">Install</button>
-                <button id="dc-dismiss-btn" class="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-600">Not now</button>
+        <div style="flex:1;">
+            <p style="font-size:0.875rem; font-weight:600; color:#fff; margin:0;">Add DeadCenter to Home Screen</p>
+            <p id="dc-install-desc" style="margin-top:0.25rem; font-size:0.75rem; color:#94a3b8;"></p>
+            <div id="dc-install-buttons" style="display:none; margin-top:0.75rem; gap:0.5rem;">
+                <button onclick="window._dcInstall()" style="border-radius:0.5rem; background:#dc2626; padding:0.375rem 0.75rem; font-size:0.75rem; font-weight:500; color:#fff; border:none; cursor:pointer;">Install</button>
+                <button onclick="window._dcDismiss()" style="border-radius:0.5rem; background:#334155; padding:0.375rem 0.75rem; font-size:0.75rem; font-weight:500; color:#cbd5e1; border:none; cursor:pointer;">Not now</button>
             </div>
-            <div id="dc-ios-dismiss" class="mt-2" style="display:none;">
-                <button id="dc-ios-dismiss-btn" class="text-xs font-medium text-slate-400 hover:text-white transition-colors">Dismiss</button>
+            <div id="dc-ios-dismiss" style="display:none; margin-top:0.5rem;">
+                <button onclick="window._dcDismiss()" style="font-size:0.75rem; font-weight:500; color:#94a3b8; background:none; border:none; cursor:pointer; text-decoration:underline;">Dismiss</button>
             </div>
         </div>
-        <button id="dc-close-btn" class="text-slate-500 hover:text-white transition-colors">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <button onclick="window._dcDismiss()" style="color:#64748b; background:none; border:none; cursor:pointer; padding:0.25rem;">
+            <svg style="width:1rem; height:1rem;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
         </button>
@@ -25,62 +25,55 @@
 </div>
 <script>
 (function() {
-    var dismissed = localStorage.getItem('dc_install_dismissed');
-    if (dismissed && (Date.now() - parseInt(dismissed)) < 30 * 24 * 60 * 60 * 1000) return;
-    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    var KEY = 'dc_install_dismissed';
+    var dismissed = localStorage.getItem(KEY);
+    if (dismissed && (Date.now() - parseInt(dismissed, 10)) < 30 * 24 * 60 * 60 * 1000) return;
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return;
+    if (window.navigator && window.navigator.standalone === true) return;
 
-    var prompt = document.getElementById('dc-install-prompt');
+    var el = document.getElementById('dc-install-prompt');
     var desc = document.getElementById('dc-install-desc');
-    var buttons = document.getElementById('dc-install-buttons');
-    var iosDismiss = document.getElementById('dc-ios-dismiss');
+    var btns = document.getElementById('dc-install-buttons');
+    var iosDis = document.getElementById('dc-ios-dismiss');
+    if (!el || !desc) return;
+
     var deferredPrompt = null;
 
+    window._dcDismiss = function() {
+        localStorage.setItem(KEY, Date.now().toString());
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(1rem)';
+        setTimeout(function() { el.style.display = 'none'; }, 250);
+    };
+
+    window._dcInstall = function() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function() { deferredPrompt = null; window._dcDismiss(); });
+        }
+    };
+
     function show() {
-        prompt.style.display = '';
-        prompt.style.opacity = '0';
-        prompt.style.transform = 'translateY(1rem)';
-        requestAnimationFrame(function() {
-            prompt.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            prompt.style.opacity = '1';
-            prompt.style.transform = 'translateY(0)';
-        });
+        el.style.display = '';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(1rem)';
+        el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        setTimeout(function() { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }, 30);
     }
 
-    function dismiss() {
-        localStorage.setItem('dc_install_dismissed', Date.now().toString());
-        prompt.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-        prompt.style.opacity = '0';
-        prompt.style.transform = 'translateY(1rem)';
-        setTimeout(function() { prompt.style.display = 'none'; }, 200);
-    }
-
-    var isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    var isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     if (isIos) {
         desc.textContent = 'Tap Share then Add to Home Screen for the best experience.';
-        iosDismiss.style.display = '';
+        if (iosDis) iosDis.style.display = '';
         show();
     } else {
         desc.textContent = 'Get quick access to matches, live scores, and notifications.';
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
-            buttons.style.display = '';
+            if (btns) { btns.style.display = 'flex'; }
             show();
         });
     }
-
-    document.getElementById('dc-install-btn').addEventListener('click', function() {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then(function() {
-                deferredPrompt = null;
-                dismiss();
-            });
-        }
-    });
-
-    document.getElementById('dc-dismiss-btn').addEventListener('click', dismiss);
-    document.getElementById('dc-ios-dismiss-btn').addEventListener('click', dismiss);
-    document.getElementById('dc-close-btn').addEventListener('click', dismiss);
 })();
 </script>
