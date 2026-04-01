@@ -20,7 +20,7 @@ new #[Layout('components.layouts.app')]
                 ->orderBy('date', 'desc')
                 ->get(),
             'upcomingMatches' => ShootingMatch::with('organization')
-                ->where('status', MatchStatus::Active)
+                ->whereNot('status', MatchStatus::Draft)
                 ->where('date', '>=', now()->startOfDay())
                 ->orderBy('date')
                 ->take(10)

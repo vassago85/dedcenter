@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\MatchBookController;
 use App\Http\Controllers\MatchExportController;
+use App\Http\Controllers\SponsorInfoController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -27,6 +29,9 @@ Volt::route('/offline', 'offline')->name('offline');
 Volt::route('/setup', 'setup')->name('setup');
 
 Route::get('/sitemap.xml', \App\Http\Controllers\SitemapController::class)->name('sitemap');
+
+// ── Private Sponsor Info (token-protected, not in navigation) ──
+Route::get('/sponsor-info/{token}', [SponsorInfoController::class, 'show'])->name('sponsor-info.show');
 
 Route::get('/app-login', [\App\Http\Controllers\Api\AuthController::class, 'tokenLogin'])->name('app.login');
 
@@ -58,6 +63,7 @@ Route::middleware('auth')->group(function () {
     Volt::route('/dashboard', 'member.dashboard')->name('dashboard');
     Volt::route('/matches', 'member.matches')->name('matches');
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
+    Volt::route('/matches/{match}/squadding', 'member.match-squadding')->name('matches.squadding');
     Volt::route('/organizations', 'member.organizations')->name('organizations');
     Volt::route('/organizations/create', 'member.organization-create')->name('organizations.create');
     Volt::route('/settings', 'member.settings')->name('settings');
@@ -75,6 +81,15 @@ Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('or
     Volt::route('/matches/{match}/squadding', 'org.matches.squadding')->name('matches.squadding');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
+    Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
+    Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
+
+    // ── Match Book ──
+    Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
+    Volt::route('/matches/{match}/matchbook/edit', 'org.matches.matchbook')->name('matches.matchbook.edit');
+    Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
+    Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
+
     Volt::route('/registrations', 'org.registrations')->name('registrations');
     Volt::route('/admins', 'org.admins')->name('admins');
     Volt::route('/clubs', 'org.clubs')->name('clubs');
@@ -94,6 +109,20 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Volt::route('/matches/{match}/squadding', 'admin.matches.squadding')->name('matches.squadding');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
+    Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
+    Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
+
+    // ── Match Book ──
+    Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
+    Volt::route('/matches/{match}/matchbook/edit', 'admin.matches.matchbook')->name('matches.matchbook.edit');
+    Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
+    Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
+
+    // ── Sponsors ──
+    Volt::route('/sponsors', 'admin.sponsors')->name('sponsors');
+    Volt::route('/sponsor-assignments', 'admin.sponsor-assignments')->name('sponsor-assignments');
+    Volt::route('/sponsor-info', 'admin.sponsor-info')->name('sponsor-info');
+
     Volt::route('/registrations', 'admin.registrations')->name('registrations');
     Volt::route('/seasons', 'admin.seasons')->name('seasons');
     Volt::route('/homepage', 'admin.homepage')->name('homepage');

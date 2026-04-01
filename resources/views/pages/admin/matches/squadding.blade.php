@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MatchStatus;
 use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
 use App\Models\Squad;
@@ -16,14 +17,69 @@ new #[Layout('components.layouts.app')]
     public string $walkinBib = '';
     public ?int $walkinRelayId = null;
 
+    public string $newSquadName = '';
+    public ?int $defaultCapacity = null;
+
     public function mount(ShootingMatch $match): void
     {
         $this->match = $match;
+        $this->defaultCapacity = $match->max_squad_size;
     }
 
     public function getTitle(): string
     {
         return 'Squadding — ' . $this->match->name;
+    }
+
+    public function updateDefaultCapacity(): void
+    {
+        $val = $this->defaultCapacity && $this->defaultCapacity > 0 ? (int) $this->defaultCapacity : null;
+        $this->match->update(['max_squad_size' => $val]);
+        Flux::toast($val ? "Default max squad size set to {$val}." : 'Default capacity removed (unlimited).', variant: 'success');
+    }
+
+    public function updateSquadCapacity(int $squadId, $value): void
+    {
+        $squad = $this->match->squads()->findOrFail($squadId);
+        $cap = $value && (int) $value > 0 ? (int) $value : null;
+        $squad->update(['max_capacity' => $cap]);
+        Flux::toast("Capacity for {$squad->name} updated.", variant: 'success');
+    }
+
+    public function addSquad(): void
+    {
+        $this->validate(['newSquadName' => 'required|string|max:255']);
+        $maxSort = $this->match->squads()->max('sort_order') ?? 0;
+        $this->match->squads()->create([
+            'name' => $this->newSquadName,
+            'sort_order' => $maxSort + 1,
+        ]);
+        $this->reset('newSquadName');
+        Flux::toast('Squad added.', variant: 'success');
+    }
+
+    public function deleteSquad(int $id): void
+    {
+        $squad = $this->match->squads()->findOrFail($id);
+        $squad->shooters()->delete();
+        $squad->delete();
+        Flux::toast("Squad {$squad->name} deleted.", variant: 'success');
+    }
+
+    public function openSquadding(): void
+    {
+        if ($this->match->status->canTransitionTo(MatchStatus::SquaddingOpen)) {
+            $this->match->update(['status' => MatchStatus::SquaddingOpen]);
+            Flux::toast('Squadding is now open for shooters.', variant: 'success');
+        }
+    }
+
+    public function closeSquadding(): void
+    {
+        if ($this->match->status === MatchStatus::SquaddingOpen) {
+            $this->match->update(['status' => MatchStatus::Active]);
+            Flux::toast('Squadding closed. Match is now active.', variant: 'success');
+        }
     }
 
     public function randomizeRelays(): void
@@ -32,7 +88,7 @@ new #[Layout('components.layouts.app')]
         $squads = $match->squads()->orderBy('sort_order')->get();
 
         if ($squads->isEmpty()) {
-            Flux::toast('No relays exist. Add relays on the match edit page first.', variant: 'warning');
+            Flux::toast('No relays exist. Add squads first.', variant: 'warning');
             return;
         }
 
@@ -50,10 +106,6 @@ new #[Layout('components.layouts.app')]
             : collect();
 
         $allShooters = $match->shooters()->get();
-        $shootersToPlace = $shootersInDefault->isNotEmpty()
-            ? $allShooters
-            : collect();
-
         $riflePairs = $this->buildRiflePairs($confirmedRegs);
         $concurrentSize = max(1, $match->concurrent_relays ?? 2);
         $relayIds = $squads->pluck('id')->toArray();
@@ -83,36 +135,23 @@ new #[Layout('components.layouts.app')]
         foreach ($riflePairs as $pair) {
             $shooterA = $shooterList->first(fn ($s) => $s->user_id === $pair[0]);
             $shooterB = $shooterList->first(fn ($s) => $s->user_id === $pair[1]);
-
             if (!$shooterA || !$shooterB) continue;
 
             $blockIndexA = array_rand($blocks);
             $availableBlocks = array_keys(array_filter($blocks, fn ($_, $i) => $i !== $blockIndexA, ARRAY_FILTER_USE_BOTH));
+            $blockIndexB = empty($availableBlocks) ? $blockIndexA : $availableBlocks[array_rand($availableBlocks)];
 
-            if (empty($availableBlocks)) {
-                $blockIndexB = $blockIndexA;
-            } else {
-                $blockIndexB = $availableBlocks[array_rand($availableBlocks)];
-            }
-
-            $relayA = $blocks[$blockIndexA][array_rand($blocks[$blockIndexA])];
-            $relayB = $blocks[$blockIndexB][array_rand($blocks[$blockIndexB])];
-
-            $assignments[$shooterA->id] = $relayA;
-            $assignments[$shooterB->id] = $relayB;
+            $assignments[$shooterA->id] = $blocks[$blockIndexA][array_rand($blocks[$blockIndexA])];
+            $assignments[$shooterB->id] = $blocks[$blockIndexB][array_rand($blocks[$blockIndexB])];
             $pairedShooterIds[] = $shooterA->id;
             $pairedShooterIds[] = $shooterB->id;
         }
 
         $unpairedShooters = $shooterList->filter(fn ($s) => !in_array($s->id, $pairedShooterIds))->shuffle();
-
         $relayCounts = array_fill_keys($relayIds, 0);
         foreach ($assignments as $relayId) {
-            if (isset($relayCounts[$relayId])) {
-                $relayCounts[$relayId]++;
-            }
+            if (isset($relayCounts[$relayId])) $relayCounts[$relayId]++;
         }
-
         foreach ($unpairedShooters as $shooter) {
             $minRelay = array_keys($relayCounts, min($relayCounts))[0];
             $assignments[$shooter->id] = $minRelay;
@@ -136,23 +175,18 @@ new #[Layout('components.layouts.app')]
     {
         $pairs = [];
         $matched = [];
-
         foreach ($registrations as $reg) {
             if (!$reg->share_rifle_with || in_array($reg->user_id, $matched)) continue;
-
             $partnerName = trim($reg->share_rifle_with);
             $partner = $registrations->first(function ($r) use ($partnerName, $reg) {
-                return $r->user_id !== $reg->user_id
-                    && stripos($r->user->name, $partnerName) !== false;
+                return $r->user_id !== $reg->user_id && stripos($r->user->name, $partnerName) !== false;
             });
-
             if ($partner && !in_array($partner->user_id, $matched)) {
                 $pairs[] = [$reg->user_id, $partner->user_id];
                 $matched[] = $reg->user_id;
                 $matched[] = $partner->user_id;
             }
         }
-
         return $pairs;
     }
 
@@ -160,6 +194,12 @@ new #[Layout('components.layouts.app')]
     {
         $shooter = Shooter::findOrFail($shooterId);
         $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
+
+        if ($targetSquad->isFull()) {
+            Flux::toast("{$targetSquad->name} is full.", variant: 'danger');
+            return;
+        }
+
         $maxSort = Shooter::where('squad_id', $targetSquadId)->max('sort_order') ?? 0;
         $shooter->update(['squad_id' => $targetSquadId, 'sort_order' => $maxSort + 1]);
         Flux::toast("Moved {$shooter->name} to {$targetSquad->name}.", variant: 'success');
@@ -183,8 +223,13 @@ new #[Layout('components.layouts.app')]
         ]);
 
         $squad = $this->match->squads()->findOrFail($this->walkinRelayId);
-        $maxSort = Shooter::where('squad_id', $squad->id)->max('sort_order') ?? 0;
 
+        if ($squad->isFull()) {
+            Flux::toast("{$squad->name} is full.", variant: 'danger');
+            return;
+        }
+
+        $maxSort = Shooter::where('squad_id', $squad->id)->max('sort_order') ?? 0;
         Shooter::create([
             'squad_id' => $squad->id,
             'name' => $this->walkinName,
@@ -206,7 +251,6 @@ new #[Layout('components.layouts.app')]
         $realSquads = $squads->filter(fn ($s) => !in_array($s->name, ['Default', 'Unassigned']));
         $unassignedSquads = $squads->filter(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
         $unassignedShooters = $unassignedSquads->flatMap(fn ($s) => $s->shooters);
-
         $confirmedCount = $this->match->registrations()->where('payment_status', 'confirmed')->count();
 
         $shareMap = [];
@@ -219,6 +263,7 @@ new #[Layout('components.layouts.app')]
 
         return [
             'squads' => $realSquads,
+            'allSquads' => $squads,
             'unassignedShooters' => $unassignedShooters,
             'confirmedCount' => $confirmedCount,
             'shareMap' => $shareMap,
@@ -241,12 +286,37 @@ new #[Layout('components.layouts.app')]
             </div>
         </div>
         <div class="flex items-center gap-3">
-            <span class="text-xs text-muted">{{ $concurrentSize }} relays shoot at once</span>
+            @if($match->status->canTransitionTo(MatchStatus::SquaddingOpen))
+                <flux:button wire:click="openSquadding" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700"
+                             wire:confirm="Open squadding to shooters?">
+                    Open Squadding
+                </flux:button>
+            @elseif($match->status === MatchStatus::SquaddingOpen)
+                <flux:badge color="indigo" size="sm">Squadding Open</flux:badge>
+                <flux:button wire:click="closeSquadding" variant="ghost"
+                             wire:confirm="Close squadding and activate match?">
+                    Close &amp; Activate
+                </flux:button>
+            @endif
             <flux:button wire:click="randomizeRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover"
                          wire:confirm="Randomize all shooters into relays? Existing assignments will be reshuffled.">
                 Randomize Relays
             </flux:button>
         </div>
+    </div>
+
+    {{-- Capacity settings --}}
+    <div class="rounded-xl border border-border bg-surface p-4 space-y-3">
+        <h3 class="text-sm font-semibold text-primary">Squad Capacity</h3>
+        <div class="flex items-end gap-4">
+            <div>
+                <label class="block text-xs text-muted mb-1">Default Max per Squad</label>
+                <input type="number" wire:model="defaultCapacity" min="1" placeholder="Unlimited"
+                       class="w-28 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+            </div>
+            <flux:button wire:click="updateDefaultCapacity" size="sm" variant="ghost">Save Default</flux:button>
+        </div>
+        <p class="text-[10px] text-muted">Individual squads can override this. Leave blank for unlimited.</p>
     </div>
 
     {{-- Concurrent group legend --}}
@@ -260,7 +330,7 @@ new #[Layout('components.layouts.app')]
         @endforeach
     </div>
 
-    {{-- Relay Grid --}}
+    {{-- Squad Grid --}}
     @if($squads->isNotEmpty())
         <div class="space-y-3">
             @php $relayCounter = 0; @endphp
@@ -269,13 +339,29 @@ new #[Layout('components.layouts.app')]
                     $groupIndex = intdiv($relayCounter, $concurrentSize);
                     $groupColor = $colors[$groupIndex % count($colors)];
                     $relayCounter++;
+                    $cap = $squad->effectiveCapacity();
+                    $remaining = $squad->spotsRemaining();
                 @endphp
                 <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="sq-{{ $squad->id }}">
                     <div class="flex items-center justify-between border-b border-border px-4 py-2">
                         <div class="flex items-center gap-2">
                             <span class="font-medium text-primary">{{ $squad->name }}</span>
                             <span class="rounded px-1.5 py-0.5 text-[10px] {{ $groupColor }}">Group {{ $groupIndex + 1 }}</span>
-                            <span class="text-xs text-muted">({{ $squad->shooters->count() }} shooters)</span>
+                            <span class="text-xs text-muted">
+                                {{ $squad->shooters->count() }}{{ $cap ? "/{$cap}" : '' }} shooters
+                                @if($remaining !== null && $remaining <= 0)
+                                    <span class="text-accent font-bold ml-1">FULL</span>
+                                @elseif($remaining !== null)
+                                    <span class="text-green-400 ml-1">({{ $remaining }} spots left)</span>
+                                @endif
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" min="1" placeholder="Cap" value="{{ $squad->max_capacity }}"
+                                   wire:change="updateSquadCapacity({{ $squad->id }}, $event.target.value)"
+                                   class="w-16 rounded border border-border bg-surface-2 px-2 py-1 text-xs text-primary text-center focus:border-red-500" title="Max capacity override" />
+                            <button wire:click="deleteSquad({{ $squad->id }})" wire:confirm="Delete {{ $squad->name }} and all its shooters?"
+                                    class="text-xs text-accent/60 hover:text-accent transition-colors">&times;</button>
                         </div>
                     </div>
                     <div class="p-3">
@@ -306,7 +392,7 @@ new #[Layout('components.layouts.app')]
                                                     <div class="flex items-center justify-end gap-1" x-data="{ open: false }">
                                                         @if($squads->count() > 1)
                                                             <div class="relative" @click.away="open = false">
-                                                                <button @click="open = !open" class="rounded px-1.5 py-0.5 text-xs text-muted hover:text-secondary transition-colors" title="Move to relay">&#8644;</button>
+                                                                <button @click="open = !open" class="rounded px-1.5 py-0.5 text-xs text-muted hover:text-secondary transition-colors" title="Move to squad">&#8644;</button>
                                                                 <div x-show="open" x-transition class="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
                                                                     @foreach($squads->where('id', '!=', $squad->id) as $otherSquad)
                                                                         <button wire:click="moveShooter({{ $shooter->id }}, {{ $otherSquad->id }})" @click="open = false"
@@ -315,7 +401,7 @@ new #[Layout('components.layouts.app')]
                                                                 </div>
                                                             </div>
                                                         @endif
-                                                        <button wire:click="removeFromRelay({{ $shooter->id }})" class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors" title="Remove from relay">&times;</button>
+                                                        <button wire:click="removeFromRelay({{ $shooter->id }})" class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors" title="Remove">&times;</button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -332,7 +418,7 @@ new #[Layout('components.layouts.app')]
         </div>
     @else
         <div class="rounded-xl border border-dashed border-border bg-surface/50 p-8 text-center">
-            <p class="text-muted">No relays set up yet. Add relays on the <a href="{{ route('admin.matches.edit', $match) }}" class="text-accent hover:underline">match edit page</a> first.</p>
+            <p class="text-muted">No squads set up yet. Add a squad below.</p>
         </div>
     @endif
 
@@ -362,6 +448,17 @@ new #[Layout('components.layouts.app')]
         </div>
     @endif
 
+    {{-- Add Squad --}}
+    <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
+        <h3 class="text-sm font-medium text-secondary">Add Squad</h3>
+        <div class="flex gap-3 items-end">
+            <div class="flex-1">
+                <flux:input wire:model="newSquadName" placeholder="e.g. Squad A" />
+            </div>
+            <flux:button wire:click="addSquad" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Squad</flux:button>
+        </div>
+    </div>
+
     {{-- Add Walk-in Shooter --}}
     <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
         <h3 class="text-sm font-medium text-secondary">Add Walk-in Shooter</h3>
@@ -377,18 +474,16 @@ new #[Layout('components.layouts.app')]
                        class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
             </div>
             <div class="w-40">
-                <label class="block text-xs text-muted mb-1">Relay</label>
+                <label class="block text-xs text-muted mb-1">Squad</label>
                 <select wire:model="walkinRelayId"
                         class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
-                    <option value="">Select relay</option>
-                    @foreach($squads as $sq)
+                    <option value="">Select squad</option>
+                    @foreach($allSquads as $sq)
                         <option value="{{ $sq->id }}">{{ $sq->name }}</option>
                     @endforeach
                 </select>
             </div>
-            <flux:button wire:click="addWalkin" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">
-                Add
-            </flux:button>
+            <flux:button wire:click="addWalkin" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add</flux:button>
         </div>
     </div>
 </div>

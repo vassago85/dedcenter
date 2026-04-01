@@ -27,7 +27,8 @@ new #[Layout('components.layouts.portal')]
         }
 
         $upcomingMatches = ShootingMatch::whereIn('organization_id', $orgIds)
-            ->where('status', MatchStatus::Active)
+            ->whereNot('status', MatchStatus::Draft)
+            ->whereNot('status', MatchStatus::Completed)
             ->where('date', '>=', now()->startOfDay())
             ->orderBy('date')
             ->take(6)

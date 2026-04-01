@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ShootingMatch extends Model
@@ -24,6 +25,7 @@ class ShootingMatch extends Model
         'scores_published',
         'side_bet_enabled',
         'concurrent_relays',
+        'max_squad_size',
         'elr_scoring_profile_id',
         'notes',
         'created_by',
@@ -41,6 +43,7 @@ class ShootingMatch extends Model
             'scores_published' => 'boolean',
             'side_bet_enabled' => 'boolean',
             'concurrent_relays' => 'integer',
+            'max_squad_size' => 'integer',
             'entry_fee' => 'decimal:2',
         ];
     }
@@ -117,6 +120,11 @@ class ShootingMatch extends Model
         return $this->hasMany(ScoreAuditLog::class, 'match_id');
     }
 
+    public function matchBook(): HasOne
+    {
+        return $this->hasOne(MatchBook::class, 'match_id');
+    }
+
     // ── Computed Attributes ──
 
     public function getTotalShootersAttribute(): int
@@ -132,6 +140,39 @@ class ShootingMatch extends Model
     public function getIsCompletedAttribute(): bool
     {
         return $this->status === MatchStatus::Completed;
+    }
+
+    public function isPreRegistration(): bool
+    {
+        return $this->status === MatchStatus::PreRegistration;
+    }
+
+    public function isRegistrationOpen(): bool
+    {
+        return $this->status === MatchStatus::RegistrationOpen;
+    }
+
+    public function isRegistrationClosed(): bool
+    {
+        return $this->status === MatchStatus::RegistrationClosed;
+    }
+
+    public function isSquaddingOpen(): bool
+    {
+        return $this->status === MatchStatus::SquaddingOpen;
+    }
+
+    public function canRegister(): bool
+    {
+        return in_array($this->status, [
+            MatchStatus::PreRegistration,
+            MatchStatus::RegistrationOpen,
+        ]);
+    }
+
+    public function canSquad(): bool
+    {
+        return $this->status === MatchStatus::SquaddingOpen;
     }
 
     public function isFree(): bool

@@ -51,6 +51,23 @@ new #[Layout('components.layouts.portal')]
         return $this->match->name . ' — ' . $this->organization->name;
     }
 
+    public function preRegister(): void
+    {
+        if (! auth()->check()) { $this->redirect(route('login'), navigate: true); return; }
+        if ($this->registration) return;
+
+        $this->registration = MatchRegistration::create([
+            'match_id' => $this->match->id,
+            'user_id' => auth()->id(),
+            'payment_reference' => MatchRegistration::generatePaymentReference(auth()->user()),
+            'payment_status' => 'pre_registered',
+            'amount' => $this->match->entry_fee,
+            'pre_registered_at' => now(),
+        ]);
+
+        Flux::toast('Pre-registered! You\'ll be notified when full registration opens.', variant: 'success');
+    }
+
     public function register(): void
     {
         if (! auth()->check()) {
@@ -58,7 +75,7 @@ new #[Layout('components.layouts.portal')]
             return;
         }
 
-        if ($this->registration) {
+        if ($this->registration && !$this->registration->isPreRegistered()) {
             return;
         }
 
@@ -79,12 +96,7 @@ new #[Layout('components.layouts.portal')]
             'share_rifle_with' => 'nullable|string|max:255',
         ]);
 
-        $ref = MatchRegistration::generatePaymentReference(auth()->user());
-
-        $this->registration = MatchRegistration::create([
-            'match_id' => $this->match->id,
-            'user_id' => auth()->id(),
-            'payment_reference' => $ref,
+        $data = [
             'payment_status' => $this->match->isFree() ? 'confirmed' : 'pending_payment',
             'amount' => $this->match->entry_fee,
             'sa_id_number' => $this->sa_id_number ?: null,
@@ -101,7 +113,20 @@ new #[Layout('components.layouts.portal')]
             'bipod_brand' => $this->bipod_brand,
             'share_rifle_with' => $this->share_rifle_with ?: null,
             'contact_number' => $this->contact_number,
-        ]);
+        ];
+
+        if ($this->registration && $this->registration->isPreRegistered()) {
+            $this->registration->update($data);
+            $this->registration = $this->registration->fresh();
+        } else {
+            $ref = MatchRegistration::generatePaymentReference(auth()->user());
+            $this->registration = MatchRegistration::create([
+                ...$data,
+                'match_id' => $this->match->id,
+                'user_id' => auth()->id(),
+                'payment_reference' => $ref,
+            ]);
+        }
 
         if ($this->match->isFree()) {
             $this->createShooter();
@@ -217,110 +242,44 @@ new #[Layout('components.layouts.portal')]
         @endguest
 
         @auth
-            @if(! $registration)
-                <p class="text-sm text-muted">Fill in your equipment details and register for this match.</p>
+            @if($match->isRegistrationClosed() && !$registration)
+                <div class="rounded-lg border border-amber-800 bg-amber-900/20 p-4">
+                    <p class="text-sm font-medium text-amber-400">Registration is closed.</p>
+                </div>
 
+            @elseif($match->isPreRegistration() && !$registration)
+                <p class="text-sm text-muted">Express your interest. Full registration opens later.</p>
+                <button wire:click="preRegister" wire:confirm="Pre-register for {{ $match->name }}?"
+                        class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">
+                    Pre-Register
+                </button>
+
+            @elseif($match->isPreRegistration() && $registration && $registration->isPreRegistered())
+                <div class="rounded-lg border border-violet-800 bg-violet-900/20 p-4">
+                    <p class="text-sm font-medium text-violet-400">You're pre-registered! You'll be notified when registration opens.</p>
+                </div>
+
+            @elseif($match->isRegistrationOpen() && $registration && $registration->isPreRegistered())
+                <div class="rounded-lg border border-sky-800 bg-sky-900/20 p-4 mb-4">
+                    <p class="text-sm font-medium text-sky-400">Registration is open! Complete your details below.</p>
+                </div>
                 <form wire:submit="register" class="space-y-4">
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label class="block text-sm font-medium text-secondary mb-1">SA ID Number</label>
-                            <input type="text" wire:model="sa_id_number" placeholder="Optional"
-                                   class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-secondary mb-1">Contact Number *</label>
-                            <input type="text" wire:model="contact_number" placeholder="e.g. 071 480 7251" required
-                                   class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                            @error('contact_number') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="border-t border-white/10 pt-4">
-                        <h3 class="text-sm font-semibold text-primary mb-3">Rifle & Equipment</h3>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Caliber *</label>
-                                <input type="text" wire:model="caliber" placeholder="e.g. .308 Win" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('caliber') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Action Brand</label>
-                                <input type="text" wire:model="action_brand" placeholder="Optional"
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Bullet Brand & Type *</label>
-                                <input type="text" wire:model="bullet_brand_type" placeholder="e.g. Lapua Scenar" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('bullet_brand_type') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Bullet Weight *</label>
-                                <input type="text" wire:model="bullet_weight" placeholder="e.g. 175gr" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('bullet_weight') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Barrel Brand & Length *</label>
-                                <input type="text" wire:model="barrel_brand_length" placeholder="e.g. Krieger 26&quot;" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('barrel_brand_length') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Trigger Brand *</label>
-                                <input type="text" wire:model="trigger_brand" placeholder="e.g. Triggertech Diamond" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('trigger_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Stock / Chassis Brand *</label>
-                                <input type="text" wire:model="stock_chassis_brand" placeholder="e.g. MDT ACC" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('stock_chassis_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Muzzle Brake / Silencer Brand *</label>
-                                <input type="text" wire:model="muzzle_brake_silencer_brand" placeholder="e.g. Area 419 Hellfire" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('muzzle_brake_silencer_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Scope Brand & Type *</label>
-                                <input type="text" wire:model="scope_brand_type" placeholder="e.g. Nightforce ATACR" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('scope_brand_type') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Scope Mount Brand *</label>
-                                <input type="text" wire:model="scope_mount_brand" placeholder="e.g. Spuhr" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('scope_mount_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Bipod Brand *</label>
-                                <input type="text" wire:model="bipod_brand" placeholder="e.g. Atlas CAL" required
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                @error('bipod_brand') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-secondary mb-1">Share Rifle with?</label>
-                                <input type="text" wire:model="share_rifle_with" placeholder="Name of person (leave blank if N/A)"
-                                       class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-primary placeholder-white/30 focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                                <p class="mt-1 text-xs text-muted">If sharing, you won't be placed in relays that shoot at the same time.</p>
-                            </div>
-                        </div>
-                    </div>
-
+                    @include('pages.member.partials.equipment-form')
                     <div class="flex justify-end pt-2">
-                        <button type="submit"
-                                class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">
-                            Register for this Match
-                        </button>
+                        <button type="submit" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">Complete Registration</button>
                     </div>
                 </form>
 
-            @elseif($registration->isConfirmed())
+            @elseif(! $registration && ($match->canRegister() || $match->is_active || $match->status === \App\Enums\MatchStatus::Draft))
+                <p class="text-sm text-muted">Fill in your equipment details and register for this match.</p>
+                <form wire:submit="register" class="space-y-4">
+                    @include('pages.member.partials.equipment-form')
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">Register for this Match</button>
+                    </div>
+                </form>
+
+            @elseif($registration && $registration->isConfirmed())
                 <div class="rounded-lg border border-green-800 bg-green-900/20 p-4">
                     <div class="flex items-center gap-2">
                         <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>

@@ -33,6 +33,7 @@ class MatchRegistration extends Model
         'share_rifle_with',
         'contact_number',
         'is_free_entry',
+        'pre_registered_at',
     ];
 
     protected function casts(): array
@@ -40,6 +41,7 @@ class MatchRegistration extends Model
         return [
             'amount' => 'decimal:2',
             'is_free_entry' => 'boolean',
+            'pre_registered_at' => 'datetime',
         ];
     }
 
@@ -71,6 +73,11 @@ class MatchRegistration extends Model
         } while (static::where('payment_reference', $reference)->exists());
 
         return $reference;
+    }
+
+    public function isPreRegistered(): bool
+    {
+        return $this->payment_status === 'pre_registered';
     }
 
     public function isPending(): bool

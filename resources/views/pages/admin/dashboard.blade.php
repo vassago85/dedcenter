@@ -134,17 +134,7 @@ new #[Layout('components.layouts.app')]
                                 <p class="text-sm font-medium text-white truncate">{{ $match->name }}</p>
                                 <p class="text-xs text-muted">{{ $match->organization?->name ?? '—' }}</p>
                             </div>
-                            @switch($match->status)
-                                @case(MatchStatus::Draft)
-                                    <span class="shrink-0 rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs font-medium text-zinc-300">Draft</span>
-                                    @break
-                                @case(MatchStatus::Active)
-                                    <span class="shrink-0 rounded-full bg-green-900/40 px-2 py-0.5 text-xs font-medium text-green-400">Active</span>
-                                    @break
-                                @case(MatchStatus::Completed)
-                                    <span class="shrink-0 rounded-full bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-400">Completed</span>
-                                    @break
-                            @endswitch
+                            <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                         </div>
                         <div class="flex items-center justify-between text-xs text-secondary">
                             <span>{{ $match->date?->format('d M Y') ?? '—' }}</span>
@@ -183,17 +173,7 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3 text-secondary text-xs">{{ $match->organization?->name ?? '—' }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
                                 <td class="px-6 py-3">
-                                    @switch($match->status)
-                                        @case(MatchStatus::Draft)
-                                            <span class="rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs font-medium text-zinc-300">Draft</span>
-                                            @break
-                                        @case(MatchStatus::Active)
-                                            <span class="rounded-full bg-green-900/40 px-2 py-0.5 text-xs font-medium text-green-400">Active</span>
-                                            @break
-                                        @case(MatchStatus::Completed)
-                                            <span class="rounded-full bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-400">Completed</span>
-                                            @break
-                                    @endswitch
+                                    <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                                 </td>
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->registrations_count }}</td>

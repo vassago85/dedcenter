@@ -2,7 +2,6 @@
 
 use App\Models\Organization;
 use App\Models\ShootingMatch;
-use App\Enums\MatchStatus;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -144,11 +143,7 @@ new #[Layout('components.layouts.app')]
                                     @if($tab === 'archived')
                                         <flux:badge size="sm" color="zinc">Archived</flux:badge>
                                     @else
-                                        @switch($match->status)
-                                            @case(MatchStatus::Draft) <flux:badge size="sm" color="zinc">Draft</flux:badge> @break
-                                            @case(MatchStatus::Active) <flux:badge size="sm" color="green">Active</flux:badge> @break
-                                            @case(MatchStatus::Completed) <flux:badge size="sm" color="blue">Completed</flux:badge> @break
-                                        @endswitch
+                                        <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                                     @endif
                                 </td>
                                 <td class="px-6 py-3 text-right text-secondary">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>

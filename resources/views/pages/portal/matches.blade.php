@@ -25,7 +25,8 @@ new #[Layout('components.layouts.portal')]
         }
 
         $matches = ShootingMatch::whereIn('organization_id', $orgIds)
-            ->when($this->status === 'active', fn ($q) => $q->where('status', MatchStatus::Active))
+            ->whereNot('status', MatchStatus::Draft)
+            ->when($this->status === 'active', fn ($q) => $q->whereNot('status', MatchStatus::Completed))
             ->when($this->status === 'completed', fn ($q) => $q->where('status', MatchStatus::Completed))
             ->when($this->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->orderBy('date', $this->status === 'completed' ? 'desc' : 'asc')
@@ -65,11 +66,9 @@ new #[Layout('components.layouts.portal')]
                 @foreach($matches as $match)
                     <a href="{{ route('portal.matches.show', [$organization, $match]) }}"
                        class="rounded-xl border border-white/10 bg-app p-6 hover:portal-border-primary transition-colors block group">
-                        <div class="flex items-start justify-between">
+                        <div class="flex items-start justify-between gap-2">
                             <h3 class="text-lg font-semibold text-primary group-hover:portal-primary transition-colors">{{ $match->name }}</h3>
-                            @if($match->status === MatchStatus::Completed)
-                                <span class="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400">Completed</span>
-                            @endif
+                            <flux:badge size="sm" color="{{ $match->status->color() }}" class="shrink-0">{{ $match->status->label() }}</flux:badge>
                         </div>
                         <div class="mt-3 space-y-1.5 text-sm text-muted">
                             @if($match->date)
@@ -89,7 +88,7 @@ new #[Layout('components.layouts.portal')]
                             <span class="text-lg font-bold {{ $match->entry_fee ? 'text-primary' : 'text-green-400' }}">
                                 {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}
                             </span>
-                            @if($match->status === MatchStatus::Active)
+                            @if($match->status !== MatchStatus::Completed)
                                 <span class="text-sm font-medium portal-primary">Register &rarr;</span>
                             @else
                                 <span class="text-sm text-muted">View results</span>

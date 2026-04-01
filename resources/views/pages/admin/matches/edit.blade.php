@@ -170,14 +170,25 @@ new #[Layout('components.layouts.app')]
         } elseif ($field === 'label') {
             $ts->update(['label' => $value]);
         } elseif ($field === 'is_timed_stage') {
+            if ((bool) $value && $this->match->scoring_type === 'prs') {
+                Flux::toast('For PRS, only the tiebreaker stage can be timed. Use the TB button instead.', variant: 'warning');
+                return;
+            }
             $ts->update(['is_timed_stage' => (bool) $value]);
         }
     }
 
     public function setTiebreakerStage(int $targetSetId): void
     {
-        $this->match->targetSets()->update(['is_tiebreaker' => false]);
-        TargetSet::where('id', $targetSetId)->where('match_id', $this->match->id)->update(['is_tiebreaker' => true]);
+        if ($this->match->scoring_type === 'prs') {
+            $this->match->targetSets()->update(['is_tiebreaker' => false, 'is_timed_stage' => false]);
+            TargetSet::where('id', $targetSetId)->where('match_id', $this->match->id)
+                ->update(['is_tiebreaker' => true, 'is_timed_stage' => true]);
+        } else {
+            $this->match->targetSets()->update(['is_tiebreaker' => false]);
+            TargetSet::where('id', $targetSetId)->where('match_id', $this->match->id)
+                ->update(['is_tiebreaker' => true]);
+        }
         Flux::toast('Tiebreaker stage set.', variant: 'success');
     }
 
@@ -692,16 +703,15 @@ new #[Layout('components.layouts.app')]
 
     // ── Match Controls ──
 
-    public function startMatch(): void
+    public function transitionStatus(string $target): void
     {
-        $this->match->update(['status' => MatchStatus::Active]);
-        Flux::toast('Match started!', variant: 'success');
-    }
-
-    public function completeMatch(): void
-    {
-        $this->match->update(['status' => MatchStatus::Completed]);
-        Flux::toast('Match completed.', variant: 'success');
+        $targetStatus = MatchStatus::from($target);
+        if (! $this->match->status->canTransitionTo($targetStatus)) {
+            Flux::toast('Invalid status transition.', variant: 'danger');
+            return;
+        }
+        $this->match->update(['status' => $targetStatus]);
+        Flux::toast("Match status changed to {$targetStatus->label()}.", variant: 'success');
     }
 
     public function reopenMatch(): void
@@ -737,7 +747,7 @@ new #[Layout('components.layouts.app')]
             $data['divisions'] = $this->match->divisions()->orderBy('sort_order')->get();
             $data['categories'] = $this->match->categories()->orderBy('sort_order')->get();
 
-            if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed])) {
+            if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen])) {
                 $liveUrl = route('live', $this->match);
                 $options = new QROptions(['outputInterface' => QRMarkupSVG::class, 'svgUseCssProperties' => false, 'scale' => 5]);
                 $data['qrCodeSvg'] = (new QRCode($options))->render($liveUrl);
@@ -761,18 +771,7 @@ new #[Layout('components.layouts.app')]
             <flux:heading size="xl">{{ $match ? 'Edit Match' : 'New Match' }}</flux:heading>
             @if($match)
                 <p class="mt-1 text-sm text-muted">
-                    Status:
-                    @switch($match->status)
-                        @case(MatchStatus::Draft)
-                            <flux:badge size="sm" color="zinc">Draft</flux:badge>
-                            @break
-                        @case(MatchStatus::Active)
-                            <flux:badge size="sm" color="green">Active</flux:badge>
-                            @break
-                        @case(MatchStatus::Completed)
-                            <flux:badge size="sm" color="blue">Completed</flux:badge>
-                            @break
-                    @endswitch
+                    Status: <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                 </p>
             @endif
         </div>
@@ -869,57 +868,73 @@ new #[Layout('components.layouts.app')]
     </form>
 
     @if($match)
-        {{-- Match controls --}}
-        <div class="rounded-xl border border-border bg-surface p-6">
-            <h2 class="text-lg font-semibold text-primary mb-4">Match Controls</h2>
-            <div class="flex flex-wrap gap-3">
-                @if($match->status === MatchStatus::Draft)
-                    <flux:button wire:click="startMatch" variant="primary" class="!bg-green-600 hover:!bg-green-700"
-                                 wire:confirm="Start this match? Scoring will become available.">
-                        Start Match
-                    </flux:button>
-                    <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="ghost">
-                        Squadding
-                    </flux:button>
-                @elseif($match->status === MatchStatus::Active)
-                    <flux:button wire:click="completeMatch" variant="primary" class="!bg-blue-600 hover:!bg-blue-700"
-                                 wire:confirm="Complete this match? It will be marked as finished.">
-                        Complete Match
-                    </flux:button>
-                    <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="ghost">
-                        Squadding
-                    </flux:button>
-                    <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">
-                        Open Scoring
-                    </flux:button>
-                    <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">
-                        View Scoreboard
-                    </flux:button>
-                    <flux:button href="{{ route('admin.matches.export.standings', $match) }}" variant="ghost">
-                        Download Standings
-                    </flux:button>
-                    <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">
-                        Download Full Results
-                    </flux:button>
+        {{-- Status stepper --}}
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
+            <h2 class="text-lg font-semibold text-primary">Match Lifecycle</h2>
+
+            {{-- Stepper bar --}}
+            @php
+                $steps = \App\Enums\MatchStatus::cases();
+                $currentOrd = $match->status->ordinal();
+            @endphp
+            <div class="flex items-center gap-1 overflow-x-auto pb-2">
+                @foreach($steps as $step)
+                    @php
+                        $ord = $step->ordinal();
+                        $isCurrent = $match->status === $step;
+                        $isPast = $ord < $currentOrd;
+                    @endphp
+                    <div class="flex items-center gap-1 {{ $loop->last ? '' : 'flex-1' }}">
+                        <div class="flex flex-col items-center min-w-[4.5rem]">
+                            <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold
+                                {{ $isCurrent ? 'bg-'.$step->color().'-600 text-white ring-2 ring-'.$step->color().'-400' : ($isPast ? 'bg-green-600/30 text-green-400' : 'bg-surface-2 text-muted') }}">
+                                @if($isPast) &#10003; @else {{ $ord + 1 }} @endif
+                            </div>
+                            <span class="mt-1 text-[10px] text-center leading-tight {{ $isCurrent ? 'font-bold text-primary' : 'text-muted' }}">{{ $step->label() }}</span>
+                        </div>
+                        @unless($loop->last)
+                            <div class="flex-1 h-0.5 mt-[-0.75rem] {{ $isPast ? 'bg-green-600/40' : 'bg-surface-2' }}"></div>
+                        @endunless
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Transition buttons --}}
+            <div class="flex flex-wrap gap-3 border-t border-border pt-4">
+                @foreach($match->status->allowedTransitions() as $next)
+                    <button wire:click="transitionStatus('{{ $next->value }}')"
+                            wire:confirm="Change match status to {{ $next->label() }}?"
+                            class="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors"
+                            style="background: var(--color-{{ $next->color() }}-600, #6366f1);">
+                        {{ $next->label() }}
+                    </button>
+                @endforeach
+
+                @if($match->status === MatchStatus::Completed)
+                    <flux:button wire:click="reopenMatch" variant="ghost" wire:confirm="Reopen this match?">Reopen Match</flux:button>
+                @endif
+            </div>
+
+            {{-- Quick links --}}
+            <div class="flex flex-wrap gap-3 border-t border-border pt-4">
+                <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="ghost">Manage Squadding</flux:button>
+
+                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen]))
+                    <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">Open Scoring</flux:button>
+                    <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">View Scoreboard</flux:button>
+                @endif
+
+                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed]))
+                    <flux:button href="{{ route('admin.matches.export.standings', $match) }}" variant="ghost">Download Standings</flux:button>
+                    <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">Download Full Results</flux:button>
                     <flux:button wire:click="toggleScoresPublished" variant="{{ $scores_published ? 'ghost' : 'primary' }}" class="{{ $scores_published ? '' : '!bg-amber-600 hover:!bg-amber-700' }}">
                         {{ $scores_published ? 'Hide Scores' : 'Publish Scores' }}
-                    </flux:button>
-                @elseif($match->status === MatchStatus::Completed)
-                    <flux:button wire:click="reopenMatch" variant="ghost"
-                                 wire:confirm="Reopen this match?">
-                        Reopen Match
-                    </flux:button>
-                    <flux:button href="{{ route('admin.matches.export.standings', $match) }}" variant="ghost">
-                        Download Standings
-                    </flux:button>
-                    <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">
-                        Download Full Results
                     </flux:button>
                 @endif
             </div>
 
             @if($qrCodeSvg)
-                <div class="mt-4 border-t border-border pt-4">
+                <div class="border-t border-border pt-4">
                     <h3 class="text-sm font-medium text-secondary mb-3">Live Scoreboard</h3>
                     <div class="flex items-start gap-4">
                         <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0"><img src="{{ $qrCodeSvg }}" alt="QR Code" class="w-full h-full" /></div>
@@ -1146,6 +1161,7 @@ new #[Layout('components.layouts.app')]
                             <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
                             @if($ts->is_tiebreaker)
                                 <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">Tiebreaker</span>
+                                <span class="text-[10px] text-amber-400/80">Timed &mdash; most impacts wins, time separates equal scores</span>
                             @endif
                         </div>
                         <div class="flex items-center gap-2">
@@ -1163,9 +1179,13 @@ new #[Layout('components.layouts.app')]
                     <div class="flex items-center gap-4 border-b border-border/50 bg-surface/50 px-6 py-2">
                         <label class="flex items-center gap-2 text-xs">
                             <input type="checkbox" {{ $ts->is_timed_stage ? 'checked' : '' }}
+                                   @if($this->match->scoring_type === 'prs') disabled title="PRS: timed is set automatically on the tiebreaker stage" @endif
                                    wire:change="updateTargetSet({{ $ts->id }}, 'is_timed_stage', $event.target.checked ? '1' : '0')"
-                                   class="rounded border-slate-600 bg-surface-2 text-amber-600 focus:ring-amber-500" />
+                                   class="rounded border-slate-600 bg-surface-2 text-amber-600 focus:ring-amber-500 disabled:opacity-40 disabled:cursor-not-allowed" />
                             <span class="text-muted font-medium">Timed stage</span>
+                            @if($this->match->scoring_type === 'prs')
+                                <span class="text-[10px] text-slate-500">(auto: tiebreaker only)</span>
+                            @endif
                         </label>
                         <div class="flex items-center gap-2">
                             <label class="text-xs font-medium text-muted whitespace-nowrap">Par Time (s):</label>
@@ -1391,193 +1411,30 @@ new #[Layout('components.layouts.app')]
 
         <flux:separator />
 
-        {{-- Squads --}}
-        <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-primary">Squads</h2>
-
-            @foreach($squads as $squad)
-                <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="squad-{{ $squad->id }}">
-                    <div class="flex items-center justify-between border-b border-border px-6 py-3">
-                        <span class="font-medium text-primary">{{ $squad->name }}</span>
-                        <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
-                                     wire:click="deleteSquad({{ $squad->id }})"
-                                     wire:confirm="Delete this squad and all its shooters?">
-                            Delete
-                        </flux:button>
-                    </div>
-
-                    <div class="p-4 space-y-3">
-                        @if($squad->shooters->isNotEmpty())
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead>
-                                        <tr class="text-left text-muted border-b border-border/50">
-                                            <th class="px-3 py-2 font-medium">Name</th>
-                                            <th class="px-3 py-2 font-medium">Bib #</th>
-                                            @if($divisions->isNotEmpty())<th class="px-3 py-2 font-medium">Division</th>@endif
-                                            @if($categories->isNotEmpty())<th class="px-3 py-2 font-medium">Categories</th>@endif
-                                            <th class="px-3 py-2 font-medium"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-700/50">
-                                        @foreach($squad->shooters->sortBy('sort_order') as $shooter)
-                                            <tr wire:key="shooter-{{ $shooter->id }}" class="{{ $shooter->isWithdrawn() ? 'opacity-40' : '' }}">
-                                                <td class="px-3 py-2 {{ $shooter->isWithdrawn() ? 'line-through text-muted' : 'text-secondary' }}">
-                                                    {{ $shooter->name }}
-                                                    @if($shooter->isWithdrawn())
-                                                        <span class="ml-1 text-[10px] font-medium uppercase text-amber-400 no-underline inline-block" style="text-decoration:none;">DNS</span>
-                                                    @endif
-                                                </td>
-                                                <td class="px-3 py-2 text-secondary">{{ $shooter->bib_number ?? '—' }}</td>
-                                                @if($divisions->isNotEmpty())
-                                                    <td class="px-3 py-2">
-                                                        @if($shooter->isActive())
-                                                        <select class="rounded border border-slate-600 bg-surface-2 px-2 py-1 text-xs text-primary focus:border-red-500"
-                                                                wire:change="updateShooterDivision({{ $shooter->id }}, $event.target.value)">
-                                                            <option value="" {{ !$shooter->match_division_id ? 'selected' : '' }}>—</option>
-                                                            @foreach($divisions as $d)
-                                                                <option value="{{ $d->id }}" {{ $shooter->match_division_id == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                        @else
-                                                            <span class="text-xs text-muted">{{ $shooter->division?->name ?? '—' }}</span>
-                                                        @endif
-                                                    </td>
-                                                @endif
-                                                @if($categories->isNotEmpty())
-                                                    <td class="px-3 py-2">
-                                                        @if($shooter->isActive())
-                                                        <div class="flex flex-wrap gap-1" x-data="{ cats: {{ json_encode($shooter->categories->pluck('id')->toArray()) }} }">
-                                                            @foreach($categories as $cat)
-                                                                <label class="inline-flex items-center gap-0.5 cursor-pointer">
-                                                                    <input type="checkbox" value="{{ $cat->id }}"
-                                                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-3 w-3"
-                                                                           {{ $shooter->categories->contains('id', $cat->id) ? 'checked' : '' }}
-                                                                           x-on:change="
-                                                                               let id = {{ $cat->id }};
-                                                                               if ($event.target.checked) { cats.push(id); } else { cats = cats.filter(c => c !== id); }
-                                                                               $wire.updateShooterCategories({{ $shooter->id }}, [...cats]);
-                                                                           " />
-                                                                    <span class="text-[10px] text-muted">{{ $cat->name }}</span>
-                                                                </label>
-                                                            @endforeach
-                                                        </div>
-                                                        @else
-                                                            <span class="text-xs text-muted">—</span>
-                                                        @endif
-                                                    </td>
-                                                @endif
-                                                <td class="px-3 py-2 text-right whitespace-nowrap">
-                                                    <div class="flex items-center justify-end gap-1" x-data="{ showMenu: false }">
-                                                        @if($shooter->isActive())
-                                                            <button wire:click="toggleShooterStatus({{ $shooter->id }})"
-                                                                    class="rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-400 hover:bg-amber-400/10 transition-colors"
-                                                                    title="Mark as no-show / withdrawn">
-                                                                DNS
-                                                            </button>
-                                                        @else
-                                                            <button wire:click="toggleShooterStatus({{ $shooter->id }})"
-                                                                    class="rounded px-1.5 py-0.5 text-[10px] font-medium text-green-400 hover:bg-green-400/10 transition-colors"
-                                                                    title="Reactivate shooter">
-                                                                Activate
-                                                            </button>
-                                                        @endif
-                                                        @if($this->match->squads->count() > 1)
-                                                            <div class="relative" @click.away="showMenu = false">
-                                                                <button @click="showMenu = !showMenu"
-                                                                        class="rounded px-1 py-0.5 text-xs text-muted hover:text-secondary transition-colors"
-                                                                        title="Move to squad">
-                                                                    &#8644;
-                                                                </button>
-                                                                <div x-show="showMenu" x-transition
-                                                                     class="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
-                                                                    @foreach($this->match->squads->where('id', '!=', $squad->id) as $otherSquad)
-                                                                        <button wire:click="moveShooter({{ $shooter->id }}, {{ $otherSquad->id }})"
-                                                                                @click="showMenu = false"
-                                                                                class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors">
-                                                                            {{ $otherSquad->name }}
-                                                                        </button>
-                                                                    @endforeach
-                                                                </div>
-                                                            </div>
-                                                        @endif
-                                                        <button wire:click="deleteShooter({{ $shooter->id }})"
-                                                                wire:confirm="Permanently delete {{ $shooter->name }}? This removes all their scores."
-                                                                class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors"
-                                                                title="Delete permanently">
-                                                            &times;
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <p class="text-sm text-muted px-3">No shooters yet.</p>
-                        @endif
-
-                        @if($addingShooterToSquadId === $squad->id)
-                            <div class="rounded-lg border border-slate-600 bg-surface-2/50 p-4 space-y-3">
-                                <div class="grid grid-cols-2 gap-3 {{ $divisions->isNotEmpty() ? 'sm:grid-cols-3' : '' }}">
-                                    <flux:input wire:model="shooterName" label="Name" placeholder="Shooter name" required />
-                                    <flux:input wire:model="shooterBib" label="Bib #" placeholder="Optional" />
-                                    @if($divisions->isNotEmpty())
-                                        <div>
-                                            <label class="block text-sm font-medium text-secondary mb-1">Division</label>
-                                            <select wire:model="shooterDivision" class="w-full rounded-md border border-slate-600 bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
-                                                <option value="">No Division</option>
-                                                @foreach($divisions as $d)
-                                                    <option value="{{ $d->id }}">{{ $d->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                    @endif
-                                </div>
-                                @if($categories->isNotEmpty())
-                                    <div class="col-span-full">
-                                        <label class="block text-sm font-medium text-secondary mb-1">Categories</label>
-                                        <div class="flex flex-wrap gap-3">
-                                            @foreach($categories as $cat)
-                                                <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                                                    <input type="checkbox" value="{{ $cat->id }}" wire:model="shooterCategories"
-                                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0" />
-                                                    <span class="text-sm text-secondary">{{ $cat->name }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-                                <div class="col-span-full flex gap-2">
-                                    <flux:button wire:click="addShooter" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">
-                                        Add Shooter
-                                    </flux:button>
-                                    <flux:button wire:click="$set('addingShooterToSquadId', null)" size="sm" variant="ghost">
-                                        Cancel
-                                    </flux:button>
-                                </div>
-                            </div>
-                        @else
-                            <div class="px-3">
-                                <flux:button size="sm" variant="ghost" wire:click="startAddShooter({{ $squad->id }})">
-                                    + Add Shooter
-                                </flux:button>
-                            </div>
-                        @endif
-                    </div>
+        {{-- Squads summary --}}
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-primary">Squads</h2>
+                <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="primary" size="sm" class="!bg-accent hover:!bg-accent-hover">
+                    Manage Squadding
+                </flux:button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                    <p class="text-2xl font-bold text-primary">{{ $squads->count() }}</p>
+                    <p class="text-xs text-muted">Squads</p>
                 </div>
-            @endforeach
-
-            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
-                <h3 class="text-sm font-medium text-secondary">Add Squad</h3>
-                <div class="flex gap-3">
-                    <div class="flex-1">
-                        <flux:input wire:model="squadName" placeholder="e.g. Squad A" />
-                    </div>
-                    <flux:button wire:click="addSquad" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover self-end">
-                        Add Squad
-                    </flux:button>
+                <div class="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                    <p class="text-2xl font-bold text-primary">{{ $squads->sum(fn($s) => $s->shooters->count()) }}</p>
+                    <p class="text-xs text-muted">Shooters</p>
+                </div>
+                <div class="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                    <p class="text-2xl font-bold text-primary">{{ $match->registrations()->where('payment_status', 'confirmed')->count() }}</p>
+                    <p class="text-xs text-muted">Confirmed</p>
+                </div>
+                <div class="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                    <p class="text-2xl font-bold text-primary">{{ $match->registrations()->count() }}</p>
+                    <p class="text-xs text-muted">Registrations</p>
                 </div>
             </div>
         </div>

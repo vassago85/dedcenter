@@ -14,12 +14,14 @@ class Squad extends Model
         'match_id',
         'name',
         'sort_order',
+        'max_capacity',
     ];
 
     protected function casts(): array
     {
         return [
             'sort_order' => 'integer',
+            'max_capacity' => 'integer',
         ];
     }
 
@@ -31,5 +33,23 @@ class Squad extends Model
     public function shooters(): HasMany
     {
         return $this->hasMany(Shooter::class);
+    }
+
+    public function effectiveCapacity(): ?int
+    {
+        return $this->max_capacity ?? $this->match?->max_squad_size;
+    }
+
+    public function spotsRemaining(): ?int
+    {
+        $cap = $this->effectiveCapacity();
+        if ($cap === null) return null;
+        return max(0, $cap - $this->shooters()->count());
+    }
+
+    public function isFull(): bool
+    {
+        $remaining = $this->spotsRemaining();
+        return $remaining !== null && $remaining <= 0;
     }
 }
