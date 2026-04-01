@@ -3,7 +3,7 @@
         <!-- Global Header -->
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-3">
             <div class="mx-auto flex max-w-2xl items-center gap-3">
-                <button v-if="prsStore.currentScreen !== 'match-home'" @click="goBack" class="p-2 text-slate-400 hover:text-white">
+                <button @click="goBack" class="p-2 text-slate-400 hover:text-white">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
@@ -53,6 +53,13 @@
                 <button @click="startScoring" class="mt-4 w-full max-w-sm rounded-2xl bg-red-600 px-8 py-5 text-xl font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
                     Start Scoring
                 </button>
+
+                <router-link
+                    :to="{ name: 'match-overview', params: { matchId: props.matchId } }"
+                    class="mt-2 text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                    &larr; Match Overview
+                </router-link>
             </div>
         </div>
 
@@ -322,6 +329,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { usePrsScoringStore } from '../stores/prsScoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -332,6 +340,8 @@ import ScoringSponsorship from '../components/ScoringSponsorship.vue';
 const props = defineProps({
     matchId: { type: Number, required: true },
 });
+
+const router = useRouter();
 
 const matchStore = useMatchStore();
 const prsStore = usePrsScoringStore();
@@ -503,6 +513,10 @@ function goBack() {
     else if (s === 'shooter-list') prsStore.navigateTo('stage-select');
     else if (s === 'stage-select') prsStore.navigateTo('squad-select');
     else if (s === 'squad-select') prsStore.navigateTo('match-home');
+    else if (s === 'match-home') {
+        router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+        return;
+    }
     savePrsProgress();
 }
 

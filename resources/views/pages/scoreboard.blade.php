@@ -115,30 +115,30 @@ new #[Layout('components.layouts.scoreboard')]
                 if ($isPrs) {
                     $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
                     $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
-                    $shooter->total_score = $shooter->hits_count;
-                    $shooter->total_time = (float) ($shooterTimes[$shooter->id] ?? 0);
+                    $shooter->display_score = $shooter->hits_count;
+                    $shooter->display_time = (float) ($shooterTimes[$shooter->id] ?? 0);
                     $shooter->tb_hits = $tbHits[$shooter->id] ?? 0;
                     $shooter->tb_time = (float) ($tbTimes[$shooter->id] ?? 0);
                     $shooter->not_taken = $totalTargets - $shooter->hits_count - $shooter->misses_count;
                 } else {
-                    $shooter->total_score = (float) $shooter->scores()
+                    $shooter->display_score = (float) $shooter->scores()
                         ->where('is_hit', true)
                         ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
                         ->sum('gongs.multiplier');
-                    $shooter->total_time = 0;
+                    $shooter->display_time = 0;
                 }
                 return $shooter;
             });
 
         if ($isPrs) {
             $shooters = $shooters->sort(function ($a, $b) {
-                if ($a->total_score !== $b->total_score) return $b->total_score <=> $a->total_score;
+                if ($a->display_score !== $b->display_score) return $b->display_score <=> $a->display_score;
                 if ($a->tb_hits !== $b->tb_hits) return $b->tb_hits <=> $a->tb_hits;
                 if ($a->tb_time !== $b->tb_time) return $a->tb_time <=> $b->tb_time;
-                return $a->total_time <=> $b->total_time;
+                return $a->display_time <=> $b->display_time;
             })->values();
         } else {
-            $shooters = $shooters->sortByDesc('total_score')->values();
+            $shooters = $shooters->sortByDesc('display_score')->values();
         }
 
         $royalFlushEnabled = !$isPrs && (bool) $this->match->royal_flush_enabled;
@@ -196,7 +196,7 @@ new #[Layout('components.layouts.scoreboard')]
                 $aMax = !empty($a['flush_distances']) ? max($a['flush_distances']) : 0;
                 $bMax = !empty($b['flush_distances']) ? max($b['flush_distances']) : 0;
                 if ($aMax !== $bMax) return $bMax <=> $aMax;
-                return $b['shooter']->total_score <=> $a['shooter']->total_score;
+                return $b['shooter']->display_score <=> $a['shooter']->display_score;
             });
 
             $royalFlushEntries = collect($rfProfiles)->map(fn ($p, $i) => (object) [
@@ -205,7 +205,7 @@ new #[Layout('components.layouts.scoreboard')]
                 'squad_name' => $p['shooter']->squad?->name ?? '—',
                 'flush_count' => $p['flush_count'],
                 'flush_distances' => $p['flush_distances'],
-                'total_score' => $p['shooter']->total_score,
+                'total_score' => $p['shooter']->display_score,
             ]);
         }
 
@@ -576,15 +576,15 @@ new #[Layout('components.layouts.scoreboard')]
                         @endif
                         @if($isPrs)
                             <td class="px-6 py-4 text-right text-xl font-mono text-secondary lg:text-2xl">
-                                @if($shooter->total_time > 0)
-                                    {{ sprintf('%02d:%05.2f', floor($shooter->total_time / 60), fmod($shooter->total_time, 60)) }}
+                                @if($shooter->display_time > 0)
+                                    {{ sprintf('%02d:%05.2f', floor($shooter->display_time / 60), fmod($shooter->display_time, 60)) }}
                                 @else
                                     —
                                 @endif
                             </td>
                         @endif
                         <td class="px-6 py-4 text-right text-2xl font-black text-amber-400 lg:text-3xl">
-                            {{ $isPrs ? $shooter->total_score : number_format($shooter->total_score, 1) }}
+                            {{ $isPrs ? $shooter->display_score : number_format($shooter->display_score, 1) }}
                         </td>
                     </tr>
                 @empty

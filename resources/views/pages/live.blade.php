@@ -114,30 +114,30 @@ new #[Layout('components.layouts.scoreboard')]
                 if ($isPrs) {
                     $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
                     $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
-                    $shooter->total_score = $shooter->hits_count;
-                    $shooter->total_time = (float) ($shooterTimes[$shooter->id] ?? 0);
+                    $shooter->display_score = $shooter->hits_count;
+                    $shooter->display_time = (float) ($shooterTimes[$shooter->id] ?? 0);
                     $shooter->tb_hits = $tbHits[$shooter->id] ?? 0;
                     $shooter->tb_time = (float) ($tbTimes[$shooter->id] ?? 0);
                     $shooter->not_taken = $totalTargets - $shooter->hits_count - $shooter->misses_count;
                 } else {
-                    $shooter->total_score = (float) $shooter->scores()
+                    $shooter->display_score = (float) $shooter->scores()
                         ->where('is_hit', true)
                         ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
                         ->sum('gongs.multiplier');
-                    $shooter->total_time = 0;
+                    $shooter->display_time = 0;
                 }
                 return $shooter;
             });
 
         if ($isPrs) {
             $shooters = $shooters->sort(function ($a, $b) {
-                if ($a->total_score !== $b->total_score) return $b->total_score <=> $a->total_score;
+                if ($a->display_score !== $b->display_score) return $b->display_score <=> $a->display_score;
                 if ($a->tb_hits !== $b->tb_hits) return $b->tb_hits <=> $a->tb_hits;
                 if ($a->tb_time !== $b->tb_time) return $a->tb_time <=> $b->tb_time;
-                return $a->total_time <=> $b->total_time;
+                return $a->display_time <=> $b->display_time;
             })->values();
         } else {
-            $shooters = $shooters->sortByDesc('total_score')->values();
+            $shooters = $shooters->sortByDesc('display_score')->values();
         }
 
         $royalFlushEnabled = !$isPrs && (bool) $this->match->royal_flush_enabled;
@@ -356,14 +356,14 @@ new #[Layout('components.layouts.scoreboard')]
                             <p class="text-[9px] text-muted/60">n/t</p>
                         </div>
                     @endif
-                    @if($isPrs && $shooter->total_time > 0)
+                    @if($isPrs && $shooter->display_time > 0)
                         <div class="text-center">
-                            <p class="text-xs font-mono text-secondary">{{ sprintf('%02d:%05.2f', floor($shooter->total_time / 60), fmod($shooter->total_time, 60)) }}</p>
+                            <p class="text-xs font-mono text-secondary">{{ sprintf('%02d:%05.2f', floor($shooter->display_time / 60), fmod($shooter->display_time, 60)) }}</p>
                             <p class="text-[9px] text-muted/60">time</p>
                         </div>
                     @endif
                     <div class="text-center min-w-[2rem]">
-                        <p class="text-base font-bold text-amber-400">{{ $isPrs ? $shooter->total_score : number_format($shooter->total_score, 1) }}</p>
+                        <p class="text-base font-bold text-amber-400">{{ $isPrs ? $shooter->display_score : number_format($shooter->display_score, 1) }}</p>
                         <p class="text-[9px] text-muted/60">score</p>
                     </div>
                 </div>
