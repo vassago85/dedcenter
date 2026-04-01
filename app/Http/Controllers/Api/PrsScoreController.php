@@ -10,6 +10,7 @@ use App\Models\ShootingMatch;
 use App\Models\TargetSet;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
@@ -62,90 +63,95 @@ class PrsScoreController extends Controller
         ]);
 
         $deviceId = $request->header('X-Device-Id', $request->input('device_id'));
+        $rawTime = $validated['raw_time_seconds'] ?? null;
 
-        $hits = 0;
-        $misses = 0;
-        $notTaken = 0;
+        $stageResult = DB::transaction(function () use ($validated, $match, $stage, $user, $deviceId, $rawTime, $request) {
+            $hits = 0;
+            $misses = 0;
+            $notTaken = 0;
 
-        foreach ($validated['shots'] as $shot) {
-            $existingShot = PrsShotScore::where('shooter_id', $validated['shooter_id'])
+            foreach ($validated['shots'] as $shot) {
+                $existingShot = PrsShotScore::where('shooter_id', $validated['shooter_id'])
+                    ->where('stage_id', $stage->id)
+                    ->where('shot_number', $shot['shot_number'])
+                    ->first();
+                $oldShotValues = $existingShot?->toArray();
+
+                $savedShot = PrsShotScore::updateOrCreate(
+                    [
+                        'shooter_id' => $validated['shooter_id'],
+                        'stage_id' => $stage->id,
+                        'shot_number' => $shot['shot_number'],
+                    ],
+                    [
+                        'match_id' => $match->id,
+                        'result' => $shot['result'],
+                        'device_id' => $deviceId,
+                        'recorded_at' => now(),
+                        'created_by' => $user->id,
+                        'updated_by' => $user->id,
+                    ]
+                );
+
+                if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shot['result']) {
+                    ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, null, $request);
+                } elseif (!$existingShot) {
+                    ScoreAuditService::logCreated($match->id, $savedShot, $request);
+                }
+
+                match ($shot['result']) {
+                    'hit' => $hits++,
+                    'miss' => $misses++,
+                    default => $notTaken++,
+                };
+            }
+
+            $officialTime = $rawTime;
+            if ($officialTime !== null && $stage->par_time_seconds) {
+                $allHit = $hits === ($stage->total_shots ?? 0);
+                if (! $allHit) {
+                    $officialTime = max($officialTime, (float) $stage->par_time_seconds);
+                }
+            }
+
+            $existingResult = PrsStageResult::where('shooter_id', $validated['shooter_id'])
                 ->where('stage_id', $stage->id)
-                ->where('shot_number', $shot['shot_number'])
                 ->first();
-            $oldShotValues = $existingShot?->toArray();
+            $oldResultValues = $existingResult?->toArray();
 
-            $savedShot = PrsShotScore::updateOrCreate(
+            $stageResult = PrsStageResult::updateOrCreate(
                 [
                     'shooter_id' => $validated['shooter_id'],
                     'stage_id' => $stage->id,
-                    'shot_number' => $shot['shot_number'],
                 ],
                 [
                     'match_id' => $match->id,
-                    'result' => $shot['result'],
-                    'device_id' => $deviceId,
-                    'recorded_at' => now(),
-                    'created_by' => $user->id,
+                    'hits' => $hits,
+                    'misses' => $misses,
+                    'not_taken' => $notTaken,
+                    'raw_time_seconds' => $rawTime,
+                    'official_time_seconds' => $officialTime,
+                    'completed_at' => now(),
+                    'completed_by' => $user->id,
                     'updated_by' => $user->id,
                 ]
             );
 
-            if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shot['result']) {
-                ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, null, $request);
-            } elseif (!$existingShot) {
-                ScoreAuditService::logCreated($match->id, $savedShot, $request);
+            if ($existingResult && $oldResultValues) {
+                ScoreAuditService::logUpdated($match->id, $stageResult, $oldResultValues, null, $request);
+            } else {
+                ScoreAuditService::logCreated($match->id, $stageResult, $request);
             }
 
-            match ($shot['result']) {
-                'hit' => $hits++,
-                'miss' => $misses++,
-                default => $notTaken++,
-            };
-        }
-
-        $officialTime = $validated['raw_time_seconds'] ?? null;
-        if ($officialTime !== null && $stage->par_time_seconds) {
-            $allHit = $hits === ($stage->total_shots ?? 0);
-            if (! $allHit) {
-                $officialTime = max($officialTime, (float) $stage->par_time_seconds);
-            }
-        }
-
-        $existingResult = PrsStageResult::where('shooter_id', $validated['shooter_id'])
-            ->where('stage_id', $stage->id)
-            ->first();
-        $oldResultValues = $existingResult?->toArray();
-
-        $stageResult = PrsStageResult::updateOrCreate(
-            [
-                'shooter_id' => $validated['shooter_id'],
-                'stage_id' => $stage->id,
-            ],
-            [
-                'match_id' => $match->id,
-                'hits' => $hits,
-                'misses' => $misses,
-                'not_taken' => $notTaken,
-                'raw_time_seconds' => $validated['raw_time_seconds'],
-                'official_time_seconds' => $officialTime,
-                'completed_at' => now(),
-                'completed_by' => $user->id,
-                'updated_by' => $user->id,
-            ]
-        );
-
-        if ($existingResult && $oldResultValues) {
-            ScoreAuditService::logUpdated($match->id, $stageResult, $oldResultValues, null, $request);
-        } else {
-            ScoreAuditService::logCreated($match->id, $stageResult, $request);
-        }
+            return $stageResult;
+        });
 
         Log::info('PRS score saved', [
             'match_id' => $match->id,
             'stage_id' => $stage->id,
             'shooter_id' => $stageResult->shooter_id,
-            'hits' => $hits,
-            'misses' => $misses,
+            'hits' => $stageResult->hits,
+            'misses' => $stageResult->misses,
             'time' => $stageResult->raw_time_seconds,
         ]);
 

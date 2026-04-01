@@ -41,6 +41,39 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('matches/{match}/scores/sync', [\App\Http\Controllers\Api\SyncController::class, 'scores']);
 
+    Route::post('matches/{match}/prs-backfill', function (App\Models\ShootingMatch $match) {
+        if (! $match->isPrs()) {
+            return response()->json(['message' => 'Not a PRS match'], 422);
+        }
+
+        $shots = App\Models\PrsShotScore::where('match_id', $match->id)->get();
+        $grouped = $shots->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
+        $created = 0;
+
+        foreach ($grouped as $key => $stageShots) {
+            [$shooterId, $stageId] = explode('-', $key);
+            $existing = App\Models\PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stageId)->first();
+            if ($existing) continue;
+
+            $hits = $stageShots->where('result', App\Enums\PrsShotResult::Hit)->count();
+            $misses = $stageShots->where('result', App\Enums\PrsShotResult::Miss)->count();
+            $notTaken = $stageShots->where('result', App\Enums\PrsShotResult::NotTaken)->count();
+
+            App\Models\PrsStageResult::create([
+                'match_id' => $match->id,
+                'shooter_id' => (int) $shooterId,
+                'stage_id' => (int) $stageId,
+                'hits' => $hits,
+                'misses' => $misses,
+                'not_taken' => $notTaken,
+                'completed_at' => $stageShots->first()->recorded_at,
+            ]);
+            $created++;
+        }
+
+        return response()->json(['message' => "Backfilled $created missing PrsStageResult records"]);
+    });
+
     Route::get('matches/{match}/prs-diagnostic', function (App\Models\ShootingMatch $match) {
         $stageResults = App\Models\PrsStageResult::where('match_id', $match->id)->get();
         $shotScores = App\Models\PrsShotScore::where('match_id', $match->id)->count();
