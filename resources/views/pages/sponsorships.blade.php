@@ -1,0 +1,285 @@
+<?php
+
+use App\Models\Setting;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Volt\Component;
+
+new #[Layout('components.layouts.marketing', [
+    'description' => 'Put your brand in front of competitive shooters. Sponsor leaderboards, results, match books, and more on the DeadCenter platform.',
+])]
+    #[Title('Sponsorship Opportunities — DeadCenter')]
+    class extends Component {
+    public function with(): array
+    {
+        return [
+            'overview'        => Setting::get('sponsor_info_overview', ''),
+            'visibility'      => Setting::get('sponsor_info_visibility', ''),
+            'matchbookSection'=> Setting::get('sponsor_info_matchbook_section', ''),
+            'reach'           => Setting::get('sponsor_info_reach', ''),
+            'tiers'           => Setting::get('sponsor_info_tiers', ''),
+            'customPackages'  => Setting::get('sponsor_info_custom_packages', ''),
+            'contact'         => Setting::get('sponsor_info_contact', ''),
+        ];
+    }
+}; ?>
+
+{{-- Hero --}}
+<section class="relative overflow-hidden py-20 lg:py-28" style="border-bottom: 1px solid var(--lp-border);">
+    <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(225,6,0,0.08) 0%, transparent 70%);"></div>
+    <div class="relative mx-auto max-w-4xl px-6 text-center">
+        <span class="inline-block rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">Sponsorship</span>
+        <h1 class="mt-6 text-4xl font-bold tracking-tight lg:text-5xl" style="color: var(--lp-text);">Put Your Brand Where Shooters Look</h1>
+        <p class="mx-auto mt-5 max-w-2xl text-lg leading-relaxed" style="color: var(--lp-text-soft);">
+            DeadCenter powers live scoring, leaderboards, and professional match books for competitive shooting events across South Africa.
+            Sponsorship places your brand directly in front of engaged competitors and spectators.
+        </p>
+        <div class="mt-8">
+            <a href="#contact" class="inline-block rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225,6,0,0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                Get in Touch
+            </a>
+        </div>
+    </div>
+</section>
+
+{{-- What is DeadCenter --}}
+<section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <div class="mx-auto max-w-5xl px-6">
+        <div class="text-center">
+            <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">The Platform</h2>
+            <p class="mx-auto mt-4 max-w-2xl leading-relaxed" style="color: var(--lp-text-soft);">
+                @if(filled($overview))
+                    {{ $overview }}
+                @else
+                    DeadCenter is a competition scoring platform used by match directors, clubs, and federations.
+                    MatchBook Pro generates professional digital match books distributed to every competitor.
+                    Together they create high-visibility surfaces tied to real match engagement.
+                @endif
+            </p>
+        </div>
+        <div class="mt-12 grid gap-6 sm:grid-cols-3">
+            <div class="rounded-2xl p-6 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl" style="background: rgba(225,6,0,0.08);">
+                    <svg class="h-7 w-7" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                </div>
+                <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Live Scoring</h3>
+                <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Real-time scoreboards viewed by competitors, spectators, and online audiences during every match.</p>
+            </div>
+            <div class="rounded-2xl p-6 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-600/10">
+                    <svg class="h-7 w-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" /></svg>
+                </div>
+                <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Leaderboards &amp; Results</h3>
+                <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Season leaderboards and match results shared online, printed, and exported as PDFs after every event.</p>
+            </div>
+            <div class="rounded-2xl p-6 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600/10">
+                    <svg class="h-7 w-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
+                </div>
+                <h3 class="text-lg font-semibold" style="color: var(--lp-text);">MatchBook Pro</h3>
+                <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Professional match books generated for every event &mdash; distributed digitally and in print to all competitors.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- Visibility Surfaces --}}
+<section id="surfaces" class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border);">
+    <div class="mx-auto max-w-5xl px-6">
+        <div class="mb-12 text-center">
+            <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Where Your Brand Appears</h2>
+            <p class="mx-auto mt-3 max-w-xl" style="color: var(--lp-text-soft);">
+                @if(filled($visibility))
+                    {{ $visibility }}
+                @else
+                    Every surface is seen by active, engaged shooters &mdash; not passive pageviews.
+                @endif
+            </p>
+        </div>
+        <div class="grid gap-5 sm:grid-cols-2">
+            <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg" style="background: rgba(225,6,0,0.08);">
+                    <svg class="h-5 w-5" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172" /></svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold" style="color: var(--lp-text);">Leaderboard Branding</h3>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Your logo and name on season and match leaderboards &mdash; the page competitors check most.</p>
+                </div>
+            </div>
+            <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-600/10">
+                    <svg class="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold" style="color: var(--lp-text);">Live Scoreboard &amp; Results</h3>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Brand presence on live scoreboards at the range and the results pages shared post-match.</p>
+                </div>
+            </div>
+            <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600/10">
+                    <svg class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold" style="color: var(--lp-text);">Match Book Cover &amp; Pages</h3>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Your logo on the cover, inside pages, and a dedicated sponsor spread in professionally generated match books.</p>
+                </div>
+            </div>
+            <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-600/10">
+                    <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold" style="color: var(--lp-text);">PDF &amp; Printed Exports</h3>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Branding on exported standings and detailed results &mdash; the documents clubs print and share after matches.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- Match Book Sponsorship --}}
+<section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <div class="mx-auto max-w-5xl px-6">
+        <div class="grid items-center gap-10 lg:grid-cols-2">
+            <div>
+                <span class="inline-block rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider" style="background: rgba(59,130,246,0.1); color: #60a5fa;">Premium Product</span>
+                <h2 class="mt-4 text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Sponsored Match Books</h2>
+                <p class="mt-4 leading-relaxed" style="color: var(--lp-text-soft);">
+                    @if(filled($matchbookSection))
+                        {{ $matchbookSection }}
+                    @else
+                        MatchBook Pro generates professional match books for every event. Each book includes stage details, venue information, safety rules, and a dope card &mdash; distributed digitally and in print to every competitor.
+                    @endif
+                </p>
+                <ul class="mt-6 space-y-3">
+                    <li class="flex items-start gap-3">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <span class="text-sm" style="color: var(--lp-text-soft);">Branded cover page with your logo</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <span class="text-sm" style="color: var(--lp-text-soft);">Dedicated sponsor acknowledgement page</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <span class="text-sm" style="color: var(--lp-text-soft);">Footer branding on every page</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <span class="text-sm" style="color: var(--lp-text-soft);">Every competitor receives a copy &mdash; digital and print</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3 rounded-xl p-4" style="background: rgba(225,6,0,0.05); border: 1px solid rgba(225,6,0,0.15);">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg font-bold" style="background: var(--lp-red); color: white;">1</div>
+                        <div>
+                            <p class="text-sm font-semibold" style="color: var(--lp-text);">Match Director creates the match</p>
+                            <p class="text-xs" style="color: var(--lp-text-muted);">Stages, targets, venue, and schedule</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl p-4" style="background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15);">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg font-bold bg-blue-600 text-white">2</div>
+                        <div>
+                            <p class="text-sm font-semibold" style="color: var(--lp-text);">Sponsor branding is applied</p>
+                            <p class="text-xs" style="color: var(--lp-text-muted);">Cover, inside pages, footer, acknowledgement</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 rounded-xl p-4" style="background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.15);">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg font-bold bg-green-600 text-white">3</div>
+                        <div>
+                            <p class="text-sm font-semibold" style="color: var(--lp-text);">Competitors receive branded match books</p>
+                            <p class="text-xs" style="color: var(--lp-text-muted);">PDF download, print-ready, shared pre-match</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- Tiers --}}
+<section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border);">
+    <div class="mx-auto max-w-5xl px-6">
+        <div class="mb-12 text-center">
+            <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Sponsorship Packages</h2>
+            <p class="mx-auto mt-3 max-w-xl" style="color: var(--lp-text-soft);">Packages are flexible and tailored to your goals. No fixed pricing &mdash; we work with you to find the right fit.</p>
+        </div>
+        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(148,163,184,0.1); color: #94a3b8;">Tier 1</div>
+                <h3 class="text-lg font-bold" style="color: var(--lp-text);">Match Presence</h3>
+                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">Your brand appears at individual events &mdash; on the match scoreboard and in match-specific results.</p>
+            </div>
+            <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(251,191,36,0.1); color: #fbbf24;">Tier 2</div>
+                <h3 class="text-lg font-bold" style="color: var(--lp-text);">Results &amp; Leaderboards</h3>
+                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">Branding on leaderboards, results pages, and exported standings &mdash; the most-viewed surfaces on the platform.</p>
+            </div>
+            <div class="rounded-2xl p-6 ring-1 ring-blue-600/20" style="border: 1px solid rgba(59,130,246,0.3); background: var(--lp-surface);">
+                <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider bg-blue-600/10 text-blue-400">Tier 3</div>
+                <h3 class="text-lg font-bold" style="color: var(--lp-text);">Match Book Sponsor</h3>
+                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">Branded match book + full match visibility. Your logo on the cover of every book distributed to competitors.</p>
+            </div>
+            <div class="rounded-2xl p-6" style="border: 1px solid rgba(225,6,0,0.3); background: var(--lp-surface); box-shadow: 0 0 0 1px rgba(225,6,0,0.15);">
+                <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">Tier 4</div>
+                <h3 class="text-lg font-bold" style="color: var(--lp-text);">Platform Partner</h3>
+                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">Season-level visibility across all matches, leaderboards, match books, and exports. The flagship partnership.</p>
+            </div>
+        </div>
+        <p class="mt-8 text-center text-sm" style="color: var(--lp-text-muted);">
+            Pricing available on request. Packages tailored to event reach and visibility requirements.
+        </p>
+    </div>
+</section>
+
+{{-- Reach / Footprint --}}
+@if(filled($reach))
+<section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <div class="mx-auto max-w-4xl px-6 text-center">
+        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Reach &amp; Footprint</h2>
+        <p class="mx-auto mt-4 max-w-2xl leading-relaxed whitespace-pre-line" style="color: var(--lp-text-soft);">{{ $reach }}</p>
+    </div>
+</section>
+@endif
+
+{{-- Custom packages --}}
+<section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border);">
+    <div class="mx-auto max-w-4xl px-6 text-center">
+        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Custom Packages</h2>
+        <p class="mx-auto mt-4 max-w-2xl leading-relaxed" style="color: var(--lp-text-soft);">
+            @if(filled($customPackages))
+                {{ $customPackages }}
+            @else
+                Every sponsorship can be customised based on event size, number of matches, region, and which surfaces matter most to your brand. We're happy to build a package that works for you.
+            @endif
+        </p>
+        <div class="mx-auto mt-8 flex max-w-lg flex-wrap justify-center gap-3">
+            @foreach(['Event size', 'Number of matches', 'Region coverage', 'Leaderboard presence', 'Results branding', 'Match book branding', 'Export branding'] as $factor)
+                <span class="rounded-full px-4 py-1.5 text-xs font-medium" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);">{{ $factor }}</span>
+            @endforeach
+        </div>
+    </div>
+</section>
+
+{{-- Contact / CTA --}}
+<section id="contact" class="py-20 lg:py-24">
+    <div class="mx-auto max-w-3xl px-6 text-center">
+        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Interested?</h2>
+        <p class="mx-auto mt-4 max-w-xl leading-relaxed" style="color: var(--lp-text-soft);">
+            @if(filled($contact))
+                {{ $contact }}
+            @else
+                Get in touch to discuss sponsorship options. We'll put together a tailored proposal based on your goals and budget.
+            @endif
+        </p>
+        <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <a href="mailto:info@deadcenter.co.za" class="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225,6,0,0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></svg>
+                info@deadcenter.co.za
+            </a>
+        </div>
+        <p class="mt-6 text-xs" style="color: var(--lp-text-muted);">We typically respond within 24 hours.</p>
+    </div>
+</section>
