@@ -174,7 +174,8 @@
                             <div>
                                 <p class="text-2xl font-bold">{{ selectedShooterObj?.name }}</p>
                                 <p class="text-sm text-slate-400">
-                                    {{ selectedStageObj?.display_name || selectedStageObj?.label }}
+                                    {{ matchStore.currentMatch?.name }}
+                                    &bull; {{ selectedStageObj?.display_name || selectedStageObj?.label }}
                                     &bull; {{ selectedSquadObj?.name }}
                                     &bull; {{ prsStore.shots.length }} Shots
                                 </p>
@@ -262,11 +263,11 @@
                         </button>
                         <p v-if="completeError" class="text-center text-sm text-red-400">{{ completeError }}</p>
 
-                        <!-- Timer — bottom, only when stage is timed or tiebreaker -->
-                        <div v-if="stageRequiresTime" class="rounded-xl border border-amber-600/30 bg-slate-900 p-3">
+                        <!-- Timer — always visible, required/optional based on stage type -->
+                        <div class="rounded-xl border bg-slate-900 p-3" :class="stageRequiresTime ? 'border-amber-600/30' : 'border-slate-700'">
                             <div class="flex items-center justify-between mb-2">
                                 <p class="text-xs font-medium text-slate-400">
-                                    Stage Time <span class="text-red-400">(Required)</span>
+                                    Stage Time <span :class="stageRequiresTime ? 'text-red-400' : 'text-slate-500'">({{ stageRequiresTime ? 'Required' : 'Optional' }})</span>
                                 </p>
                                 <div class="flex gap-1">
                                     <button @click="prsStore.timerMode = 'app'" class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="prsStore.timerMode === 'app' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">Timer</button>

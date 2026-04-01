@@ -1,5 +1,8 @@
 <template>
-    <component :is="scoringComponent" :matchId="matchId" />
+    <div v-if="!ready" class="flex min-h-screen items-center justify-center bg-slate-900">
+        <div class="h-10 w-10 animate-spin rounded-full border-4 border-slate-600 border-t-amber-500"></div>
+    </div>
+    <component v-else :is="scoringComponent" :matchId="matchId" />
 </template>
 
 <script setup>
@@ -14,6 +17,7 @@ const props = defineProps({
 });
 
 const matchStore = useMatchStore();
+const ready = ref(false);
 
 const scoringComponent = computed(() => {
     const match = matchStore.currentMatch;
@@ -30,5 +34,6 @@ onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
         await matchStore.fetchMatch(props.matchId);
     }
+    ready.value = true;
 });
 </script>
