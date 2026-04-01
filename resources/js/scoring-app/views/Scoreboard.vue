@@ -83,6 +83,14 @@
                     >
                         Side Bet
                     </button>
+                    <button
+                        v-if="royalFlushEnabled && !isElr && !isPrs"
+                        @click="viewMode = 'royalflush'"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                        :class="viewMode === 'royalflush' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
+                    >
+                        Royal Flush
+                    </button>
                 </div>
 
                 <!-- =================== PRS SUMMARY LEADERBOARD =================== -->
@@ -550,6 +558,58 @@
                     </div>
                 </template>
 
+                <!-- =================== ROYAL FLUSH =================== -->
+                <template v-else-if="viewMode === 'royalflush'">
+                    <div v-if="!royalFlush.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No Royal Flush data yet.</p>
+                    </div>
+                    <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-4 py-3 text-center w-12">#</th>
+                                    <th class="px-4 py-3">Shooter</th>
+                                    <th class="px-4 py-3">Relay</th>
+                                    <th class="px-4 py-3 text-center text-amber-400">Flushes</th>
+                                    <th class="px-4 py-3">Distances</th>
+                                    <th class="px-4 py-3 text-right">Score</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <tr
+                                    v-for="entry in royalFlush"
+                                    :key="'rf-' + entry.shooter_id"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(entry.rank)"
+                                >
+                                    <td class="px-4 py-3 text-center">
+                                        <span
+                                            v-if="entry.rank <= 3"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
+                                            :class="medalClass(entry.rank)"
+                                        >{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-4 py-3 text-muted">{{ entry.squad }}</td>
+                                    <td class="px-4 py-3 text-center text-lg font-bold text-amber-400">{{ entry.flush_count }}</td>
+                                    <td class="px-4 py-3">
+                                        <div v-if="entry.flush_distances?.length" class="flex flex-wrap gap-1">
+                                            <span
+                                                v-for="d in entry.flush_distances"
+                                                :key="d"
+                                                class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400"
+                                            >{{ d }}m</span>
+                                        </div>
+                                        <span v-else class="text-muted">&mdash;</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right tabular-nums font-bold">{{ entry.total_score }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+
                 <p v-if="lastUpdated" class="mt-4 text-center text-xs text-muted">
                     Last updated: {{ lastUpdated }}
                 </p>
@@ -574,6 +634,8 @@ const standings = ref([]);
 const targetSets = ref([]);
 const sideBet = ref([]);
 const sideBetEnabled = ref(false);
+const royalFlush = ref([]);
+const royalFlushEnabled = ref(false);
 const matchName = ref('');
 const matchDate = ref('');
 const isPrs = ref(false);
@@ -640,6 +702,8 @@ async function fetchData() {
             targetSets.value = [];
             sideBet.value = [];
             sideBetEnabled.value = false;
+            royalFlush.value = [];
+            royalFlushEnabled.value = false;
             elrStages.value = [];
         } else {
             scoresHidden.value = false;
@@ -659,6 +723,14 @@ async function fetchData() {
                     sideBetEnabled.value = true;
                     const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
                     sideBet.value = sbRes.data.side_bet ?? [];
+                    if (sbRes.data.match?.royal_flush_enabled) {
+                        royalFlushEnabled.value = true;
+                        royalFlush.value = sbRes.data.royal_flush ?? [];
+                    }
+                } else if (data.match?.royal_flush_enabled) {
+                    royalFlushEnabled.value = true;
+                    const rfRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
+                    royalFlush.value = rfRes.data.royal_flush ?? [];
                 }
             }
         }

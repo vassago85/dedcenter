@@ -171,6 +171,44 @@ new #[Layout('components.layouts.scoreboard')]
             ]);
         }
 
+        $royalFlushEnabled = !$isPrs && (bool) $this->match->royal_flush_enabled;
+        $royalFlushEntries = collect();
+
+        if ($royalFlushEnabled) {
+            $rfTs = $this->match->targetSets()->orderByDesc('distance_meters')->with('gongs')->get();
+            $rfGongIds = $rfTs->flatMap(fn ($ts) => $ts->gongs->pluck('id'))->toArray();
+            $rfAllIds = $shooters->pluck('id')->toArray();
+            $rfHits = \App\Models\Score::whereIn('gong_id', $rfGongIds)->whereIn('shooter_id', $rfAllIds)->where('is_hit', true)->select('shooter_id', 'gong_id')->get();
+            $gongToTs = [];
+            foreach ($rfTs as $ts) { foreach ($ts->gongs as $g) { $gongToTs[$g->id] = $ts->id; } }
+            $hitCtByShTs = [];
+            foreach ($rfHits as $h) {
+                $tid = $gongToTs[$h->gong_id] ?? null;
+                if ($tid !== null) $hitCtByShTs[$h->shooter_id][$tid] = ($hitCtByShTs[$h->shooter_id][$tid] ?? 0) + 1;
+            }
+            $rfProfiles = [];
+            foreach ($shooters as $s) {
+                $fd = [];
+                foreach ($rfTs as $ts) {
+                    if ($ts->gongs->count() > 0 && ($hitCtByShTs[$s->id][$ts->id] ?? 0) >= $ts->gongs->count()) {
+                        $fd[] = (int) $ts->distance_meters;
+                    }
+                }
+                $rfProfiles[] = ['shooter' => $s, 'flush_count' => count($fd), 'flush_distances' => $fd];
+            }
+            usort($rfProfiles, function ($a, $b) {
+                if ($a['flush_count'] !== $b['flush_count']) return $b['flush_count'] <=> $a['flush_count'];
+                $am = !empty($a['flush_distances']) ? max($a['flush_distances']) : 0;
+                $bm = !empty($b['flush_distances']) ? max($b['flush_distances']) : 0;
+                if ($am !== $bm) return $bm <=> $am;
+                return $b['shooter']->total_score <=> $a['shooter']->total_score;
+            });
+            $royalFlushEntries = collect($rfProfiles)->map(fn ($p, $i) => (object) [
+                'rank' => $i + 1, 'name' => $p['shooter']->name, 'squad_name' => $p['shooter']->squad?->name ?? '—',
+                'flush_count' => $p['flush_count'], 'flush_distances' => $p['flush_distances'], 'total_score' => $p['shooter']->total_score,
+            ]);
+        }
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
@@ -178,6 +216,8 @@ new #[Layout('components.layouts.scoreboard')]
             'categories' => $categories,
             'sideBetEnabled' => $sideBetEnabled,
             'sideBetEntries' => $sideBetEntries,
+            'royalFlushEnabled' => $royalFlushEnabled,
+            'royalFlushEntries' => $royalFlushEntries,
         ];
     }
 }; ?>
@@ -238,16 +278,24 @@ new #[Layout('components.layouts.scoreboard')]
         @endif
     </div>
 
-    @if($sideBetEnabled)
+    @if($sideBetEnabled || $royalFlushEnabled)
         <div class="px-3 pt-2 flex gap-1.5">
             <button wire:click="setTab('main')"
                     class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted' }}">
                 Scoreboard
             </button>
-            <button wire:click="setTab('sidebet')"
-                    class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'sidebet' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted' }}">
-                Side Bet
-            </button>
+            @if($sideBetEnabled)
+                <button wire:click="setTab('sidebet')"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'sidebet' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted' }}">
+                    Side Bet
+                </button>
+            @endif
+            @if($royalFlushEnabled)
+                <button wire:click="setTab('royalflush')"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors {{ $activeTab === 'royalflush' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted' }}">
+                    Royal Flush
+                </button>
+            @endif
         </div>
     @endif
 
@@ -288,6 +336,48 @@ new #[Layout('components.layouts.scoreboard')]
             @empty
                 <div class="rounded-lg border border-border bg-app px-6 py-12 text-center">
                     <p class="text-muted">No side bet scores yet.</p>
+                </div>
+            @endforelse
+        </div>
+    @elseif($royalFlushEnabled && $activeTab === 'royalflush')
+        <div class="px-3 py-3 space-y-1.5">
+            @forelse($royalFlushEntries as $entry)
+                @php
+                    $borderColor = match($entry->rank) { 1 => 'border-l-amber-400', 2 => 'border-l-slate-400', 3 => 'border-l-orange-600', default => 'border-l-transparent' };
+                    $rankBg = match($entry->rank) { 1 => 'bg-amber-500 text-black', 2 => 'bg-slate-400 text-black', 3 => 'bg-orange-600 text-primary', default => '' };
+                @endphp
+                <div class="flex items-center gap-3 rounded-lg border-l-4 {{ $borderColor }} bg-app px-3 py-2.5">
+                    @if($entry->rank <= 3)
+                        <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold {{ $rankBg }}">{{ $entry->rank }}</span>
+                    @else
+                        <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted font-medium">{{ $entry->rank }}</span>
+                    @endif
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-primary truncate">{{ $entry->name }}</p>
+                        <span class="text-[10px] text-muted">{{ $entry->squad_name }}</span>
+                    </div>
+                    <div class="flex items-center gap-2.5 flex-shrink-0">
+                        <div class="text-center">
+                            <p class="text-base font-bold text-amber-400">{{ $entry->flush_count }}</p>
+                            <p class="text-[9px] text-muted/60">flushes</p>
+                        </div>
+                        <div class="text-center min-w-[3rem]">
+                            @if(!empty($entry->flush_distances))
+                                <div class="flex flex-wrap gap-0.5 justify-center">
+                                    @foreach($entry->flush_distances as $d)
+                                        <span class="rounded-full bg-amber-600/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">{{ $d }}m</span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="text-[10px] text-muted">—</p>
+                            @endif
+                        </div>
+                        <span class="text-base font-bold tabular-nums">{{ $entry->total_score }}</span>
+                    </div>
+                </div>
+            @empty
+                <div class="rounded-lg border border-border bg-app px-6 py-12 text-center">
+                    <p class="text-muted">No Royal Flush data yet.</p>
                 </div>
             @endforelse
         </div>

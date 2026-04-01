@@ -304,6 +304,11 @@ class ScoreboardController extends Controller
             $response['side_bet'] = $this->sideBetLeaderboard($match, $catShooterIds, $divisionFilter);
         }
 
+        if ($match->royal_flush_enabled) {
+            $response['match']['royal_flush_enabled'] = true;
+            $response['royal_flush'] = $this->royalFlushLeaderboard($match, $catShooterIds, $divisionFilter);
+        }
+
         return response()->json($response);
     }
 
@@ -436,6 +441,122 @@ class ScoreboardController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Royal Flush: a shooter who hits ALL gongs at a given distance earns a flush for that distance.
+     * Ranked by flush count (desc), then furthest flushed distance, then total match score.
+     */
+    private function royalFlushLeaderboard(ShootingMatch $match, ?array $catShooterIds, ?string $divisionFilter): array
+    {
+        $targetSets = $match->targetSets()
+            ->orderByDesc('distance_meters')
+            ->with(['gongs'])
+            ->get();
+
+        if ($targetSets->isEmpty()) {
+            return [];
+        }
+
+        $gongCountByTs = [];
+        $gongIdsByTs = [];
+        foreach ($targetSets as $ts) {
+            $gongCountByTs[$ts->id] = $ts->gongs->count();
+            $gongIdsByTs[$ts->id] = $ts->gongs->pluck('id')->toArray();
+        }
+
+        $allGongIds = $targetSets->flatMap(fn ($ts) => $ts->gongs->pluck('id'))->toArray();
+        if (empty($allGongIds)) {
+            return [];
+        }
+
+        $shooterQuery = DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.id', 'shooters.name', 'squads.name as squad');
+
+        if ($divisionFilter) {
+            $shooterQuery->where('shooters.match_division_id', $divisionFilter);
+        }
+        if ($catShooterIds !== null) {
+            $shooterQuery->whereIn('shooters.id', $catShooterIds);
+        }
+
+        $shooters = $shooterQuery->get();
+        $shooterIds = $shooters->pluck('id')->toArray();
+
+        if (empty($shooterIds)) {
+            return [];
+        }
+
+        $hits = DB::table('scores')
+            ->whereIn('scores.gong_id', $allGongIds)
+            ->whereIn('scores.shooter_id', $shooterIds)
+            ->where('scores.is_hit', true)
+            ->select('scores.shooter_id', 'scores.gong_id')
+            ->get();
+
+        $gongToTs = [];
+        foreach ($targetSets as $ts) {
+            foreach ($ts->gongs as $g) {
+                $gongToTs[$g->id] = $ts->id;
+            }
+        }
+
+        $hitCountByShooterTs = [];
+        foreach ($hits as $hit) {
+            $tsId = $gongToTs[$hit->gong_id] ?? null;
+            if ($tsId === null) continue;
+            $hitCountByShooterTs[$hit->shooter_id][$tsId] =
+                ($hitCountByShooterTs[$hit->shooter_id][$tsId] ?? 0) + 1;
+        }
+
+        $tsDistances = $targetSets->pluck('distance_meters', 'id')->toArray();
+
+        $totalScores = DB::table('scores')
+            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
+            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->whereIn('scores.shooter_id', $shooterIds)
+            ->where('scores.is_hit', true)
+            ->groupBy('scores.shooter_id')
+            ->select('scores.shooter_id')
+            ->selectRaw('COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total_score')
+            ->pluck('total_score', 'scores.shooter_id')
+            ->toArray();
+
+        $profiles = [];
+        foreach ($shooters as $s) {
+            $flushDistances = [];
+            foreach ($targetSets as $ts) {
+                $hitsAtTs = $hitCountByShooterTs[$s->id][$ts->id] ?? 0;
+                if ($gongCountByTs[$ts->id] > 0 && $hitsAtTs >= $gongCountByTs[$ts->id]) {
+                    $flushDistances[] = (int) $ts->distance_meters;
+                }
+            }
+
+            $profiles[] = [
+                'shooter_id' => $s->id,
+                'name' => $s->name,
+                'squad' => $s->squad,
+                'flush_count' => count($flushDistances),
+                'flush_distances' => $flushDistances,
+                'total_score' => round((float) ($totalScores[$s->id] ?? 0), 2),
+            ];
+        }
+
+        usort($profiles, function ($a, $b) {
+            if ($a['flush_count'] !== $b['flush_count']) {
+                return $b['flush_count'] <=> $a['flush_count'];
+            }
+            $aMax = !empty($a['flush_distances']) ? max($a['flush_distances']) : 0;
+            $bMax = !empty($b['flush_distances']) ? max($b['flush_distances']) : 0;
+            if ($aMax !== $bMax) {
+                return $bMax <=> $aMax;
+            }
+            return $b['total_score'] <=> $a['total_score'];
+        });
+
+        return array_map(fn ($p, $i) => array_merge($p, ['rank' => $i + 1]), $profiles, array_keys($profiles));
     }
 
     private function prsScoreboard(ShootingMatch $match, Request $request)

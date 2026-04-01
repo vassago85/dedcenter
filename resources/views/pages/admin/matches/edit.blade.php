@@ -26,6 +26,7 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $side_bet_enabled = false;
+    public bool $royal_flush_enabled = false;
     public bool $scores_published = true;
     public int $concurrent_relays = 2;
     public ?int $season_id = null;
@@ -76,6 +77,7 @@ new #[Layout('components.layouts.app')]
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
+            $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->season_id = $match->season_id;
@@ -95,6 +97,7 @@ new #[Layout('components.layouts.app')]
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['side_bet_enabled'] = $this->scoring_type === 'standard' && $this->side_bet_enabled;
+        $validated['royal_flush_enabled'] = $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['season_id'] = $this->season_id;
@@ -830,6 +833,14 @@ new #[Layout('components.layouts.app')]
                         <div>
                             <span class="text-sm font-medium text-primary">Enable Side Bet</span>
                             <p class="text-xs text-muted">Rank by smallest gong hits with furthest-distance tiebreaker. Winner is whoever hits the most small gongs.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" wire:model="royal_flush_enabled"
+                               class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-5 w-5" />
+                        <div>
+                            <span class="text-sm font-medium text-primary">Enable Royal Flush</span>
+                            <p class="text-xs text-muted">Track when a shooter hits all targets at a distance. Awarded per distance for prize giving.</p>
                         </div>
                     </label>
                     <div class="border-t border-border pt-4">
