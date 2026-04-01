@@ -75,6 +75,11 @@ class Shooter extends Model
         return $this->belongsToMany(MatchCategory::class, 'match_category_shooter');
     }
 
+    public function sideBetMatches(): BelongsToMany
+    {
+        return $this->belongsToMany(ShootingMatch::class, 'side_bet_shooters', 'shooter_id', 'match_id');
+    }
+
     // ── Computed Attributes ──
 
     public function getTotalScoreAttribute(): float

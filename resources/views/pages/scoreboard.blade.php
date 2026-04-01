@@ -117,77 +117,6 @@ new #[Layout('components.layouts.scoreboard')]
             $shooters = $shooters->sortByDesc('total_score')->values();
         }
 
-        $sideBetEnabled = !$isPrs && $this->match->side_bet_enabled;
-        $sideBetEntries = collect();
-
-        if ($sideBetEnabled) {
-            $targetSets = $this->match->targetSets()
-                ->orderByDesc('distance_meters')
-                ->with(['gongs' => fn ($q) => $q->orderByDesc('multiplier')])
-                ->get();
-
-            $gongRankMap = [];
-            $maxRanks = 0;
-            foreach ($targetSets as $ts) {
-                $rank = 0;
-                foreach ($ts->gongs as $gong) {
-                    $gongRankMap[$gong->id] = ['rank' => $rank, 'distance' => $ts->distance_meters];
-                    $rank++;
-                }
-                $maxRanks = max($maxRanks, $rank);
-            }
-
-            $gongIds = array_keys($gongRankMap);
-            $allShooterIds = $shooters->pluck('id')->toArray();
-
-            $hits = \App\Models\Score::whereIn('gong_id', $gongIds)
-                ->whereIn('shooter_id', $allShooterIds)
-                ->where('is_hit', true)
-                ->select('shooter_id', 'gong_id')
-                ->get();
-
-            $profiles = [];
-            foreach ($shooters as $s) {
-                $profiles[$s->id] = ['shooter' => $s, 'ranks' => []];
-                for ($r = 0; $r < $maxRanks; $r++) {
-                    $profiles[$s->id]['ranks'][$r] = ['count' => 0, 'distances' => []];
-                }
-            }
-
-            foreach ($hits as $hit) {
-                if (!isset($gongRankMap[$hit->gong_id], $profiles[$hit->shooter_id])) continue;
-                $info = $gongRankMap[$hit->gong_id];
-                $profiles[$hit->shooter_id]['ranks'][$info['rank']]['count']++;
-                $profiles[$hit->shooter_id]['ranks'][$info['rank']]['distances'][] = $info['distance'];
-            }
-
-            foreach ($profiles as &$p) {
-                for ($r = 0; $r < $maxRanks; $r++) rsort($p['ranks'][$r]['distances']);
-            }
-            unset($p);
-
-            $profileList = array_values($profiles);
-            usort($profileList, function ($a, $b) use ($maxRanks) {
-                for ($r = 0; $r < $maxRanks; $r++) {
-                    if ($a['ranks'][$r]['count'] !== $b['ranks'][$r]['count']) return $b['ranks'][$r]['count'] <=> $a['ranks'][$r]['count'];
-                    $ad = $a['ranks'][$r]['distances']; $bd = $b['ranks'][$r]['distances'];
-                    for ($i = 0; $i < max(count($ad), count($bd)); $i++) {
-                        $av = $ad[$i] ?? 0; $bv = $bd[$i] ?? 0;
-                        if ($av !== $bv) return $bv <=> $av;
-                    }
-                }
-                return 0;
-            });
-
-            $sideBetEntries = collect($profileList)->map(fn ($p, $i) => (object) [
-                'rank' => $i + 1,
-                'name' => $p['shooter']->name,
-                'squad_name' => $p['shooter']->squad?->name ?? '—',
-                'small_gong_hits' => $p['ranks'][0]['count'] ?? 0,
-                'distances' => $p['ranks'][0]['distances'] ?? [],
-            ]);
-        }
-
         $royalFlushEnabled = !$isPrs && (bool) $this->match->royal_flush_enabled;
         $royalFlushEntries = collect();
 
@@ -261,8 +190,6 @@ new #[Layout('components.layouts.scoreboard')]
             'isPrs' => $isPrs,
             'divisions' => $divisions,
             'categories' => $categories,
-            'sideBetEnabled' => $sideBetEnabled,
-            'sideBetEntries' => $sideBetEntries,
             'royalFlushEnabled' => $royalFlushEnabled,
             'royalFlushEntries' => $royalFlushEntries,
         ];
@@ -332,18 +259,12 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
-    @if($sideBetEnabled || $royalFlushEnabled)
+    @if($royalFlushEnabled)
         <div class="mb-4 flex gap-2">
             <button wire:click="setTab('main')"
                     class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                 Main Scoreboard
             </button>
-            @if($sideBetEnabled)
-                <button wire:click="setTab('sidebet')"
-                        class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'sidebet' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
-                    Side Bet
-                </button>
-            @endif
             @if($royalFlushEnabled)
                 <button wire:click="setTab('royalflush')"
                         class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'royalflush' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
@@ -353,56 +274,7 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
-    @if($sideBetEnabled && $activeTab === 'sidebet')
-        <div class="overflow-hidden rounded-2xl border border-amber-700/50 bg-app">
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="border-b border-border bg-surface/80">
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">#</th>
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Shooter</th>
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Squad</th>
-                        <th class="px-6 py-4 text-center text-lg font-bold text-amber-400 lg:text-xl">Small Gong Hits</th>
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Distances</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                    @forelse($sideBetEntries as $entry)
-                        @php
-                            $rowClass = match($entry->rank) {
-                                1 => 'bg-amber-500/10 border-l-4 border-l-amber-400',
-                                2 => 'bg-slate-400/5 border-l-4 border-l-slate-400',
-                                3 => 'bg-orange-500/5 border-l-4 border-l-orange-600',
-                                default => 'border-l-4 border-l-transparent',
-                            };
-                            $rankClass = match($entry->rank) {
-                                1 => 'text-amber-400 font-black',
-                                2 => 'text-secondary font-bold',
-                                3 => 'text-orange-500 font-bold',
-                                default => 'text-muted font-medium',
-                            };
-                        @endphp
-                        <tr class="{{ $rowClass }} transition-colors">
-                            <td class="px-6 py-4 text-2xl {{ $rankClass }} lg:text-3xl">{{ $entry->rank }}</td>
-                            <td class="px-6 py-4 text-xl font-semibold text-primary lg:text-2xl">{{ $entry->name }}</td>
-                            <td class="px-6 py-4 text-lg text-muted lg:text-xl">{{ $entry->squad_name }}</td>
-                            <td class="px-6 py-4 text-center text-2xl font-black text-amber-400 lg:text-3xl">{{ $entry->small_gong_hits }}</td>
-                            <td class="px-6 py-4 text-lg text-secondary lg:text-xl">
-                                @if(!empty($entry->distances))
-                                    {{ implode('m, ', $entry->distances) }}m
-                                @else
-                                    —
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="px-6 py-16 text-center text-2xl text-muted">No side bet scores yet</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    @elseif($royalFlushEnabled && $activeTab === 'royalflush')
+    @if($royalFlushEnabled && $activeTab === 'royalflush')
         <div class="overflow-hidden rounded-2xl border border-amber-700/50 bg-app">
             <table class="w-full text-left">
                 <thead>
@@ -538,7 +410,6 @@ new #[Layout('components.layouts.scoreboard')]
         <span>
             Auto-refreshes every 15 seconds
             @if($isPrs) &bull; Ranked by total hits, then tiebreaker stage hits, then tiebreaker stage time @endif
-            @if($sideBetEnabled && $activeTab === 'sidebet') &bull; Ranked by smallest gong hits, furthest distance tiebreaker @endif
         </span>
         <span>&copy; {{ date('Y') }} DeadCenter</span>
     </div>

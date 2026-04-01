@@ -6,6 +6,7 @@ use App\Enums\MatchStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -75,6 +76,11 @@ class ShootingMatch extends Model
     public function squads(): HasMany
     {
         return $this->hasMany(Squad::class, 'match_id');
+    }
+
+    public function sideBetShooters(): BelongsToMany
+    {
+        return $this->belongsToMany(Shooter::class, 'side_bet_shooters', 'match_id', 'shooter_id');
     }
 
     public function shooters(): HasManyThrough

@@ -26,7 +26,6 @@ new #[Layout('components.layouts.app')]
     public string $notes = '';
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
-    public bool $side_bet_enabled = false;
     public bool $scores_published = true;
     public int $concurrent_relays = 2;
 
@@ -81,7 +80,6 @@ new #[Layout('components.layouts.app')]
             $this->notes = $match->notes ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
-            $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
         } else {
@@ -101,7 +99,6 @@ new #[Layout('components.layouts.app')]
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
-        $validated['side_bet_enabled'] = $this->scoring_type === 'standard' && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
 
@@ -748,24 +745,14 @@ new #[Layout('components.layouts.app')]
                 </div>
             </div>
             @if($scoring_type === 'standard')
-                <div class="rounded-lg border border-border bg-surface-2/30 p-4 space-y-4">
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" wire:model="side_bet_enabled"
-                               class="rounded border-border bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
-                        <div>
-                            <span class="text-sm font-medium text-primary">Enable Side Bet</span>
-                            <p class="text-xs text-muted">Rank by smallest gong hits with furthest-distance tiebreaker. Winner is whoever hits the most small gongs.</p>
+                <div class="rounded-lg border border-border bg-surface-2/30 p-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-32">
+                            <label class="block text-sm font-medium text-secondary mb-1">Concurrent Relays</label>
+                            <input type="number" wire:model="concurrent_relays" min="1" max="10"
+                                   class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500" />
                         </div>
-                    </label>
-                    <div class="border-t border-border pt-4">
-                        <div class="flex items-center gap-4">
-                            <div class="w-32">
-                                <label class="block text-sm font-medium text-secondary mb-1">Concurrent Relays</label>
-                                <input type="number" wire:model="concurrent_relays" min="1" max="10"
-                                       class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                            </div>
-                            <p class="text-xs text-muted flex-1">How many relays shoot at the same time. Shared-rifle partners will be placed in different concurrent groups.</p>
-                        </div>
+                        <p class="text-xs text-muted flex-1">How many relays shoot at the same time. Shared-rifle partners will be placed in different concurrent groups.</p>
                     </div>
                 </div>
             @endif

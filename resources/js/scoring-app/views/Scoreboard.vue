@@ -76,7 +76,7 @@
                         Detailed Breakdown
                     </button>
                     <button
-                        v-if="sideBetEnabled && !isElr"
+                        v-if="sideBetEnabled && isMd && !isElr"
                         @click="viewMode = 'sidebet'"
                         class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
                         :class="viewMode === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
@@ -634,6 +634,7 @@ const standings = ref([]);
 const targetSets = ref([]);
 const sideBet = ref([]);
 const sideBetEnabled = ref(false);
+const isMd = ref(false);
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
 const matchName = ref('');
@@ -702,6 +703,7 @@ async function fetchData() {
             targetSets.value = [];
             sideBet.value = [];
             sideBetEnabled.value = false;
+            isMd.value = false;
             royalFlush.value = [];
             royalFlushEnabled.value = false;
             elrStages.value = [];
@@ -719,18 +721,16 @@ async function fetchData() {
                 targetSets.value = data.target_sets ?? [];
                 standings.value = data.standings ?? [];
 
-                if (data.match?.side_bet_enabled) {
+                const mainRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
+                isMd.value = !!mainRes.data.match?.is_md;
+
+                if (mainRes.data.match?.side_bet_enabled && mainRes.data.side_bet) {
                     sideBetEnabled.value = true;
-                    const sbRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
-                    sideBet.value = sbRes.data.side_bet ?? [];
-                    if (sbRes.data.match?.royal_flush_enabled) {
-                        royalFlushEnabled.value = true;
-                        royalFlush.value = sbRes.data.royal_flush ?? [];
-                    }
-                } else if (data.match?.royal_flush_enabled) {
+                    sideBet.value = mainRes.data.side_bet ?? [];
+                }
+                if (mainRes.data.match?.royal_flush_enabled && mainRes.data.royal_flush) {
                     royalFlushEnabled.value = true;
-                    const rfRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
-                    royalFlush.value = rfRes.data.royal_flush ?? [];
+                    royalFlush.value = mainRes.data.royal_flush ?? [];
                 }
             }
         }

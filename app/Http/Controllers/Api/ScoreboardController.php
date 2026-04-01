@@ -299,9 +299,18 @@ class ScoreboardController extends Controller
             'leaderboard' => $leaderboard,
         ];
 
+        $user = $request->user();
+        $isMd = $user && ($user->isOwner()
+            || $match->created_by === $user->id
+            || ($match->organization && $user->isOrgRangeOfficer($match->organization)));
+
+        $response['match']['is_md'] = $isMd;
+
         if ($match->side_bet_enabled) {
             $response['match']['side_bet_enabled'] = true;
-            $response['side_bet'] = $this->sideBetLeaderboard($match, $catShooterIds, $divisionFilter);
+            if ($isMd) {
+                $response['side_bet'] = $this->sideBetLeaderboard($match, $catShooterIds, $divisionFilter);
+            }
         }
 
         if ($match->royal_flush_enabled) {
@@ -350,10 +359,21 @@ class ScoreboardController extends Controller
             return [];
         }
 
+        $sideBetIds = DB::table('side_bet_shooters')
+            ->where('match_id', $match->id)
+            ->pluck('shooter_id')
+            ->toArray();
+
         $shooterQuery = DB::table('shooters')
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->where('squads.match_id', $match->id)
             ->select('shooters.id', 'shooters.name', 'squads.name as squad');
+
+        if (!empty($sideBetIds)) {
+            $shooterQuery->whereIn('shooters.id', $sideBetIds);
+        } else {
+            return [];
+        }
 
         if ($divisionFilter) {
             $shooterQuery->where('shooters.match_division_id', $divisionFilter);
@@ -376,12 +396,24 @@ class ScoreboardController extends Controller
             ->select('scores.shooter_id', 'scores.gong_id')
             ->get();
 
+        $totalScores = DB::table('scores')
+            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
+            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->whereIn('scores.shooter_id', $shooterIds)
+            ->where('scores.is_hit', true)
+            ->groupBy('scores.shooter_id')
+            ->select('scores.shooter_id')
+            ->selectRaw('COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total_score')
+            ->pluck('total_score', 'scores.shooter_id')
+            ->toArray();
+
         $profiles = [];
         foreach ($shooters as $s) {
             $profiles[$s->id] = [
                 'shooter_id' => $s->id,
                 'name' => $s->name,
                 'squad' => $s->squad,
+                'total_score' => round((float) ($totalScores[$s->id] ?? 0), 2),
                 'ranks' => [],
             ];
             for ($r = 0; $r < $maxRanks; $r++) {
@@ -424,20 +456,20 @@ class ScoreboardController extends Controller
                     if ($ad !== $bd) return $bd <=> $ad;
                 }
             }
-            return 0;
+            return $b['total_score'] <=> $a['total_score'];
         });
 
         $result = [];
         foreach ($profiles as $index => $p) {
-            $entry = [
+            $result[] = [
                 'rank' => $index + 1,
                 'shooter_id' => $p['shooter_id'],
                 'name' => $p['name'],
                 'squad' => $p['squad'],
                 'small_gong_hits' => $p['ranks'][0]['count'] ?? 0,
                 'distances_hit' => $p['ranks'][0]['distances'] ?? [],
+                'total_score' => $p['total_score'],
             ];
-            $result[] = $entry;
         }
 
         return $result;

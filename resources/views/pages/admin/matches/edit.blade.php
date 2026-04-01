@@ -27,6 +27,7 @@ new #[Layout('components.layouts.app')]
     public string $scoring_type = 'standard';
     public bool $side_bet_enabled = false;
     public bool $royal_flush_enabled = false;
+    public array $sideBetShooterIds = [];
     public bool $scores_published = true;
     public int $concurrent_relays = 2;
     public ?int $season_id = null;
@@ -78,6 +79,7 @@ new #[Layout('components.layouts.app')]
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
+            $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->season_id = $match->season_id;
@@ -96,8 +98,8 @@ new #[Layout('components.layouts.app')]
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
-        $validated['side_bet_enabled'] = $this->scoring_type === 'standard' && $this->side_bet_enabled;
         $validated['royal_flush_enabled'] = $this->scoring_type === 'standard' && $this->royal_flush_enabled;
+        $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['season_id'] = $this->season_id;
@@ -113,6 +115,12 @@ new #[Layout('components.layouts.app')]
             ]);
             Flux::toast('Match created.', variant: 'success');
             $this->redirect(route('admin.matches.edit', $this->match), navigate: true);
+        }
+
+        if ($validated['side_bet_enabled'] && !empty($this->sideBetShooterIds)) {
+            $this->match->sideBetShooters()->sync($this->sideBetShooterIds);
+        } elseif (!$validated['side_bet_enabled']) {
+            $this->match->sideBetShooters()->detach();
         }
     }
 
@@ -828,21 +836,53 @@ new #[Layout('components.layouts.app')]
             @if($scoring_type === 'standard')
                 <div class="rounded-lg border border-border bg-surface-2/30 p-4 space-y-4">
                     <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" wire:model="side_bet_enabled"
-                               class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
-                        <div>
-                            <span class="text-sm font-medium text-primary">Enable Side Bet</span>
-                            <p class="text-xs text-muted">Rank by smallest gong hits with furthest-distance tiebreaker. Winner is whoever hits the most small gongs.</p>
-                        </div>
-                    </label>
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" wire:model="royal_flush_enabled"
+                        <input type="checkbox" wire:model.live="royal_flush_enabled"
                                class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-5 w-5" />
                         <div>
                             <span class="text-sm font-medium text-primary">Enable Royal Flush</span>
                             <p class="text-xs text-muted">Track when a shooter hits all targets at a distance. Awarded per distance for prize giving.</p>
                         </div>
                     </label>
+
+                    @if($royal_flush_enabled)
+                        <div class="ml-8 space-y-3 border-l-2 border-amber-600/30 pl-4">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="checkbox" wire:model.live="side_bet_enabled"
+                                       class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
+                                <div>
+                                    <span class="text-sm font-medium text-primary">Enable Side Bet</span>
+                                    <p class="text-xs text-muted">Rank opted-in shooters by smallest gong hits. Only available on Royal Flush matches.</p>
+                                </div>
+                            </label>
+
+                            @if($side_bet_enabled && $match)
+                                @php
+                                    $allShooters = $match->shooters()
+                                        ->with('squad')
+                                        ->orderBy('name')
+                                        ->get();
+                                @endphp
+                                @if($allShooters->isNotEmpty())
+                                    <div class="rounded-md border border-border bg-surface-2/50 p-3">
+                                        <p class="text-xs font-medium text-secondary mb-2">Side Bet Participants ({{ count($sideBetShooterIds) }} selected)</p>
+                                        <div class="max-h-48 overflow-y-auto space-y-1">
+                                            @foreach($allShooters as $sh)
+                                                <label class="flex items-center gap-2 cursor-pointer py-0.5">
+                                                    <input type="checkbox" value="{{ $sh->id }}" wire:model="sideBetShooterIds"
+                                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-4 w-4" />
+                                                    <span class="text-sm text-primary">{{ $sh->name }}</span>
+                                                    <span class="text-[10px] text-muted">({{ $sh->squad?->name ?? '—' }})</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @else
+                                    <p class="text-xs text-muted italic">Add squads and shooters first, then select side bet participants.</p>
+                                @endif
+                            @endif
+                        </div>
+                    @endif
+
                     <div class="border-t border-border pt-4">
                         <div class="flex items-center gap-4">
                             <div class="w-32">
@@ -938,6 +978,9 @@ new #[Layout('components.layouts.app')]
                 @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed]))
                     <flux:button href="{{ route('admin.matches.export.standings', $match) }}" variant="ghost">Download Standings</flux:button>
                     <flux:button href="{{ route('admin.matches.export.detailed', $match) }}" variant="ghost">Download Full Results</flux:button>
+                    @if($match->side_bet_enabled && $match->royal_flush_enabled)
+                        <flux:button href="{{ route('admin.matches.side-bet-report', $match) }}" variant="ghost" class="!text-amber-400">Side Bet Report</flux:button>
+                    @endif
                     <flux:button wire:click="toggleScoresPublished" variant="{{ $scores_published ? 'ghost' : 'primary' }}" class="{{ $scores_published ? '' : '!bg-amber-600 hover:!bg-amber-700' }}">
                         {{ $scores_published ? 'Hide Scores' : 'Publish Scores' }}
                     </flux:button>
