@@ -10,6 +10,7 @@ use App\Models\ShootingMatch;
 use App\Models\TargetSet;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class PrsScoreController extends Controller
@@ -18,32 +19,43 @@ class PrsScoreController extends Controller
     {
         $user = $request->user();
 
+        Log::info('PRS score submission', [
+            'match_id' => $match->id,
+            'stage_id' => $stage->id,
+            'user_id' => $user->id,
+            'shooter_id' => $request->input('shooter_id'),
+            'has_time' => $request->has('raw_time_seconds'),
+            'shot_count' => is_array($request->input('shots')) ? count($request->input('shots')) : 0,
+        ]);
+
         $canScore = $user->isOwner()
             || $match->created_by === $user->id
             || ($match->organization && $user->isOrgRangeOfficer($match->organization));
 
         if (! $canScore) {
+            Log::warning('PRS score rejected: not authorized', ['user_id' => $user->id, 'match_id' => $match->id]);
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
         }
 
         if (! $match->isPrs()) {
+            Log::warning('PRS score rejected: not a PRS match', ['match_id' => $match->id, 'scoring_type' => $match->scoring_type]);
             return response()->json(['message' => 'This match is not a PRS match.'], 422);
         }
 
         if ($stage->match_id !== $match->id) {
+            Log::warning('PRS score rejected: stage mismatch', ['stage_match_id' => $stage->match_id, 'match_id' => $match->id]);
             return response()->json(['message' => 'Stage does not belong to this match.'], 422);
         }
 
         $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
         $validSquadIds = $match->squads()->pluck('id')->toArray();
 
-        $timeRequired = $stage->is_timed_stage || $stage->is_tiebreaker;
         $maxShots = max($stage->total_shots ?? 0, $stage->gongs()->count(), 1);
 
         $validated = $request->validate([
             'shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
             'squad_id' => ['required', 'integer', Rule::in($validSquadIds)],
-            'raw_time_seconds' => [$timeRequired ? 'required' : 'nullable', 'numeric', 'min:0'],
+            'raw_time_seconds' => ['nullable', 'numeric', 'min:0'],
             'shots' => ['required', 'array', 'min:1', "max:{$maxShots}"],
             'shots.*.shot_number' => ['required', 'integer', 'min:1'],
             'shots.*.result' => ['required', 'string', Rule::in(['hit', 'miss', 'not_taken'])],
@@ -127,6 +139,15 @@ class PrsScoreController extends Controller
         } else {
             ScoreAuditService::logCreated($match->id, $stageResult, $request);
         }
+
+        Log::info('PRS score saved', [
+            'match_id' => $match->id,
+            'stage_id' => $stage->id,
+            'shooter_id' => $stageResult->shooter_id,
+            'hits' => $hits,
+            'misses' => $misses,
+            'time' => $stageResult->raw_time_seconds,
+        ]);
 
         return response()->json([
             'message' => 'Stage score saved.',

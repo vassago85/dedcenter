@@ -41,6 +41,37 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('matches/{match}/scores/sync', [\App\Http\Controllers\Api\SyncController::class, 'scores']);
 
+    Route::get('matches/{match}/prs-diagnostic', function (App\Models\ShootingMatch $match) {
+        $stageResults = App\Models\PrsStageResult::where('match_id', $match->id)->get();
+        $shotScores = App\Models\PrsShotScore::where('match_id', $match->id)->count();
+        $stages = $match->targetSets()->get(['id', 'label', 'is_timed_stage', 'total_shots']);
+        $gongCounts = $stages->mapWithKeys(fn ($s) => [$s->id => $s->gongs()->count()]);
+
+        return response()->json([
+            'match_id' => $match->id,
+            'scoring_type' => $match->scoring_type,
+            'is_prs' => $match->isPrs(),
+            'stages' => $stages->map(fn ($s) => [
+                'id' => $s->id,
+                'label' => $s->label,
+                'is_timed' => $s->is_timed_stage,
+                'total_shots' => $s->total_shots,
+                'gong_count' => $gongCounts[$s->id] ?? 0,
+            ]),
+            'prs_stage_results' => $stageResults->map(fn ($r) => [
+                'shooter_id' => $r->shooter_id,
+                'stage_id' => $r->stage_id,
+                'hits' => $r->hits,
+                'misses' => $r->misses,
+                'time' => $r->raw_time_seconds,
+                'updated_at' => $r->updated_at?->toIso8601String(),
+            ]),
+            'total_prs_shot_scores' => $shotScores,
+            'standard_scores_count' => App\Models\Score::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
+            'stage_times_count' => App\Models\StageTime::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
+        ]);
+    });
+
     Route::post('push/subscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'subscribe']);
     Route::delete('push/unsubscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'unsubscribe']);
 
