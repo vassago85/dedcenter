@@ -123,6 +123,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Volt::route('/sponsors', 'admin.sponsors')->name('sponsors');
     Volt::route('/sponsor-assignments', 'admin.sponsor-assignments')->name('sponsor-assignments');
     Volt::route('/sponsor-info', 'admin.sponsor-info')->name('sponsor-info');
+    Volt::route('/contact-submissions', 'admin.contact-submissions')->name('contact-submissions');
 
     Volt::route('/registrations', 'admin.registrations')->name('registrations');
     Volt::route('/seasons', 'admin.seasons')->name('seasons');

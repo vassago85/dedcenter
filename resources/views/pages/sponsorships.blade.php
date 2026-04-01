@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\ContactSubmission;
 use App\Models\Setting;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.marketing', [
@@ -10,6 +12,40 @@ new #[Layout('components.layouts.marketing', [
 ])]
     #[Title('Sponsorship Opportunities — DeadCenter')]
     class extends Component {
+
+    #[Validate('required|string|max:100')]
+    public string $contactName = '';
+
+    #[Validate('required|email|max:150')]
+    public string $contactEmail = '';
+
+    #[Validate('nullable|string|max:30')]
+    public string $contactPhone = '';
+
+    #[Validate('nullable|string|max:100')]
+    public string $contactCompany = '';
+
+    #[Validate('required|string|min:10|max:2000')]
+    public string $contactMessage = '';
+
+    public bool $submitted = false;
+
+    public function submitContact(): void
+    {
+        $this->validate();
+
+        ContactSubmission::create([
+            'name'    => $this->contactName,
+            'email'   => $this->contactEmail,
+            'phone'   => $this->contactPhone ?: null,
+            'company' => $this->contactCompany ?: null,
+            'message' => $this->contactMessage,
+            'source'  => 'sponsorship',
+        ]);
+
+        $this->submitted = true;
+    }
+
     public function with(): array
     {
         return [
@@ -263,23 +299,103 @@ new #[Layout('components.layouts.marketing', [
     </div>
 </section>
 
-{{-- Contact / CTA --}}
+{{-- Contact Form --}}
 <section id="contact" class="py-20 lg:py-24">
-    <div class="mx-auto max-w-3xl px-6 text-center">
-        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Interested?</h2>
-        <p class="mx-auto mt-4 max-w-xl leading-relaxed" style="color: var(--lp-text-soft);">
-            @if(filled($contact))
-                {{ $contact }}
-            @else
-                Get in touch to discuss sponsorship options. We'll put together a tailored proposal based on your goals and budget.
-            @endif
-        </p>
-        <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <a href="mailto:info@deadcenter.co.za" class="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225,6,0,0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></svg>
-                info@deadcenter.co.za
-            </a>
+    <div class="mx-auto max-w-2xl px-6">
+        <div class="text-center">
+            <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Interested?</h2>
+            <p class="mx-auto mt-4 max-w-xl leading-relaxed" style="color: var(--lp-text-soft);">
+                @if(filled($contact))
+                    {{ $contact }}
+                @else
+                    Send us a message and we'll get back to you with a tailored proposal.
+                @endif
+            </p>
         </div>
-        <p class="mt-6 text-xs" style="color: var(--lp-text-muted);">We typically respond within 24 hours.</p>
+
+        @if($submitted)
+            <div class="mt-10 rounded-2xl p-8 text-center" style="border: 1px solid rgba(16,185,129,0.3); background: rgba(16,185,129,0.05);">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style="background: rgba(16,185,129,0.15);">
+                    <svg class="h-7 w-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                </div>
+                <h3 class="text-xl font-bold" style="color: var(--lp-text);">Message Sent</h3>
+                <p class="mt-2" style="color: var(--lp-text-soft);">Thanks for your interest. We'll be in touch soon.</p>
+            </div>
+        @else
+            <form wire:submit="submitContact" class="mt-10 space-y-5">
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" style="color: var(--lp-text-soft);">Name <span style="color: var(--lp-red);">*</span></label>
+                        <input
+                            wire:model="contactName"
+                            type="text"
+                            class="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:ring-2"
+                            style="background: var(--lp-surface); border: 1px solid var(--lp-border); focus-ring-color: var(--lp-red);"
+                            placeholder="Your name"
+                        />
+                        @error('contactName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" style="color: var(--lp-text-soft);">Email <span style="color: var(--lp-red);">*</span></label>
+                        <input
+                            wire:model="contactEmail"
+                            type="email"
+                            class="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:ring-2"
+                            style="background: var(--lp-surface); border: 1px solid var(--lp-border);"
+                            placeholder="you@company.co.za"
+                        />
+                        @error('contactEmail') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" style="color: var(--lp-text-soft);">Phone</label>
+                        <input
+                            wire:model="contactPhone"
+                            type="tel"
+                            class="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:ring-2"
+                            style="background: var(--lp-surface); border: 1px solid var(--lp-border);"
+                            placeholder="Optional"
+                        />
+                        @error('contactPhone') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium" style="color: var(--lp-text-soft);">Company / Brand</label>
+                        <input
+                            wire:model="contactCompany"
+                            type="text"
+                            class="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:ring-2"
+                            style="background: var(--lp-surface); border: 1px solid var(--lp-border);"
+                            placeholder="Optional"
+                        />
+                        @error('contactCompany') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium" style="color: var(--lp-text-soft);">Message <span style="color: var(--lp-red);">*</span></label>
+                    <textarea
+                        wire:model="contactMessage"
+                        rows="4"
+                        class="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:ring-2"
+                        style="background: var(--lp-surface); border: 1px solid var(--lp-border); resize: vertical;"
+                        placeholder="Tell us about your brand and what you're looking for..."
+                    ></textarea>
+                    @error('contactMessage') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div class="pt-2 text-center">
+                    <button
+                        type="submit"
+                        wire:loading.attr="disabled"
+                        class="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all disabled:opacity-60"
+                        style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225,6,0,0.25);"
+                        onmouseover="this.style.background='var(--lp-red-hover)'"
+                        onmouseout="this.style.background='var(--lp-red)'"
+                    >
+                        <span wire:loading.remove>Send Message</span>
+                        <span wire:loading>Sending...</span>
+                    </button>
+                </div>
+            </form>
+        @endif
     </div>
 </section>
