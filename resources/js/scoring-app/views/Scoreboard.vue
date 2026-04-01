@@ -761,10 +761,7 @@ function prsGongClass(entry, tsId, gongNum) {
         if (result === 'miss') return 'bg-red-600/30 text-red-400';
         return 'bg-surface-2 text-muted/50';
     }
-    const totalScored = (stageData.hits || 0) + (stageData.misses || 0);
-    if (gongNum > totalScored) return 'bg-surface-2 text-muted/50';
-    if (gongNum <= (stageData.hits || 0)) return 'bg-green-600/30 text-green-400';
-    return 'bg-red-600/30 text-red-400';
+    return 'bg-surface-2 text-muted/50';
 }
 
 onMounted(() => {

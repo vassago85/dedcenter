@@ -638,7 +638,7 @@ class ScoreboardController extends Controller
 
         $gongCountByTs = [];
         foreach ($targetSets as $ts) {
-            $gongCountByTs[$ts->id] = $ts->total_shots ?? DB::table('gongs')->where('target_set_id', $ts->id)->count();
+            $gongCountByTs[$ts->id] = DB::table('gongs')->where('target_set_id', $ts->id)->count();
         }
 
         $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds, $allPrsShots, $gongCountByTs) {
