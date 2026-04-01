@@ -2,7 +2,7 @@ if (typeof ServiceWorkerGlobalScope === 'undefined') {
     // Loaded as a regular page script — do nothing
 } else {
 
-const CACHE_NAME = 'deadcenter-v2';
+const CACHE_NAME = 'deadcenter-v3';
 const STATIC_ASSETS = [
     '/offline.html',
     '/manifest.json',
@@ -32,6 +32,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
     const { request } = event;
+
+    if (request.method !== 'GET') return;
+
     const url = new URL(request.url);
 
     if (url.pathname.startsWith('/api/')) {
