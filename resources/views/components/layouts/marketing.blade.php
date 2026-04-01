@@ -57,10 +57,10 @@
                     <a href="#how-it-works" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">How It Works</a>
                     <a href="#for-clubs" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">For Clubs</a>
                 @else
-                    <a href="#events" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Events</a>
-                    <a href="#results" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Results</a>
-                    <a href="#standings" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
-                    <a href="#disciplines" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Disciplines</a>
+                    <a href="{{ route('home') }}#events" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Events</a>
+                    <a href="{{ route('home') }}#results" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Results</a>
+                    <a href="{{ route('home') }}#standings" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
+                    <a href="{{ route('home') }}#disciplines" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Disciplines</a>
                     <a href="{{ route('features') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('features') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">About</a>
                     <a href="{{ route('sponsorships') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('sponsorships') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Sponsors</a>
                 @endif
@@ -107,10 +107,10 @@
                 <a href="#how-it-works" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">How It Works</a>
                 <a href="#for-clubs" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">For Clubs</a>
             @else
-                <a href="#events" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Events</a>
-                <a href="#results" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Results</a>
-                <a href="#standings" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Standings</a>
-                <a href="#disciplines" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Disciplines</a>
+                <a href="{{ route('home') }}#events" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Events</a>
+                <a href="{{ route('home') }}#results" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Results</a>
+                <a href="{{ route('home') }}#standings" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Standings</a>
+                <a href="{{ route('home') }}#disciplines" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Disciplines</a>
                 <a href="{{ route('features') }}" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">About</a>
                 <a href="{{ route('sponsorships') }}" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Sponsors</a>
             @endif
