@@ -209,8 +209,8 @@ new #[Layout('components.layouts.marketing', [
         <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(148,163,184,0.1); color: #94a3b8;">Tier 1</div>
-                <h3 class="text-lg font-bold" style="color: var(--lp-text);">Match Presence</h3>
-                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">Your brand appears at individual events &mdash; on the match scoreboard and in match-specific results.</p>
+                <h3 class="text-lg font-bold" style="color: var(--lp-text);">Single Match</h3>
+                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">Your brand on the digital scoreboard and results page for a specific match &mdash; seen by every competitor and spectator online.</p>
             </div>
             <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(251,191,36,0.1); color: #fbbf24;">Tier 2</div>
