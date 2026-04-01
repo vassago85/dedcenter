@@ -264,7 +264,7 @@
 
                 @auth
                     @if(auth()->user()->canScore())
-                        <a href="{{ route('score') }}" target="_blank"
+                        <a href="https://{{ config('domains.app') }}/score" target="_blank"
                            class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-colors" style="background:#ff2b2b;">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
