@@ -301,6 +301,8 @@
                 </div>
             </main>
         </template>
+
+        <ScoringSponsorship />
     </div>
 </template>
 
@@ -312,6 +314,7 @@ import { useElrScoringStore } from '../stores/elrScoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
+import ScoringSponsorship from '../components/ScoringSponsorship.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

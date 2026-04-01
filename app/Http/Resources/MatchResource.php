@@ -2,11 +2,33 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\PlacementKey;
+use App\Services\SponsorPlacementResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class MatchResource extends JsonResource
 {
+    protected function resolveScoringsSponsor(): ?array
+    {
+        try {
+            $resolver = app(SponsorPlacementResolver::class);
+            $assignment = $resolver->resolve(PlacementKey::GlobalScoring, $this->id);
+            if (! $assignment?->sponsor) {
+                return null;
+            }
+            $sponsor = $assignment->sponsor;
+
+            return [
+                'name' => $sponsor->name,
+                'label' => $assignment->displayLabel(),
+                'logo_url' => $sponsor->hasLogo() ? asset('storage/'.$sponsor->logo_path) : null,
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public function toArray(Request $request): array
     {
         return [
@@ -92,6 +114,7 @@ class MatchResource extends JsonResource
                 'official_time_seconds' => $r->official_time_seconds ? (float) $r->official_time_seconds : null,
                 'completed_at' => $r->completed_at?->toIso8601String(),
             ])),
+            'scoring_sponsor' => $this->resolveScoringsSponsor(),
             'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => $s->label,

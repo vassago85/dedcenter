@@ -127,16 +127,19 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
-    <div>
-        <flux:heading size="xl">{{ $organization->name }} — Leaderboard</flux:heading>
-        <p class="mt-1 text-sm text-muted">
-            Ranking based on completed matches.
-            @if($bestOf)
-                Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
-            @else
-                All scores counted.
-            @endif
-        </p>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <flux:heading size="xl">{{ $organization->name }} — Leaderboard</flux:heading>
+            <p class="mt-1 text-sm text-muted">
+                Ranking based on completed matches.
+                @if($bestOf)
+                    Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
+                @else
+                    All scores counted.
+                @endif
+            </p>
+        </div>
+        <x-sponsor-block placement="global_leaderboard" variant="block" />
     </div>
 
     @if($divisionNames->isNotEmpty() || $categoryNames->isNotEmpty())

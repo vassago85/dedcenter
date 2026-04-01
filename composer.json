@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.3",
         "chillerlan/php-qrcode": "^6.0",
+        "dompdf/dompdf": "^3.1",
         "erag/laravel-pwa": "^2.0",
         "laravel/fortify": "^1.36",
         "laravel/framework": "^13.0",
@@ -17,6 +18,7 @@
         "livewire/livewire": "^4.2",
         "livewire/volt": "^1.10",
         "pestphp/pest": "^4.4",
+        "spatie/laravel-pdf": "^2.4",
         "symfony/http-client": "^7.0",
         "symfony/mailgun-mailer": "^7.0"
     },

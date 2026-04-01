@@ -39,12 +39,12 @@ class ScoreboardController extends Controller
             return $this->elrScoreboard($match);
         }
 
-        if ($request->boolean('detailed')) {
-            return $this->detailedScoreboard($match, $request);
-        }
-
         if ($match->isPrs()) {
             return $this->prsScoreboard($match, $request);
+        }
+
+        if ($request->boolean('detailed')) {
+            return $this->detailedScoreboard($match, $request);
         }
 
         return $this->standardScoreboard($match, $request);
@@ -446,7 +446,7 @@ class ScoreboardController extends Controller
 
     private function prsScoreboardNew(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)
     {
-        $targetSets = $match->targetSets()->get();
+        $targetSets = $match->targetSets()->orderBy('sort_order')->get();
         $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
 
         $query = \App\Models\Shooter::query()
@@ -466,11 +466,7 @@ class ScoreboardController extends Controller
 
         $allResults = \App\Models\PrsStageResult::where('match_id', $match->id)->get()->groupBy('shooter_id');
 
-        $totalShots = $targetSets->sum('total_shots') ?: DB::table('gongs')
-            ->whereIn('target_set_id', $targetSets->pluck('id'))
-            ->count();
-
-        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $divisionNames, $divisionIds, $totalShots) {
+        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds) {
             $sid = (int) $shooter->shooter_id;
             $results = $allResults->get($sid, collect());
 
@@ -490,6 +486,16 @@ class ScoreboardController extends Controller
                 }
             }
 
+            $stages = [];
+            foreach ($targetSets as $ts) {
+                $stageResult = $results->firstWhere('stage_id', $ts->id);
+                $stages[$ts->id] = [
+                    'hits' => $stageResult ? $stageResult->hits : 0,
+                    'misses' => $stageResult ? $stageResult->misses : 0,
+                    'time' => $stageResult && $stageResult->official_time_seconds ? round((float) $stageResult->official_time_seconds, 2) : null,
+                ];
+            }
+
             return [
                 'shooter_id' => $sid,
                 'name' => $shooter->name,
@@ -502,6 +508,7 @@ class ScoreboardController extends Controller
                 'agg_time' => round($aggTime, 2),
                 'tb_hits' => $tbHits,
                 'tb_time' => $tbTime,
+                'stages' => $stages,
             ];
         });
 
@@ -530,10 +537,12 @@ class ScoreboardController extends Controller
             'total_time' => $entry['agg_time'],
             'tb_hits' => $entry['tb_hits'],
             'tb_time' => $entry['tb_time'] !== null ? round($entry['tb_time'], 2) : 0.0,
+            'stages' => $entry['stages'],
         ]);
 
         return response()->json([
             'match' => $this->matchMeta($match),
+            'target_sets' => $this->prsTargetSetsPayload($targetSets),
             'leaderboard' => $leaderboard,
         ]);
     }

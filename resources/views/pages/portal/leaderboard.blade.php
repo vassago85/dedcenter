@@ -117,16 +117,19 @@ new #[Layout('components.layouts.portal')]
 }; ?>
 
 <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 space-y-6">
-    <div>
-        <h1 class="text-3xl font-bold text-primary">Leaderboard</h1>
-        <p class="mt-1 text-sm text-muted">
-            {{ $organization->name }} —
-            @if($bestOf)
-                Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
-            @else
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-primary">Leaderboard</h1>
+            <p class="mt-1 text-sm text-muted">
+                {{ $organization->name }} —
+                @if($bestOf)
+                    Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
+                @else
                 All scores counted.
             @endif
         </p>
+        </div>
+        <x-sponsor-block placement="global_leaderboard" variant="block" />
     </div>
 
     @if($divisionNames->isNotEmpty() || $categoryNames->isNotEmpty())

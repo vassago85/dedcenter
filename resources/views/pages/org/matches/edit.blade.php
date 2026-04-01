@@ -853,6 +853,12 @@ new #[Layout('components.layouts.app')]
             @endif
         </div>
 
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Match sponsors</h2>
+            <p class="text-sm text-muted">Optional branding for this match. Leave each placement on the platform default or pick a sponsor that match directors may assign.</p>
+            @include('partials.match-sponsor-assignment', ['match' => $match])
+        </div>
+
         <flux:separator />
 
         {{-- Divisions --}}

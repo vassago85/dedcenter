@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PlacementKey;
 use App\Models\ElrShot;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
+use App\Services\PdfDocumentRenderer;
 use App\Services\Scoring\ELRScoringService;
+use App\Services\SponsorPlacementResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -381,6 +384,130 @@ class MatchExportController extends Controller
 
             fputcsv($out, $row);
         }
+    }
+
+    // ── PDF Exports ──────────────────────────────────────────────
+
+    public function pdfStandings(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
+        $slug = Str::slug($match->name);
+        $data = $this->buildPdfStandingsData($match);
+
+        return $renderer->stream('exports.pdf-standings', $data, "{$slug}-standings.pdf");
+    }
+
+    public function pdfDetailed(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
+        $slug = Str::slug($match->name);
+        $data = $this->buildPdfDetailedData($match);
+
+        return $renderer->stream('exports.pdf-detailed', $data, "{$slug}-detailed.pdf");
+    }
+
+    private function buildPdfStandingsData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $divisionNames = $this->divisionLookup($match);
+
+        $resolver = app(SponsorPlacementResolver::class);
+        $sponsorAssignment = $resolver->resolve(PlacementKey::GlobalExports, $match->id);
+
+        $shooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
+            ->leftJoin('gongs', 'scores.gong_id', '=', 'gongs.id')
+            ->leftJoin('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
+            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
+            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
+            ->selectRaw('COALESCE(SUM(CASE WHEN scores.is_hit = 1 THEN COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier ELSE 0 END), 0) as agg_total')
+            ->groupBy('shooters.id', 'shooters.name', 'squads.name')
+            ->orderByDesc('agg_total')
+            ->get()
+            ->each(fn ($s) => $s->division = $divisionNames[(int) $s->shooter_id] ?? '');
+
+        return [
+            'match' => $match,
+            'shooters' => $shooters,
+            'sponsorAssignment' => $sponsorAssignment,
+        ];
+    }
+
+    private function buildPdfDetailedData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $divisionNames = $this->divisionLookup($match);
+
+        $resolver = app(SponsorPlacementResolver::class);
+        $sponsorAssignment = $resolver->resolve(PlacementKey::GlobalExports, $match->id);
+
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        $allGongs = $targetSets->flatMap->gongs;
+
+        $shooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.id', 'shooters.name', 'squads.name as squad_name')
+            ->get();
+
+        $allScores = Score::query()
+            ->whereIn('shooter_id', $shooters->pluck('id'))
+            ->whereIn('gong_id', $allGongs->pluck('id'))
+            ->get()
+            ->groupBy('shooter_id');
+
+        $rows = $shooters->map(function ($shooter) use ($allScores, $targetSets, $divisionNames) {
+            $scores = $allScores->get($shooter->id, collect())->keyBy('gong_id');
+            $totalScore = 0;
+            $totalHits = 0;
+            $totalMisses = 0;
+            $stageData = [];
+
+            foreach ($targetSets as $ts) {
+                $distMult = (float) ($ts->distance_multiplier ?? 1);
+                $distSubtotal = 0;
+                $gongResults = [];
+
+                foreach ($ts->gongs as $g) {
+                    $score = $scores->get($g->id);
+                    if (! $score) {
+                        $gongResults[] = '-';
+                    } elseif ($score->is_hit) {
+                        $gongResults[] = 'H';
+                        $points = round($distMult * $g->multiplier, 2);
+                        $distSubtotal += $points;
+                        $totalScore += $points;
+                        $totalHits++;
+                    } else {
+                        $gongResults[] = 'M';
+                        $totalMisses++;
+                    }
+                }
+                $stageData[] = ['results' => $gongResults, 'subtotal' => round($distSubtotal, 2)];
+            }
+
+            return [
+                'name' => $shooter->name,
+                'squad' => $shooter->squad_name,
+                'division' => $divisionNames[$shooter->id] ?? '',
+                'stages' => $stageData,
+                'hits' => $totalHits,
+                'misses' => $totalMisses,
+                'total' => round($totalScore, 2),
+            ];
+        })->sortByDesc('total')->values();
+
+        return [
+            'match' => $match,
+            'targetSets' => $targetSets,
+            'rows' => $rows,
+            'sponsorAssignment' => $sponsorAssignment,
+        ];
     }
 
     // ── Helpers ──────────────────────────────────────────────────

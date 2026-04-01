@@ -211,6 +211,7 @@ new #[Layout('components.layouts.scoreboard')]
                 {{ $match->date?->format('d M Y') }}
                 @if($match->location) &mdash; {{ $match->location }} @endif
             </p>
+            <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
         </div>
         <x-app-logo size="lg" class="opacity-60" />
     </div>
