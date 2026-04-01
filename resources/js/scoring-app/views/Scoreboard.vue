@@ -84,8 +84,75 @@
                     </button>
                 </div>
 
-                <!-- =================== SUMMARY LEADERBOARD =================== -->
-                <template v-if="viewMode === 'summary' && !isElr">
+                <!-- =================== PRS SUMMARY LEADERBOARD =================== -->
+                <template v-if="viewMode === 'summary' && isPrs">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
+                    </div>
+
+                    <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-2 py-3 text-center w-10">#</th>
+                                    <th class="px-2 py-3">Shooter</th>
+                                    <th
+                                        v-for="ts in targetSets"
+                                        :key="'prs-hdr-' + ts.id"
+                                        class="px-2 py-3 text-center whitespace-nowrap"
+                                        :class="ts.is_tiebreaker ? 'text-amber-400' : ''"
+                                    >
+                                        {{ prsStageShortLabel(ts) }}
+                                        <span v-if="ts.is_tiebreaker" class="block text-[9px]">TB</span>
+                                    </th>
+                                    <th class="px-2 py-3 text-center font-bold">Total</th>
+                                    <th class="px-2 py-3 text-center">TB&nbsp;Time</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <tr
+                                    v-for="(entry, idx) in standings"
+                                    :key="'prs-' + entry.shooter_id"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(entry.rank)"
+                                >
+                                    <td class="px-2 py-3 text-center">
+                                        <span
+                                            v-if="entry.rank <= 3"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
+                                            :class="medalClass(entry.rank)"
+                                        >{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="px-2 py-3">
+                                        <p class="font-medium truncate max-w-[120px]">{{ entry.name }}</p>
+                                        <p class="text-[10px] text-muted">{{ entry.squad }}</p>
+                                    </td>
+                                    <td
+                                        v-for="ts in targetSets"
+                                        :key="'prs-cell-' + entry.shooter_id + '-' + ts.id"
+                                        class="px-2 py-3 text-center tabular-nums"
+                                    >
+                                        <template v-if="entry.stages && entry.stages[ts.id]">
+                                            <span :class="entry.stages[ts.id].hits > 0 ? 'text-green-400' : 'text-muted'">
+                                                {{ entry.stages[ts.id].hits }}
+                                            </span>
+                                            <span class="text-muted">/{{ ts.gong_count }}</span>
+                                        </template>
+                                        <span v-else class="text-muted">&mdash;</span>
+                                    </td>
+                                    <td class="px-2 py-3 text-center text-lg font-bold tabular-nums">{{ entry.total_score ?? entry.hits }}</td>
+                                    <td class="px-2 py-3 text-center tabular-nums text-amber-400">
+                                        {{ entry.tb_time > 0 ? entry.tb_time.toFixed(1) + 's' : '&mdash;' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+
+                <!-- =================== STANDARD SUMMARY LEADERBOARD =================== -->
+                <template v-else-if="viewMode === 'summary' && !isElr && !isPrs">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -199,7 +266,80 @@
                     </div>
                 </template>
 
-                <!-- =================== DETAILED BREAKDOWN =================== -->
+                <!-- =================== PRS DETAILED BREAKDOWN =================== -->
+                <template v-else-if="viewMode === 'detailed' && isPrs">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            v-for="(entry, idx) in standings"
+                            :key="'prs-detail-' + entry.shooter_id"
+                            class="rounded-xl border border-border bg-surface overflow-hidden"
+                        >
+                            <button
+                                @click="toggleExpand('prs-' + entry.shooter_id)"
+                                class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                            >
+                                <span
+                                    v-if="entry.rank <= 3"
+                                    class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                                    :class="medalClass(entry.rank)"
+                                >{{ entry.rank }}</span>
+                                <span v-else class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted">{{ entry.rank }}</span>
+
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate font-semibold">{{ entry.name }}</p>
+                                    <p class="text-xs text-muted">{{ entry.squad }} &middot; {{ entry.hits ?? entry.total_score }}/{{ totalTargetCount }} hits</p>
+                                </div>
+
+                                <div class="text-right">
+                                    <span class="text-xl font-bold tabular-nums">{{ entry.hits ?? entry.total_score }}</span>
+                                    <p v-if="entry.tb_time > 0" class="text-[10px] text-amber-400 tabular-nums">TB {{ entry.tb_time.toFixed(1) }}s</p>
+                                </div>
+
+                                <svg
+                                    class="h-5 w-5 flex-shrink-0 text-muted transition-transform"
+                                    :class="{ 'rotate-180': expandedIds.has('prs-' + entry.shooter_id) }"
+                                    fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+
+                            <div v-if="expandedIds.has('prs-' + entry.shooter_id)" class="border-t border-border divide-y divide-border/50">
+                                <div
+                                    v-for="ts in targetSets"
+                                    :key="'prs-stage-' + entry.shooter_id + '-' + ts.id"
+                                    class="px-4 py-3"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-semibold">{{ ts.label }}</span>
+                                            <span v-if="ts.is_tiebreaker" class="rounded bg-amber-600/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-400">TB</span>
+                                        </div>
+                                        <div class="flex items-center gap-3 text-xs tabular-nums">
+                                            <span class="text-green-400">{{ entry.stages?.[ts.id]?.hits ?? 0 }} hits</span>
+                                            <span class="text-red-400">{{ entry.stages?.[ts.id]?.misses ?? 0 }} miss</span>
+                                            <span v-if="entry.stages?.[ts.id]?.time" class="text-amber-400">{{ entry.stages[ts.id].time.toFixed(1) }}s</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 flex gap-1.5 flex-wrap">
+                                        <span
+                                            v-for="g in ts.gong_count"
+                                            :key="'prs-g-' + ts.id + '-' + g"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded text-xs font-bold"
+                                            :class="prsGongClass(entry, ts.id, g)"
+                                        >{{ g }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- =================== STANDARD DETAILED BREAKDOWN =================== -->
                 <template v-else-if="viewMode === 'detailed' && !isElr">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
@@ -419,7 +559,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
@@ -482,7 +622,10 @@ async function fetchData() {
     loading.value = true;
     error.value = null;
     try {
-        const { data } = await axios.get(`/api/matches/${props.matchId}/scoreboard?detailed=1`);
+        const scoringType = isPrs.value ? 'prs' : (isElr.value ? 'elr' : null);
+        const detailParam = scoringType === 'prs' ? '' : '?detailed=1';
+        const { data } = await axios.get(`/api/matches/${props.matchId}/scoreboard${detailParam}`);
+
         matchName.value = data.match?.name ?? '';
         matchDate.value = data.match?.date ?? '';
         isPrs.value = data.match?.scoring_type === 'prs';
@@ -503,6 +646,9 @@ async function fetchData() {
             if (isElr.value) {
                 standings.value = data.standings ?? [];
                 elrStages.value = data.stages ?? [];
+            } else if (isPrs.value) {
+                targetSets.value = data.target_sets ?? [];
+                standings.value = data.leaderboard ?? [];
             } else {
                 targetSets.value = data.target_sets ?? [];
                 standings.value = data.standings ?? [];
@@ -521,6 +667,23 @@ async function fetchData() {
     } finally {
         loading.value = false;
     }
+}
+
+const totalTargetCount = computed(() => targetSets.value.reduce((sum, ts) => sum + (ts.gong_count || 0), 0));
+
+function prsStageShortLabel(ts) {
+    const label = ts.label || '';
+    const match = label.match(/—\s*(.+)/);
+    return match ? match[1] : label.replace(/^Stage\s*\d+\s*/, '') || `S${targetSets.value.indexOf(ts) + 1}`;
+}
+
+function prsGongClass(entry, tsId, gongNum) {
+    const stageData = entry.stages?.[tsId];
+    if (!stageData) return 'bg-surface-2 text-muted';
+    const totalScored = (stageData.hits || 0) + (stageData.misses || 0);
+    if (gongNum > totalScored) return 'bg-surface-2 text-muted/50';
+    if (gongNum <= (stageData.hits || 0)) return 'bg-green-600/30 text-green-400';
+    return 'bg-red-600/30 text-red-400';
 }
 
 onMounted(() => {

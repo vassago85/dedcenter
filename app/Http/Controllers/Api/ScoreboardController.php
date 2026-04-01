@@ -181,6 +181,17 @@ class ScoreboardController extends Controller
         ]);
     }
 
+    private function prsTargetSetsPayload($targetSets): array
+    {
+        return $targetSets->map(fn ($ts) => [
+            'id' => $ts->id,
+            'label' => $ts->label,
+            'is_tiebreaker' => (bool) $ts->is_tiebreaker,
+            'is_timed_stage' => (bool) $ts->is_timed_stage,
+            'gong_count' => DB::table('gongs')->where('target_set_id', $ts->id)->count(),
+        ])->values()->toArray();
+    }
+
     private function matchMeta(ShootingMatch $match): array
     {
         $totalTargets = DB::table('gongs')
@@ -549,75 +560,89 @@ class ScoreboardController extends Controller
 
     private function prsScoreboardLegacy(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)
     {
-        $targetSets = $match->targetSets()->get();
+        $targetSets = $match->targetSets()->orderBy('sort_order')->get();
         $targetSetIds = $targetSets->pluck('id');
 
-        $totalTargets = DB::table('gongs')
-            ->whereIn('target_set_id', $targetSetIds)
-            ->count();
+        $gongsByTs = [];
+        foreach ($targetSets as $ts) {
+            $gongsByTs[$ts->id] = DB::table('gongs')->where('target_set_id', $ts->id)->orderBy('number')->get();
+        }
+
+        $totalTargets = collect($gongsByTs)->sum(fn ($g) => $g->count());
         $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
         $tiebreakerStageId = $tiebreakerStage?->id;
 
-        $shooterTimes = StageTime::query()
+        $allStageTimes = StageTime::query()
             ->whereIn('target_set_id', $targetSetIds)
+            ->get();
+        $stageTimeMap = $allStageTimes->groupBy('shooter_id');
+
+        $allScores = Score::query()
+            ->whereIn('gong_id', collect($gongsByTs)->flatMap(fn ($g) => $g->pluck('id')))
             ->get()
-            ->groupBy('shooter_id')
-            ->map(fn ($times) => (float) $times->sum('time_seconds'))
-            ->toArray();
-
-        $tbHits = [];
-        $tbTimes = [];
-        if ($tiebreakerStageId) {
-            $tbGongIds = DB::table('gongs')->where('target_set_id', $tiebreakerStageId)->pluck('id');
-
-            $tbHits = Score::whereIn('gong_id', $tbGongIds)
-                ->where('is_hit', true)
-                ->select('shooter_id', DB::raw('COUNT(*) as hit_count'))
-                ->groupBy('shooter_id')
-                ->pluck('hit_count', 'shooter_id')
-                ->map(fn ($v) => (int) $v)
-                ->toArray();
-
-            $tbTimes = StageTime::where('target_set_id', $tiebreakerStageId)
-                ->pluck('time_seconds', 'shooter_id')
-                ->map(fn ($v) => (float) $v)
-                ->toArray();
-        }
+            ->keyBy(fn ($s) => "{$s->shooter_id}-{$s->gong_id}");
 
         $query = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-            ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
             ->where('squads.match_id', $match->id);
 
         if ($divisionFilter) {
             $query->where('shooters.match_division_id', $divisionFilter);
         }
-
         if ($catShooterIds !== null) {
             $query->whereIn('shooters.id', $catShooterIds);
         }
 
-        $shooters = $query
-            ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
-            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
-            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
-            ->groupBy('shooters.id', 'shooters.name', 'squads.name')
-            ->get();
+        $shooters = $query->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')->get();
 
-        $entries = $shooters->map(function ($shooter) use ($shooterTimes, $tbHits, $tbTimes, $divisionNames, $divisionIds, $totalTargets) {
+        $entries = $shooters->map(function ($shooter) use ($targetSets, $gongsByTs, $allScores, $stageTimeMap, $tiebreakerStageId, $divisionNames, $divisionIds, $totalTargets) {
             $sid = (int) $shooter->shooter_id;
+            $totalHits = 0;
+            $totalMisses = 0;
+            $tbHits = 0;
+            $stages = [];
+
+            foreach ($targetSets as $ts) {
+                $stageHits = 0;
+                $stageMisses = 0;
+                foreach ($gongsByTs[$ts->id] as $gong) {
+                    $score = $allScores->get("{$sid}-{$gong->id}");
+                    if ($score) {
+                        if ($score->is_hit) { $stageHits++; $totalHits++; }
+                        else { $stageMisses++; $totalMisses++; }
+                    }
+                }
+                if ($ts->id === $tiebreakerStageId) {
+                    $tbHits = $stageHits;
+                }
+                $shooterStageTimes = $stageTimeMap->get($sid, collect());
+                $stageTime = $shooterStageTimes->firstWhere('target_set_id', $ts->id);
+                $stages[$ts->id] = [
+                    'hits' => $stageHits,
+                    'misses' => $stageMisses,
+                    'time' => $stageTime ? round((float) $stageTime->time_seconds, 2) : null,
+                ];
+            }
+
+            $shooterTimes = $stageTimeMap->get($sid, collect());
+            $aggTime = (float) $shooterTimes->sum('time_seconds');
+            $tbTime = $tiebreakerStageId
+                ? (float) ($shooterTimes->firstWhere('target_set_id', $tiebreakerStageId)?->time_seconds ?? 0)
+                : 0.0;
+
             return [
                 'shooter_id' => $sid,
                 'name' => $shooter->name,
                 'squad' => $shooter->squad,
                 'division_id' => $divisionIds[$sid] ?? null,
                 'division' => $divisionNames[$sid] ?? null,
-                'hits' => (int) $shooter->agg_hits,
-                'misses' => (int) $shooter->agg_misses,
-                'not_taken' => $totalTargets - (int) $shooter->agg_hits - (int) $shooter->agg_misses,
-                'agg_time' => $shooterTimes[$sid] ?? 0.0,
-                'tb_hits' => $tbHits[$sid] ?? 0,
-                'tb_time' => $tbTimes[$sid] ?? 0.0,
+                'hits' => $totalHits,
+                'misses' => $totalMisses,
+                'not_taken' => $totalTargets - $totalHits - $totalMisses,
+                'agg_time' => round($aggTime, 2),
+                'tb_hits' => $tbHits,
+                'tb_time' => round($tbTime, 2),
+                'stages' => $stages,
             ];
         });
 
@@ -642,10 +667,12 @@ class ScoreboardController extends Controller
             'total_time' => round($entry['agg_time'], 2),
             'tb_hits' => $entry['tb_hits'],
             'tb_time' => round($entry['tb_time'], 2),
+            'stages' => $entry['stages'],
         ]);
 
         return response()->json([
             'match' => $this->matchMeta($match),
+            'target_sets' => $this->prsTargetSetsPayload($targetSets),
             'leaderboard' => $leaderboard,
         ]);
     }
