@@ -198,7 +198,7 @@ new #[Layout('components.layouts.scoreboard')]
     }
 }; ?>
 
-<div wire:poll.10s class="min-h-screen bg-app text-primary p-6 lg:p-10">
+<div wire:poll.15s class="min-h-screen bg-app text-primary p-6 lg:p-10">
     <div class="mb-8 flex items-center justify-between">
         <div>
             <div class="flex items-center gap-3">
@@ -206,11 +206,21 @@ new #[Layout('components.layouts.scoreboard')]
                 @if($isPrs)
                     <span class="rounded bg-amber-600 px-2 py-1 text-xs font-bold uppercase">PRS</span>
                 @endif
+                @if($match->status === \App\Enums\MatchStatus::Active)
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1">
+                        <span class="relative flex h-2.5 w-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                            <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600"></span>
+                        </span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-red-500">Live</span>
+                    </span>
+                @endif
             </div>
             <p class="mt-1 text-lg text-muted">
                 {{ $match->date?->format('d M Y') }}
                 @if($match->location) &mdash; {{ $match->location }} @endif
             </p>
+            <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
         </div>
         <x-app-logo size="lg" class="opacity-60" />
@@ -392,7 +402,7 @@ new #[Layout('components.layouts.scoreboard')]
 
     <div class="mt-6 flex items-center justify-between text-sm text-muted/60">
         <span>
-            Auto-refreshes every 10 seconds
+            Auto-refreshes every 15 seconds
             @if($isPrs) &bull; Ranked by total hits, then tiebreaker stage hits, then tiebreaker stage time @endif
             @if($sideBetEnabled && $activeTab === 'sidebet') &bull; Ranked by smallest gong hits, furthest distance tiebreaker @endif
         </span>

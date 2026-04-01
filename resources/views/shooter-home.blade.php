@@ -36,7 +36,7 @@
                 </h1>
 
                 <p class="mx-auto mt-7 max-w-xl text-[1.05rem] leading-relaxed" style="color: var(--lp-text-soft);">
-                    Discover upcoming competitions, track your performance across seasons, and stay connected to the sport with DeadCenter &mdash; the home of precision rifle shooting in South&nbsp;Africa.
+                    Discover upcoming competitions, register online, choose your own squad, and track your performance across seasons with DeadCenter &mdash; the home of precision rifle shooting in South&nbsp;Africa.
                 </p>
 
                 <div class="mt-10 flex flex-col items-center gap-3.5 sm:flex-row sm:justify-center">
@@ -56,14 +56,18 @@
                     </a>
                 </div>
 
-                <div class="mt-14 flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-10">
+                <div class="mt-14 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
                         Live results &amp; scoreboards
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Season standings &amp; logs
+                        Self-service squadding
+                    </div>
+                    <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
+                        <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
+                        Android app
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
@@ -75,6 +79,51 @@
 
         <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px" style="background: linear-gradient(to right, transparent, var(--lp-border), transparent);"></div>
     </section>
+
+    {{-- ══════════════════════════════════════════ --}}
+    {{-- LIVE NOW --}}
+    {{-- ══════════════════════════════════════════ --}}
+    @if(isset($liveMatches) && $liveMatches->count())
+    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+        <div class="mx-auto max-w-6xl px-6 py-12">
+            <div class="mb-8 flex items-center justify-center gap-3">
+                <span class="relative flex h-3 w-3">
+                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style="background: var(--lp-red);"></span>
+                    <span class="relative inline-flex h-3 w-3 rounded-full" style="background: var(--lp-red);"></span>
+                </span>
+                <h2 class="text-2xl font-bold tracking-tight" style="color: var(--lp-text);">Live Now</h2>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($liveMatches as $match)
+                    <a href="{{ route('scoreboard', $match) }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid rgba(225,6,0,0.3); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.5)'" onmouseout="this.style.borderColor='rgba(225,6,0,0.3)'">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                                  style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
+                                {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">
+                                <span class="relative flex h-1.5 w-1.5">
+                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style="background: var(--lp-red);"></span>
+                                    <span class="relative inline-flex h-1.5 w-1.5 rounded-full" style="background: var(--lp-red);"></span>
+                                </span>
+                                Live
+                            </span>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-1 group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
+                        @if($match->organization)
+                            <p class="text-sm" style="color: var(--lp-text-muted);">{{ $match->organization->name }}</p>
+                        @endif
+                        <span class="mt-3 inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                            Watch Live Scores
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    </section>
+    @endif
 
     {{-- ══════════════════════════════════════════ --}}
     {{-- FEATURED EVENTS / COMPETITIONS --}}
@@ -89,7 +138,7 @@
             @if($featuredMatches->count())
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach($featuredMatches as $match)
-                        <a href="{{ route('scoreboard', $match) }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
+                        <div class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
                             <div class="flex items-center justify-between mb-3">
                                 <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                                       style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
@@ -106,7 +155,26 @@
                             @if($match->location)
                                 <p class="text-xs mt-2" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->location }}</p>
                             @endif
-                        </a>
+                            <div class="mt-4">
+                                @if(in_array($match->status, ['pre_registration', 'registration_open']))
+                                    <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                        Register <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    </a>
+                                @elseif($match->status === 'scoring')
+                                    <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                        Live Scores <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    </a>
+                                @elseif($match->status === 'completed')
+                                    <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                        View Results <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    </a>
+                                @else
+                                    <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                        View Details <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
                     @endforeach
                 </div>
             @else
@@ -131,7 +199,7 @@
 
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($popularMatches as $match)
-                    <a href="{{ route('scoreboard', $match) }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
+                    <div class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
                         <div class="flex items-center justify-between mb-3">
                             <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                                   style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
@@ -146,7 +214,22 @@
                         @if($match->date)
                             <p class="text-xs mt-2" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->date->format('d M Y') }}</p>
                         @endif
-                    </a>
+                        <div class="mt-4">
+                            @if(in_array($match->status ?? '', ['pre_registration', 'registration_open']))
+                                <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                    Register <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </a>
+                            @elseif(($match->status ?? '') === 'scoring')
+                                <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                    Live Scores <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </a>
+                            @else
+                                <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                    View Details <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
                 @endforeach
             </div>
         </div>
@@ -207,7 +290,7 @@
             @if($upcomingMatches->count())
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach($upcomingMatches as $match)
-                        <a href="{{ route('scoreboard', $match) }}" class="group flex items-start gap-4 rounded-xl p-5 transition-all duration-200" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
+                        <div class="group flex items-start gap-4 rounded-xl p-5 transition-all duration-200" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
                             <div class="flex-shrink-0 w-14 rounded-lg p-2 text-center" style="background: var(--lp-surface-2);">
                                 <span class="block text-lg font-bold" style="color: var(--lp-text);">{{ $match->date?->format('d') }}</span>
                                 <span class="block text-[10px] font-semibold uppercase" style="color: var(--lp-text-muted);">{{ $match->date?->format('M') }}</span>
@@ -226,8 +309,23 @@
                                         <span class="text-[10px]" style="color: var(--lp-text-muted);">{{ $match->location }}</span>
                                     @endif
                                 </div>
+                                <div class="mt-2">
+                                    @if(in_array($match->status ?? '', ['pre_registration', 'registration_open']))
+                                        <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
+                                            Register <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                        </a>
+                                    @elseif(($match->status ?? '') === 'scoring')
+                                        <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
+                                            Live Scores <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                        </a>
+                                    @else
+                                        <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
+                                            View Details <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
-                        </a>
+                        </div>
                     @endforeach
                 </div>
             @else
@@ -266,7 +364,7 @@
                             @if($match->date)
                                 <p class="text-xs mt-1.5" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->date->format('d M Y') }}</p>
                             @endif
-                            <span class="mt-3 inline-flex text-xs font-medium" style="color: var(--lp-red);">View scoreboard &rarr;</span>
+                            <span class="mt-3 inline-flex text-xs font-medium" style="color: var(--lp-red);">View Results &rarr;</span>
                         </a>
                     @endforeach
                 </div>
@@ -369,15 +467,15 @@
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-16 text-center">
                 <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">How It Works for Shooters</h2>
-                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">From registration to results in four simple steps.</p>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">From finding a match to watching live scores in four simple steps.</p>
             </div>
 
             <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach([
-                    ['step' => '1', 'title' => 'Create Your Account', 'desc' => 'Sign up for free on DeadCenter. It takes less than a minute.'],
-                    ['step' => '2', 'title' => 'Register for a Match', 'desc' => 'Browse upcoming events, choose your division, and register online.'],
-                    ['step' => '3', 'title' => 'Compete', 'desc' => 'Show up and shoot. Scores are captured in real-time by Range Officers on tablets.'],
-                    ['step' => '4', 'title' => 'View Results', 'desc' => 'Check the live scoreboard, review your performance, and track your season standings.'],
+                    ['step' => '1', 'title' => 'Find a Match', 'desc' => 'Browse upcoming competitions on deadcenter.co.za or through your club\'s portal page.'],
+                    ['step' => '2', 'title' => 'Register & Select Equipment', 'desc' => 'Register online, choose your division and category, and add your equipment details.'],
+                    ['step' => '3', 'title' => 'Choose Your Squad', 'desc' => 'When squadding opens, pick your preferred squad from available slots with capacity limits.'],
+                    ['step' => '4', 'title' => 'View Live Scores', 'desc' => 'On match day, follow live scores on the scoreboard. Review results and track your season standings.'],
                 ] as $item)
                     <div class="text-center">
                         <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-black" style="background: rgba(225, 6, 0, 0.08); color: var(--lp-red);">
@@ -414,9 +512,9 @@
 
             <div class="space-y-4" x-data="{ open: null }">
                 @foreach([
-                    ['q' => 'Is DeadCenter free to use?', 'a' => 'Yes. DeadCenter is completely free for shooters, clubs, and match directors. We sustain the platform through optional promoted placements and partner visibility.'],
+                    ['q' => 'Is DeadCenter free to use?', 'a' => 'Yes. DeadCenter is completely free for shooters, clubs, and match directors. We sustain the platform through the sponsor marketplace and optional promoted placements.'],
                     ['q' => 'What types of shooting competitions does DeadCenter support?', 'a' => 'DeadCenter supports three scoring disciplines: Relay Scoring for traditional gong/field matches, PRS Scoring for precision rifle series competitions, and ELR Scoring for extreme long range events. More engines will be added over time.'],
-                    ['q' => 'How do I register for a match?', 'a' => 'Create a free account, browse upcoming matches on the platform or through a club portal, and register online. You can select your division and category during registration.'],
+                    ['q' => 'How do I register for a match?', 'a' => 'Create a free account, browse upcoming matches on the platform or through a club portal, and register online. Select your division, category, and equipment details during registration. When squadding opens, choose your preferred squad.'],
                     ['q' => 'Can I view results without an account?', 'a' => 'Yes. Scoreboards and live results are publicly accessible. Just scan the QR code at the range or visit the scoreboard link shared by the match organizer.'],
                     ['q' => 'How are season standings calculated?', 'a' => 'DeadCenter uses relative scoring — your score is expressed as a percentage of the top shooter in each match. Season standings aggregate your average relative score across all matches, with optional best-of-N rules.'],
                     ['q' => 'Is DeadCenter only for South African competitions?', 'a' => 'DeadCenter was built for the South African shooting community, but the platform can be used for competitions anywhere.'],

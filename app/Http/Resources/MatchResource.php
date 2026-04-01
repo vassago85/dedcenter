@@ -33,6 +33,7 @@ class MatchResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'updated_at' => $this->updated_at?->toIso8601String(),
             'name' => $this->name,
             'date' => $this->date?->toDateString(),
             'location' => $this->location,

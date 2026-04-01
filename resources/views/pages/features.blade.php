@@ -24,7 +24,7 @@ new #[Layout('components.layouts.marketing')]
                     </svg>
                 </div>
                 <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Offline-First Scoring</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">No signal at the range? No problem. Scores are saved locally on the device and sync automatically when connectivity returns.</p>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">No signal at the range? No problem. The Android app uses Room DB for local storage. The PWA uses IndexedDB. Scores sync automatically when connectivity returns.</p>
             </div>
 
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
@@ -93,8 +93,79 @@ new #[Layout('components.layouts.marketing')]
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
                     </svg>
                 </div>
-                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Multi-Device Sync</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Multiple Range Officers can score simultaneously on different tablets. All scores merge on the server and appear on the scoreboard in real-time.</p>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Two-Way Cloud Sync</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Scores sync automatically between devices and cloud every 15 seconds. Last-write-wins conflict resolution with device ID and timestamp tracking.</p>
+            </div>
+
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(142, 160, 191, 0.1);">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-text-muted);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Hub/Client Architecture</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Set up a local WiFi mesh for match-day scoring without internet. One tablet hosts the hub, others connect as clients. The hub bridges scores to cloud when available.</p>
+            </div>
+
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Score Audit Trail</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Every score change is logged with device, user, and timestamp. Reshoot tracking with mandatory reasons. Score reassignment preserves full history.</p>
+            </div>
+
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Device Lock &amp; PIN</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Lock scoring tablets to specific stages or squads with a PIN. Prevents accidental navigation. MD override with username/password if the PIN is forgotten.</p>
+            </div>
+
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(142, 160, 191, 0.1);">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-text-muted);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Match Lifecycle</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Full lifecycle management: pre-registration, registration, squadding, scoring, review, and results phases. Each phase has its own controls and visibility rules.</p>
+            </div>
+
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600/10">
+                    <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Self-Service Squadding</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Shooters choose their own squad from available slots with capacity management. No more spreadsheet juggling or manual squad assignments.</p>
+            </div>
+
+            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
+                    <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Score Publishing Control</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Choose to show scores live as they are entered or hold them back and publish after review. Match directors control exactly when results become visible.</p>
+            </div>
+
+            <div class="rounded-2xl border border-amber-800/30 p-8 ring-1 ring-amber-600/10" style="background: var(--lp-surface);">
+                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-600/10">
+                    <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" />
+                    </svg>
+                </div>
+                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Sponsor Marketplace</h3>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Match directors can offer sponsorship placements to brands. Sponsors get visibility on scoreboards, match pages, and results — connecting the shooting community with supporting businesses.</p>
             </div>
 
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
@@ -107,26 +178,6 @@ new #[Layout('components.layouts.marketing')]
                 <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Shooters register for matches online. Set entry fees, approve/reject registrations, and track payments. Free matches are supported too.</p>
             </div>
 
-            <div class="rounded-2xl border border-amber-800/30 p-8 ring-1 ring-amber-600/10" style="background: var(--lp-surface);">
-                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-600/10">
-                    <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" />
-                    </svg>
-                </div>
-                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Side Bet (Royal Flush)</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Optional side competition for relay-format matches. The winner is whoever hits the most smallest gongs. Ties break by furthest distance, then cascade to the next gong size.</p>
-            </div>
-
-            <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                    </svg>
-                </div>
-                <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Scoring Security &amp; Squad Lock</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Only authorized users can submit scores. The Match Director logs into each tablet and locks it to a specific squad to prevent accidental edits on other squads.</p>
-            </div>
-
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-600/10">
                     <svg class="h-6 w-6 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -134,7 +185,7 @@ new #[Layout('components.layouts.marketing')]
                     </svg>
                 </div>
                 <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Relay Scoring</h3>
-                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Point multipliers based on gong size and difficulty. Synchronized relay flow with auto-advancing scorer. Quick-add preset targets included.</p>
+                <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Point multipliers based on gong size and distance. Synchronized relay flow with squad rotation, break screens between relays, and concurrent relay support.</p>
             </div>
 
         </div>

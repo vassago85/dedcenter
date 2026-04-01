@@ -26,6 +26,7 @@ Route::get('/', [\App\Http\Controllers\HomeController::class, '__invoke'])->name
 Volt::route('/features', 'features')->name('features');
 Volt::route('/scoring', 'scoring-info')->name('scoring');
 Volt::route('/sponsorships', 'sponsorships')->name('sponsorships');
+Volt::route('/sponsor-marketplace', 'sponsor-marketplace')->name('sponsor-marketplace');
 Volt::route('/offline', 'offline')->name('offline');
 Volt::route('/setup', 'setup')->name('setup');
 

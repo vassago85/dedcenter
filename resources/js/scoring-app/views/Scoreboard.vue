@@ -31,6 +31,7 @@
         </header>
 
         <DeviceLockBanner max-width-class="max-w-4xl" />
+        <SyncStatusBar />
 
         <main class="mx-auto max-w-4xl px-4 py-6">
             <div v-if="loading && !standings.length" class="flex justify-center py-12">
@@ -563,6 +564,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
+import SyncStatusBar from '../components/SyncStatusBar.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

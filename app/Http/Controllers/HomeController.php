@@ -73,12 +73,19 @@ class HomeController extends Controller
             ->take(6)
             ->get();
 
+        $liveMatches = ShootingMatch::where('status', \App\Enums\MatchStatus::Active)
+            ->withCount('shooters')
+            ->orderBy('date', 'desc')
+            ->take(6)
+            ->get();
+
         return compact(
             'featuredMatches',
             'featuredOrgs',
             'upcomingMatches',
             'recentResults',
             'popularMatches',
+            'liveMatches',
         );
     }
 }

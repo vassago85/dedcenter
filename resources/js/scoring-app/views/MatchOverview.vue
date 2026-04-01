@@ -25,6 +25,8 @@
             </div>
         </header>
 
+        <SyncStatusBar />
+
         <main class="mx-auto max-w-lg px-4 py-6">
             <div v-if="matchStore.loading" class="flex justify-center py-12">
                 <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-red-500"></div>
@@ -327,6 +329,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
+import SyncStatusBar from '../components/SyncStatusBar.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },

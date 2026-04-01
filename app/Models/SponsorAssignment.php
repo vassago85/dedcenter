@@ -20,6 +20,7 @@ class SponsorAssignment extends Model
         'starts_at',
         'ends_at',
         'metadata',
+        'reservation_status',
     ];
 
     protected function casts(): array
@@ -32,6 +33,7 @@ class SponsorAssignment extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'metadata' => 'array',
+            'reservation_status' => 'string',
         ];
     }
 
@@ -78,6 +80,18 @@ class SponsorAssignment extends Model
     {
         return $query->where('scope_type', SponsorScope::Matchbook)
             ->where('scope_id', $matchBookId);
+    }
+
+    public function scopeOpen($query)
+    {
+        return $query->where('reservation_status', 'open');
+    }
+
+    public function scopeMarketplace($query)
+    {
+        return $query->open()
+            ->where('scope_type', SponsorScope::Match)
+            ->whereNull('sponsor_id');
     }
 
     // ── Helpers ──

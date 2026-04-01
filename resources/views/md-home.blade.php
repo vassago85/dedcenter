@@ -55,11 +55,11 @@
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Offline tablet scoring
+                        Multi-device sync
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Free for all organizers
+                        Android app + PWA
                     </div>
                 </div>
             </div>
@@ -69,26 +69,29 @@
     </section>
 
     {{-- ══════════════════════════════════════════ --}}
-    {{-- MATCH WORKFLOW --}}
+    {{-- MATCH LIFECYCLE --}}
     {{-- ══════════════════════════════════════════ --}}
     <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-16 text-center">
                 <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">The Match Lifecycle</h2>
-                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">From creating a match to publishing final standings &mdash; DeadCenter handles the entire workflow.</p>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">From creating a match to updating season standings &mdash; DeadCenter handles the entire workflow in ten steps.</p>
             </div>
 
             <div class="relative">
-                <div class="hidden lg:block absolute top-10 left-[calc(8.33%+28px)] right-[calc(8.33%+28px)] h-0.5" style="background: linear-gradient(to right, var(--lp-red), rgba(225,6,0,0.3), var(--lp-red));"></div>
+                <div class="hidden lg:block absolute top-10 left-[calc(5%+28px)] right-[calc(5%+28px)] h-0.5" style="background: linear-gradient(to right, var(--lp-red), rgba(225,6,0,0.3), var(--lp-red));"></div>
 
-                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
                     @foreach([
                         ['icon' => 'M12 4.5v15m7.5-7.5h-15', 'title' => 'Create Match'],
                         ['icon' => 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z', 'title' => 'Configure Stages'],
-                        ['icon' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z', 'title' => 'Assign Scoring'],
+                        ['icon' => 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z', 'title' => 'Set Divisions'],
+                        ['icon' => 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', 'title' => 'Pre-Registration'],
                         ['icon' => 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z', 'title' => 'Open Registration'],
+                        ['icon' => 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z', 'title' => 'Open Squadding'],
+                        ['icon' => 'M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z', 'title' => 'Close Registration'],
                         ['icon' => 'M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3', 'title' => 'Score in Field'],
-                        ['icon' => 'M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6', 'title' => 'Publish Results'],
+                        ['icon' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', 'title' => 'Review & Publish'],
                         ['icon' => 'M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522', 'title' => 'Update Standings'],
                     ] as $step)
                         <div class="text-center">
@@ -115,42 +118,21 @@
 
             <div class="grid gap-8 lg:grid-cols-3">
 
-                {{-- Relay Scoring --}}
-                <div class="rounded-2xl p-8 flex flex-col" style="border: 1px solid rgba(225, 6, 0, 0.15); background: var(--lp-surface);">
-                    <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
-                        Relay Scoring
-                    </div>
-                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Synchronized Relay Format</h3>
-                    <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                        All relays complete each stage before advancing together. Distance-based target and gong multipliers reward accuracy at range.
-                        Includes gong transition screens, relay summary tables, and quick-add preset targets.
-                    </p>
-                    <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Synchronized stage-based relay format</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Distance-based target/gong multipliers</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Gong transition screens &amp; relay summaries</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Auto-squadding with shared-rifle constraints</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Suited to traditional club and field matches</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-amber-500">&#10003;</span> Optional <strong class="text-amber-400">Side Bet</strong> mode</li>
-                    </ul>
-                </div>
-
                 {{-- PRS Scoring --}}
                 <div class="rounded-2xl p-8 flex flex-col ring-1 ring-amber-600/10" style="border: 1px solid rgba(245, 158, 11, 0.2); background: var(--lp-surface);">
                     <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: rgb(251, 191, 36);">
                         PRS Scoring
                     </div>
-                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Stage-Based Precision Rifle</h3>
+                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Precision Rifle Series</h3>
                     <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                        Hit/miss scoring with timed stages. Stage normalization enables relative performance comparison across different venues and conditions. Designed for competitive precision rifle series matches.
+                        Stage-based precision rifle scoring. Each shooter completes an entire stage before the next shooter begins, with hit/miss tracking and timed tiebreaker stages.
                     </p>
                     <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Three-button scoring per target (Hit / Miss / Not Taken)</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Timed stages with app timer or manual entry</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Stage normalization / relative performance</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Tiebreaker stage: impacts first, then time</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Par time auto-fill for incomplete shooters</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Open / Factory / Limited division presets</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Multi-position, multi-target per stage</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Hit / Miss / Not Taken per shot</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Tiebreaker stages with mandatory time</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> One shooter fully scored per stage</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Automatic timed stage for tiebreakers</li>
                     </ul>
                 </div>
 
@@ -159,17 +141,34 @@
                     <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.2); color: rgb(167, 139, 250);">
                         ELR Scoring
                     </div>
-                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Shot-by-Shot Extreme Long Range</h3>
+                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Extreme Long Range</h3>
                     <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                        Static and ladder stage types with multi-shot per target and diminishing multipliers. Must-hit-to-advance ladder logic with shot-level data recording. Normalized percentage standings and furthest target hit tracking.
+                        Shot-by-shot scoring at extreme distances with point-based impact tracking, diminishing multipliers, and optional must-hit-to-advance ladder progression.
                     </p>
                     <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Static &amp; ladder stage types</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Multi-shot per target with diminishing multipliers</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Must-hit-to-advance ladder logic</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Shot-level data recording</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Normalized percentage standings</li>
-                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Furthest target hit tracking</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Distance-based stages with shot scoring</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Points awarded per impact</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Detailed shot-by-shot breakdowns</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Must-hit-to-advance progression</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-purple-400">&#10003;</span> Shot multiplier profiles</li>
+                    </ul>
+                </div>
+
+                {{-- Relay / Standard Scoring --}}
+                <div class="rounded-2xl p-8 flex flex-col" style="border: 1px solid rgba(225, 6, 0, 0.15); background: var(--lp-surface);">
+                    <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
+                        Relay / Standard
+                    </div>
+                    <h3 class="mb-2 text-xl font-bold" style="color: var(--lp-text);">Synchronized Relay Format</h3>
+                    <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
+                        Traditional relay-based scoring where all relays complete each stage before advancing together. Distance-based multipliers reward accuracy at range.
+                    </p>
+                    <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Distance cards with expandable relay lists</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Squad rotation between stages</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Break screens between relays</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Concurrent relay support</li>
+                        <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Gong multiplier scoring</li>
                     </ul>
                 </div>
             </div>
@@ -177,9 +176,99 @@
     </section>
 
     {{-- ══════════════════════════════════════════ --}}
-    {{-- SEASON STANDINGS & RELATIVE SCORES --}}
+    {{-- MULTI-DEVICE SYNC --}}
     {{-- ══════════════════════════════════════════ --}}
     <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+        <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+            <div class="mb-16 text-center">
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Multi-Device Sync</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Six connectivity modes to keep scoring running no matter what your network situation looks like on match day.</p>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach([
+                    ['title' => 'Standalone Mode', 'desc' => 'Single tablet, fully offline. All match data and scores stored locally in Room DB. Perfect for small club matches with one scorer.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
+                    ['title' => 'Hub Mode', 'desc' => 'One tablet hosts a local server. Other devices connect to it over WiFi. No internet required — the hub coordinates all scoring across connected clients.', 'color' => 'rgb(251,191,36)', 'bg' => 'rgba(245,158,11,0.08)'],
+                    ['title' => 'Client Mode', 'desc' => 'Connect to a hub on the local network. Import the match from the hub, score your assigned stage or squad, and sync back to the hub automatically.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
+                    ['title' => 'Cloud Mode', 'desc' => 'Direct sync to deadcenter.co.za. Scores upload every 15 seconds when the device has internet connectivity. Ideal when the range has signal.', 'color' => 'rgb(52,211,153)', 'bg' => 'rgba(16,185,129,0.08)'],
+                    ['title' => 'Bridge Sync', 'desc' => 'The hub receives scores from all clients on the LAN and pushes them to the cloud when internet is available. Clients never need internet directly.', 'color' => 'rgb(167,139,250)', 'bg' => 'rgba(139,92,246,0.08)'],
+                    ['title' => 'Dual Status', 'desc' => 'Live indicators on every device show both hub connectivity and cloud sync status. Always know exactly where your scores are and whether they have reached the server.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
+                ] as $mode)
+                    <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: {{ $mode['bg'] }};">
+                            <div class="h-3 w-3 rounded-full" style="background: {{ $mode['color'] }};"></div>
+                        </div>
+                        <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">{{ $mode['title'] }}</h3>
+                        <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $mode['desc'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    {{-- ══════════════════════════════════════════ --}}
+    {{-- SCORE INTEGRITY --}}
+    {{-- ══════════════════════════════════════════ --}}
+    <section style="border-top: 1px solid var(--lp-border);">
+        <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+            <div class="mb-16 text-center">
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Score Integrity</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Every score change is tracked, every correction is auditable, and every device is locked down.</p>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach([
+                    ['title' => 'Audit Log', 'desc' => 'Every score change is recorded with the device, user, and timestamp. Full traceability from field to final result.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
+                    ['title' => 'Score Reassignment', 'desc' => 'Move scores between shooters when corrections are needed. The original record is preserved in the audit trail.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
+                    ['title' => 'Reshoot Tracking', 'desc' => 'Flag reshoots with a mandatory reason. The reshoot is linked to the original score so the full history is visible.', 'color' => 'rgb(251,191,36)', 'bg' => 'rgba(245,158,11,0.08)'],
+                    ['title' => 'Publishing Control', 'desc' => 'Choose to show scores live as they are entered or hold them back and publish after review. Match directors control the release.', 'color' => 'rgb(52,211,153)', 'bg' => 'rgba(16,185,129,0.08)'],
+                    ['title' => 'Device Lock', 'desc' => 'PIN-protected lock ties a scoring tablet to a specific stage or squad. Prevents accidental navigation or edits on other squads.', 'color' => 'rgb(167,139,250)', 'bg' => 'rgba(139,92,246,0.08)'],
+                    ['title' => 'MD Override', 'desc' => 'If a Range Officer forgets their PIN, the Match Director can unlock the device with their username and password.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
+                ] as $item)
+                    <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: {{ $item['bg'] }};">
+                            <div class="h-3 w-3 rounded-full" style="background: {{ $item['color'] }};"></div>
+                        </div>
+                        <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">{{ $item['title'] }}</h3>
+                        <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $item['desc'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    {{-- ══════════════════════════════════════════ --}}
+    {{-- REGISTRATION & SQUADDING --}}
+    {{-- ══════════════════════════════════════════ --}}
+    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+        <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+            <div class="mb-16 text-center">
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Registration &amp; Squadding</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Three-phase registration flow that puts shooters in control while keeping match directors informed.</p>
+            </div>
+
+            <div class="grid gap-8 lg:grid-cols-3">
+                @foreach([
+                    ['step' => '1', 'title' => 'Pre-Registration', 'desc' => 'Shooters express interest before registration officially opens. Match directors see demand early and can plan capacity. No commitment required from the shooter at this stage.'],
+                    ['step' => '2', 'title' => 'Registration', 'desc' => 'Full registration with division selection, equipment details, and approval workflow. Match directors can approve, reject, or waitlist entries. Entry fee tracking included.'],
+                    ['step' => '3', 'title' => 'Self-Service Squadding', 'desc' => 'Once registration closes, squadding opens. Shooters choose their own squad from available slots with capacity limits enforced automatically. No more spreadsheet juggling.'],
+                ] as $phase)
+                    <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                        <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-black" style="background: rgba(225, 6, 0, 0.08); color: var(--lp-red);">
+                            {{ $phase['step'] }}
+                        </div>
+                        <h3 class="text-lg font-semibold mb-3 text-center" style="color: var(--lp-text);">{{ $phase['title'] }}</h3>
+                        <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $phase['desc'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    {{-- ══════════════════════════════════════════ --}}
+    {{-- SEASON STANDINGS & RELATIVE SCORES --}}
+    {{-- ══════════════════════════════════════════ --}}
+    <section style="border-top: 1px solid var(--lp-border);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-12 text-center">
                 <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Season Standings &amp; Relative Scores</h2>
@@ -227,7 +316,7 @@
     {{-- ══════════════════════════════════════════ --}}
     {{-- FEATURES --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section id="features" style="border-top: 1px solid var(--lp-border);">
+    <section id="features" style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-16 text-center">
                 <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Everything You Need to Run a Match</h2>
@@ -238,13 +327,16 @@
                 @foreach([
                     ['title' => 'Match Setup', 'desc' => 'Create a match, set the date, location, scoring mode, entry fee, and notes. Everything configurable from one screen.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
                     ['title' => 'Stage Builder', 'desc' => 'Define target sets with distances, gong sizes, multipliers, and presets. Different configuration per scoring engine.', 'color' => 'rgb(251,191,36)', 'bg' => 'rgba(245,158,11,0.08)'],
-                    ['title' => 'Online Registration', 'desc' => 'Shooters register online with division/category selection, equipment details, and payment tracking. EFT or free.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
-                    ['title' => 'Tablet Field Scoring', 'desc' => 'Range Officers score on tablets in the field. Offline-first with IndexedDB storage. Syncs automatically when connected.', 'color' => 'rgb(52,211,153)', 'bg' => 'rgba(16,185,129,0.08)'],
-                    ['title' => 'Live Scoreboards', 'desc' => 'TV scoreboard for the range and a mobile-friendly live page for spectators. QR code sharing with 10-second auto-refresh.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
-                    ['title' => 'Results Publishing', 'desc' => 'Complete a match and results are published instantly. Division and category filtered scoreboards are always available.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
+                    ['title' => 'Registration & Squadding', 'desc' => 'Pre-registration, full registration with approval, and self-service squadding. Shooters manage their own entries.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
+                    ['title' => 'Tablet Scoring', 'desc' => 'Range Officers score on Android tablets or any device with a browser. Offline-first with Room DB and IndexedDB storage.', 'color' => 'rgb(52,211,153)', 'bg' => 'rgba(16,185,129,0.08)'],
+                    ['title' => 'Live Scoreboards', 'desc' => 'TV scoreboard for the range and a mobile-friendly live page for spectators. QR code sharing with auto-refresh.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
+                    ['title' => 'Results & Exports', 'desc' => 'Complete a match and results are published instantly. Division and category filtered scoreboards with export options.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
                     ['title' => 'Season Standings', 'desc' => 'Relative scoring across a season. Best-of-N rules, average relative score, and public org leaderboards.', 'color' => 'rgb(52,211,153)', 'bg' => 'rgba(16,185,129,0.08)'],
-                    ['title' => 'Multi-Discipline Support', 'desc' => 'Relay, PRS, and ELR scoring in one platform. Each match chooses its engine. More modes coming.', 'color' => 'rgb(167,139,250)', 'bg' => 'rgba(139,92,246,0.08)'],
-                    ['title' => 'Multi-Device Sync', 'desc' => 'Multiple Range Officers score simultaneously on different tablets. All scores merge in real-time on the server.', 'color' => 'rgb(251,191,36)', 'bg' => 'rgba(245,158,11,0.08)'],
+                    ['title' => 'Multi-Discipline', 'desc' => 'Relay, PRS, and ELR scoring in one platform. Each match chooses its engine. More modes coming.', 'color' => 'rgb(167,139,250)', 'bg' => 'rgba(139,92,246,0.08)'],
+                    ['title' => 'Multi-Device Sync', 'desc' => 'Standalone, hub/client, cloud, and bridge sync modes. Multiple tablets score simultaneously with real-time merge.', 'color' => 'rgb(251,191,36)', 'bg' => 'rgba(245,158,11,0.08)'],
+                    ['title' => 'Score Audit Trail', 'desc' => 'Every score change logged with device, user, and timestamp. Reshoot tracking with mandatory reasons. Full traceability.', 'color' => 'var(--lp-red)', 'bg' => 'rgba(225,6,0,0.08)'],
+                    ['title' => 'Device Lock', 'desc' => 'PIN-protected lock ties each tablet to a stage or squad. MD override with username/password if the PIN is forgotten.', 'color' => 'rgb(96,165,250)', 'bg' => 'rgba(59,130,246,0.08)'],
+                    ['title' => 'Sponsor Marketplace', 'desc' => 'Match directors can offer sponsorship placements to brands. Sponsors get visibility on scoreboards and match pages.', 'color' => 'rgb(52,211,153)', 'bg' => 'rgba(16,185,129,0.08)'],
                 ] as $feature)
                     <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                         <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: {{ $feature['bg'] }};">
@@ -261,7 +353,7 @@
     {{-- ══════════════════════════════════════════ --}}
     {{-- HOW IT WORKS --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section id="how-it-works" style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <section id="how-it-works" style="border-top: 1px solid var(--lp-border);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-16 text-center">
                 <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">How It Works for Match Directors</h2>
@@ -291,7 +383,7 @@
     {{-- ══════════════════════════════════════════ --}}
     {{-- FOR CLUBS & FEDERATIONS --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section id="for-clubs" style="border-top: 1px solid var(--lp-border);">
+    <section id="for-clubs" style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-16 text-center">
                 <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">For Clubs, Leagues &amp; Federations</h2>
@@ -317,7 +409,7 @@
     {{-- ══════════════════════════════════════════ --}}
     {{-- CROSS-LINK TO SHOOTER PAGE --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <section style="border-top: 1px solid var(--lp-border);">
         <div class="mx-auto max-w-3xl px-6 py-16 text-center">
             <h3 class="text-xl font-bold" style="color: var(--lp-text);">Looking for Events, Standings &amp; Results?</h3>
             <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Browse upcoming competitions, check live scoreboards, and explore season standings on the shooter portal.</p>
@@ -331,18 +423,18 @@
     {{-- ══════════════════════════════════════════ --}}
     {{-- FAQ --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section style="border-top: 1px solid var(--lp-border);">
+    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
         <div class="mx-auto max-w-3xl px-6 py-20 lg:py-28">
             <h2 class="text-2xl font-bold tracking-tight text-center mb-12" style="color: var(--lp-text);">Frequently Asked Questions</h2>
 
             <div class="space-y-4" x-data="{ open: null }">
                 @foreach([
-                    ['q' => 'Is DeadCenter really free for match directors?', 'a' => 'Yes. DeadCenter is free for match directors, clubs, and federations. There are no subscription fees, no per-match charges, and no feature gates. The platform is sustained through optional promoted placements and partner visibility.'],
-                    ['q' => 'What scoring modes are supported?', 'a' => 'Three modes: Relay Scoring for synchronized relay-format matches with gong/distance multipliers, PRS Scoring for precision rifle series with hit/miss and timed stages, and ELR Scoring for extreme long range with shot-by-shot tracking and ladder progression. More engines will be added over time.'],
-                    ['q' => 'Can I score offline at the range?', 'a' => 'Yes. The scoring interface uses IndexedDB for local storage. Range Officers can score without any internet connection. Scores sync automatically when the device reconnects.'],
-                    ['q' => 'How do multiple Range Officers score simultaneously?', 'a' => 'Each tablet locks to a specific squad. Multiple tablets can score different squads at the same time. All scores merge on the server in real-time and appear on the live scoreboard.'],
-                    ['q' => 'Can my club have its own branded page?', 'a' => 'Yes. Each organization can enable a portal with custom branding, colours, and logo. The portal shows upcoming matches, leaderboards, and match details under your club identity.'],
-                    ['q' => 'How are season standings calculated?', 'a' => 'DeadCenter uses relative scoring — each shooter\'s result is expressed as a percentage of the top scorer. Season standings aggregate the average relative score across all matches, with optional best-of-N rules to drop weakest results.'],
+                    ['q' => 'How does offline scoring work?', 'a' => 'The Android app stores all match data in Room DB locally on the device. Scores are saved instantly as they are entered — no internet required. When connectivity returns, a background sync pushes all unsynced scores to the hub or cloud. The PWA uses IndexedDB for the same purpose in browsers.'],
+                    ['q' => 'What devices can I use?', 'a' => 'DeadCenter has a native Android app available on the Play Store, optimised for tablets. You can also use the progressive web app (PWA) on any device with a modern browser — iPads, laptops, or phones. The Android app supports hub/client mode for local WiFi mesh scoring.'],
+                    ['q' => 'How does multi-device sync work?', 'a' => 'You can run multiple tablets simultaneously. In hub mode, one tablet acts as a local server and others connect as clients over WiFi. The hub collects scores from all clients and optionally bridges them to the cloud. In cloud mode, each device syncs directly to deadcenter.co.za every 15 seconds.'],
+                    ['q' => 'Is it really free?', 'a' => 'Yes. DeadCenter is free for match directors, clubs, and federations. There are no subscription fees, no per-match charges, and no feature gates. The platform is sustained through the sponsor marketplace and optional promoted placements.'],
+                    ['q' => 'Can shooters register themselves?', 'a' => 'Yes. Match directors open registration and shooters sign up online with their division, category, and equipment details. Entries can be auto-approved or require manual approval. When squadding opens, shooters choose their own squad from available slots.'],
+                    ['q' => 'How do I set up hub mode?', 'a' => 'Open the Android app on your hub tablet, go to the match, and tap "Start Hub." The app displays the hub\'s IP address. On each client tablet, enter the hub IP to connect. Clients import the match from the hub and can start scoring immediately — no internet needed on any device.'],
                 ] as $i => $faq)
                     <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                         <button @click="open = open === {{ $i }} ? null : {{ $i }}" class="flex w-full items-center justify-between px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white" style="color: var(--lp-text);">
@@ -361,7 +453,7 @@
     {{-- ══════════════════════════════════════════ --}}
     {{-- FINAL CTA --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <section style="border-top: 1px solid var(--lp-border);">
         <div class="mx-auto max-w-6xl px-6 py-20 text-center">
             <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Ready to Run Your Next Match?</h2>
             <p class="mx-auto mt-3 max-w-md" style="color: var(--lp-text-muted);">Create your free account and set up your first match in minutes.</p>

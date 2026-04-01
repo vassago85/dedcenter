@@ -17,41 +17,21 @@ new #[Layout('components.layouts.marketing')]
         </div>
         <div class="grid gap-8 lg:grid-cols-3">
 
-            <div class="rounded-2xl p-8 flex flex-col" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
-                    Relay Scoring
-                </div>
-                <h3 class="mb-2 text-xl font-bold">Synchronized Relay Format</h3>
-                <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                    All relays complete each stage before advancing together. Distance-based target and gong multipliers reward accuracy at range.
-                    Range Officers tap HIT or MISS.
-                </p>
-                <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Gong multipliers (2.5 MOA = 1.0x, 0.5 MOA = 2.0x)</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Distance multipliers (400m = 4x, 700m = 7x)</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Synchronized relay scoring flow</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Quick-add presets: 5 standard MOA targets</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Auto-squadding with shared-rifle constraints</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-amber-500">&#10003;</span> Optional <strong class="text-amber-400">Side Bet</strong> mode</li>
-                </ul>
-            </div>
-
             <div class="rounded-2xl p-8 flex flex-col ring-1 ring-amber-600/10" style="border: 1px solid rgba(217, 119, 6, 0.3); background: var(--lp-surface);">
                 <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(217, 119, 6, 0.3); color: rgb(251, 191, 36);">
                     PRS
                 </div>
-                <h3 class="mb-2 text-xl font-bold">Hit / Miss / Shot Not Taken</h3>
+                <h3 class="mb-2 text-xl font-bold">Precision Rifle Series</h3>
                 <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                    Each shooter completes an entire stage. Every target has three state buttons: <strong class="text-green-400">Hit</strong>,
-                    <strong style="color: var(--lp-red);">Miss</strong>, or <strong class="text-amber-400">Shot Not Taken</strong>.
-                    If a shooter runs out of time, remaining targets stay as "shot not taken."
+                    Stage-based precision rifle scoring. Each shooter completes an entire stage before the next shooter begins.
+                    Multiple positions and targets per stage with hit/miss tracking and timed tiebreaker stages.
                 </p>
                 <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Three-button scoring per target (Hit / Miss / Not Taken)</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Timed stages with app timer or smart manual input</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Tiebreaker stage: impacts first, then time</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Par time auto-fill for incomplete shooters</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Smart decimal time entry (e.g. 105.23s)</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Multi-position, multi-target per stage</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Hit / Miss / Not Taken per shot</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Tiebreaker stages with mandatory time</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> One shooter fully scored per stage</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Automatic timed stage for tiebreakers</li>
                     <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Open / Factory / Limited division presets</li>
                 </ul>
             </div>
@@ -62,16 +42,35 @@ new #[Layout('components.layouts.marketing')]
                 </div>
                 <h3 class="mb-2 text-xl font-bold">Extreme Long Range</h3>
                 <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
-                    Shot-by-shot scoring at extreme distances. Each target has a base point value and shot multipliers reward first-round hits.
-                    Optional ladder progression requires a hit before advancing.
+                    Shot-by-shot scoring at extreme distances. Points awarded per impact with diminishing shot multipliers
+                    and optional must-hit-to-advance ladder progression.
                 </p>
                 <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Distance-based base points (1000m = 10pts, 1800m = 25pts)</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Shot multipliers (1st = 1.0x, 2nd = 0.7x, 3rd = 0.5x)</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Ladder &amp; static stage types</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> "Must hit to advance" gate per target</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Configurable max shots per target</li>
-                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> One-click default template</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Distance-based stages with shot scoring</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Points awarded per impact</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Detailed shot-by-shot breakdowns</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Must-hit-to-advance progression</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Shot multiplier profiles</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-emerald-500">&#10003;</span> Normalized percentage standings</li>
+                </ul>
+            </div>
+
+            <div class="rounded-2xl p-8 flex flex-col" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold self-start" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">
+                    Relay / Standard
+                </div>
+                <h3 class="mb-2 text-xl font-bold">Synchronized Relay Format</h3>
+                <p class="mb-6 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
+                    Traditional relay-based scoring where all relays complete each stage before advancing together.
+                    Distance-based target and gong multipliers reward accuracy at range.
+                </p>
+                <ul class="space-y-2.5 text-sm mt-auto" style="color: var(--lp-text-soft);">
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Distance cards with expandable relay lists</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Squad rotation between stages</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Break screens between relays</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Concurrent relay support</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-green-500">&#10003;</span> Gong multiplier scoring</li>
+                    <li class="flex items-start gap-2"><span class="mt-0.5 text-amber-500">&#10003;</span> Optional <strong class="text-amber-400">Side Bet</strong> mode</li>
                 </ul>
             </div>
 
@@ -79,7 +78,85 @@ new #[Layout('components.layouts.marketing')]
     </div>
 </section>
 
+{{-- ══════════════════════════════════════════ --}}
+{{-- HOW SCORES SYNC --}}
+{{-- ══════════════════════════════════════════ --}}
 <section style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+        <div class="mb-16 text-center">
+            <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">How Scores Sync</h2>
+            <p class="mt-3 max-w-2xl mx-auto" style="color: var(--lp-text-soft);">From the moment a Range Officer taps a score to the moment it appears on the live scoreboard &mdash; the sync pipeline handles every step.</p>
+        </div>
+
+        <div class="mx-auto max-w-4xl">
+            <div class="relative">
+                <div class="hidden sm:block absolute top-0 bottom-0 left-[27px] w-0.5" style="background: linear-gradient(to bottom, var(--lp-red), rgba(225,6,0,0.15));"></div>
+
+                <div class="space-y-10">
+                    <div class="flex gap-5">
+                        <div class="flex-shrink-0 relative z-10">
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl text-sm font-black" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">1</div>
+                        </div>
+                        <div class="rounded-2xl p-6 flex-1" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <h4 class="font-semibold mb-2" style="color: var(--lp-text);">Device &mdash; Local Save</h4>
+                            <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">The Range Officer taps Hit, Miss, or enters a score on their tablet. The score is instantly saved to the device&rsquo;s local database (Room DB on Android, IndexedDB in the browser). No network needed.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-5">
+                        <div class="flex-shrink-0 relative z-10">
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl text-sm font-black" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">2</div>
+                        </div>
+                        <div class="rounded-2xl p-6 flex-1" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <h4 class="font-semibold mb-2" style="color: var(--lp-text);">Client &rarr; Hub &mdash; LAN Sync</h4>
+                            <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">If the device is a client connected to a hub, it pushes unsynced scores to the hub over the local WiFi network. The hub merges scores from all connected clients using upsert logic. No internet required at this stage.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-5">
+                        <div class="flex-shrink-0 relative z-10">
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl text-sm font-black" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">3</div>
+                        </div>
+                        <div class="rounded-2xl p-6 flex-1" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <h4 class="font-semibold mb-2" style="color: var(--lp-text);">Hub &rarr; Cloud &mdash; Bridge Sync</h4>
+                            <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">When the hub has internet connectivity, it pushes all collected scores to deadcenter.co.za. The cloud server processes the batch using the same upsert logic. Devices in cloud mode skip the hub and sync directly.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-5">
+                        <div class="flex-shrink-0 relative z-10">
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl text-sm font-black" style="background: rgba(225, 6, 0, 0.08); border: 1px solid rgba(225, 6, 0, 0.15); color: var(--lp-red);">4</div>
+                        </div>
+                        <div class="rounded-2xl p-6 flex-1" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <h4 class="font-semibold mb-2" style="color: var(--lp-text);">Cloud &rarr; Scoreboard &mdash; Live Display</h4>
+                            <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Once scores reach the cloud, the TV scoreboard and mobile live page pick them up on their next refresh cycle. Spectators see results appear in near real-time. QR codes at the range link directly to the live scoreboard.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-12 rounded-2xl p-6 lg:p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <h4 class="mb-4 font-semibold text-center" style="color: var(--lp-text);">Sync Architecture at a Glance</h4>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="rounded-lg p-4 text-center" style="background: var(--lp-surface-2);">
+                        <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--lp-red);">Standalone</p>
+                        <p class="text-sm" style="color: var(--lp-text-soft);">Device &rarr; Cloud</p>
+                    </div>
+                    <div class="rounded-lg p-4 text-center" style="background: var(--lp-surface-2);">
+                        <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color: rgb(251, 191, 36);">Hub + Clients</p>
+                        <p class="text-sm" style="color: var(--lp-text-soft);">Clients &rarr; Hub &rarr; Cloud</p>
+                    </div>
+                    <div class="rounded-lg p-4 text-center" style="background: var(--lp-surface-2);">
+                        <p class="text-xs font-bold uppercase tracking-wider mb-1" style="color: rgb(52, 211, 153);">Pure Offline</p>
+                        <p class="text-sm" style="color: var(--lp-text-soft);">Device &rarr; Hub (LAN only)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section style="border-bottom: 1px solid var(--lp-border);">
     <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
         <div class="mb-16 text-center">
             <h2 class="text-3xl font-bold tracking-tight lg:text-4xl">Divisions &amp; Categories</h2>
