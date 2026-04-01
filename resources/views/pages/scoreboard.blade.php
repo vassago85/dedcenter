@@ -37,6 +37,7 @@ new #[Layout('components.layouts.scoreboard')]
         $shooterTimes = [];
         $tbHits = [];
         $tbTimes = [];
+        $totalTargets = 0;
 
         if ($isPrs) {
             $targetSets = $this->match->targetSets()->get();
