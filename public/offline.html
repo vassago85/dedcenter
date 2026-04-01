@@ -6,20 +6,39 @@
     <title>DeadCenter — Offline</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: #08142b; color: #f5f7fb; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 2rem; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #08142b;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { text-align: center; max-width: 400px; }
         .icon { font-size: 3rem; margin-bottom: 1rem; }
         h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        p { color: #8ea0bf; margin-bottom: 1.5rem; }
-        button { background: #ff2b2b; color: #fff; border: none; padding: 0.75rem 2rem; border-radius: 0.5rem; font-size: 1rem; cursor: pointer; }
-        button:active { background: #e32020; }
+        p { font-size: 0.875rem; color: #94a3b8; line-height: 1.6; margin-bottom: 1.5rem; }
+        .btn {
+            display: inline-block;
+            background: #dc2626;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .btn:hover { background: #b91c1c; }
     </style>
 </head>
 <body>
-    <div>
-        <div class="icon">&#9678;</div>
+    <div class="container">
+        <div class="icon">&#128247;</div>
         <h1>You're Offline</h1>
-        <p>Check your connection and try again.</p>
-        <button onclick="location.reload()">Retry</button>
+        <p>Looks like you've lost your connection. Check your network and try again. Your scoring data is safe — it will sync when you're back online.</p>
+        <a href="/" class="btn" onclick="window.location.reload(); return false;">Try Again</a>
     </div>
 </body>
 </html>

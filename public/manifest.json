@@ -1,13 +1,14 @@
 {
-    "name": "DeadCenter Scoring",
+    "name": "DeadCenter",
     "short_name": "DeadCenter",
-    "description": "Offline-first shooting match scoring",
-    "start_url": "/score",
+    "description": "Find shooting matches, register, view live scores, and track your results across South Africa.",
+    "start_url": "/",
     "scope": "/",
     "display": "standalone",
     "orientation": "portrait",
     "theme_color": "#08142b",
     "background_color": "#08142b",
+    "categories": ["sports"],
     "icons": [
         {
             "src": "/icons/icon-192.png",
@@ -26,6 +27,18 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Live Scores",
+            "url": "/score",
+            "description": "View live match scores"
+        },
+        {
+            "name": "Browse Matches",
+            "url": "/matches",
+            "description": "Find and register for matches"
         }
     ]
 }

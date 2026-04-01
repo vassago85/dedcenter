@@ -69,6 +69,8 @@ Route::middleware('auth')->group(function () {
     Volt::route('/organizations', 'member.organizations')->name('organizations');
     Volt::route('/organizations/create', 'member.organization-create')->name('organizations.create');
     Volt::route('/settings', 'member.settings')->name('settings');
+    Volt::route('/notifications', 'member.notifications')->name('notifications');
+    Volt::route('/settings/notifications', 'member.notification-settings')->name('settings.notifications');
 });
 
 // ══════════════════════════════════════════════════

@@ -2,7 +2,7 @@ if (typeof ServiceWorkerGlobalScope === 'undefined') {
     // Loaded as a regular page script — do nothing
 } else {
 
-const CACHE_NAME = 'deadcenter-v3';
+const CACHE_NAME = 'deadcenter-v4';
 const STATIC_ASSETS = [
     '/offline.html',
     '/manifest.json',
@@ -43,7 +43,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (request.destination === 'document') {
-        event.respondWith(networkFirst(request));
+        event.respondWith(networkFirstWithOfflineFallback(request));
         return;
     }
 
@@ -64,6 +64,21 @@ async function networkFirst(request) {
     }
 }
 
+async function networkFirstWithOfflineFallback(request) {
+    try {
+        const response = await fetch(request);
+        if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(request, response.clone());
+        }
+        return response;
+    } catch {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        return caches.match('/offline.html') || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/html' } });
+    }
+}
+
 async function cacheFirst(request) {
     const cached = await caches.match(request);
     if (cached) return cached;
@@ -78,5 +93,52 @@ async function cacheFirst(request) {
         return new Response('Offline', { status: 503 });
     }
 }
+
+// ── Push Notifications ──
+
+self.addEventListener('push', (event) => {
+    let data = { title: 'DeadCenter', body: 'You have a new notification' };
+
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch {
+            data.body = event.data.text();
+        }
+    }
+
+    const options = {
+        body: data.body || '',
+        icon: data.icon || '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        tag: data.tag || 'deadcenter-notification',
+        data: {
+            url: data.url || '/',
+        },
+        vibrate: [100, 50, 100],
+        actions: data.actions || [],
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(data.title || 'DeadCenter', options)
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    const url = event.notification.data?.url || '/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            for (const client of windowClients) {
+                if (client.url.includes(url) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            return clients.openWindow(url);
+        })
+    );
+});
 
 } // end ServiceWorkerGlobalScope guard

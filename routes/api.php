@@ -40,4 +40,28 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
 
     Route::get('matches/{match}/scores/sync', [\App\Http\Controllers\Api\SyncController::class, 'scores']);
+
+    Route::post('push/subscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'subscribe']);
+    Route::delete('push/unsubscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'unsubscribe']);
+
+    Route::get('notifications', function (\Illuminate\Http\Request $request) {
+        return response()->json([
+            'notifications' => $request->user()->notifications()->latest()->take(30)->get()->map(fn ($n) => [
+                'id' => $n->id,
+                'type' => class_basename($n->type),
+                'data' => $n->data,
+                'read_at' => $n->read_at?->toIso8601String(),
+                'created_at' => $n->created_at->toIso8601String(),
+            ]),
+            'unread_count' => $request->user()->unreadNotifications()->count(),
+        ]);
+    });
+    Route::post('notifications/{id}/read', function (\Illuminate\Http\Request $request, string $id) {
+        $request->user()->notifications()->where('id', $id)->first()?->markAsRead();
+        return response()->json(['success' => true]);
+    });
+    Route::post('notifications/read-all', function (\Illuminate\Http\Request $request) {
+        $request->user()->unreadNotifications->markAsRead();
+        return response()->json(['success' => true]);
+    });
 });

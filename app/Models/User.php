@@ -20,6 +20,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'notification_preferences',
     ];
 
     protected $hidden = [
@@ -32,6 +33,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'notification_preferences' => 'array',
         ];
     }
 
@@ -52,6 +54,11 @@ class User extends Authenticatable
     public function ownedOrganizations(): BelongsToMany
     {
         return $this->organizations()->wherePivot('role', 'owner');
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     // ── Helpers ──
@@ -101,6 +108,12 @@ class User extends Authenticatable
     public function canScore(): bool
     {
         return $this->isOwner() || $this->organizations()->exists();
+    }
+
+    public function wantsNotification(string $type): bool
+    {
+        $prefs = $this->notification_preferences ?? [];
+        return ($prefs[$type] ?? true) !== false;
     }
 
     public function roleLabel(): string
