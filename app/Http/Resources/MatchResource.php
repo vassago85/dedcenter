@@ -104,6 +104,7 @@ class MatchResource extends JsonResource
                 'recorded_at' => $st->recorded_at?->toIso8601String(),
             ])),
             'side_bet_enabled' => (bool) $this->side_bet_enabled,
+            'side_bet_shooter_ids' => $this->whenLoaded('sideBetShooters', fn () => $this->sideBetShooters->pluck('id')->values()),
             'royal_flush_enabled' => (bool) $this->royal_flush_enabled,
             'concurrent_relays' => (int) ($this->concurrent_relays ?? 2),
             'device_lock_mode' => $this->device_lock_mode ?? 'open',

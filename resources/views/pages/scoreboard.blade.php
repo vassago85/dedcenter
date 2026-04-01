@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ShootingMatch;
+use App\Models\Score;
 use App\Models\StageTime;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -12,6 +13,12 @@ new #[Layout('components.layouts.scoreboard')]
     public ?int $activeDivision = null;
     public ?int $activeCategory = null;
     public string $activeTab = 'main';
+    public ?int $expandedShooterId = null;
+
+    public function toggleExpand(int $id): void
+    {
+        $this->expandedShooterId = $this->expandedShooterId === $id ? null : $id;
+    }
 
     public function filterDivision(?int $id): void
     {
@@ -202,13 +209,95 @@ new #[Layout('components.layouts.scoreboard')]
             ]);
         }
 
+        $isStandard = !$isPrs && !$this->match->isElr();
+        $detailedData = collect();
+        $targetSetDetails = collect();
+
+        if ($isStandard) {
+            $targetSetsForDetail = $this->match->targetSets()
+                ->orderBy('sort_order')
+                ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+                ->get();
+
+            $targetSetDetails = $targetSetsForDetail;
+
+            $allGongIds = $targetSetsForDetail->flatMap(fn ($ts) => $ts->gongs->pluck('id'));
+            $allScores = Score::whereIn('gong_id', $allGongIds)
+                ->whereIn('shooter_id', $shooters->pluck('id'))
+                ->get()
+                ->keyBy(fn ($s) => "{$s->shooter_id}-{$s->gong_id}");
+
+            $detailedData = $shooters->map(function ($shooter) use ($targetSetsForDetail, $allScores) {
+                $distances = [];
+                $totalHits = 0;
+                $totalMisses = 0;
+                $totalScore = 0;
+
+                foreach ($targetSetsForDetail as $ts) {
+                    $distMult = (float) ($ts->distance_multiplier ?? 1);
+                    $gongs = [];
+                    $distHits = 0;
+                    $distMisses = 0;
+                    $distSubtotal = 0;
+
+                    foreach ($ts->gongs as $gong) {
+                        $score = $allScores->get("{$shooter->id}-{$gong->id}");
+                        $points = round($distMult * $gong->multiplier, 2);
+                        $isHit = $score ? (bool) $score->is_hit : null;
+
+                        if ($score) {
+                            if ($isHit) {
+                                $distHits++;
+                                $totalHits++;
+                                $distSubtotal += $points;
+                                $totalScore += $points;
+                            } else {
+                                $distMisses++;
+                                $totalMisses++;
+                            }
+                        }
+
+                        $gongs[] = (object) [
+                            'gong_id' => $gong->id,
+                            'number' => $gong->number,
+                            'label' => $gong->label,
+                            'multiplier' => $gong->multiplier,
+                            'points' => $points,
+                            'is_hit' => $isHit,
+                        ];
+                    }
+
+                    $distances[$ts->id] = (object) [
+                        'target_set_id' => $ts->id,
+                        'label' => $ts->label,
+                        'distance_meters' => $ts->distance_meters,
+                        'hits' => $distHits,
+                        'misses' => $distMisses,
+                        'subtotal' => round($distSubtotal, 2),
+                        'gongs' => $gongs,
+                    ];
+                }
+
+                return (object) [
+                    'shooter' => $shooter,
+                    'distances' => $distances,
+                    'total_hits' => $totalHits,
+                    'total_misses' => $totalMisses,
+                    'total_score' => round($totalScore, 2),
+                ];
+            })->sortByDesc('total_score')->values();
+        }
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
+            'isStandard' => $isStandard,
             'divisions' => $divisions,
             'categories' => $categories,
             'royalFlushEnabled' => $royalFlushEnabled,
             'royalFlushEntries' => $royalFlushEntries,
+            'detailedData' => $detailedData,
+            'targetSetDetails' => $targetSetDetails,
         ];
     }
 }; ?>
@@ -276,12 +365,18 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
-    @if($royalFlushEnabled)
+    @if($isStandard || $royalFlushEnabled)
         <div class="mb-4 flex gap-2">
             <button wire:click="setTab('main')"
                     class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
-                Main Scoreboard
+                Leaderboard
             </button>
+            @if($isStandard)
+                <button wire:click="setTab('detailed')"
+                        class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'detailed' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                    Detailed Breakdown
+                </button>
+            @endif
             @if($royalFlushEnabled)
                 <button wire:click="setTab('royalflush')"
                         class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'royalflush' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
@@ -291,7 +386,89 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
-    @if($royalFlushEnabled && $activeTab === 'royalflush')
+    @if($isStandard && $activeTab === 'detailed')
+        <div class="space-y-3">
+            @forelse($detailedData as $index => $entry)
+                @php
+                    $rank = $index + 1;
+                    $isExpanded = $expandedShooterId === $entry->shooter->id;
+                @endphp
+                <div class="overflow-hidden rounded-2xl border border-border bg-app">
+                    <button wire:click="toggleExpand({{ $entry->shooter->id }})"
+                            class="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-surface/50">
+                        @if($rank <= 3)
+                            @php
+                                $medalClass = match($rank) {
+                                    1 => 'bg-amber-500 text-black',
+                                    2 => 'bg-slate-400 text-black',
+                                    3 => 'bg-orange-600 text-white',
+                                };
+                            @endphp
+                            <span class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-lg font-black {{ $medalClass }}">{{ $rank }}</span>
+                        @else
+                            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center text-xl text-muted font-medium">{{ $rank }}</span>
+                        @endif
+
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xl font-semibold text-primary">{{ $entry->shooter->name }}</p>
+                            <p class="text-sm text-muted">
+                                {{ $entry->shooter->squad?->name ?? '—' }}
+                                &middot; {{ $entry->total_hits }} hits &middot; {{ $entry->total_misses }} misses
+                            </p>
+                        </div>
+
+                        <span class="text-2xl font-black text-amber-400 tabular-nums">{{ number_format($entry->total_score, 1) }}</span>
+
+                        <svg class="h-6 w-6 flex-shrink-0 text-muted transition-transform {{ $isExpanded ? 'rotate-180' : '' }}"
+                             fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+
+                    @if($isExpanded)
+                        <div class="border-t border-border">
+                            @foreach($targetSetDetails as $ts)
+                                @php $dist = $entry->distances[$ts->id] ?? null; @endphp
+                                @if($dist)
+                                    <div class="border-b border-border/50 last:border-b-0">
+                                        <div class="flex items-center justify-between bg-surface/40 px-6 py-3">
+                                            <span class="text-base font-semibold text-primary">{{ $ts->label }} ({{ $ts->distance_meters }}m)</span>
+                                            <div class="flex items-center gap-4 text-sm">
+                                                <span class="text-green-400 font-medium">{{ $dist->hits }} hits</span>
+                                                <span class="text-accent font-medium">{{ $dist->misses }} miss</span>
+                                                <span class="font-bold text-amber-400">{{ number_format($dist->subtotal, 1) }} pts</span>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-px bg-border/30 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                                            @foreach($dist->gongs as $gong)
+                                                <div class="flex items-center justify-between bg-app px-4 py-3 text-sm">
+                                                    <span class="text-muted">
+                                                        #{{ $gong->number }}
+                                                        @if($gong->label) <span class="text-secondary">({{ $gong->label }})</span> @endif
+                                                    </span>
+                                                    @if($gong->is_hit === true)
+                                                        <span class="font-bold text-green-400">HIT +{{ number_format($gong->points, 1) }}</span>
+                                                    @elseif($gong->is_hit === false)
+                                                        <span class="font-bold text-accent">MISS</span>
+                                                    @else
+                                                        <span class="text-muted/50">&mdash;</span>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <div class="rounded-2xl border border-border bg-app px-6 py-16 text-center text-2xl text-muted">
+                    No scores recorded yet
+                </div>
+            @endforelse
+        </div>
+    @elseif($royalFlushEnabled && $activeTab === 'royalflush')
         <div class="overflow-hidden rounded-2xl border border-amber-700/50 bg-app">
             <table class="w-full text-left">
                 <thead>

@@ -52,6 +52,10 @@ class MatchController extends Controller
             }
         }
 
+        if ($match->side_bet_enabled) {
+            $eagerLoads[] = 'sideBetShooters';
+        }
+
         $match->load($eagerLoads);
 
         $shooterIds = $match->squads->flatMap->shooters->pluck('id');

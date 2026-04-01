@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MatchDivision;
+use App\Models\PrsShotScore;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
@@ -630,17 +631,17 @@ class ScoreboardController extends Controller
 
         $allResults = \App\Models\PrsStageResult::where('match_id', $match->id)->get()->groupBy('shooter_id');
 
-        $gongsByTs = [];
-        foreach ($targetSets as $ts) {
-            $gongsByTs[$ts->id] = DB::table('gongs')->where('target_set_id', $ts->id)->orderBy('number')->get();
-        }
-        $allGongIds = collect($gongsByTs)->flatMap(fn ($g) => $g->pluck('id'));
-        $allScores = Score::query()
-            ->whereIn('gong_id', $allGongIds)
+        $allPrsShots = PrsShotScore::where('match_id', $match->id)
+            ->orderBy('shot_number')
             ->get()
-            ->keyBy(fn ($s) => "{$s->shooter_id}-{$s->gong_id}");
+            ->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
 
-        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds, $gongsByTs, $allScores) {
+        $gongCountByTs = [];
+        foreach ($targetSets as $ts) {
+            $gongCountByTs[$ts->id] = $ts->total_shots ?? DB::table('gongs')->where('target_set_id', $ts->id)->count();
+        }
+
+        $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds, $allPrsShots, $gongCountByTs) {
             $sid = (int) $shooter->shooter_id;
             $results = $allResults->get($sid, collect());
 
@@ -663,15 +664,15 @@ class ScoreboardController extends Controller
             $stages = [];
             foreach ($targetSets as $ts) {
                 $stageResult = $results->firstWhere('stage_id', $ts->id);
-                $shots = [];
-                foreach ($gongsByTs[$ts->id] ?? [] as $gong) {
-                    $score = $allScores->get("{$sid}-{$gong->id}");
-                    if ($score) {
-                        $shots[] = $score->is_hit ? 'hit' : 'miss';
-                    } else {
-                        $shots[] = 'not_taken';
-                    }
+
+                $stageShots = $allPrsShots->get("{$sid}-{$ts->id}", collect());
+                $shots = $stageShots->map(fn ($s) => $s->result instanceof \BackedEnum ? $s->result->value : (string) $s->result)->values()->toArray();
+
+                $expectedCount = $gongCountByTs[$ts->id] ?? 0;
+                while (count($shots) < $expectedCount) {
+                    $shots[] = 'not_taken';
                 }
+
                 $stages[$ts->id] = [
                     'hits' => $stageResult ? $stageResult->hits : 0,
                     'misses' => $stageResult ? $stageResult->misses : 0,
