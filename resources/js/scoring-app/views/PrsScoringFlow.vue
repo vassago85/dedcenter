@@ -243,7 +243,26 @@
                 <!-- Fixed Bottom Actions -->
                 <div class="border-t border-slate-700 bg-slate-800 px-4 py-3">
                     <div class="mx-auto max-w-2xl space-y-3">
-                        <!-- Timer — only when stage requires time -->
+                        <!-- Hit / Miss — primary action, top of fixed area for speed -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <button @click="recordHit" class="rounded-2xl bg-green-600 py-5 text-xl font-bold text-white transition-all hover:bg-green-700 active:scale-[0.97]">
+                                HIT
+                            </button>
+                            <button @click="recordMiss" class="rounded-2xl bg-red-600 py-5 text-xl font-bold text-white transition-all hover:bg-red-700 active:scale-[0.97]">
+                                MISS
+                            </button>
+                        </div>
+                        <!-- Undo -->
+                        <button @click="undoShot" class="w-full rounded-xl border border-slate-600 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 active:scale-[0.98]">
+                            Undo Last Shot
+                        </button>
+                        <!-- Complete Stage -->
+                        <button @click="handleCompleteStage" class="w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
+                            COMPLETE STAGE
+                        </button>
+                        <p v-if="completeError" class="text-center text-sm text-red-400">{{ completeError }}</p>
+
+                        <!-- Timer — bottom, only when stage is timed or tiebreaker -->
                         <div v-if="stageRequiresTime" class="rounded-xl border border-amber-600/30 bg-slate-900 p-3">
                             <div class="flex items-center justify-between mb-2">
                                 <p class="text-xs font-medium text-slate-400">
@@ -291,25 +310,6 @@
                                 <button @click="cancelLowTime" class="rounded-lg bg-slate-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-600">No, fix it</button>
                             </div>
                         </div>
-
-                        <!-- Undo -->
-                        <button @click="undoShot" class="w-full rounded-xl border border-slate-600 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 active:scale-[0.98]">
-                            Undo Last Shot
-                        </button>
-                        <!-- Hit / Miss -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <button @click="recordHit" class="rounded-2xl bg-green-600 py-5 text-xl font-bold text-white transition-all hover:bg-green-700 active:scale-[0.97]">
-                                HIT
-                            </button>
-                            <button @click="recordMiss" class="rounded-2xl bg-red-600 py-5 text-xl font-bold text-white transition-all hover:bg-red-700 active:scale-[0.97]">
-                                MISS
-                            </button>
-                        </div>
-                        <!-- Complete Stage -->
-                        <button @click="handleCompleteStage" class="w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
-                            COMPLETE STAGE
-                        </button>
-                        <p v-if="completeError" class="text-center text-sm text-red-400">{{ completeError }}</p>
                     </div>
                 </div>
             </div>
