@@ -87,8 +87,12 @@
             @endphp
             <div x-data="{ open: false }" class="relative">
                 <button type="button" @click.stop="open = !open"
-                        class="group relative inline-flex h-7 w-7 items-center justify-center rounded-lg border {{ $crest }} transition-transform duration-150 hover:scale-110 cursor-pointer">
-                    <x-badge-icon :name="$icon" class="h-3.5 w-3.5" />
+                        class="group relative inline-flex items-center justify-center rounded-lg border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} {{ $isDist ? 'h-6 px-1.5 gap-0.5' : 'h-7 w-7' }}">
+                    @if($isDist)
+                        <x-badge-icon :name="$icon" class="h-3 w-3" />
+                    @else
+                        <x-badge-icon :name="$icon" class="h-3.5 w-3.5" />
+                    @endif
                     @if($a->is_repeatable && $count > 1)
                         <span class="absolute -top-1 -right-1 flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-white/15 px-0.5 text-[8px] font-bold text-white/80 backdrop-blur-sm">{{ $count }}</span>
                     @endif
