@@ -9,7 +9,7 @@ class BadgeGalleryController extends Controller
 {
     public const BADGE_CONFIG = [
         // PRS badges
-        'deadcenter'         => ['icon' => 'timer',        'earnChip' => 'Awarded per match'],
+        'deadcenter'         => ['icon' => 'deadcenter',   'earnChip' => 'Awarded per match'],
         'prs-full-send'      => ['icon' => 'rocket',       'earnChip' => 'Stackable'],
         'no-drop-stage'      => ['icon' => 'flame',        'earnChip' => 'Stackable'],
         'impact-chain'       => ['icon' => 'link-2',       'earnChip' => 'Stackable'],
@@ -20,10 +20,10 @@ class BadgeGalleryController extends Controller
         'podium-gold'        => ['icon' => 'trophy',       'earnChip' => 'Stackable'],
         'podium-silver'      => ['icon' => 'medal',        'earnChip' => 'Stackable'],
         'podium-bronze'      => ['icon' => 'award',        'earnChip' => 'Stackable'],
-        'first-full-send'    => ['icon' => 'rocket',       'earnChip' => 'Earned once'],
-        'first-podium'       => ['icon' => 'medal',        'earnChip' => 'Earned once'],
-        'first-win'          => ['icon' => 'trophy',       'earnChip' => 'Earned once'],
-        'first-impact-chain' => ['icon' => 'link-2',       'earnChip' => 'Earned once'],
+        'first-full-send'    => ['icon' => 'flag',         'earnChip' => 'Earned once'],
+        'first-podium'       => ['icon' => 'podium',       'earnChip' => 'Earned once'],
+        'first-win'          => ['icon' => 'crown',        'earnChip' => 'Earned once'],
+        'first-impact-chain' => ['icon' => 'git-branch',   'earnChip' => 'Earned once'],
 
         // Royal Flush badges
         'royal-flush'        => ['icon' => 'crown',        'earnChip' => 'Stackable'],
@@ -32,8 +32,8 @@ class BadgeGalleryController extends Controller
         'flush-600'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
         'flush-700'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
         'flush-collector'    => ['icon' => 'layers',       'earnChip' => 'Stackable'],
-        'small-gong-sniper'  => ['icon' => 'crosshair',   'earnChip' => 'Stackable'],
-        'winning-hand'       => ['icon' => 'crown',        'earnChip' => 'Awarded per match'],
+        'small-gong-sniper'  => ['icon' => 'target',       'earnChip' => 'Stackable'],
+        'winning-hand'       => ['icon' => 'spade',        'earnChip' => 'Awarded per match'],
         'first-flush'        => ['icon' => 'sparkles',     'earnChip' => 'Earned once'],
     ];
 

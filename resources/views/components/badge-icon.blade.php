@@ -55,6 +55,23 @@ $svgClass = $class;
     @case('crosshair')
         <circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>
         @break
+    @case('flag')
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>
+        @break
+    @case('git-branch')
+        <line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
+        @break
+    @case('spade')
+        <path d="M5 9c-1.5 1.5-3 3.2-3 5.5A5.5 5.5 0 0 0 7.5 20c1.8 0 3-.5 4.5-2 1.5 1.5 2.7 2 4.5 2a5.5 5.5 0 0 0 5.5-5.5c0-2.3-1.5-4-3-5.5l-7-7-7 7Z"/><path d="M12 18v4"/>
+        @break
+    @case('podium')
+        {{-- Custom: 1st/2nd/3rd podium blocks --}}
+        <rect x="2" y="14" width="6" height="7" rx="1"/><rect x="9" y="8" width="6" height="13" rx="1"/><rect x="16" y="11" width="6" height="10" rx="1"/><line x1="1" x2="23" y1="22" y2="22"/>
+        @break
+    @case('deadcenter')
+        {{-- Custom: scope reticle with center dot --}}
+        <circle cx="12" cy="12" r="9"/><line x1="12" x2="12" y1="3" y2="8"/><line x1="12" x2="12" y1="16" y2="21"/><line x1="3" x2="8" y1="12" y2="12"/><line x1="16" x2="21" y1="12" y2="12"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        @break
     @default
         <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
 @endswitch
