@@ -8,6 +8,7 @@ use App\Models\PrsStageResult;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use App\Models\UserAchievement;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -205,6 +206,7 @@ class MatchReportService
                 $shooter, $rank, $allShooters->count(), $totalScore, $totalHits,
                 $totalGongCount, $stages, $ranked, $gongHitRates, $shooterScores, $allGongs, $fieldHitRates, $gongDistanceMap
             ),
+            'badges' => $this->shooterBadges($match, $shooter),
         ];
     }
 
@@ -368,6 +370,7 @@ class MatchReportService
                 $shooter, $rank, $allShooters->count(), $totalHits, $totalTargets,
                 $totalTime, $stages, $ranked, $shotHitRates
             ),
+            'badges' => $this->shooterBadges($match, $shooter),
         ];
     }
 
@@ -516,6 +519,7 @@ class MatchReportService
                 $shooter, $rank, $allShooters->count(), $totalHits, $totalTargets,
                 $totalTime, $stages, $ranked, $shotHitRates
             ),
+            'badges' => $this->shooterBadges($match, $shooter),
         ];
     }
 
@@ -717,10 +721,35 @@ class MatchReportService
                 $shooter, $rank, $allShooters->count(), $totalPoints, $totalHits,
                 $totalTargetCount, $furthestHitM, $stageDetails, $ranked, $targetHitRates, $fieldFurthest
             ),
+            'badges' => $this->shooterBadges($match, $shooter),
         ];
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────
+
+    private function shooterBadges(ShootingMatch $match, Shooter $shooter): array
+    {
+        if (! $shooter->user_id) {
+            return [];
+        }
+
+        return UserAchievement::where('match_id', $match->id)
+            ->where('user_id', $shooter->user_id)
+            ->with('achievement')
+            ->orderBy('awarded_at')
+            ->get()
+            ->filter(fn ($ua) => $ua->achievement !== null)
+            ->map(fn ($ua) => [
+                'label' => $ua->achievement->label,
+                'description' => $ua->achievement->description,
+                'category' => $ua->achievement->category,
+                'competition_type' => $ua->achievement->competition_type ?? 'prs',
+                'stage' => $ua->stage?->label,
+                'metadata' => $ua->metadata,
+            ])
+            ->values()
+            ->toArray();
+    }
 
     private function getActiveShooters(ShootingMatch $match): Collection
     {

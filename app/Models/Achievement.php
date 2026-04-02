@@ -19,6 +19,7 @@ class Achievement extends Model
         'is_repeatable',
         'is_active',
         'sort_order',
+        'competition_type',
     ];
 
     protected function casts(): array
@@ -48,6 +49,21 @@ class Achievement extends Model
     public function isMatchSpecial(): bool
     {
         return $this->category === 'match_special';
+    }
+
+    public function isPrs(): bool
+    {
+        return $this->competition_type === 'prs';
+    }
+
+    public function isRoyalFlush(): bool
+    {
+        return $this->competition_type === 'royal_flush';
+    }
+
+    public function scopeForCompetition($query, string $type)
+    {
+        return $query->where('competition_type', $type);
     }
 
     public static function bySlug(string $slug): ?self

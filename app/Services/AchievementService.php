@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Models\Achievement;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
+use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\TargetSet;
 use App\Models\UserAchievement;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AchievementService
@@ -208,7 +210,287 @@ class AchievementService
         return $awarded;
     }
 
+    /**
+     * Evaluate Royal Flush badges after a standard match is finalized.
+     */
+    public static function evaluateRoyalFlushCompletion(ShootingMatch $match): array
+    {
+        if (! $match->royal_flush_enabled || $match->isPrs() || $match->isElr()) {
+            return [];
+        }
+
+        $awarded = [];
+
+        $targetSets = $match->targetSets()
+            ->orderByDesc('distance_meters')
+            ->with('gongs')
+            ->get();
+
+        if ($targetSets->isEmpty()) {
+            return [];
+        }
+
+        $gongCountByTs = [];
+        $allGongIds = [];
+        foreach ($targetSets as $ts) {
+            $gongCountByTs[$ts->id] = $ts->gongs->count();
+            foreach ($ts->gongs as $gong) {
+                $allGongIds[] = $gong->id;
+            }
+        }
+
+        if (empty($allGongIds)) {
+            return [];
+        }
+
+        $shooters = $match->shooters()
+            ->where('shooters.status', 'active')
+            ->whereNotNull('shooters.user_id')
+            ->get();
+
+        if ($shooters->isEmpty()) {
+            return [];
+        }
+
+        $shooterIds = $shooters->pluck('id')->toArray();
+
+        $hits = Score::whereIn('gong_id', $allGongIds)
+            ->whereIn('shooter_id', $shooterIds)
+            ->where('is_hit', true)
+            ->select('shooter_id', 'gong_id')
+            ->get();
+
+        $gongToTs = [];
+        foreach ($targetSets as $ts) {
+            foreach ($ts->gongs as $gong) {
+                $gongToTs[$gong->id] = $ts->id;
+            }
+        }
+
+        $hitCountByShooterTs = [];
+        $hitGongsByShooter = [];
+        foreach ($hits as $hit) {
+            $tsId = $gongToTs[$hit->gong_id] ?? null;
+            if (! $tsId) {
+                continue;
+            }
+            $hitCountByShooterTs[$hit->shooter_id][$tsId] = ($hitCountByShooterTs[$hit->shooter_id][$tsId] ?? 0) + 1;
+            $hitGongsByShooter[$hit->shooter_id][] = $hit->gong_id;
+        }
+
+        $furthestTs = $targetSets->first();
+        $smallGongAtFurthest = $furthestTs?->gongs->sortByDesc('multiplier')->first();
+
+        foreach ($shooters as $shooter) {
+            $flushDistances = [];
+
+            foreach ($targetSets as $ts) {
+                $hitsAtTs = $hitCountByShooterTs[$shooter->id][$ts->id] ?? 0;
+                $needed = $gongCountByTs[$ts->id] ?? 0;
+
+                if ($needed > 0 && $hitsAtTs >= $needed) {
+                    $flushDistances[] = $ts->distance_meters;
+
+                    $badge = self::awardRepeatable('royal-flush', $shooter, $match, $ts, [
+                        'distance_meters' => $ts->distance_meters,
+                        'target_set_label' => $ts->label,
+                    ]);
+                    if ($badge) {
+                        $awarded[] = $badge;
+                        $awarded = array_merge($awarded, self::checkLifetime('first-flush', 'royal-flush', $shooter, $match));
+                    }
+                }
+            }
+
+            if (count($flushDistances) >= 2) {
+                $badge = self::awardRepeatable('flush-collector', $shooter, $match, null, [
+                    'flush_count' => count($flushDistances),
+                    'distances' => $flushDistances,
+                ]);
+                if ($badge) {
+                    $awarded[] = $badge;
+                }
+            }
+
+            if ($smallGongAtFurthest && $furthestTs) {
+                $shooterGongs = $hitGongsByShooter[$shooter->id] ?? [];
+                if (in_array($smallGongAtFurthest->id, $shooterGongs)) {
+                    $badge = self::awardRepeatable('small-gong-sniper', $shooter, $match, $furthestTs, [
+                        'distance_meters' => $furthestTs->distance_meters,
+                        'gong_label' => $smallGongAtFurthest->label,
+                        'multiplier' => (float) $smallGongAtFurthest->multiplier,
+                    ]);
+                    if ($badge) {
+                        $awarded[] = $badge;
+                    }
+                }
+            }
+        }
+
+        if ($match->side_bet_enabled) {
+            $awarded = array_merge($awarded, self::evaluateWinningHand($match, $targetSets, $shooters, $hitGongsByShooter));
+        }
+
+        return $awarded;
+    }
+
     // ── Private helpers ──
+
+    private static function evaluateWinningHand(
+        ShootingMatch $match,
+        $targetSets,
+        $shooters,
+        array $hitGongsByShooter,
+    ): array {
+        $achievement = Achievement::bySlug('winning-hand');
+        if (! $achievement) {
+            return [];
+        }
+
+        $exists = UserAchievement::where('achievement_id', $achievement->id)
+            ->where('match_id', $match->id)
+            ->exists();
+        if ($exists) {
+            return [];
+        }
+
+        $sideBetIds = DB::table('side_bet_shooters')
+            ->where('match_id', $match->id)
+            ->pluck('shooter_id')
+            ->toArray();
+
+        if (empty($sideBetIds)) {
+            return [];
+        }
+
+        $gongRankMap = [];
+        $maxRanks = 0;
+        foreach ($targetSets as $ts) {
+            $rank = 0;
+            foreach ($ts->gongs->sortByDesc('multiplier') as $gong) {
+                $gongRankMap[$gong->id] = [
+                    'rank' => $rank,
+                    'distance' => $ts->distance_meters,
+                ];
+                $rank++;
+            }
+            $maxRanks = max($maxRanks, $rank);
+        }
+
+        $totalScores = DB::table('scores')
+            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
+            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->whereIn('scores.shooter_id', $sideBetIds)
+            ->where('scores.is_hit', true)
+            ->groupBy('scores.shooter_id')
+            ->select('scores.shooter_id')
+            ->selectRaw('COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total_score')
+            ->pluck('total_score', 'scores.shooter_id')
+            ->toArray();
+
+        $profiles = [];
+        foreach ($sideBetIds as $sid) {
+            $shooter = $shooters->firstWhere('id', $sid);
+            if (! $shooter || ! $shooter->user_id) {
+                continue;
+            }
+
+            $profile = [
+                'shooter_id' => $sid,
+                'total_score' => round((float) ($totalScores[$sid] ?? 0), 2),
+                'ranks' => [],
+            ];
+
+            for ($r = 0; $r < $maxRanks; $r++) {
+                $profile['ranks'][$r] = ['count' => 0, 'distances' => []];
+            }
+
+            $gongIds = $hitGongsByShooter[$sid] ?? [];
+            foreach ($gongIds as $gongId) {
+                if (! isset($gongRankMap[$gongId])) {
+                    continue;
+                }
+                $info = $gongRankMap[$gongId];
+                $profile['ranks'][$info['rank']]['count']++;
+                $profile['ranks'][$info['rank']]['distances'][] = $info['distance'];
+            }
+
+            for ($r = 0; $r < $maxRanks; $r++) {
+                rsort($profile['ranks'][$r]['distances']);
+            }
+
+            $profiles[] = $profile;
+        }
+
+        if (count($profiles) < 1) {
+            return [];
+        }
+
+        usort($profiles, function ($a, $b) use ($maxRanks) {
+            for ($r = 0; $r < $maxRanks; $r++) {
+                $aCount = $a['ranks'][$r]['count'];
+                $bCount = $b['ranks'][$r]['count'];
+                if ($aCount !== $bCount) {
+                    return $bCount <=> $aCount;
+                }
+                $aDist = $a['ranks'][$r]['distances'];
+                $bDist = $b['ranks'][$r]['distances'];
+                $len = max(count($aDist), count($bDist));
+                for ($i = 0; $i < $len; $i++) {
+                    $ad = $aDist[$i] ?? 0;
+                    $bd = $bDist[$i] ?? 0;
+                    if ($ad !== $bd) {
+                        return $bd <=> $ad;
+                    }
+                }
+            }
+            return $b['total_score'] <=> $a['total_score'];
+        });
+
+        if (count($profiles) >= 2) {
+            $first = $profiles[0];
+            $second = $profiles[1];
+            $tied = true;
+            for ($r = 0; $r < $maxRanks; $r++) {
+                if ($first['ranks'][$r]['count'] !== $second['ranks'][$r]['count']) {
+                    $tied = false;
+                    break;
+                }
+                if ($first['ranks'][$r]['distances'] !== $second['ranks'][$r]['distances']) {
+                    $tied = false;
+                    break;
+                }
+            }
+            if ($tied && $first['total_score'] === $second['total_score']) {
+                return [];
+            }
+        }
+
+        $winnerId = $profiles[0]['shooter_id'];
+        $winner = $shooters->firstWhere('id', $winnerId);
+        if (! $winner || ! $winner->user_id) {
+            return [];
+        }
+
+        $ua = UserAchievement::create([
+            'user_id' => $winner->user_id,
+            'achievement_id' => $achievement->id,
+            'match_id' => $match->id,
+            'shooter_id' => $winner->id,
+            'metadata' => [
+                'small_gong_hits' => $profiles[0]['ranks'][0]['count'] ?? 0,
+                'distances_hit' => $profiles[0]['ranks'][0]['distances'] ?? [],
+            ],
+            'awarded_at' => now(),
+        ]);
+
+        Log::info('Achievement awarded: winning-hand', [
+            'user_id' => $winner->user_id,
+            'match_id' => $match->id,
+        ]);
+
+        return [$ua];
+    }
 
     private static function evaluateDeadCenter(ShootingMatch $match, $stages, $allResults): array
     {

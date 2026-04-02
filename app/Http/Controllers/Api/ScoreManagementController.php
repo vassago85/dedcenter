@@ -161,9 +161,14 @@ class ScoreManagementController extends Controller
 
         $match->update(['scores_published' => $validated['published']]);
 
-        if ($validated['published'] && $match->isPrs()) {
+        if ($validated['published']) {
             try {
-                \App\Services\AchievementService::evaluateMatchCompletion($match);
+                if ($match->isPrs()) {
+                    \App\Services\AchievementService::evaluateMatchCompletion($match);
+                }
+                if ($match->royal_flush_enabled) {
+                    \App\Services\AchievementService::evaluateRoyalFlushCompletion($match);
+                }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
             }

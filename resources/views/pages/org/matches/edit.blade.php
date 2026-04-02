@@ -803,9 +803,14 @@ new #[Layout('components.layouts.app')]
             return;
         }
         $this->match->update(['status' => $targetStatus]);
-        if ($targetStatus === MatchStatus::Completed && $this->match->isPrs()) {
+        if ($targetStatus === MatchStatus::Completed) {
             try {
-                \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                if ($this->match->isPrs()) {
+                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                }
+                if ($this->match->royal_flush_enabled) {
+                    \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
+                }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
             }
@@ -839,9 +844,14 @@ new #[Layout('components.layouts.app')]
         $this->scores_published = ! $this->scores_published;
         if ($this->match) {
             $this->match->update(['scores_published' => $this->scores_published]);
-            if ($this->scores_published && $this->match->isPrs()) {
+            if ($this->scores_published) {
                 try {
-                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                    if ($this->match->isPrs()) {
+                        \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                    }
+                    if ($this->match->royal_flush_enabled) {
+                        \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
+                    }
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
                 }

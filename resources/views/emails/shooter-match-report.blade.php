@@ -8,6 +8,7 @@
     $worstStage = $report['worst_stage'] ?? null;
     $fieldStats = $report['field_stats'] ?? [];
     $funFacts   = $report['fun_facts'] ?? [];
+    $badges     = $report['badges'] ?? [];
 
     $scoringType = strtolower($match['scoring_type'] ?? 'standard');
     $isPrs       = $scoringType === 'prs';
@@ -531,6 +532,64 @@
                 @if(!$loop->last)
                 <tr><td style="height:6px;font-size:0;line-height:0;">&nbsp;</td></tr>
                 @endif
+                @endforeach
+            </table>
+        </td>
+    </tr>
+    @endif
+
+    {{-- ============================================================
+         BADGES AWARDED
+    ============================================================= --}}
+    @if(count($badges) > 0)
+    @php
+        $badgesByCategory = collect($badges)->groupBy('category');
+        $categoryOrder = ['match_special', 'lifetime', 'repeatable'];
+        $categoryLabels = ['match_special' => 'Match Special', 'lifetime' => 'Lifetime Milestone', 'repeatable' => 'Achievement'];
+        $categoryColors = ['match_special' => '#F59E0B', 'lifetime' => '#A855F7', 'repeatable' => '#38BDF8'];
+        $badgeIcons = [
+            'match_special' => '&#9733;',
+            'lifetime' => '&#9734;',
+            'repeatable' => '&#9679;',
+        ];
+    @endphp
+    <tr>
+        <td bgcolor="#071327" style="padding:24px 30px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                    <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:16px;font-family:Arial,Helvetica,sans-serif;">
+                        Badges Awarded
+                    </td>
+                </tr>
+            </table>
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                @foreach($categoryOrder as $cat)
+                    @if($badgesByCategory->has($cat))
+                        @foreach($badgesByCategory->get($cat) as $badge)
+                        <tr>
+                            <td bgcolor="#0D1B33" style="border-radius:8px;padding:14px 18px;border-left:4px solid {{ $categoryColors[$cat] ?? '#38BDF8' }};{{ !$loop->last || !$loop->parent->last ? 'margin-bottom:6px;' : '' }}">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                                    <tr>
+                                        <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
+                                            <strong style="color:{{ $categoryColors[$cat] ?? '#38BDF8' }};">{{ $badge['label'] }}</strong>
+                                            <span style="font-size:11px;color:#64748b;padding-left:6px;">{{ $categoryLabels[$cat] ?? '' }}</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-size:12px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;padding-top:4px;">
+                                            {{ $badge['description'] }}
+                                            @if(!empty($badge['stage']))
+                                                &mdash; {{ $badge['stage'] }}
+                                            @endif
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr><td style="height:6px;font-size:0;line-height:0;">&nbsp;</td></tr>
+                        @endforeach
+                    @endif
                 @endforeach
             </table>
         </td>
