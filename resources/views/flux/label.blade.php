@@ -14,8 +14,7 @@
         ->add('inline-flex items-center')
         ->add('text-sm font-medium')
         ->add($srOnly ? 'sr-only' : '')
-        {{-- Default Flux uses text-zinc-800 + dark:text-white; class-based dark often misses, leaving
-             near-black labels on our navy UI. Use app theme foreground everywhere. --}}
+        /* Default Flux uses text-zinc-800 + dark:text-white; use app theme foreground everywhere. */
         ->add('text-primary')
         ->add('[&:has([data-flux-label-trailing])]:flex')
         ;

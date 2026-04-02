@@ -51,6 +51,7 @@ Route::get('/score/{any?}', function () {
 
 Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
 Volt::route('/live/{match}', 'live')->name('live');
+Route::get('/badges-preview', \App\Http\Controllers\BadgeGalleryController::class)->name('badges.preview');
 Volt::route('/leaderboard/{organization}', 'leaderboard')->name('leaderboard');
 
 // ── Public Portal (white-label org pages) ──

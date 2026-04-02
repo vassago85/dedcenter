@@ -17,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if ($this->app->environment('production')) {
+        // Match URL scheme to APP_URL so local / Docker over http:// still loads assets (avoid forcing https when APP_URL is http).
+        $scheme = parse_url((string) config('app.url', ''), PHP_URL_SCHEME);
+        if ($scheme === 'https') {
             URL::forceScheme('https');
         }
 
