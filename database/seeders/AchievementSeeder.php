@@ -41,6 +41,10 @@ class AchievementSeeder extends Seeder
 
             // ── Royal Flush Repeatable ──
             ['slug' => 'royal-flush',       'label' => 'Royal Flush',       'description' => 'Achieved a Royal Flush by hitting every target at a distance.',  'category' => 'repeatable', 'scope' => 'stage', 'is_repeatable' => true,  'sort_order' => 10,  'competition_type' => 'royal_flush'],
+            ['slug' => 'flush-400',         'label' => '400m Flush',        'description' => 'Hit every target at 400 metres.',                                'category' => 'repeatable', 'scope' => 'stage', 'is_repeatable' => true,  'sort_order' => 11,  'competition_type' => 'royal_flush'],
+            ['slug' => 'flush-500',         'label' => '500m Flush',        'description' => 'Hit every target at 500 metres.',                                'category' => 'repeatable', 'scope' => 'stage', 'is_repeatable' => true,  'sort_order' => 12,  'competition_type' => 'royal_flush'],
+            ['slug' => 'flush-600',         'label' => '600m Flush',        'description' => 'Hit every target at 600 metres.',                                'category' => 'repeatable', 'scope' => 'stage', 'is_repeatable' => true,  'sort_order' => 13,  'competition_type' => 'royal_flush'],
+            ['slug' => 'flush-700',         'label' => '700m Flush',        'description' => 'Hit every target at 700 metres.',                                'category' => 'repeatable', 'scope' => 'stage', 'is_repeatable' => true,  'sort_order' => 14,  'competition_type' => 'royal_flush'],
             ['slug' => 'flush-collector',   'label' => 'Flush Collector',   'description' => 'Earned Royal Flushes at multiple distances in a single match.',  'category' => 'repeatable', 'scope' => 'match', 'is_repeatable' => true,  'sort_order' => 20,  'competition_type' => 'royal_flush'],
             ['slug' => 'small-gong-sniper', 'label' => 'Small Gong Sniper', 'description' => 'Hit the smallest target at the furthest distance.',             'category' => 'repeatable', 'scope' => 'stage', 'is_repeatable' => true,  'sort_order' => 30,  'competition_type' => 'royal_flush'],
 

@@ -299,6 +299,14 @@ class AchievementService
                         $awarded[] = $badge;
                         $awarded = array_merge($awarded, self::checkLifetime('first-flush', 'royal-flush', $shooter, $match));
                     }
+
+                    $distSlug = 'flush-' . (int) $ts->distance_meters;
+                    $distBadge = self::awardRepeatable($distSlug, $shooter, $match, $ts, [
+                        'distance_meters' => $ts->distance_meters,
+                    ]);
+                    if ($distBadge) {
+                        $awarded[] = $distBadge;
+                    }
                 }
             }
 

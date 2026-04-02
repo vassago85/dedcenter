@@ -27,6 +27,10 @@ class BadgeGalleryController extends Controller
 
         // Royal Flush badges
         'royal-flush'        => ['icon' => 'crown',        'earnChip' => 'Stackable'],
+        'flush-400'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
+        'flush-500'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
+        'flush-600'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
+        'flush-700'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
         'flush-collector'    => ['icon' => 'layers',       'earnChip' => 'Stackable'],
         'small-gong-sniper'  => ['icon' => 'crosshair',   'earnChip' => 'Stackable'],
         'winning-hand'       => ['icon' => 'crown',        'earnChip' => 'Awarded per match'],
