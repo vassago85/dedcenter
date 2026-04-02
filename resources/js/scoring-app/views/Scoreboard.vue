@@ -76,6 +76,14 @@
                         Detailed Breakdown
                     </button>
                     <button
+                        v-if="isPrs"
+                        @click="viewMode = 'grid'"
+                        class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                        :class="viewMode === 'grid' ? 'bg-accent text-white' : 'bg-surface text-muted hover:bg-surface-2'"
+                    >
+                        Score Sheet
+                    </button>
+                    <button
                         v-if="sideBetEnabled && isMd && !isElr"
                         @click="viewMode = 'sidebet'"
                         class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
@@ -515,6 +523,81 @@
                     </div>
                 </template>
 
+                <!-- =================== PRS FULL GRID (SCORE SHEET) =================== -->
+                <template v-else-if="viewMode === 'grid' && isPrs">
+                    <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No scores recorded yet.</p>
+                    </div>
+
+                    <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
+                        <table class="w-full text-[11px] leading-tight">
+                            <thead>
+                                <tr class="border-b border-border">
+                                    <th class="sticky left-0 z-10 bg-surface px-2 py-2 text-left font-medium text-muted w-10">#</th>
+                                    <th class="sticky left-10 z-10 bg-surface px-2 py-2 text-left font-medium text-muted min-w-[100px]">Shooter</th>
+                                    <template v-for="ts in targetSets" :key="'grid-hdr-' + ts.id">
+                                        <th
+                                            :colspan="ts.gong_count || 1"
+                                            class="px-1 py-2 text-center font-medium border-l border-border/50"
+                                            :class="ts.is_tiebreaker ? 'text-amber-400 bg-amber-900/10' : 'text-muted'"
+                                        >
+                                            {{ prsStageShortLabel(ts) }}
+                                        </th>
+                                    </template>
+                                    <th class="px-2 py-2 text-center font-bold text-muted border-l border-border">Total</th>
+                                    <th class="px-2 py-2 text-center font-medium text-muted">Time</th>
+                                </tr>
+                                <tr class="border-b border-border text-[9px] text-muted/60">
+                                    <th class="sticky left-0 z-10 bg-surface"></th>
+                                    <th class="sticky left-10 z-10 bg-surface"></th>
+                                    <template v-for="ts in targetSets" :key="'grid-sub-' + ts.id">
+                                        <th
+                                            v-for="g in (ts.gong_count || 0)"
+                                            :key="'grid-g-' + ts.id + '-' + g"
+                                            class="px-0.5 py-1 text-center"
+                                            :class="g === 1 ? 'border-l border-border/50' : ''"
+                                        >
+                                            {{ g }}
+                                        </th>
+                                    </template>
+                                    <th class="border-l border-border"></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border/30">
+                                <tr
+                                    v-for="entry in standings"
+                                    :key="'grid-row-' + entry.shooter_id"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(entry.rank)"
+                                >
+                                    <td class="sticky left-0 z-10 bg-surface px-2 py-1.5 text-center">
+                                        <span v-if="entry.rank <= 3" class="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold" :class="medalClass(entry.rank)">{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="sticky left-10 z-10 bg-surface px-2 py-1.5">
+                                        <p class="font-medium truncate max-w-[100px]" :title="entry.name">{{ entry.name }}</p>
+                                    </td>
+                                    <template v-for="ts in targetSets" :key="'grid-data-' + entry.shooter_id + '-' + ts.id">
+                                        <td
+                                            v-for="g in (ts.gong_count || 0)"
+                                            :key="'grid-cell-' + entry.shooter_id + '-' + ts.id + '-' + g"
+                                            class="px-0 py-1.5 text-center"
+                                            :class="[g === 1 ? 'border-l border-border/50' : '', prsGongClass(entry, ts.id, g)]"
+                                        >
+                                            <span class="inline-block h-3 w-3 rounded-full" :class="gongDotClass(entry, ts.id, g)"></span>
+                                        </td>
+                                    </template>
+                                    <td class="px-2 py-1.5 text-center font-bold tabular-nums border-l border-border">{{ entry.total_score ?? entry.hits }}</td>
+                                    <td class="px-2 py-1.5 text-center tabular-nums text-muted">
+                                        {{ entry.total_time > 0 ? entry.total_time.toFixed(1) + 's' : '—' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+
                 <!-- =================== SIDE BET =================== -->
                 <template v-else-if="viewMode === 'sidebet'">
                     <div v-if="!sideBet.length" class="rounded-xl border border-border bg-surface p-8 text-center">
@@ -762,6 +845,18 @@ function prsGongClass(entry, tsId, gongNum) {
         return 'bg-surface-2 text-muted/50';
     }
     return 'bg-surface-2 text-muted/50';
+}
+
+function gongDotClass(entry, tsId, gongNum) {
+    const stageData = entry.stages?.[tsId];
+    if (!stageData) return 'bg-slate-700';
+    const shots = stageData.shots;
+    if (shots && shots.length >= gongNum) {
+        const result = shots[gongNum - 1];
+        if (result === 'hit') return 'bg-green-500';
+        if (result === 'miss') return 'bg-red-500';
+    }
+    return 'bg-slate-700';
 }
 
 onMounted(() => {

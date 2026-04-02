@@ -71,6 +71,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/scores/reshoot', [ScoreManagementController::class, 'reshoot']);
     Route::get('matches/{match}/audit-log', [ScoreManagementController::class, 'auditLog']);
     Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
+    Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
+    Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
 
     Route::get('matches/{match}/scores/sync', [\App\Http\Controllers\Api\SyncController::class, 'scores']);
 

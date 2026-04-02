@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MatchBookController;
 use App\Http\Controllers\MatchExportController;
+use App\Http\Controllers\MatchReportController;
 use App\Http\Controllers\SponsorInfoController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
@@ -89,6 +90,10 @@ Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('or
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
     Volt::route('/matches/{match}/side-bet-report', 'org.matches.side-bet-report')->name('matches.side-bet-report');
 
+    // ── Match Reports ──
+    Route::get('/matches/{match}/report/preview', [MatchReportController::class, 'preview'])->name('matches.report.preview');
+    Route::post('/matches/{match}/report/send', [MatchReportController::class, 'send'])->name('matches.report.send');
+
     // ── Match Book ──
     Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
     Volt::route('/matches/{match}/matchbook/edit', 'org.matches.matchbook')->name('matches.matchbook.edit');
@@ -117,6 +122,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
     Volt::route('/matches/{match}/side-bet-report', 'admin.matches.side-bet-report')->name('matches.side-bet-report');
+
+    // ── Match Reports ──
+    Route::get('/matches/{match}/report/preview', [MatchReportController::class, 'preview'])->name('matches.report.preview');
+    Route::post('/matches/{match}/report/send', [MatchReportController::class, 'send'])->name('matches.report.send');
 
     // ── Match Book ──
     Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');

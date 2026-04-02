@@ -110,8 +110,21 @@ new #[Layout('components.layouts.scoreboard')]
             }
         }
 
+        $prsShots = collect();
+        $prsTargetSets = collect();
+        if ($isPrs) {
+            foreach ($targetSets as $ts) {
+                $ts->gongs_count = \App\Models\Gong::where('target_set_id', $ts->id)->count();
+            }
+            $prsTargetSets = $targetSets;
+            $prsShots = \App\Models\PrsShotScore::where('match_id', $this->match->id)
+                ->orderBy('shot_number')
+                ->get()
+                ->groupBy('shooter_id');
+        }
+
         $shooters = $shooterQuery->get()
-            ->map(function ($shooter) use ($isPrs, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap) {
+            ->map(function ($shooter) use ($isPrs, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots) {
                 if ($isPrs) {
                     $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
                     $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
@@ -120,6 +133,14 @@ new #[Layout('components.layouts.scoreboard')]
                     $shooter->tb_hits = $tbHits[$shooter->id] ?? 0;
                     $shooter->tb_time = (float) ($tbTimes[$shooter->id] ?? 0);
                     $shooter->not_taken = $totalTargets - $shooter->hits_count - $shooter->misses_count;
+
+                    $shooterShotList = $prsShots->get($shooter->id, collect());
+                    $grid = [];
+                    foreach ($shooterShotList as $shot) {
+                        $result = $shot->result instanceof \BackedEnum ? $shot->result->value : (string) $shot->result;
+                        $grid[$shot->stage_id][$shot->shot_number] = $result === 'not_taken' ? null : $result;
+                    }
+                    $shooter->shot_grid = $grid;
                 } else {
                     $shooter->display_score = (float) $shooter->scores()
                         ->where('is_hit', true)
@@ -298,6 +319,7 @@ new #[Layout('components.layouts.scoreboard')]
             'royalFlushEntries' => $royalFlushEntries,
             'detailedData' => $detailedData,
             'targetSetDetails' => $targetSetDetails,
+            'prsTargetSets' => $prsTargetSets,
         ];
     }
 }; ?>
@@ -524,6 +546,14 @@ new #[Layout('components.layouts.scoreboard')]
             </table>
         </div>
     @else
+    @if($isPrs)
+    <div x-data="{ prsTab: 'leaderboard' }">
+        <div class="flex gap-1.5 mb-4">
+            <button @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors">Leaderboard</button>
+            <button @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors">Score Sheet</button>
+        </div>
+        <div x-show="prsTab === 'leaderboard'">
+    @endif
     <div class="overflow-hidden rounded-2xl border border-border bg-app">
         <table class="w-full text-left">
             <thead>
@@ -597,6 +627,68 @@ new #[Layout('components.layouts.scoreboard')]
             </tbody>
         </table>
     </div>
+    @if($isPrs)
+        </div>
+        <div x-show="prsTab === 'scoresheet'" x-cloak>
+            <div class="overflow-x-auto rounded-2xl border border-zinc-700 bg-zinc-800/50">
+                <table class="w-full text-[11px] leading-tight">
+                    <thead>
+                        <tr class="border-b border-zinc-700">
+                            <th class="sticky left-0 z-10 bg-zinc-800 px-2 py-2 text-left text-zinc-500 w-10">#</th>
+                            <th class="sticky left-10 z-10 bg-zinc-800 px-2 py-2 text-left text-zinc-500 min-w-[100px]">Shooter</th>
+                            @foreach($prsTargetSets as $ts)
+                                <th colspan="{{ $ts->gongs_count }}" class="px-1 py-2 text-center border-l border-zinc-700/50 {{ $ts->is_tiebreaker ? 'text-amber-400 bg-amber-900/10' : 'text-zinc-500' }}">
+                                    {{ $ts->label }}
+                                </th>
+                            @endforeach
+                            <th class="px-2 py-2 text-center font-bold text-zinc-500 border-l border-zinc-700">Total</th>
+                            <th class="px-2 py-2 text-center text-zinc-500">Time</th>
+                        </tr>
+                        <tr class="border-b border-zinc-700 text-[9px] text-zinc-600">
+                            <th class="sticky left-0 z-10 bg-zinc-800"></th>
+                            <th class="sticky left-10 z-10 bg-zinc-800"></th>
+                            @foreach($prsTargetSets as $ts)
+                                @for($g = 1; $g <= $ts->gongs_count; $g++)
+                                    <th class="px-0.5 py-1 text-center {{ $g === 1 ? 'border-l border-zinc-700/50' : '' }}">{{ $g }}</th>
+                                @endfor
+                            @endforeach
+                            <th class="border-l border-zinc-700"></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-700/30">
+                        @foreach($shooters as $shooter)
+                        <tr class="hover:bg-zinc-700/20">
+                            <td class="sticky left-0 z-10 bg-zinc-800 px-2 py-1.5 text-center text-zinc-500">{{ $loop->iteration }}</td>
+                            <td class="sticky left-10 z-10 bg-zinc-800 px-2 py-1.5">
+                                <p class="font-medium text-white truncate max-w-[100px]" title="{{ $shooter->name }}">{{ $shooter->name }}</p>
+                            </td>
+                            @foreach($prsTargetSets as $ts)
+                                @for($g = 1; $g <= $ts->gongs_count; $g++)
+                                    @php
+                                        $shotResult = $shooter->shot_grid[$ts->id][$g] ?? null;
+                                    @endphp
+                                    <td class="px-0 py-1.5 text-center {{ $g === 1 ? 'border-l border-zinc-700/50' : '' }}">
+                                        @if($shotResult === 'hit')
+                                            <span class="inline-block h-3 w-3 rounded-full bg-green-500"></span>
+                                        @elseif($shotResult === 'miss')
+                                            <span class="inline-block h-3 w-3 rounded-full bg-red-500"></span>
+                                        @else
+                                            <span class="inline-block h-3 w-3 rounded-full bg-zinc-700"></span>
+                                        @endif
+                                    </td>
+                                @endfor
+                            @endforeach
+                            <td class="px-2 py-1.5 text-center font-bold text-white tabular-nums border-l border-zinc-700">{{ $shooter->display_score }}</td>
+                            <td class="px-2 py-1.5 text-center tabular-nums text-zinc-500">{{ $shooter->display_time > 0 ? number_format($shooter->display_time, 1) . 's' : '—' }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endif
 
     @endif
 

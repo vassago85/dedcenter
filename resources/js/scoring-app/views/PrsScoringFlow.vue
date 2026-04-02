@@ -60,6 +60,10 @@
                 >
                     &larr; Match Overview
                 </router-link>
+
+                <button @click="showCorrectionLogs = true" class="mt-2 text-sm text-amber-500 hover:text-amber-300 transition-colors">
+                    View Corrections Log
+                </button>
             </div>
         </div>
 
@@ -165,6 +169,14 @@
                             >
                                 {{ getStatusLabel(shooter.id) }}
                             </span>
+                            <div v-if="getShooterCompletion(shooter.id)" class="flex gap-1 ml-2">
+                                <button @click.stop="openReassignModal(shooter)" class="rounded bg-amber-600/20 px-2 py-1 text-[10px] font-bold text-amber-400 hover:bg-amber-600/30" title="Reassign to another shooter">
+                                    Reassign
+                                </button>
+                                <button @click.stop="openMoveModal(shooter)" class="rounded bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-400 hover:bg-blue-600/30" title="Move to different stage">
+                                    Move
+                                </button>
+                            </div>
                         </div>
                     </button>
                 </div>
@@ -323,13 +335,100 @@
             </div>
         </template>
 
+        <!-- PIN Modal -->
+        <Teleport to="body">
+            <div v-if="showPinModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="closePinModal">
+                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
+                    <h3 class="mb-4 text-lg font-bold text-white">Enter Corrections PIN</h3>
+                    <input
+                        v-model="pinInput"
+                        type="password"
+                        inputmode="numeric"
+                        maxlength="6"
+                        placeholder="4-6 digit PIN"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-center text-xl font-mono text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none"
+                        @keydown.enter="submitPin"
+                    />
+                    <p v-if="pinError" class="mt-2 text-center text-sm text-red-400">{{ pinError }}</p>
+                    <div class="mt-4 flex gap-3">
+                        <button @click="closePinModal" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
+                        <button @click="submitPin" class="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-700">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Reassign Modal -->
+        <Teleport to="body">
+            <div v-if="showReassignModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="showReassignModal = false">
+                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
+                    <h3 class="mb-2 text-lg font-bold text-white">Reassign Score</h3>
+                    <p class="mb-4 text-sm text-slate-400">Transfer {{ reassignShooter?.name }}'s score at {{ selectedStageObj?.label }} to another shooter.</p>
+                    <select v-model="reassignTargetId" class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none">
+                        <option :value="null" disabled>Select target shooter</option>
+                        <option v-for="s in availableReassignTargets" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                    <div class="mt-4 flex gap-3">
+                        <button @click="showReassignModal = false" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
+                        <button @click="executeReassign" :disabled="!reassignTargetId" class="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50">Reassign</button>
+                    </div>
+                    <p v-if="correctionError" class="mt-2 text-center text-sm text-red-400">{{ correctionError }}</p>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Move Stage Modal -->
+        <Teleport to="body">
+            <div v-if="showMoveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="showMoveModal = false">
+                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
+                    <h3 class="mb-2 text-lg font-bold text-white">Move to Different Stage</h3>
+                    <p class="mb-4 text-sm text-slate-400">Move {{ moveShooter?.name }}'s score from {{ selectedStageObj?.label }} to another stage.</p>
+                    <select v-model="moveTargetStageId" class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none">
+                        <option :value="null" disabled>Select target stage</option>
+                        <option v-for="ts in availableMoveTargets" :key="ts.id" :value="ts.id">{{ ts.display_name || ts.label }}</option>
+                    </select>
+                    <div class="mt-4 flex gap-3">
+                        <button @click="showMoveModal = false" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
+                        <button @click="executeMove" :disabled="!moveTargetStageId" class="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Move</button>
+                    </div>
+                    <p v-if="correctionError" class="mt-2 text-center text-sm text-red-400">{{ correctionError }}</p>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Corrections Log Modal -->
+        <Teleport to="body">
+            <div v-if="showCorrectionLogs" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="showCorrectionLogs = false">
+                <div class="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl bg-slate-800 p-6 shadow-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white">Corrections Log</h3>
+                        <button @click="showCorrectionLogs = false" class="text-slate-400 hover:text-white">&times;</button>
+                    </div>
+                    <div v-if="correctionLogEntries.length === 0" class="text-center py-8 text-slate-400">
+                        No corrections have been made.
+                    </div>
+                    <div v-else class="space-y-2">
+                        <div v-for="log in correctionLogEntries" :key="log.id" class="rounded-lg border border-slate-700 bg-slate-900 p-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" :class="log.action === 'reassign' ? 'bg-amber-600/20 text-amber-400' : 'bg-blue-600/20 text-blue-400'">{{ log.action }}</span>
+                                <span class="text-xs text-slate-500">{{ log.performed_at }}</span>
+                            </div>
+                            <p class="text-sm text-slate-300">{{ log.details }}</p>
+                            <p v-if="log.device_id" class="text-[10px] text-slate-600 mt-1">Device: {{ log.device_id }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
         <ScoringSponsorship />
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import { usePrsScoringStore } from '../stores/prsScoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -353,6 +452,21 @@ const lowTimeConfirmed = ref(false);
 
 let timerInterval = null;
 let syncInterval = null;
+
+// Corrections management
+const showPinModal = ref(false);
+const pinInput = ref('');
+const pinError = ref('');
+const showReassignModal = ref(false);
+const showMoveModal = ref(false);
+const showCorrectionLogs = ref(false);
+const reassignShooter = ref(null);
+const moveShooter = ref(null);
+const reassignTargetId = ref(null);
+const moveTargetStageId = ref(null);
+const correctionError = ref('');
+const correctionLogEntries = ref([]);
+let pendingAction = null;
 
 const squads = computed(() => matchStore.currentMatch?.squads ?? []);
 const targetSets = computed(() => matchStore.currentMatch?.target_sets ?? []);
@@ -380,6 +494,17 @@ const selectedShooterObj = computed(() => {
 const currentShooters = computed(() => {
     if (!selectedSquadObj.value) return [];
     return selectedSquadObj.value.shooters.filter(s => s.status === 'active');
+});
+
+const correctionsPin = computed(() => matchStore.currentMatch?.corrections_pin ?? null);
+
+const availableReassignTargets = computed(() => {
+    if (!selectedSquadObj.value || !reassignShooter.value) return [];
+    return selectedSquadObj.value.shooters.filter(s => s.status === 'active' && s.id !== reassignShooter.value.id);
+});
+
+const availableMoveTargets = computed(() => {
+    return targetSets.value.filter(ts => ts.id !== prsStore.selectedStageId);
 });
 
 const stageRequiresTime = computed(() => {
@@ -651,6 +776,105 @@ function clearTimeInput() {
     prsStore.rawDigits = '';
     prsStore.rawTimeSeconds = null;
 }
+
+function openReassignModal(shooter) {
+    reassignShooter.value = shooter;
+    reassignTargetId.value = null;
+    correctionError.value = '';
+    if (correctionsPin.value) {
+        pendingAction = 'reassign';
+        pinInput.value = '';
+        pinError.value = '';
+        showPinModal.value = true;
+    } else {
+        showReassignModal.value = true;
+    }
+}
+
+function openMoveModal(shooter) {
+    moveShooter.value = shooter;
+    moveTargetStageId.value = null;
+    correctionError.value = '';
+    if (correctionsPin.value) {
+        pendingAction = 'move';
+        pinInput.value = '';
+        pinError.value = '';
+        showPinModal.value = true;
+    } else {
+        showMoveModal.value = true;
+    }
+}
+
+function closePinModal() {
+    showPinModal.value = false;
+    pinInput.value = '';
+    pinError.value = '';
+    pendingAction = null;
+}
+
+function submitPin() {
+    if (pinInput.value !== correctionsPin.value) {
+        pinError.value = 'Incorrect PIN';
+        return;
+    }
+    showPinModal.value = false;
+    if (pendingAction === 'reassign') showReassignModal.value = true;
+    else if (pendingAction === 'move') showMoveModal.value = true;
+    pendingAction = null;
+    pinInput.value = '';
+}
+
+async function executeReassign() {
+    if (!reassignShooter.value || !reassignTargetId.value) return;
+    correctionError.value = '';
+    try {
+        const resp = await axios.post(
+            `/api/matches/${props.matchId}/stages/${prsStore.selectedStageId}/reassign`,
+            {
+                shooter_id: reassignShooter.value.id,
+                new_shooter_id: reassignTargetId.value,
+                pin: correctionsPin.value ? pinInput.value : undefined,
+            }
+        );
+        if (resp.data?.success) {
+            showReassignModal.value = false;
+            prsStore.stageCompletions.delete(`${reassignShooter.value.id}-${prsStore.selectedStageId}`);
+            prsStore.stageCompletions.set(`${reassignTargetId.value}-${prsStore.selectedStageId}`, resp.data);
+        }
+    } catch (e) {
+        correctionError.value = e.response?.data?.message || 'Reassignment failed';
+    }
+}
+
+async function executeMove() {
+    if (!moveShooter.value || !moveTargetStageId.value) return;
+    correctionError.value = '';
+    try {
+        const resp = await axios.post(
+            `/api/matches/${props.matchId}/stages/${prsStore.selectedStageId}/move`,
+            {
+                shooter_id: moveShooter.value.id,
+                new_stage_id: moveTargetStageId.value,
+                pin: correctionsPin.value ? pinInput.value : undefined,
+            }
+        );
+        if (resp.data?.success) {
+            showMoveModal.value = false;
+            prsStore.stageCompletions.delete(`${moveShooter.value.id}-${prsStore.selectedStageId}`);
+        }
+    } catch (e) {
+        correctionError.value = e.response?.data?.message || 'Move failed';
+    }
+}
+
+async function fetchCorrectionLogs() {
+    try {
+        const resp = await axios.get(`/api/matches/${props.matchId}/correction-logs`);
+        correctionLogEntries.value = Array.isArray(resp.data) ? resp.data : [];
+    } catch { correctionLogEntries.value = []; }
+}
+
+watch(showCorrectionLogs, (val) => { if (val) fetchCorrectionLogs(); });
 
 onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {

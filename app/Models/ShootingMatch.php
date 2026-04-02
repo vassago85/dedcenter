@@ -35,6 +35,11 @@ class ShootingMatch extends Model
         'season_id',
         'entry_fee',
         'device_lock_mode',
+        'corrections_pin',
+    ];
+
+    protected $hidden = [
+        'corrections_pin',
     ];
 
     protected function casts(): array

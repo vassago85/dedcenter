@@ -28,6 +28,7 @@ new #[Layout('components.layouts.app')]
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
     public int $concurrent_relays = 2;
+    public string $corrections_pin = '';
 
     public string $tsDistance = '';
     public string $tsLabel = '';
@@ -82,6 +83,7 @@ new #[Layout('components.layouts.app')]
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
+            $this->corrections_pin = $match->corrections_pin ?? '';
         } else {
             $this->entry_fee = $organization->entry_fee_default ? (string) $organization->entry_fee_default : '';
         }
@@ -96,11 +98,13 @@ new #[Layout('components.layouts.app')]
             'notes' => 'nullable|string|max:5000',
             'entry_fee' => 'nullable|numeric|min:0',
             'scoring_type' => 'required|in:standard,prs,elr',
+            'corrections_pin' => 'nullable|string|min:4|max:6|regex:/^\d+$/',
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
+        $validated['corrections_pin'] = $this->corrections_pin !== '' ? $this->corrections_pin : null;
 
         if ($this->match) {
             $this->match->update($validated);
@@ -663,6 +667,25 @@ new #[Layout('components.layouts.app')]
 
     public function reopenMatch(): void { $this->match->update(['status' => MatchStatus::Active]); Flux::toast('Match reopened.', variant: 'success'); }
 
+    public function sendMatchReports(): void
+    {
+        $service = app(\App\Services\MatchReportService::class);
+        $shooters = $service->getEmailableShooters($this->match);
+
+        if ($shooters->isEmpty()) {
+            Flux::toast('No shooters with linked email addresses found.', variant: 'warning');
+            return;
+        }
+
+        foreach ($shooters as $shooter) {
+            $report = $service->generateReport($this->match, $shooter);
+            \Illuminate\Support\Facades\Mail::to($shooter->user->email)
+                ->queue(new \App\Mail\ShooterMatchReport($report));
+        }
+
+        Flux::toast("Match reports queued for {$shooters->count()} shooters.", variant: 'success');
+    }
+
     public function toggleScoresPublished(): void
     {
         $this->scores_published = ! $this->scores_published;
@@ -756,6 +779,12 @@ new #[Layout('components.layouts.app')]
                     </div>
                 </div>
             @endif
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <flux:input wire:model="corrections_pin" label="Corrections PIN" type="text" maxlength="6" placeholder="4-6 digits (optional)" />
+                    <p class="mt-1 text-xs text-muted">If set, this PIN is required for score corrections (reassign/move) on all scoring devices. Leave empty for no PIN requirement.</p>
+                </div>
+            </div>
             <flux:textarea wire:model="notes" label="Notes" placeholder="Optional notes about this match..." rows="3" />
             <div class="flex justify-end pt-2">
                 <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
@@ -817,6 +846,12 @@ new #[Layout('components.layouts.app')]
                     <flux:button href="{{ route('org.matches.export.detailed', [$organization, $match]) }}" variant="ghost">Download Full Results</flux:button>
                     <flux:button wire:click="toggleScoresPublished" variant="{{ $scores_published ? 'ghost' : 'primary' }}" class="{{ $scores_published ? '' : '!bg-amber-600 hover:!bg-amber-700' }}">
                         {{ $scores_published ? 'Hide Scores' : 'Publish Scores' }}
+                    </flux:button>
+                @endif
+                @if($match->status === MatchStatus::Completed)
+                    <flux:button href="{{ route('org.matches.report.preview', [$organization, $match]) }}" target="_blank" variant="ghost">Preview Match Report</flux:button>
+                    <flux:button wire:click="sendMatchReports" wire:confirm="Send match reports to all shooters with email addresses?" variant="primary" class="!bg-emerald-600 hover:!bg-emerald-700">
+                        Send Match Reports
                     </flux:button>
                 @endif
             </div>

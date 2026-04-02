@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\PrsShotResult;
 use App\Http\Controllers\Controller;
+use App\Models\CorrectionLog;
 use App\Models\ElrShot;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
@@ -11,6 +13,7 @@ use App\Models\ScoreAuditLog;
 use App\Models\ShootingMatch;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ScoreManagementController extends Controller
@@ -161,6 +164,117 @@ class ScoreManagementController extends Controller
         return response()->json([
             'message' => $validated['published'] ? 'Scores are now published.' : 'Scores are now hidden from public.',
             'scores_published' => (bool) $match->scores_published,
+        ]);
+    }
+
+    /**
+     * Move a shooter's PRS scores from one stage to another.
+     */
+    public function moveStage(Request $request, ShootingMatch $match)
+    {
+        $this->authorizeMatchDirector($request, $match);
+
+        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
+        $validStageIds = $match->targetSets()->pluck('id')->toArray();
+
+        $validated = $request->validate([
+            'score_type' => ['required', Rule::in(['prs'])],
+            'shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
+            'old_stage_id' => ['required', 'integer', Rule::in($validStageIds)],
+            'new_stage_id' => ['required', 'integer', Rule::in($validStageIds), 'different:old_stage_id'],
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $count = 0;
+
+        DB::transaction(function () use ($match, $validated, $request, &$count) {
+            $count = PrsShotScore::where('match_id', $match->id)
+                ->where('shooter_id', $validated['shooter_id'])
+                ->where('stage_id', $validated['old_stage_id'])
+                ->update(['stage_id' => $validated['new_stage_id']]);
+
+            $oldResult = PrsStageResult::where('match_id', $match->id)
+                ->where('shooter_id', $validated['shooter_id'])
+                ->where('stage_id', $validated['old_stage_id'])
+                ->first();
+
+            if ($oldResult) {
+                ScoreAuditService::logDeleted($match->id, $oldResult, $validated['reason'], $request);
+                $oldResult->delete();
+            }
+
+            $movedShots = PrsShotScore::where('match_id', $match->id)
+                ->where('shooter_id', $validated['shooter_id'])
+                ->where('stage_id', $validated['new_stage_id'])
+                ->get();
+
+            if ($movedShots->isNotEmpty()) {
+                $newResult = PrsStageResult::create([
+                    'match_id' => $match->id,
+                    'shooter_id' => $validated['shooter_id'],
+                    'stage_id' => $validated['new_stage_id'],
+                    'hits' => $movedShots->where('result', PrsShotResult::Hit)->count(),
+                    'misses' => $movedShots->where('result', PrsShotResult::Miss)->count(),
+                    'not_taken' => $movedShots->where('result', PrsShotResult::NotTaken)->count(),
+                    'completed_at' => now(),
+                ]);
+
+                ScoreAuditService::log(
+                    $match->id,
+                    $newResult,
+                    'move_stage',
+                    ['stage_id' => $validated['old_stage_id']],
+                    ['stage_id' => $validated['new_stage_id']],
+                    $validated['reason'],
+                    $request,
+                );
+            }
+        });
+
+        return response()->json([
+            'message' => "{$count} shot(s) moved to new stage.",
+            'count' => $count,
+        ]);
+    }
+
+    /**
+     * Store correction log entries for a match.
+     */
+    public function storeCorrectionLogs(Request $request, ShootingMatch $match)
+    {
+        $this->authorizeMatchDirector($request, $match);
+
+        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
+        $validStageIds = $match->targetSets()->pluck('id')->toArray();
+
+        $validated = $request->validate([
+            'logs' => ['required', 'array', 'min:1'],
+            'logs.*.action' => ['required', 'string', 'max:30'],
+            'logs.*.stage_id' => ['required', 'integer', Rule::in($validStageIds)],
+            'logs.*.shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
+            'logs.*.details' => ['nullable', 'array'],
+            'logs.*.device_id' => ['nullable', 'string'],
+            'logs.*.performed_at' => ['nullable', 'date'],
+        ]);
+
+        $created = 0;
+
+        foreach ($validated['logs'] as $entry) {
+            CorrectionLog::create([
+                'match_id' => $match->id,
+                'stage_id' => $entry['stage_id'],
+                'shooter_id' => $entry['shooter_id'],
+                'action' => $entry['action'],
+                'details' => $entry['details'] ?? null,
+                'device_id' => $entry['device_id'] ?? null,
+                'performed_at' => $entry['performed_at'] ?? null,
+            ]);
+            $created++;
+        }
+
+        return response()->json([
+            'message' => "{$created} correction log(s) created.",
+            'count' => $created,
         ]);
     }
 
