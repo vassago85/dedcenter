@@ -41,6 +41,7 @@ class ShootingMatch extends Model
         'corrections_pin',
         'image_url',
         'province',
+        'registration_closes_at',
     ];
 
     protected $hidden = [
@@ -59,6 +60,7 @@ class ShootingMatch extends Model
             'max_squad_size' => 'integer',
             'entry_fee' => 'decimal:2',
             'province' => Province::class,
+            'registration_closes_at' => 'datetime',
         ];
     }
 
@@ -217,6 +219,18 @@ class ShootingMatch extends Model
     public function isFree(): bool
     {
         return ! $this->entry_fee || (float) $this->entry_fee <= 0;
+    }
+
+    public function defaultRegistrationCloseDate(): ?\Carbon\Carbon
+    {
+        return $this->date?->copy()->subHours(72);
+    }
+
+    public function isRegistrationPastDeadline(): bool
+    {
+        $deadline = $this->registration_closes_at ?? $this->defaultRegistrationCloseDate();
+
+        return $deadline && now()->gte($deadline);
     }
 
     public function isPrs(): bool

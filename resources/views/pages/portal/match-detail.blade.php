@@ -316,15 +316,20 @@ new #[Layout('components.layouts.portal')]
                 </div>
 
             @elseif($match->isPreRegistration() && !$registration)
-                <p class="text-sm text-muted">Express your interest. Full registration opens later.</p>
-                <button wire:click="preRegister" wire:confirm="Pre-register for {{ $match->name }}?"
+                <p class="text-sm text-muted">Express your interest. You'll be notified when full registration opens so you can complete your entry and pay.</p>
+                <button wire:click="preRegister" wire:confirm="Show interest in {{ $match->name }}?"
                         class="portal-bg-primary portal-bg-primary-hover rounded-lg px-6 py-2.5 text-sm font-semibold text-primary transition-colors">
-                    Pre-Register
+                    Show Interest
                 </button>
 
             @elseif($match->isPreRegistration() && $registration && $registration->isPreRegistered())
                 <div class="rounded-lg border border-violet-800 bg-violet-900/20 p-4">
-                    <p class="text-sm font-medium text-violet-400">You're pre-registered! You'll be notified when registration opens.</p>
+                    <p class="text-sm font-medium text-violet-400">You've shown interest! You'll be notified when registration opens.</p>
+                    <p class="mt-1 text-xs text-muted">If you don't complete registration before it closes, your spot will be released.</p>
+                    @php $closes = $match->registration_closes_at ?? $match->defaultRegistrationCloseDate(); @endphp
+                    @if($closes)
+                        <p class="mt-1 text-xs text-muted">Registration closes <strong class="text-violet-300">{{ $closes->format('j M Y, H:i') }}</strong>.</p>
+                    @endif
                 </div>
 
             @elseif($match->isRegistrationOpen() && $registration && $registration->isPreRegistered())

@@ -40,7 +40,7 @@ class NotificationService
     protected function notifySquaddingOpen(ShootingMatch $match): void
     {
         $registered = $match->registrations()
-            ->whereNotNull('approved_at')
+            ->where('payment_status', 'confirmed')
             ->with('user')
             ->get()
             ->pluck('user')

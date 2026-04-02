@@ -30,6 +30,7 @@ new #[Layout('components.layouts.app')]
     public string $public_bio = '';
     public string $image_url = '';
     public string $entry_fee = '';
+    public string $registration_closes_at = '';
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
     public bool $royal_flush_enabled = false;
@@ -113,6 +114,7 @@ new #[Layout('components.layouts.app')]
             $this->public_bio = $match->public_bio ?? '';
             $this->image_url = $match->image_url ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
+            $this->registration_closes_at = $match->registration_closes_at?->format('Y-m-d\TH:i') ?? '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
@@ -137,11 +139,13 @@ new #[Layout('components.layouts.app')]
             'public_bio' => 'nullable|string|max:2000',
             'image_url' => 'nullable|url|max:500',
             'entry_fee' => 'nullable|numeric|min:0',
+            'registration_closes_at' => 'nullable|date',
             'scoring_type' => 'required|in:standard,prs,elr',
             'corrections_pin' => 'nullable|string|min:4|max:6|regex:/^\d+$/',
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
+        $validated['registration_closes_at'] = $this->registration_closes_at !== '' ? $this->registration_closes_at : null;
         $validated['image_url'] = $this->image_url !== '' ? $this->image_url : null;
         $validated['province'] = $this->province !== '' ? $this->province : null;
         $orgIsRf = $this->organization->isRoyalFlushOrg();
@@ -937,7 +941,19 @@ new #[Layout('components.layouts.app')]
             Flux::toast('Invalid status transition.', variant: 'danger');
             return;
         }
+        $oldStatus = $this->match->status;
         $this->match->update(['status' => $targetStatus]);
+
+        try {
+            app(\App\Services\NotificationService::class)->onStatusChange($this->match, $oldStatus, $targetStatus);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
+        }
+
+        if ($targetStatus === MatchStatus::RegistrationClosed) {
+            $this->cleanUpPreRegistrations();
+        }
+
         if ($targetStatus === MatchStatus::Completed) {
             try {
                 if ($this->match->isPrs()) {
@@ -954,6 +970,17 @@ new #[Layout('components.layouts.app')]
     }
 
     public function reopenMatch(): void { $this->match->update(['status' => MatchStatus::Active]); Flux::toast('Match reopened.', variant: 'success'); }
+
+    protected function cleanUpPreRegistrations(): void
+    {
+        $removed = $this->match->registrations()
+            ->where('payment_status', 'pre_registered')
+            ->delete();
+
+        if ($removed > 0) {
+            Flux::toast("{$removed} incomplete pre-registration(s) removed.", variant: 'warning');
+        }
+    }
 
     public function sendMatchReports(): void
     {
@@ -1052,6 +1079,10 @@ new #[Layout('components.layouts.app')]
                 <div>
                     <flux:input wire:model="entry_fee" label="Entry Fee (ZAR)" type="number" step="0.01" min="0" placeholder="Leave empty for free" />
                     <p class="mt-1 text-xs text-muted">Leave empty or 0 for free entry.</p>
+                </div>
+                <div>
+                    <flux:input wire:model="registration_closes_at" label="Registration Closes" type="datetime-local" />
+                    <p class="mt-1 text-xs text-muted">Defaults to 72 hours before the event if left empty. After this, pre-registered shooters who haven't completed registration are removed.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary mb-1">Scoring Type</label>

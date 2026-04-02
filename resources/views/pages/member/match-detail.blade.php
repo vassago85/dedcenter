@@ -348,10 +348,10 @@ new #[Layout('components.layouts.app')]
             </div>
 
         @elseif($match->isPreRegistration() && !$registration)
-            <p class="text-sm text-muted">Express your interest in this match. Full registration with equipment details will open later.</p>
+            <p class="text-sm text-muted">Express your interest in this match. You'll be notified when full registration opens so you can complete your entry and pay.</p>
             <flux:button wire:click="preRegister" variant="primary" class="!bg-violet-600 hover:!bg-violet-700"
                          wire:confirm="Pre-register for {{ $match->name }}?">
-                Pre-Register
+                Show Interest
             </flux:button>
 
         @elseif($match->isPreRegistration() && $registration && $registration->isPreRegistered())
@@ -362,7 +362,11 @@ new #[Layout('components.layouts.app')]
                     </svg>
                     <span class="text-sm font-medium text-violet-400">You're pre-registered!</span>
                 </div>
-                <p class="mt-1 text-xs text-muted">You'll be notified when full registration opens.</p>
+                <p class="mt-1 text-xs text-muted">You'll be notified when full registration opens. If you don't complete registration before it closes, your spot will be released.</p>
+                @php $closes = $match->registration_closes_at ?? $match->defaultRegistrationCloseDate(); @endphp
+                @if($closes)
+                    <p class="mt-1 text-xs text-muted">Registration closes <strong class="text-violet-300">{{ $closes->format('j M Y, H:i') }}</strong>.</p>
+                @endif
             </div>
 
         @elseif($match->isRegistrationOpen() && $registration && $registration->isPreRegistered())
@@ -378,6 +382,10 @@ new #[Layout('components.layouts.app')]
 
         @elseif(! $registration && $match->isRegistrationOpen())
             <p class="text-sm text-muted">Fill in your equipment details and register for this match.</p>
+            @php $closes = $match->registration_closes_at ?? $match->defaultRegistrationCloseDate(); @endphp
+            @if($closes)
+                <p class="text-xs text-muted">Registration closes <strong class="text-sky-300">{{ $closes->format('j M Y, H:i') }}</strong>.</p>
+            @endif
             <form wire:submit="register" class="space-y-4">
                 @include('pages.member.partials.equipment-form')
                 <div class="flex justify-end pt-2">

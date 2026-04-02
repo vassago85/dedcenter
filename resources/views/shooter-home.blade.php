@@ -151,15 +151,19 @@
                                 <p class="text-xs mt-2" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->location }}</p>
                             @endif
                             <div class="mt-4">
-                                @if(in_array($match->status, ['pre_registration', 'registration_open']))
+                                @if($match->status === \App\Enums\MatchStatus::PreRegistration)
+                                    <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                        Show Interest <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    </a>
+                                @elseif($match->status === \App\Enums\MatchStatus::RegistrationOpen)
                                     <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                         Register <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                     </a>
-                                @elseif($match->status === 'scoring')
+                                @elseif($match->status === \App\Enums\MatchStatus::Active)
                                     <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                         Live Scores <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                     </a>
-                                @elseif($match->status === 'completed')
+                                @elseif($match->status === \App\Enums\MatchStatus::Completed)
                                     <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                         View Results <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                     </a>
@@ -210,11 +214,15 @@
                             <p class="text-xs mt-2" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->date->format('d M Y') }}</p>
                         @endif
                         <div class="mt-4">
-                            @if(in_array($match->status ?? '', ['pre_registration', 'registration_open']))
+                            @if($match->status === \App\Enums\MatchStatus::PreRegistration)
+                                <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                    Show Interest <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </a>
+                            @elseif($match->status === \App\Enums\MatchStatus::RegistrationOpen)
                                 <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                     Register <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                 </a>
-                            @elseif(($match->status ?? '') === 'scoring')
+                            @elseif($match->status === \App\Enums\MatchStatus::Active)
                                 <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                     Live Scores <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                 </a>
@@ -288,11 +296,15 @@
                                     @endif
                                 </div>
                                 <div class="mt-2">
-                                    @if(in_array($match->status ?? '', ['pre_registration', 'registration_open']))
+                                    @if($match->status === \App\Enums\MatchStatus::PreRegistration)
+                                        <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
+                                            Show Interest <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                        </a>
+                                    @elseif($match->status === \App\Enums\MatchStatus::RegistrationOpen)
                                         <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
                                             Register <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                         </a>
-                                    @elseif(($match->status ?? '') === 'scoring')
+                                    @elseif($match->status === \App\Enums\MatchStatus::Active)
                                         <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
                                             Live Scores <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                                         </a>

@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('matches:send-reminders')->dailyAt('18:00');
 Schedule::command('matches:auto-close-past-date')->dailyAt('00:05');
+Schedule::command('matches:auto-close-registration')->hourly();

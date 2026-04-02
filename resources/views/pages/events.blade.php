@@ -228,7 +228,9 @@ new #[Layout('components.layouts.scoreboard')]
                         $statusValue = $statusEnum instanceof \BackedEnum ? $statusEnum->value : $statusEnum;
                         $isLive = $statusValue === 'active';
                         $isCompleted = $statusValue === 'completed';
-                        $canRegister = in_array($statusValue, ['pre_registration', 'registration_open']);
+                        $isPreReg = $statusValue === 'pre_registration';
+                        $isRegOpen = $statusValue === 'registration_open';
+                        $canRegister = $isPreReg || $isRegOpen;
                         $hasImage = !empty($match->image_url);
                         $org = $match->organization;
 
@@ -275,8 +277,10 @@ new #[Layout('components.layouts.scoreboard')]
                                         </span>
                                         Live
                                     </span>
-                                @elseif($canRegister)
+                                @elseif($isRegOpen)
                                     <span class="rounded-full bg-green-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">Registration Open</span>
+                                @elseif($isPreReg)
+                                    <span class="rounded-full bg-violet-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">Pre-Registration</span>
                                 @elseif($isCompleted)
                                     <span class="rounded-full bg-sky-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">Results</span>
                                 @endif
@@ -313,6 +317,13 @@ new #[Layout('components.layouts.scoreboard')]
                                     {{ $match->royal_flush_enabled ? 'Royal Flush' : strtoupper($match->scoring_type ?? 'relay') }}
                                 </span>
                             </div>
+
+                            @if($canRegister)
+                                @php $closes = $match->registration_closes_at ?? $match->defaultRegistrationCloseDate(); @endphp
+                                @if($closes)
+                                    <p class="mt-2 text-[10px] text-muted">Registration closes {{ $closes->diffForHumans() }}</p>
+                                @endif
+                            @endif
 
                             <div class="mt-auto flex items-center justify-between pt-3 text-xs text-muted">
                                 <span>
