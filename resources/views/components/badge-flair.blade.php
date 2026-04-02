@@ -34,6 +34,13 @@
             'earned'    => 'border-white/12 bg-gradient-to-b from-white/7 to-white/3 text-amber-300/80',
         ],
     ];
+
+    $distFlairStyles = [
+        'dist-700' => 'border-red-400/35 bg-gradient-to-b from-red-400/18 to-orange-500/8 text-red-200 shadow-[0_0_10px_rgba(248,113,113,0.1)]',
+        'dist-600' => 'border-orange-400/25 bg-gradient-to-b from-orange-400/14 to-amber-500/6 text-orange-200',
+        'dist-500' => 'border-yellow-400/20 bg-gradient-to-b from-yellow-400/10 to-amber-500/4 text-yellow-300',
+        'dist-400' => 'border-emerald-400/15 bg-gradient-to-b from-emerald-400/10 to-green-500/4 text-emerald-300/80',
+    ];
 @endphp
 
 @if($badges->isNotEmpty())
@@ -45,8 +52,9 @@
                 $icon = $cfg['icon'] ?? 'target';
                 $tier = $cfg['tier'] ?? 'earned';
                 $family = $a->competition_type ?? 'prs';
+                $isDist = str_starts_with($icon, 'dist-');
                 $styles = $familyStyles[$family] ?? $familyStyles['prs'];
-                $crestClass = $styles[$tier] ?? $styles['earned'];
+                $crestClass = ($isDist && isset($distFlairStyles[$icon])) ? $distFlairStyles[$icon] : ($styles[$tier] ?? $styles['earned']);
             @endphp
             <div x-data="{ open: false }" class="relative">
                 <button type="button"

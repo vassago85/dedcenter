@@ -37,18 +37,17 @@ class BadgeGalleryController extends Controller
 
         'royal-flush'        => ['icon' => 'crown',        'tier' => 'elite',     'earnChip' => 'Earned once'],
         'flush-collector'    => ['icon' => 'layers',       'tier' => 'elite',     'earnChip' => 'Earned once'],
-        'small-gong-sniper'  => ['icon' => 'target',       'tier' => 'elite',     'earnChip' => 'Stackable'],
-
         'rf-podium-gold'     => ['icon' => 'medal-1',      'tier' => 'elite',     'earnChip' => 'Stackable'],
         'rf-podium-silver'   => ['icon' => 'medal-2',      'tier' => 'elite',     'earnChip' => 'Stackable'],
         'rf-podium-bronze'   => ['icon' => 'medal-3',      'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'small-gong-sniper'  => ['icon' => 'target',       'tier' => 'milestone', 'earnChip' => 'Stackable'],
 
         'first-flush'        => ['icon' => 'sparkles',     'tier' => 'milestone', 'earnChip' => 'Earned once'],
 
+        'flush-700'          => ['icon' => 'dist-700',     'tier' => 'featured',  'earnChip' => 'Stackable'],
+        'flush-600'          => ['icon' => 'dist-600',     'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'flush-500'          => ['icon' => 'dist-500',     'tier' => 'milestone', 'earnChip' => 'Stackable'],
         'flush-400'          => ['icon' => 'dist-400',     'tier' => 'earned',    'earnChip' => 'Stackable'],
-        'flush-500'          => ['icon' => 'dist-500',     'tier' => 'earned',    'earnChip' => 'Stackable'],
-        'flush-600'          => ['icon' => 'dist-600',     'tier' => 'earned',    'earnChip' => 'Stackable'],
-        'flush-700'          => ['icon' => 'dist-700',     'tier' => 'earned',    'earnChip' => 'Stackable'],
     ];
 
     public const SECTION_ICONS = [

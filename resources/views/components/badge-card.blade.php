@@ -8,12 +8,48 @@
 
 @php
     $isPrs = $family === 'prs';
+    $isDist = str_starts_with($icon, 'dist-');
 
     $tierLabels = [
         'featured'  => 'Signature Badge',
         'elite'     => 'Elite Achievement',
         'milestone' => 'Lifetime Milestone',
         'earned'    => 'Repeatable',
+    ];
+
+    $distanceCardStyles = [
+        'dist-700' => [
+            'card'     => 'border-red-400/25 bg-zinc-950/90',
+            'hover'    => 'hover:border-red-300/40 hover:shadow-[0_18px_45px_rgba(0,0,0,0.45),0_0_30px_rgba(248,113,113,0.1)]',
+            'accent'   => 'from-transparent via-red-400/40 to-transparent',
+            'overline' => 'text-red-400/70',
+            'title'    => 'text-white',
+            'chip'     => 'border-red-400/20 bg-red-400/8 text-red-300/80',
+        ],
+        'dist-600' => [
+            'card'     => 'border-orange-400/20 bg-zinc-950/90',
+            'hover'    => 'hover:border-orange-400/35 hover:shadow-[0_18px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(251,146,60,0.07)]',
+            'accent'   => 'from-transparent via-orange-400/25 to-transparent',
+            'overline' => 'text-orange-400/60',
+            'title'    => 'text-white/95',
+            'chip'     => 'border-orange-400/15 bg-orange-400/6 text-orange-300/70',
+        ],
+        'dist-500' => [
+            'card'     => 'border-yellow-400/15 bg-zinc-950/90',
+            'hover'    => 'hover:border-yellow-400/25 hover:shadow-[0_18px_40px_rgba(0,0,0,0.4)]',
+            'accent'   => '',
+            'overline' => 'text-yellow-400/50',
+            'title'    => 'text-white/90',
+            'chip'     => 'border-white/10 bg-white/5 text-white/55',
+        ],
+        'dist-400' => [
+            'card'     => 'border-emerald-400/12 bg-zinc-950/90',
+            'hover'    => 'hover:border-emerald-400/20 hover:shadow-[0_14px_35px_rgba(0,0,0,0.4)]',
+            'accent'   => '',
+            'overline' => 'text-emerald-400/45',
+            'title'    => 'text-white/85',
+            'chip'     => 'border-white/8 bg-white/4 text-white/50',
+        ],
     ];
 
     $prs = [
@@ -87,10 +123,17 @@
     ];
 
     $styles = $isPrs ? $prs : $rf;
-    $s = $styles[$tier] ?? $styles['earned'];
+    $s = ($isDist && isset($distanceCardStyles[$icon])) ? $distanceCardStyles[$icon] : ($styles[$tier] ?? $styles['earned']);
     $isFeatured = $tier === 'featured';
     $isElite = $tier === 'elite';
     $titleSize = $isFeatured ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl';
+
+    $distOverlineLabels = [
+        'dist-700' => 'Extreme Distance',
+        'dist-600' => 'Long Distance',
+        'dist-500' => 'Mid Distance',
+        'dist-400' => 'Standard Distance',
+    ];
 @endphp
 
 <div class="group relative overflow-hidden rounded-3xl border p-6 sm:p-7
@@ -114,7 +157,7 @@
         <div class="min-w-0 flex-1 space-y-2.5">
             {{-- Overline --}}
             <span class="text-[11px] font-semibold uppercase tracking-[0.16em] {{ $s['overline'] }}">
-                {{ $tierLabels[$tier] ?? 'Badge' }}
+                {{ ($isDist ? ($distOverlineLabels[$icon] ?? null) : null) ?? $tierLabels[$tier] ?? 'Badge' }}
             </span>
 
             {{-- Title --}}
