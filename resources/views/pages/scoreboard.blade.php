@@ -713,12 +713,13 @@ new #[Layout('components.layouts.scoreboard')]
                                     $badge = $ua->achievement;
                                     $cfg = $bcfg[$badge->slug] ?? [];
                                     $icon = $cfg['icon'] ?? 'target';
+                                    $tier = $cfg['tier'] ?? 'earned';
                                 @endphp
-                                <div class="flex items-start gap-3 rounded-xl border border-amber-400/15 bg-amber-900/8 px-4 py-3">
-                                    <x-badge-icon :name="$icon" class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-300" />
+                                <div class="flex items-center gap-4 rounded-2xl border border-amber-400/15 bg-amber-900/8 px-4 py-4">
+                                    <x-badge-crest :icon="$icon" :tier="$tier" family="royal_flush" />
                                     <div class="min-w-0 flex-1">
-                                        <span class="font-bold text-amber-200">{{ $badge->label }}</span>
-                                        <p class="mt-0.5 text-xs text-muted">{{ $badge->description }}</p>
+                                        <span class="text-base font-bold text-amber-200">{{ $badge->label }}</span>
+                                        <p class="mt-0.5 text-xs text-muted leading-snug">{{ $badge->description }}</p>
                                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                                             @if($ua->user_id)
                                                 <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-semibold text-primary hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
@@ -746,26 +747,27 @@ new #[Layout('components.layouts.scoreboard')]
                         @php
                             $rfGrouped = $repeatableBadges->groupBy(fn ($ua) => $ua->achievement?->slug ?? 'unknown');
                         @endphp
-                        <div class="space-y-3">
+                        <div class="space-y-4">
                             @foreach($rfGrouped as $slug => $entries)
                                 @php
                                     $badge = $entries->first()?->achievement;
                                     if (!$badge) continue;
                                     $cfg = $bcfg[$badge->slug] ?? [];
                                     $icon = $cfg['icon'] ?? 'target';
+                                    $tier = $cfg['tier'] ?? 'earned';
                                 @endphp
-                                <div class="rounded-xl border border-amber-500/12 bg-amber-900/5">
-                                    <div class="flex items-center gap-3 border-b border-amber-500/10 px-4 py-2.5">
-                                        <x-badge-icon :name="$icon" class="h-4 w-4 text-amber-300" />
+                                <div class="overflow-hidden rounded-2xl border border-amber-500/12 bg-amber-900/5">
+                                    <div class="flex items-center gap-4 border-b border-amber-500/10 px-4 py-3">
+                                        <x-badge-crest :icon="$icon" :tier="$tier" family="royal_flush" />
                                         <div class="min-w-0 flex-1">
-                                            <span class="font-bold text-amber-200">{{ $badge->label }}</span>
-                                            <span class="ml-2 text-xs text-muted">&mdash; {{ $badge->description }}</span>
+                                            <span class="text-base font-bold text-amber-200">{{ $badge->label }}</span>
+                                            <p class="mt-0.5 text-xs text-muted leading-snug">{{ $badge->description }}</p>
                                         </div>
-                                        <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-400">{{ $entries->count() }}&times;</span>
+                                        <span class="rounded-full bg-amber-600/20 px-2.5 py-1 text-xs font-bold tabular-nums text-amber-400">{{ $entries->count() }}&times;</span>
                                     </div>
                                     <div class="divide-y divide-border/30">
                                         @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
-                                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
+                                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
                                                 @if($ua->user_id)
                                                     <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-medium text-primary hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
                                                 @else
@@ -1032,12 +1034,13 @@ new #[Layout('components.layouts.scoreboard')]
                                         $badge = $ua->achievement;
                                         $cfg = $bcfg[$badge->slug] ?? [];
                                         $icon = $cfg['icon'] ?? 'target';
+                                        $tier = $cfg['tier'] ?? 'earned';
                                     @endphp
-                                    <div class="flex items-start gap-3 rounded-xl border border-sky-400/15 bg-sky-900/8 px-4 py-3">
-                                        <x-badge-icon :name="$icon" class="mt-0.5 h-5 w-5 flex-shrink-0 text-sky-300" />
+                                    <div class="flex items-center gap-4 rounded-2xl border border-sky-400/15 bg-sky-900/8 px-4 py-4">
+                                        <x-badge-crest :icon="$icon" :tier="$tier" family="prs" />
                                         <div class="min-w-0 flex-1">
-                                            <span class="font-bold text-sky-200">{{ $badge->label }}</span>
-                                            <p class="mt-0.5 text-xs text-zinc-400">{{ $badge->description }}</p>
+                                            <span class="text-base font-bold text-sky-200">{{ $badge->label }}</span>
+                                            <p class="mt-0.5 text-xs text-zinc-400 leading-snug">{{ $badge->description }}</p>
                                             <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                                                 @if($ua->user_id)
                                                     <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-semibold text-white hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
@@ -1065,26 +1068,27 @@ new #[Layout('components.layouts.scoreboard')]
                             @php
                                 $grouped = $repeatableBadges->groupBy(fn ($ua) => $ua->achievement?->slug ?? 'unknown');
                             @endphp
-                            <div class="space-y-3">
+                            <div class="space-y-4">
                                 @foreach($grouped as $slug => $entries)
                                     @php
                                         $badge = $entries->first()?->achievement;
                                         if (!$badge) continue;
                                         $cfg = $bcfg[$badge->slug] ?? [];
                                         $icon = $cfg['icon'] ?? 'target';
+                                        $tier = $cfg['tier'] ?? 'earned';
                                     @endphp
-                                    <div class="rounded-xl border border-sky-500/12 bg-sky-900/5">
-                                        <div class="flex items-center gap-3 border-b border-sky-500/10 px-4 py-2.5">
-                                            <x-badge-icon :name="$icon" class="h-4 w-4 text-sky-300" />
+                                    <div class="overflow-hidden rounded-2xl border border-sky-500/12 bg-sky-900/5">
+                                        <div class="flex items-center gap-4 border-b border-sky-500/10 px-4 py-3">
+                                            <x-badge-crest :icon="$icon" :tier="$tier" family="prs" />
                                             <div class="min-w-0 flex-1">
-                                                <span class="font-bold text-sky-200">{{ $badge->label }}</span>
-                                                <span class="ml-2 text-xs text-zinc-500">&mdash; {{ $badge->description }}</span>
+                                                <span class="text-base font-bold text-sky-200">{{ $badge->label }}</span>
+                                                <p class="mt-0.5 text-xs text-zinc-500 leading-snug">{{ $badge->description }}</p>
                                             </div>
-                                            <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-sky-400">{{ $entries->count() }}&times;</span>
+                                            <span class="rounded-full bg-sky-600/20 px-2.5 py-1 text-xs font-bold tabular-nums text-sky-400">{{ $entries->count() }}&times;</span>
                                         </div>
                                         <div class="divide-y divide-zinc-800">
                                             @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
-                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
+                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
                                                     @if($ua->user_id)
                                                         <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-medium text-white hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
                                                     @else
