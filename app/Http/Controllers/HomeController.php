@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MatchStatus;
 use App\Models\FeaturedItem;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
@@ -46,21 +47,29 @@ class HomeController extends Controller
             ->pluck('item')
             ->filter();
 
-        $upcomingMatches = ShootingMatch::where('status', 'active')
-            ->where('date', '>=', now())
+        $upcomingStatuses = [
+            MatchStatus::PreRegistration->value,
+            MatchStatus::RegistrationOpen->value,
+            MatchStatus::RegistrationClosed->value,
+            MatchStatus::SquaddingOpen->value,
+            MatchStatus::Active->value,
+        ];
+
+        $upcomingMatches = ShootingMatch::whereIn('status', $upcomingStatuses)
+            ->where('date', '>=', now()->startOfDay())
             ->orderBy('date')
             ->with('organization')
             ->take(6)
             ->get();
 
-        $recentResults = ShootingMatch::where('status', 'completed')
+        $recentResults = ShootingMatch::where('status', MatchStatus::Completed)
             ->orderByDesc('date')
             ->with('organization')
             ->take(6)
             ->get();
 
-        $popularMatches = ShootingMatch::where('status', 'active')
-            ->where('date', '>=', now())
+        $popularMatches = ShootingMatch::whereIn('status', $upcomingStatuses)
+            ->where('date', '>=', now()->startOfDay())
             ->withCount('registrations')
             ->orderByDesc('registrations_count')
             ->with('organization')
