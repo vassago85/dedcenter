@@ -42,9 +42,9 @@
 </head>
 <body class="min-h-screen antialiased" style="background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-2) 100%); color: var(--lp-text);">
 
-    {{-- Navigation --}}
-    <nav x-data="{ mobileOpen: false }" class="sticky top-0 z-50" style="background: rgba(7, 19, 39, 0.85); border-bottom: 1px solid var(--lp-border); backdrop-filter: blur(20px) saturate(1.4);">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    {{-- Navigation (mobile menu uses native <details> — Alpine is not bundled on marketing pages) --}}
+    <nav class="sticky top-0 z-50" style="background: rgba(7, 19, 39, 0.85); border-bottom: 1px solid var(--lp-border); backdrop-filter: blur(20px) saturate(1.4);">
+        <div class="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <a href="{{ $ctx === 'md' ? md_url('/') : shooter_url('/') }}" class="opacity-90 hover:opacity-100 transition-opacity">
                 <x-app-logo size="md" variant="dark" />
             </a>
@@ -68,58 +68,55 @@
 
             <div class="flex items-center gap-3">
                 @auth
-                    <a href="{{ app_url('/dashboard') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                    <a href="{{ app_url('/dashboard') }}" class="lp-cta-nav inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap sm:px-5">
                         Dashboard
                     </a>
                 @else
-                    <a href="{{ app_url('/login') }}" class="hidden sm:inline-block rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white" style="color: var(--lp-text-soft);">
+                    <a href="{{ app_url('/login') }}" class="hidden sm:inline-block rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white lp-nav-text-muted">
                         Sign In
                     </a>
-                    <a href="{{ app_url('/register') }}" class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors" style="background: var(--lp-red);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                    <a href="{{ app_url('/register') }}" class="lp-cta-nav inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap sm:px-5">
                         Get Started
                     </a>
                 @endauth
 
-                {{-- Mobile hamburger --}}
-                <button @click="mobileOpen = !mobileOpen" class="md:hidden ml-1 p-2 rounded-lg transition-colors hover:bg-white/10" aria-label="Toggle menu">
-                    <svg x-show="!mobileOpen" class="h-5 w-5" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    </svg>
-                    <svg x-show="mobileOpen" x-cloak class="h-5 w-5" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-        </div>
+                {{-- Mobile menu: native disclosure (closed by default; no Alpine on this bundle) --}}
+                <details class="marketing-nav-details md:hidden relative">
+                    <summary class="marketing-nav-summary list-none flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors hover:bg-white/10 outline-none ring-0" aria-label="Toggle menu">
+                        <svg class="marketing-nav-icon-open h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                        <svg class="marketing-nav-icon-close h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </summary>
+                    <div class="marketing-mobile-panel absolute left-1/2 top-full z-[60] mt-0 w-screen max-w-[100vw] -translate-x-1/2 border-t px-6 py-4 shadow-[0_18px_48px_rgba(0,0,0,0.45)]" style="border-color: var(--lp-border); background: rgba(7, 19, 39, 0.97); backdrop-filter: blur(20px) saturate(1.4);">
+                        <div class="mx-auto max-w-6xl space-y-1">
+                            @if($ctx === 'md')
+                                <a href="#features" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Features</a>
+                                <a href="#scoring-modes" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Scoring Modes</a>
+                                <a href="#how-it-works" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">How It Works</a>
+                                <a href="#for-clubs" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">For Clubs</a>
+                            @else
+                                <a href="{{ route('home') }}#events" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Events</a>
+                                <a href="{{ route('home') }}#results" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Results</a>
+                                <a href="{{ route('home') }}#standings" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Standings</a>
+                                <a href="{{ route('home') }}#disciplines" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Disciplines</a>
+                                <a href="{{ route('features') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">About</a>
+                                <a href="{{ route('sponsorships') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Sponsors</a>
+                            @endif
 
-        {{-- Mobile nav panel --}}
-        <div x-show="mobileOpen" x-cloak
-             x-transition:enter="transition ease-out duration-200"
-             x-transition:enter-start="opacity-0 -translate-y-2"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             x-transition:leave="transition ease-in duration-150"
-             x-transition:leave-start="opacity-100 translate-y-0"
-             x-transition:leave-end="opacity-0 -translate-y-2"
-             class="md:hidden border-t px-6 py-4 space-y-1" style="border-color: var(--lp-border); background: rgba(7, 19, 39, 0.95);">
-            @if($ctx === 'md')
-                <a href="#features" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Features</a>
-                <a href="#scoring-modes" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Scoring Modes</a>
-                <a href="#how-it-works" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">How It Works</a>
-                <a href="#for-clubs" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">For Clubs</a>
-            @else
-                <a href="{{ route('home') }}#events" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Events</a>
-                <a href="{{ route('home') }}#results" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Results</a>
-                <a href="{{ route('home') }}#standings" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Standings</a>
-                <a href="{{ route('home') }}#disciplines" @click="mobileOpen = false" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Disciplines</a>
-                <a href="{{ route('features') }}" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">About</a>
-                <a href="{{ route('sponsorships') }}" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Sponsors</a>
-            @endif
-
-            <div class="pt-2 border-t" style="border-color: var(--lp-border);">
-                @guest
-                    <a href="{{ app_url('/login') }}" class="block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10" style="color: var(--lp-text-soft);">Sign In</a>
-                    <a href="{{ app_url('/register') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold" style="color: var(--lp-red);">Register</a>
-                @endguest
+                            <div class="mt-3 border-t pt-3 space-y-1" style="border-color: var(--lp-border);">
+                                @auth
+                                    <a href="{{ app_url('/dashboard') }}" class="lp-cta-nav block rounded-lg px-3 py-2.5 text-center text-[13px] font-semibold" onclick="this.closest('details')?.removeAttribute('open')">Dashboard</a>
+                                @else
+                                    <a href="{{ app_url('/login') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10 sm:hidden" onclick="this.closest('details')?.removeAttribute('open')">Sign In</a>
+                                    <a href="{{ app_url('/register') }}" class="lp-cta-nav block rounded-lg px-3 py-2.5 text-center text-[13px] font-semibold" onclick="this.closest('details')?.removeAttribute('open')">Register</a>
+                                @endauth
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
     </nav>

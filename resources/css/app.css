@@ -254,3 +254,91 @@
 :where([data-flux-error]) {
     color: var(--color-accent) !important;
 }
+
+/* ── Marketing landings: CTAs & mobile nav (no Alpine on public bundle) ── */
+.lp-cta-nav,
+.lp-btn-primary {
+    background-color: var(--lp-red) !important;
+    color: #fff !important;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.lp-cta-nav:hover,
+.lp-cta-nav:focus-visible,
+.lp-btn-primary:hover,
+.lp-btn-primary:focus-visible {
+    background-color: var(--lp-red-hover) !important;
+    color: #fff !important;
+}
+.lp-cta-nav:visited,
+.lp-btn-primary:visited {
+    color: #fff !important;
+}
+.lp-nav-text-muted {
+    color: var(--lp-text-soft) !important;
+}
+.lp-nav-text-muted:hover,
+.lp-nav-text-muted:focus-visible {
+    color: #fff !important;
+}
+.lp-btn-secondary {
+    border: 1px solid var(--lp-border) !important;
+    background: var(--lp-surface) !important;
+    color: var(--lp-text-soft) !important;
+    -webkit-tap-highlight-color: transparent;
+}
+.lp-btn-secondary:hover,
+.lp-btn-secondary:focus-visible {
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    background: var(--lp-surface-2) !important;
+    color: #fff !important;
+}
+.lp-btn-footer-outline {
+    border: 1px solid var(--lp-border) !important;
+    background: transparent !important;
+    color: var(--lp-text) !important;
+    -webkit-tap-highlight-color: transparent;
+}
+.lp-btn-footer-outline:hover,
+.lp-btn-footer-outline:focus-visible {
+    background: var(--lp-surface-2) !important;
+    color: var(--lp-text) !important;
+}
+.lp-btn-footer-outline:visited {
+    color: var(--lp-text) !important;
+}
+
+.marketing-nav-details > .marketing-nav-summary::-webkit-details-marker {
+    display: none;
+}
+.marketing-nav-details > .marketing-nav-summary {
+    list-style: none;
+}
+.marketing-nav-details:not([open]) .marketing-nav-icon-close {
+    display: none;
+}
+.marketing-nav-details[open] .marketing-nav-icon-open {
+    display: none;
+}
+.marketing-nav-details[open] > .marketing-nav-summary {
+    background: rgba(255, 255, 255, 0.06);
+}
+.marketing-mobile-link {
+    color: var(--lp-text-soft) !important;
+}
+.marketing-mobile-link:hover,
+.marketing-mobile-link:focus-visible {
+    color: #fff !important;
+}
+
+/* Flux primary buttons: keep brand red at all breakpoints (mobile visited / contrast) */
+@media (max-width: 1023px) {
+    :where([data-flux-button][data-variant='primary']) {
+        color: #fff !important;
+        background: var(--color-accent) !important;
+    }
+    :where([data-flux-button][data-variant='primary']):hover,
+    :where([data-flux-button][data-variant='primary']):focus-visible {
+        background: var(--color-accent-hover) !important;
+    }
+}

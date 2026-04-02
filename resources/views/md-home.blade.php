@@ -33,17 +33,12 @@
 
                 <div class="mt-10 flex flex-col items-center gap-3.5 sm:flex-row sm:justify-center">
                     <a href="#features"
-                       class="group relative inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold text-white transition-all duration-200"
-                       style="background: var(--lp-red); box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25);"
-                       onmouseover="this.style.background='var(--lp-red-hover)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(225, 6, 0, 0.35)';"
-                       onmouseout="this.style.background='var(--lp-red)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25)';">
+                       class="lp-btn-primary group relative inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold transition-all duration-200"
+                       style="box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25);">
                         Explore Features
                     </a>
                     <a href="#how-it-works"
-                       class="inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold backdrop-blur-sm transition-all duration-200 hover:!text-white"
-                       style="border: 1px solid var(--lp-border); background: var(--lp-surface); color: var(--lp-text-soft);"
-                       onmouseover="this.style.borderColor='rgba(255,255,255,0.18)'; this.style.background='var(--lp-surface-2)';"
-                       onmouseout="this.style.borderColor='var(--lp-border)'; this.style.background='var(--lp-surface)';">
+                       class="lp-btn-secondary inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold backdrop-blur-sm transition-all duration-200">
                         Learn How It Works
                     </a>
                 </div>
@@ -458,10 +453,10 @@
             <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Ready to Run Your Next Match?</h2>
             <p class="mx-auto mt-3 max-w-md" style="color: var(--lp-text-muted);">Create your free account and set up your first match in minutes.</p>
             <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                <a href="{{ app_url('/register') }}" class="rounded-xl px-8 py-3.5 text-lg font-bold text-white transition-all" style="background: var(--lp-red); box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);" onmouseover="this.style.background='var(--lp-red-hover)'" onmouseout="this.style.background='var(--lp-red)'">
+                <a href="{{ app_url('/register') }}" class="lp-btn-primary rounded-xl px-8 py-3.5 text-lg font-bold transition-all" style="box-shadow: 0 4px 20px rgba(225, 6, 0, 0.25);">
                     Get Started Free
                 </a>
-                <a href="{{ app_url('/login') }}" class="rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors" style="border: 1px solid var(--lp-border); color: var(--lp-text);" onmouseover="this.style.background='var(--lp-surface-2)'" onmouseout="this.style.background='transparent'">
+                <a href="{{ app_url('/login') }}" class="lp-btn-footer-outline rounded-xl px-8 py-3.5 text-lg font-semibold transition-colors">
                     Sign In
                 </a>
             </div>
