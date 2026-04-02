@@ -58,6 +58,9 @@ new #[Layout('components.layouts.app')]
     public string $categoryName = '';
     public array $shooterCategories = [];
 
+    // Side Bet
+    public array $sideBetShooterIds = [];
+
     // DQ
     public ?int $dqShooterId = null;
     public ?int $dqTargetSetId = null;
@@ -99,6 +102,7 @@ new #[Layout('components.layouts.app')]
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->corrections_pin = $match->corrections_pin ?? '';
+            $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
         } else {
             $this->entry_fee = $organization->entry_fee_default ? (string) $organization->entry_fee_default : '';
         }
@@ -137,6 +141,21 @@ new #[Layout('components.layouts.app')]
             Flux::toast('Match created.', variant: 'success');
             $this->redirect(route('org.matches.edit', [$this->organization, $this->match]), navigate: true);
         }
+    }
+
+    public function saveSideBetParticipants(): void
+    {
+        if (! $this->match || ! $this->match->side_bet_enabled) {
+            return;
+        }
+
+        if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed])) {
+            Flux::toast('Buy-in is locked once scoring starts.', variant: 'danger');
+            return;
+        }
+
+        $this->match->sideBetShooters()->sync($this->sideBetShooterIds);
+        Flux::toast('Side bet participants saved.', variant: 'success');
     }
 
     public function addMatchStaff(): void
@@ -1143,7 +1162,7 @@ new #[Layout('components.layouts.app')]
                     <flux:button wire:click="addMinorMajorPreset" size="sm" variant="ghost">+ Minor/Major</flux:button>
                     <flux:button wire:click="addPrsDivisionPreset" size="sm" variant="ghost">+ Open/Factory/Limited</flux:button>
                 </div>
-                <p class="text-[10px] text-muted/60">Divisions classify by equipment class. Single-select per shooter.</p>
+                <p class="text-[11px] text-muted">Divisions classify by equipment class. Single-select per shooter.</p>
             </div>
         </div>
 
@@ -1176,7 +1195,7 @@ new #[Layout('components.layouts.app')]
                 <div class="flex flex-wrap gap-2">
                     <flux:button wire:click="addStandardCategoryPreset" size="sm" variant="ghost">+ Standard Preset (Overall/Ladies/Junior/Senior)</flux:button>
                 </div>
-                <p class="text-[10px] text-muted/60">Categories classify by demographics. Multi-select per shooter (a score appears in all matching category leaderboards).</p>
+                <p class="text-[11px] text-muted">Categories classify by demographics. Multi-select per shooter (a score appears in all matching category leaderboards).</p>
             </div>
         </div>
 
@@ -1714,5 +1733,65 @@ new #[Layout('components.layouts.app')]
                     <p class="text-xs text-muted">Registrations</p>
                 </div>
             </div>
+
+        {{-- Side Bet Buy-In --}}
+        @if($match->side_bet_enabled && $match->royal_flush_enabled)
+            <flux:separator />
+
+            @php
+                $sideBetLocked = in_array($match->status, [MatchStatus::Active, MatchStatus::Completed]);
+                $allShootersForBet = $match->shooters()->with('squad')->orderBy('name')->get();
+            @endphp
+
+            <div class="rounded-xl border {{ $sideBetLocked ? 'border-amber-700/30' : 'border-amber-600/50' }} bg-gradient-to-br from-amber-900/10 to-surface p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-primary flex items-center gap-2">
+                            Side Bet Buy-In
+                            @if($sideBetLocked)
+                                <span class="rounded-full bg-zinc-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Locked</span>
+                            @else
+                                <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">Open</span>
+                            @endif
+                        </h2>
+                        <p class="mt-1 text-xs text-muted">
+                            @if($sideBetLocked)
+                                Buy-in is locked once scoring starts. {{ count($sideBetShooterIds) }} {{ Str::plural('participant', count($sideBetShooterIds)) }} registered.
+                            @else
+                                Select shooters who bought in this morning. Locked once scoring starts.
+                            @endif
+                        </p>
+                    </div>
+                    @if(! $sideBetLocked)
+                        <flux:button wire:click="saveSideBetParticipants" variant="primary" size="sm" class="!bg-amber-600 hover:!bg-amber-700">
+                            Save Participants
+                        </flux:button>
+                    @endif
+                </div>
+
+                @if($allShootersForBet->isNotEmpty())
+                    <div class="rounded-lg border border-border bg-surface-2/30 p-4">
+                        <div class="mb-3 flex items-center justify-between">
+                            <p class="text-sm font-medium text-secondary">{{ count($sideBetShooterIds) }} of {{ $allShootersForBet->count() }} shooters bought in</p>
+                        </div>
+                        <div class="max-h-64 overflow-y-auto space-y-1">
+                            @foreach($allShootersForBet as $sh)
+                                <label class="flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors {{ $sideBetLocked ? 'opacity-60' : 'hover:bg-surface-2/50 cursor-pointer' }}">
+                                    <input type="checkbox" value="{{ $sh->id }}" wire:model="sideBetShooterIds"
+                                           {{ $sideBetLocked ? 'disabled' : '' }}
+                                           class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-4 w-4" />
+                                    <span class="text-sm {{ $sideBetLocked && ! in_array($sh->id, $sideBetShooterIds) ? 'text-muted' : 'text-primary' }}">{{ $sh->name }}</span>
+                                    <span class="text-[10px] text-muted">({{ $sh->squad?->name ?? '—' }})</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @else
+                    <div class="rounded-lg border border-border bg-surface-2/30 px-4 py-6 text-center">
+                        <p class="text-sm text-muted">No shooters yet. Add squads and shooters first.</p>
+                    </div>
+                @endif
+            </div>
+        @endif
     @endif
 </div>
