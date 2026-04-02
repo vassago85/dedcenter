@@ -331,61 +331,62 @@ new #[Layout('components.layouts.scoreboard')]
     }
 }; ?>
 
-<div wire:poll.15s class="min-h-screen bg-app text-primary p-6 lg:p-10">
-    <div class="mb-8 flex items-center justify-between">
-        <div>
-            <div class="flex items-center gap-3">
-                <h1 class="text-4xl font-black tracking-tight lg:text-5xl">{{ $match->name }}</h1>
+<div wire:poll.15s class="scoreboard-page min-h-screen min-w-0 max-w-full overflow-x-hidden bg-app text-primary px-3 py-4 sm:px-6 lg:p-10">
+    <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                <h1 class="max-w-full text-2xl font-black leading-tight tracking-tight break-words sm:text-4xl lg:text-5xl">{{ $match->name }}</h1>
                 @if($isPrs)
-                    <span class="rounded bg-amber-600 px-2 py-1 text-xs font-bold uppercase">PRS</span>
+                    <span class="shrink-0 rounded bg-amber-600 px-2 py-1 text-xs font-bold uppercase">PRS</span>
                 @endif
                 @if($match->status === \App\Enums\MatchStatus::Active)
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1">
+                    <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 sm:px-3">
                         <span class="relative flex h-2.5 w-2.5">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
                             <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600"></span>
                         </span>
-                        <span class="text-xs font-bold uppercase tracking-wider text-red-500">Live</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-red-500 sm:text-xs">Live</span>
                     </span>
                 @endif
             </div>
-            <p class="mt-1 text-lg text-muted">
+            <p class="mt-2 text-sm text-muted sm:mt-1 sm:text-lg">
                 {{ $match->date?->format('d M Y') }}
                 @if($match->location) &mdash; {{ $match->location }} @endif
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
         </div>
-        <x-app-logo size="lg" class="opacity-60" />
+        <x-app-logo size="md" class="shrink-0 self-start opacity-60 sm:hidden" />
+        <x-app-logo size="lg" class="hidden shrink-0 opacity-60 sm:block" />
     </div>
 
     @if($divisions->isNotEmpty() || $categories->isNotEmpty())
-        <div class="mb-4 space-y-2">
+        <div class="mb-4 min-w-0 space-y-2">
             @if($divisions->isNotEmpty())
-                <div class="flex gap-2 overflow-x-auto">
-                    <span class="self-center text-xs text-muted/60 pr-1">DIV</span>
-                    <button wire:click="filterDivision(null)"
-                            class="rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ !$activeDivision ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                <div class="-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
+                    <span class="shrink-0 self-center pr-1 text-xs text-muted/60">DIV</span>
+                    <button type="button" wire:click="filterDivision(null)"
+                            class="shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:px-4 sm:text-sm {{ !$activeDivision ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                         All
                     </button>
                     @foreach($divisions as $div)
-                        <button wire:click="filterDivision({{ $div->id }})"
-                                class="rounded-lg px-4 py-2 text-sm font-medium transition-colors {{ $activeDivision === $div->id ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                        <button type="button" wire:click="filterDivision({{ $div->id }})"
+                                class="shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:px-4 sm:text-sm {{ $activeDivision === $div->id ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                             {{ $div->name }}
                         </button>
                     @endforeach
                 </div>
             @endif
             @if($categories->isNotEmpty())
-                <div class="flex gap-2 overflow-x-auto">
-                    <span class="self-center text-xs text-muted/60 pr-1">CAT</span>
-                    <button wire:click="filterCategory(null)"
-                            class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors {{ !$activeCategory ? 'bg-blue-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                <div class="-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:thin]">
+                    <span class="shrink-0 self-center pr-1 text-xs text-muted/60">CAT</span>
+                    <button type="button" wire:click="filterCategory(null)"
+                            class="shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm {{ !$activeCategory ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                         All
                     </button>
                     @foreach($categories as $cat)
-                        <button wire:click="filterCategory({{ $cat->id }})"
-                                class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors {{ $activeCategory === $cat->id ? 'bg-blue-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                        <button type="button" wire:click="filterCategory({{ $cat->id }})"
+                                class="shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm {{ $activeCategory === $cat->id ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                             {{ $cat->name }}
                         </button>
                     @endforeach
@@ -395,20 +396,20 @@ new #[Layout('components.layouts.scoreboard')]
     @endif
 
     @if($isStandard || $royalFlushEnabled)
-        <div class="mb-4 flex gap-2">
-            <button wire:click="setTab('main')"
-                    class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+        <div class="mb-4 flex min-w-0 flex-wrap gap-2">
+            <button type="button" wire:click="setTab('main')"
+                    class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                 Leaderboard
             </button>
             @if($isStandard)
-                <button wire:click="setTab('detailed')"
-                        class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'detailed' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                <button type="button" wire:click="setTab('detailed')"
+                        class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'detailed' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                     Detailed Breakdown
                 </button>
             @endif
             @if($royalFlushEnabled)
-                <button wire:click="setTab('royalflush')"
-                        class="rounded-lg px-5 py-2.5 text-sm font-bold transition-colors {{ $activeTab === 'royalflush' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                <button type="button" wire:click="setTab('royalflush')"
+                        class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'royalflush' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                     Royal Flush
                 </button>
             @endif
@@ -423,8 +424,8 @@ new #[Layout('components.layouts.scoreboard')]
                     $isExpanded = $expandedShooterId === $entry->shooter->id;
                 @endphp
                 <div class="overflow-hidden rounded-2xl border border-border bg-app">
-                    <button wire:click="toggleExpand({{ $entry->shooter->id }})"
-                            class="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-surface/50">
+                    <button type="button" wire:click="toggleExpand({{ $entry->shooter->id }})"
+                            class="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface/50 sm:gap-4 sm:px-6 sm:py-4">
                         @if($rank <= 3)
                             @php
                                 $medalClass = match($rank) {
@@ -446,9 +447,9 @@ new #[Layout('components.layouts.scoreboard')]
                             </p>
                         </div>
 
-                        <span class="text-2xl font-black text-amber-400 tabular-nums">{{ number_format($entry->total_score, 1) }}</span>
+                        <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ number_format($entry->total_score, 1) }}</span>
 
-                        <svg class="h-6 w-6 flex-shrink-0 text-muted transition-transform {{ $isExpanded ? 'rotate-180' : '' }}"
+                        <svg class="h-5 w-5 flex-shrink-0 text-muted transition-transform sm:h-6 sm:w-6 {{ $isExpanded ? 'rotate-180' : '' }}"
                              fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
@@ -498,16 +499,16 @@ new #[Layout('components.layouts.scoreboard')]
             @endforelse
         </div>
     @elseif($royalFlushEnabled && $activeTab === 'royalflush')
-        <div class="overflow-hidden rounded-2xl border border-amber-700/50 bg-app">
-            <table class="w-full text-left">
+        <div class="overflow-x-auto rounded-2xl border border-amber-700/50 bg-app [-webkit-overflow-scrolling:touch]">
+            <table class="w-full min-w-[36rem] text-left">
                 <thead>
                     <tr class="border-b border-border bg-surface/80">
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">#</th>
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Shooter</th>
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Squad</th>
-                        <th class="px-6 py-4 text-center text-lg font-bold text-amber-400 lg:text-xl">Flushes</th>
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Distances</th>
-                        <th class="px-6 py-4 text-right text-lg font-bold text-secondary lg:text-xl">Score</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">#</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Shooter</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Squad</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-amber-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Flushes</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Distances</th>
+                        <th class="px-3 py-2 text-right text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Score</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
@@ -527,11 +528,11 @@ new #[Layout('components.layouts.scoreboard')]
                             };
                         @endphp
                         <tr class="{{ $rowClass }} transition-colors">
-                            <td class="px-6 py-4 text-2xl {{ $rankClass }} lg:text-3xl">{{ $entry->rank }}</td>
-                            <td class="px-6 py-4 text-xl font-semibold text-primary lg:text-2xl">{{ $entry->name }}</td>
-                            <td class="px-6 py-4 text-lg text-muted lg:text-xl">{{ $entry->squad_name }}</td>
-                            <td class="px-6 py-4 text-center text-2xl font-black text-amber-400 lg:text-3xl">{{ $entry->flush_count }}</td>
-                            <td class="px-6 py-4">
+                            <td class="px-3 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry->rank }}</td>
+                            <td class="max-w-[10rem] truncate px-3 py-2 text-sm font-semibold text-primary sm:max-w-none sm:px-6 sm:py-4 sm:text-xl lg:text-2xl" title="{{ $entry->name }}">{{ $entry->name }}</td>
+                            <td class="max-w-[6rem] truncate px-3 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl">{{ $entry->squad_name }}</td>
+                            <td class="px-3 py-2 text-center text-lg font-black text-amber-400 sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry->flush_count }}</td>
+                            <td class="px-3 py-2 sm:px-6 sm:py-4">
                                 @if(!empty($entry->flush_distances))
                                     <div class="flex flex-wrap gap-2">
                                         @foreach($entry->flush_distances as $d)
@@ -542,11 +543,11 @@ new #[Layout('components.layouts.scoreboard')]
                                     <span class="text-lg text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-right text-xl font-bold text-amber-400 lg:text-2xl tabular-nums">{{ $entry->total_score }}</td>
+                            <td class="px-3 py-2 text-right text-base font-bold text-amber-400 tabular-nums sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">{{ $entry->total_score }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center text-2xl text-muted">No Royal Flush data yet</td>
+                            <td colspan="6" class="px-4 py-12 text-center text-sm text-muted sm:px-6 sm:py-16 sm:text-2xl">No Royal Flush data yet</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -554,32 +555,32 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @else
     @if($isPrs)
-    <div x-data="{ prsTab: 'leaderboard' }">
-        <div class="flex gap-1.5 mb-4">
-            <button @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors">Leaderboard</button>
-            <button @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors">Score Sheet</button>
+    <div x-data="{ prsTab: 'leaderboard' }" class="min-w-0">
+        <div class="mb-4 flex min-w-0 gap-1.5">
+            <button type="button" @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Leaderboard</button>
+            <button type="button" @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Score Sheet</button>
         </div>
         <div x-show="prsTab === 'leaderboard'">
     @endif
-    <div class="overflow-hidden rounded-2xl border border-border bg-app">
-        <table class="w-full text-left">
+    <div class="overflow-x-auto rounded-2xl border border-border bg-app [-webkit-overflow-scrolling:touch]">
+        <table class="w-full min-w-[42rem] text-left lg:min-w-0">
             <thead>
                 <tr class="border-b border-border bg-surface/80">
-                    <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">#</th>
-                    <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Shooter</th>
-                    <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Squad</th>
+                    <th class="px-2 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">#</th>
+                    <th class="px-2 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Shooter</th>
+                    <th class="px-2 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Squad</th>
                     @if($divisions->isNotEmpty())
-                        <th class="px-6 py-4 text-lg font-bold text-secondary lg:text-xl">Division</th>
+                        <th class="px-2 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Div</th>
                     @endif
-                    <th class="px-6 py-4 text-center text-lg font-bold text-green-400 lg:text-xl">Hits</th>
-                    <th class="px-6 py-4 text-center text-lg font-bold text-accent lg:text-xl">Misses</th>
+                    <th class="px-2 py-2 text-center text-xs font-bold text-green-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Hits</th>
+                    <th class="px-2 py-2 text-center text-xs font-bold text-accent sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Miss</th>
                     @if($isPrs)
-                        <th class="px-6 py-4 text-center text-lg font-bold text-amber-400/60 lg:text-xl">N/T</th>
+                        <th class="px-2 py-2 text-center text-xs font-bold text-amber-400/60 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">N/T</th>
                     @endif
                     @if($isPrs)
-                        <th class="px-6 py-4 text-right text-lg font-bold text-secondary lg:text-xl">Time</th>
+                        <th class="px-2 py-2 text-right text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Time</th>
                     @endif
-                    <th class="px-6 py-4 text-right text-lg font-bold text-amber-400 lg:text-xl">{{ $isPrs ? 'Points' : 'Score' }}</th>
+                    <th class="px-2 py-2 text-right text-xs font-bold text-amber-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">{{ $isPrs ? 'Pts' : 'Score' }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-border">
@@ -600,19 +601,21 @@ new #[Layout('components.layouts.scoreboard')]
                         };
                     @endphp
                     <tr class="{{ $rowClass }} transition-colors">
-                        <td class="px-6 py-4 text-2xl {{ $rankClass }} lg:text-3xl">{{ $rank }}</td>
-                        <td class="px-6 py-4 text-xl font-semibold text-primary lg:text-2xl">{{ $shooter->name }}</td>
-                        <td class="px-6 py-4 text-lg text-muted lg:text-xl">{{ $shooter->squad?->name ?? '—' }}</td>
+                        <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $rank }}</td>
+                        <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold text-primary sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
+                            <span class="line-clamp-2 sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
+                        </td>
+                        <td class="max-w-[4.5rem] truncate px-2 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl" title="{{ $shooter->squad?->name ?? '—' }}">{{ $shooter->squad?->name ?? '—' }}</td>
                         @if($divisions->isNotEmpty())
-                            <td class="px-6 py-4 text-lg text-muted lg:text-xl">{{ $shooter->division?->name ?? '—' }}</td>
+                            <td class="max-w-[4rem] truncate px-2 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl" title="{{ $shooter->division?->name ?? '—' }}">{{ $shooter->division?->name ?? '—' }}</td>
                         @endif
-                        <td class="px-6 py-4 text-center text-xl font-bold text-green-400 lg:text-2xl">{{ $shooter->hits_count }}</td>
-                        <td class="px-6 py-4 text-center text-xl font-bold text-accent lg:text-2xl">{{ $shooter->misses_count }}</td>
+                        <td class="px-2 py-2 text-center text-base font-bold text-green-400 sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">{{ $shooter->hits_count }}</td>
+                        <td class="px-2 py-2 text-center text-base font-bold text-accent sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">{{ $shooter->misses_count }}</td>
                         @if($isPrs)
-                            <td class="px-6 py-4 text-center text-xl font-bold text-amber-400/60 lg:text-2xl">{{ $shooter->not_taken ?? 0 }}</td>
+                            <td class="px-2 py-2 text-center text-base font-bold text-amber-400/60 sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">{{ $shooter->not_taken ?? 0 }}</td>
                         @endif
                         @if($isPrs)
-                            <td class="px-6 py-4 text-right text-xl font-mono text-secondary lg:text-2xl">
+                            <td class="whitespace-nowrap px-2 py-2 text-right text-xs font-mono text-secondary sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">
                                 @if($shooter->display_time > 0)
                                     {{ sprintf('%02d:%05.2f', floor($shooter->display_time / 60), fmod($shooter->display_time, 60)) }}
                                 @else
@@ -620,13 +623,13 @@ new #[Layout('components.layouts.scoreboard')]
                                 @endif
                             </td>
                         @endif
-                        <td class="px-6 py-4 text-right text-2xl font-black text-amber-400 lg:text-3xl">
+                        <td class="whitespace-nowrap px-2 py-2 text-right text-lg font-black text-amber-400 sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">
                             {{ $isPrs ? number_format($shooter->prs_points ?? 0, 2) : number_format($shooter->display_score, 1) }}
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ ($isPrs ? 8 : 6) + ($divisions->isNotEmpty() ? 1 : 0) }}" class="px-6 py-16 text-center text-2xl text-muted">
+                        <td colspan="{{ ($isPrs ? 8 : 6) + ($divisions->isNotEmpty() ? 1 : 0) }}" class="px-4 py-12 text-center text-sm text-muted sm:px-6 sm:py-16 sm:text-2xl">
                             No scores recorded yet
                         </td>
                     </tr>
@@ -636,8 +639,8 @@ new #[Layout('components.layouts.scoreboard')]
     </div>
     @if($isPrs)
         </div>
-        <div x-show="prsTab === 'scoresheet'" x-cloak>
-            <div class="overflow-x-auto rounded-2xl border border-zinc-700 bg-zinc-800/50">
+        <div x-show="prsTab === 'scoresheet'" x-cloak class="min-w-0">
+            <div class="overflow-x-auto rounded-2xl border border-zinc-700 bg-zinc-800/50 [-webkit-overflow-scrolling:touch]">
                 <table class="w-full text-[11px] leading-tight">
                     <thead>
                         <tr class="border-b border-zinc-700">
@@ -700,11 +703,11 @@ new #[Layout('components.layouts.scoreboard')]
 
     @endif
 
-    <div class="mt-6 flex items-center justify-between text-sm text-muted/60">
-        <span>
+    <div class="mt-6 flex flex-col gap-2 text-xs text-muted/60 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
+        <span class="min-w-0 leading-snug">
             Auto-refreshes every 15 seconds
             @if($isPrs) &bull; Ranked by total hits, then tiebreaker stage hits, then tiebreaker stage time @endif
         </span>
-        <span>&copy; {{ date('Y') }} DeadCenter</span>
+        <span class="shrink-0">&copy; {{ date('Y') }} DeadCenter</span>
     </div>
 </div>

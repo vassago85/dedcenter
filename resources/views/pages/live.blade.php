@@ -237,12 +237,12 @@ new #[Layout('components.layouts.scoreboard')]
                     <div class="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
                         <span class="flex-shrink-0 text-[9px] text-muted/60 self-center pr-1">CAT</span>
                         <button wire:click="filterCategory(null)"
-                                class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ !$activeCategory ? 'bg-blue-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                                class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ !$activeCategory ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                             All
                         </button>
                         @foreach($categories as $cat)
                             <button wire:click="filterCategory({{ $cat->id }})"
-                                    class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $activeCategory === $cat->id ? 'bg-blue-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                                    class="flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $activeCategory === $cat->id ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                                 {{ $cat->name }}
                             </button>
                         @endforeach

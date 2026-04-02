@@ -17,6 +17,11 @@ function getLockedMatchId() {
 const routes = [
     {
         path: '/score',
+        name: 'home',
+        component: () => import('../views/HomeView.vue'),
+    },
+    {
+        path: '/score/matches',
         name: 'match-select',
         component: () => import('../views/MatchSelect.vue'),
     },
@@ -102,11 +107,10 @@ router.afterEach((to) => {
 });
 
 router.beforeEach((to, from, next) => {
-    if (to.name === 'match-select' && !from.name) {
+    if ((to.name === 'home' || to.name === 'match-select') && !from.name) {
         const lockedMatchId = getLockedMatchId();
-        const lastMatchId = lockedMatchId || localStorage.getItem(LAST_MATCH_KEY);
-        if (lastMatchId && getLockedMatchId()) {
-            return next({ name: 'match-overview', params: { matchId: lastMatchId } });
+        if (lockedMatchId) {
+            return next({ name: 'match-overview', params: { matchId: lockedMatchId } });
         }
     }
     next();

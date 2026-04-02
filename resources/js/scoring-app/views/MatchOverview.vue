@@ -2,13 +2,14 @@
     <div class="min-h-screen bg-slate-900 text-white">
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <router-link :to="{ name: 'match-select' }" class="text-slate-400 hover:text-white">
+                <router-link :to="{ name: 'home' }" class="text-slate-400 hover:text-white">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
                 </router-link>
                 <h1 class="text-lg font-bold truncate">{{ matchStore.currentMatch?.name ?? 'Loading...' }}</h1>
                 <div class="ml-auto flex items-center gap-2">
+                    <DeviceRoleChip />
                     <button
                         @click="toggleDeviceSettings"
                         class="rounded-lg p-1.5 transition-colors"
@@ -185,17 +186,6 @@
                         </div>
                     </div>
 
-                    <!-- Lock indicator bar -->
-                    <div v-if="!showDeviceSettings && matchStore.hasAnyLock" class="flex items-center gap-2 rounded-lg border border-amber-700/40 bg-amber-900/10 px-3 py-2">
-                        <svg class="h-3.5 w-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-                        </svg>
-                        <span class="text-xs text-amber-400">
-                            Locked<template v-if="matchStore.hasSquadLock"> &middot; {{ matchStore.lockedSquadName }}</template><template v-if="matchStore.hasStageLock"> &middot; {{ matchStore.lockedStageName }}</template>
-                        </span>
-                        <button @click="showDeviceSettings = true" class="ml-auto text-[10px] font-bold uppercase text-amber-500 hover:text-amber-400">Edit</button>
-                    </div>
-
                     <!-- Match info -->
                     <div class="rounded-xl border border-slate-700 bg-slate-800 p-4">
                         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -250,6 +240,17 @@
                                 <span class="text-slate-400">{{ squad.shooters.length }} shooters</span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Lock indicator bar -->
+                    <div v-if="matchStore.hasAnyLock" class="flex items-center gap-2 rounded-lg border border-amber-700/40 bg-amber-900/10 px-3 py-2.5">
+                        <svg class="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                        </svg>
+                        <span class="flex-1 text-xs font-medium text-amber-400">
+                            Device Locked<template v-if="matchStore.hasSquadLock"> &middot; {{ matchStore.lockedSquadName }}</template><template v-if="matchStore.hasStageLock"> &middot; {{ matchStore.lockedStageName }}</template>
+                        </span>
+                        <button @click="showDeviceSettings = true" class="text-[10px] font-bold uppercase text-amber-500 hover:text-amber-400">Edit</button>
                     </div>
 
                     <!-- Action buttons -->
@@ -329,6 +330,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
+import DeviceRoleChip from '../components/DeviceRoleChip.vue';
 import SyncStatusBar from '../components/SyncStatusBar.vue';
 
 const props = defineProps({

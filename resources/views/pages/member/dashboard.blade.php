@@ -103,13 +103,13 @@ new #[Layout('components.layouts.app')]
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-border text-left text-muted">
-                            <th class="px-6 py-3 font-medium">Match</th>
-                            <th class="px-6 py-3 font-medium">Date</th>
-                            <th class="px-6 py-3 font-medium">Reference</th>
-                            <th class="px-6 py-3 font-medium">Amount</th>
-                            <th class="px-6 py-3 font-medium">Status</th>
-                            <th class="px-6 py-3 font-medium"></th>
+                        <tr class="border-b border-border text-left text-secondary">
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Match</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Date</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Reference</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Amount</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Status</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
@@ -182,13 +182,13 @@ new #[Layout('components.layouts.app')]
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-border text-left text-muted">
-                            <th class="px-6 py-3 font-medium">Name</th>
-                            <th class="px-6 py-3 font-medium">Organization</th>
-                            <th class="px-6 py-3 font-medium">Date</th>
-                            <th class="px-6 py-3 font-medium">Location</th>
-                            <th class="px-6 py-3 font-medium text-right">Entry Fee</th>
-                            <th class="px-6 py-3 font-medium"></th>
+                        <tr class="border-b border-border text-left text-secondary">
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Name</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Organization</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Date</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide">Location</th>
+                            <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide">Entry Fee</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">

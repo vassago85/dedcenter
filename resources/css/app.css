@@ -51,6 +51,14 @@
  * match our @custom-variant setup. Force correct colors here.
  */
 
+/* Flux sets `.dark { --color-accent: white }` so "primary" buttons invert to white chips; combined with
+   a global white `color` on buttons that would be invisible. Keep brand accent in dark mode. */
+html.dark {
+    --color-accent: #ff2b2b !important;
+    --color-accent-content: #e32020 !important;
+    --color-accent-foreground: #ffffff !important;
+}
+
 /* ── Focus ring ── */
 :where([data-flux-control]) {
     --tw-ring-color: var(--color-focus);
@@ -144,46 +152,9 @@
     background: rgba(161, 161, 170, 0.2) !important;
 }
 
-/* ── Buttons ── */
-:where([data-flux-button]) {
-    color: #ffffff !important;
-}
-:where([data-flux-button][data-variant="primary"]) {
-    color: #ffffff !important;
-    background: var(--color-accent) !important;
-}
-:where([data-flux-button][data-variant="primary"]):hover {
-    background: var(--color-accent-hover) !important;
-}
-:where([data-flux-button][data-variant="filled"]) {
-    color: #ffffff !important;
-    background: var(--color-surface-2) !important;
-}
-:where([data-flux-button][data-variant="filled"]):hover {
-    background: var(--color-border) !important;
-}
-:where([data-flux-button][data-variant="ghost"]) {
-    color: var(--color-secondary) !important;
-}
-:where([data-flux-button][data-variant="ghost"]):hover {
-    color: #ffffff !important;
-    background: var(--color-surface-2) !important;
-}
-:where([data-flux-button][data-variant="subtle"]) {
-    color: var(--color-secondary) !important;
-    background: var(--color-surface) !important;
-}
-:where([data-flux-button][data-variant="subtle"]):hover {
-    color: #ffffff !important;
-    background: var(--color-surface-2) !important;
-}
-:where([data-flux-button][data-variant="danger"]) {
-    color: #ffffff !important;
-    background: #dc2626 !important;
-}
-:where([data-flux-button][data-variant="danger"]):hover {
-    background: #b91c1c !important;
-}
+/* ── Buttons ──
+   Flux does not emit `data-variant` on the DOM; variants are class-only. Do not force one text color
+   on all buttons — that made primary actions white-on-white when Flux used white `--color-accent`. */
 
 /* ── Separator ── */
 :where([data-flux-separator]) {
@@ -331,14 +302,3 @@
     color: #fff !important;
 }
 
-/* Flux primary buttons: keep brand red at all breakpoints (mobile visited / contrast) */
-@media (max-width: 1023px) {
-    :where([data-flux-button][data-variant='primary']) {
-        color: #fff !important;
-        background: var(--color-accent) !important;
-    }
-    :where([data-flux-button][data-variant='primary']):hover,
-    :where([data-flux-button][data-variant='primary']):focus-visible {
-        background: var(--color-accent-hover) !important;
-    }
-}
