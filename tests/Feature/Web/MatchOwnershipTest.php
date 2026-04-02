@@ -12,10 +12,10 @@ beforeEach(function () {
     $this->org = Organization::factory()->create();
     $this->creator = User::factory()->create();
     $this->otherAdmin = User::factory()->create();
-    $this->siteAdmin = User::factory()->admin()->create();
+    $this->siteAdmin = User::factory()->create(['role' => 'owner']);
 
     $this->org->admins()->attach($this->creator->id, ['role' => 'owner']);
-    $this->org->admins()->attach($this->otherAdmin->id, ['role' => 'admin']);
+    $this->org->admins()->attach($this->otherAdmin->id, ['role' => 'range_officer']);
 
     $this->match = ShootingMatch::factory()->create([
         'organization_id' => $this->org->id,
@@ -34,10 +34,19 @@ it('allows the match creator to access the edit page', function () {
 
 // ── Other org admin cannot edit ──
 
-it('denies a different org admin from editing the match', function () {
+it('denies a different org range officer from editing the match', function () {
     $this->actingAs($this->otherAdmin)
         ->get("/org/{$this->org->slug}/matches/{$this->match->id}")
         ->assertForbidden();
+});
+
+it('allows an org match director to edit a match they did not create', function () {
+    $md = User::factory()->create();
+    $this->org->admins()->attach($md->id, ['role' => 'match_director']);
+
+    $this->actingAs($md)
+        ->get("/org/{$this->org->slug}/matches/{$this->match->id}")
+        ->assertOk();
 });
 
 // ── Site admin can override ──

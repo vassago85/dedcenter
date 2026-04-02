@@ -165,13 +165,17 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
+        $this->match->loadMissing(['organization', 'staff']);
+
+        $org = $this->match->organization;
+
         return [
             'targetSets' => $this->match->targetSets()->with('gongs')->orderBy('sort_order')->get(),
             'bankDetails' => [
-                'bank_name' => Setting::get('bank_name', ''),
-                'bank_account_name' => Setting::get('bank_account_name', ''),
-                'bank_account_number' => Setting::get('bank_account_number', ''),
-                'bank_branch_code' => Setting::get('bank_branch_code', ''),
+                'bank_name' => $org?->bank_name ?: Setting::get('bank_name', ''),
+                'bank_account_name' => $org?->bank_account_holder ?: Setting::get('bank_account_name', ''),
+                'bank_account_number' => $org?->bank_account_number ?: Setting::get('bank_account_number', ''),
+                'bank_branch_code' => $org?->bank_branch_code ?: Setting::get('bank_branch_code', ''),
             ],
         ];
     }
@@ -230,8 +234,29 @@ new #[Layout('components.layouts.app')]
             </span>
         </div>
 
-        @if($match->notes)
-            <p class="text-sm text-secondary">{{ $match->notes }}</p>
+        @php
+            $eventBlurb = $match->public_bio ?: $match->notes;
+        @endphp
+        @if($eventBlurb)
+            <p class="text-sm text-secondary whitespace-pre-line">{{ $eventBlurb }}</p>
+        @endif
+
+        @if($match->staff->isNotEmpty())
+            <div class="rounded-lg border border-border bg-surface-2/40 p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Event team</h3>
+                <ul class="space-y-2 text-sm">
+                    @foreach($match->staff as $u)
+                        <li class="flex flex-wrap items-center gap-2">
+                            <span class="font-medium text-primary">{{ $u->name }}</span>
+                            @if($u->pivot->role === 'match_director')
+                                <span class="text-xs text-blue-400">Match Director</span>
+                            @else
+                                <span class="text-xs text-emerald-400">Range Officer</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
         @endif
 
         {{-- Target sets summary --}}

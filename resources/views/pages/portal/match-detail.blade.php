@@ -1,9 +1,9 @@
 <?php
 
 use App\Models\Organization;
+use App\Models\Setting;
 use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
-use App\Models\Setting;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
@@ -170,13 +170,15 @@ new #[Layout('components.layouts.portal')]
 
     public function with(): array
     {
+        $this->match->loadMissing('staff');
+
         return [
             'targetSets' => $this->match->targetSets()->with('gongs')->orderBy('sort_order')->get(),
             'bankDetails' => [
-                'bank_name' => Setting::get('bank_name', ''),
-                'bank_account_name' => Setting::get('bank_account_name', ''),
-                'bank_account_number' => Setting::get('bank_account_number', ''),
-                'bank_branch_code' => Setting::get('bank_branch_code', ''),
+                'bank_name' => $this->organization->bank_name ?: Setting::get('bank_name', ''),
+                'bank_account_name' => $this->organization->bank_account_holder ?: Setting::get('bank_account_name', ''),
+                'bank_account_number' => $this->organization->bank_account_number ?: Setting::get('bank_account_number', ''),
+                'bank_branch_code' => $this->organization->bank_branch_code ?: Setting::get('bank_branch_code', ''),
             ],
         ];
     }
@@ -210,8 +212,29 @@ new #[Layout('components.layouts.portal')]
             </span>
         </div>
 
-        @if($match->notes)
-            <p class="text-sm text-secondary leading-relaxed">{{ $match->notes }}</p>
+        @php
+            $eventBlurb = $match->public_bio ?: $match->notes;
+        @endphp
+        @if($eventBlurb)
+            <p class="text-sm text-secondary leading-relaxed whitespace-pre-line">{{ $eventBlurb }}</p>
+        @endif
+
+        @if($match->staff->isNotEmpty())
+            <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Event team</h3>
+                <ul class="space-y-2 text-sm">
+                    @foreach($match->staff as $u)
+                        <li class="flex flex-wrap items-center gap-2">
+                            <span class="font-medium text-primary">{{ $u->name }}</span>
+                            @if($u->pivot->role === 'match_director')
+                                <span class="text-xs text-sky-400">Match Director</span>
+                            @else
+                                <span class="text-xs text-emerald-400">Range Officer</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
         @endif
 
         @if($targetSets->isNotEmpty())

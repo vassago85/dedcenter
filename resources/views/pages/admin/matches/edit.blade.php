@@ -23,6 +23,7 @@ new #[Layout('components.layouts.app')]
     public string $date = '';
     public string $location = '';
     public string $notes = '';
+    public string $public_bio = '';
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $side_bet_enabled = false;
@@ -75,6 +76,7 @@ new #[Layout('components.layouts.app')]
             $this->date = $match->date?->format('Y-m-d') ?? '';
             $this->location = $match->location ?? '';
             $this->notes = $match->notes ?? '';
+            $this->public_bio = $match->public_bio ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
@@ -93,6 +95,7 @@ new #[Layout('components.layouts.app')]
             'date' => 'required|date',
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:5000',
+            'public_bio' => 'nullable|string|max:2000',
             'entry_fee' => 'nullable|numeric|min:0',
             'scoring_type' => 'required|in:standard,prs,elr',
         ]);
@@ -102,7 +105,13 @@ new #[Layout('components.layouts.app')]
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
-        $validated['season_id'] = $this->season_id;
+
+        $org = $this->match?->organization;
+        if ($org && ! $org->season_standings_enabled) {
+            $validated['season_id'] = null;
+        } else {
+            $validated['season_id'] = $this->season_id ?: null;
+        }
 
         if ($this->match) {
             $this->match->update($validated);
@@ -899,19 +908,27 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endif
 
-            <div>
-                <label class="block text-sm font-medium text-secondary mb-1">Season</label>
-                <select wire:model="season_id"
-                        class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
-                    <option value="">No season</option>
-                    @foreach(\App\Models\Season::orderByDesc('year')->get() as $season)
-                        <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
-                    @endforeach
-                </select>
-                <p class="mt-1 text-xs text-muted">Assign this match to a season for aggregate leaderboards.</p>
-            </div>
+            @php
+                $seasonUi = ! $match?->organization_id || ($match->organization->season_standings_enabled ?? true);
+            @endphp
+            @if($seasonUi)
+                <div>
+                    <label class="block text-sm font-medium text-secondary mb-1">Season</label>
+                    <select wire:model="season_id"
+                            class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                        <option value="">No season</option>
+                        @foreach(\App\Models\Season::orderByDesc('year')->get() as $season)
+                            <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-muted">Optional — assign this match to a season for aggregate standings. Disabled for organizations that turned off season standings.</p>
+                </div>
+            @elseif($match?->organization)
+                <p class="text-xs text-muted rounded-lg border border-border bg-surface-2/40 px-3 py-2">Season assignment is off for {{ $match->organization->name }}. Enable it under Organization settings if you need season aggregates.</p>
+            @endif
 
-            <flux:textarea wire:model="notes" label="Notes" placeholder="Optional notes about this match..." rows="3" />
+            <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes..." rows="3" />
+            <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Shown on public match pages..." rows="3" />
 
             <div class="flex justify-end pt-2">
                 <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">

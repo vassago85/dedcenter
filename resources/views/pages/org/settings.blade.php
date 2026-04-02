@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Organization;
+use App\Models\ShootingMatch;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -20,6 +21,8 @@ new #[Layout('components.layouts.app')]
     public string $hero_text = '';
     public string $hero_description = '';
     public bool $portal_enabled = false;
+
+    public bool $season_standings_enabled = true;
 
     public string $bank_name = '';
 
@@ -41,10 +44,14 @@ new #[Layout('components.layouts.app')]
         $this->hero_text = $organization->hero_text ?? '';
         $this->hero_description = $organization->hero_description ?? '';
         $this->portal_enabled = $organization->portal_enabled;
-        $this->bank_name = $organization->bank_name ?? '';
-        $this->bank_account_holder = $organization->bank_account_holder ?? '';
-        $this->bank_account_number = $organization->bank_account_number ?? '';
-        $this->bank_branch_code = $organization->bank_branch_code ?? '';
+        $this->season_standings_enabled = (bool) ($organization->season_standings_enabled ?? true);
+
+        if (auth()->user()->isOrgOwner($organization)) {
+            $this->bank_name = $organization->bank_name ?? '';
+            $this->bank_account_holder = $organization->bank_account_holder ?? '';
+            $this->bank_account_number = $organization->bank_account_number ?? '';
+            $this->bank_branch_code = $organization->bank_branch_code ?? '';
+        }
     }
 
     public function save(): void
@@ -64,7 +71,9 @@ new #[Layout('components.layouts.app')]
             'bank_branch_code' => 'nullable|string|max:20',
         ]);
 
-        $this->organization->update([
+        $canEditBank = auth()->user()->isOrgOwner($this->organization);
+
+        $payload = [
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
             'best_of' => $this->best_of !== '' ? (int) $this->best_of : null,
@@ -74,11 +83,23 @@ new #[Layout('components.layouts.app')]
             'hero_text' => $validated['hero_text'] ?: null,
             'hero_description' => $validated['hero_description'] ?: null,
             'portal_enabled' => $this->portal_enabled,
-            'bank_name' => $validated['bank_name'] ?: null,
-            'bank_account_holder' => $validated['bank_account_holder'] ?: null,
-            'bank_account_number' => $validated['bank_account_number'] ?: null,
-            'bank_branch_code' => $validated['bank_branch_code'] ?: null,
-        ]);
+            'season_standings_enabled' => $this->season_standings_enabled,
+        ];
+
+        if ($canEditBank) {
+            $payload['bank_name'] = $validated['bank_name'] ?: null;
+            $payload['bank_account_holder'] = $validated['bank_account_holder'] ?: null;
+            $payload['bank_account_number'] = $validated['bank_account_number'] ?: null;
+            $payload['bank_branch_code'] = $validated['bank_branch_code'] ?: null;
+        }
+
+        $this->organization->update($payload);
+
+        if (! $this->season_standings_enabled) {
+            ShootingMatch::query()
+                ->where('organization_id', $this->organization->id)
+                ->update(['season_id' => null]);
+        }
 
         Flux::toast('Settings saved.', variant: 'success');
     }
@@ -103,6 +124,15 @@ new #[Layout('components.layouts.app')]
             <div class="max-w-xs">
                 <flux:input wire:model="best_of" label="Best-of (X scores)" type="number" min="1" placeholder="Leave empty to count all" />
                 <p class="mt-1 text-xs text-muted">Leaderboard will rank shooters by their top X match scores. Leave empty to sum all scores.</p>
+            </div>
+
+            <div class="flex items-start gap-3 rounded-lg border border-border bg-surface-2/30 p-4">
+                <input type="checkbox" wire:model="season_standings_enabled" id="season_standings_enabled"
+                       class="mt-1 rounded border-border bg-surface-2 text-accent focus:ring-red-500">
+                <div>
+                    <label for="season_standings_enabled" class="text-sm font-medium text-secondary">Season standings</label>
+                    <p class="mt-1 text-xs text-muted">When enabled, matches can be linked to a season for aggregate standings in the admin tools. Turn off if you only run standalone events. Disabling clears season links for this organization’s matches.</p>
+                </div>
             </div>
 
             <flux:separator />
@@ -155,19 +185,28 @@ new #[Layout('components.layouts.app')]
             </div>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-primary">Banking Details</h2>
-            <p class="text-sm text-muted">Shown to members where payment instructions are displayed for your organization.</p>
+        @if(auth()->user()->isOrgOwner($organization))
+            <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+                <h2 class="text-lg font-semibold text-primary">Banking Details</h2>
+                <p class="text-sm text-muted">Only organization owners can view or edit these. Shown where payment instructions are displayed for your organization (e.g. portal registration).</p>
 
-            <flux:input wire:model="bank_name" label="Bank name" placeholder="e.g. FNB" />
-            <flux:input wire:model="bank_account_holder" label="Account holder" placeholder="Name on the account" />
-            <flux:input wire:model="bank_account_number" label="Account number" placeholder="e.g. 62000000000" />
-            <flux:input wire:model="bank_branch_code" label="Branch code" placeholder="e.g. 250655" />
+                <flux:input wire:model="bank_name" label="Bank name" placeholder="e.g. FNB" />
+                <flux:input wire:model="bank_account_holder" label="Account holder" placeholder="Name on the account" />
+                <flux:input wire:model="bank_account_number" label="Account number" placeholder="e.g. 62000000000" />
+                <flux:input wire:model="bank_branch_code" label="Branch code" placeholder="e.g. 250655" />
 
-            <div class="flex justify-end pt-2">
-                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Save Settings</flux:button>
+                <div class="flex justify-end pt-2">
+                    <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Save Settings</flux:button>
+                </div>
             </div>
-        </div>
+        @else
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-6">
+                <p class="text-sm text-muted">Banking details are managed by the organization owner. Match directors and range officers can still run matches and squadding.</p>
+                <div class="flex justify-end pt-4">
+                    <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Save Settings</flux:button>
+                </div>
+            </div>
+        @endif
     </form>
 
     {{-- Info --}}

@@ -6,6 +6,7 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
 use App\Models\TargetSet;
+use Illuminate\Support\Carbon;
 
 it('creates a match with default draft status', function () {
     $match = ShootingMatch::factory()->create();
@@ -57,6 +58,21 @@ it('reports completed status correctly', function () {
 
     expect($match->is_active)->toBeFalse();
     expect($match->is_completed)->toBeTrue();
+});
+
+it('scopes active live today to active status and today date only', function () {
+    Carbon::setTestNow(Carbon::parse('2026-04-10 12:00:00', config('app.timezone')));
+
+    $today = ShootingMatch::factory()->active()->create(['date' => '2026-04-10']);
+    $yesterday = ShootingMatch::factory()->active()->create(['date' => '2026-04-09']);
+    ShootingMatch::factory()->create(['status' => MatchStatus::Draft, 'date' => '2026-04-10']);
+
+    $ids = ShootingMatch::activeLiveToday()->pluck('id')->all();
+
+    expect($ids)->toContain($today->id)
+        ->not->toContain($yesterday->id);
+
+    Carbon::setTestNow();
 });
 
 it('cascades delete to target sets and gongs', function () {

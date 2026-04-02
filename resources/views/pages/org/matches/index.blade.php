@@ -16,8 +16,8 @@ new #[Layout('components.layouts.app')]
 
     private function authorizeMatch(ShootingMatch $match): bool
     {
-        if ($match->created_by !== auth()->id() && !auth()->user()->isAdmin()) {
-            Flux::toast('Only the match creator can manage this match.', variant: 'danger');
+        if (! $match->userCanEditInOrg(auth()->user())) {
+            Flux::toast('You are not authorized to manage this match.', variant: 'danger');
             return false;
         }
         return true;
@@ -67,7 +67,6 @@ new #[Layout('components.layouts.app')]
 
         return [
             'matches' => $matches,
-            'isGlobalAdmin' => auth()->user()->isAdmin(),
             'archivedCount' => $archivedCount,
         ];
     }
@@ -156,7 +155,7 @@ new #[Layout('components.layouts.app')]
                                     @endif
                                 </td>
                                 <td class="px-6 py-3 text-right">
-                                    @if($match->created_by === auth()->id() || $isGlobalAdmin)
+                                    @if($match->userCanEditInOrg(auth()->user()))
                                         @if($tab === 'archived')
                                             <div class="flex items-center justify-end gap-2">
                                                 <flux:button size="sm" variant="ghost"

@@ -16,7 +16,7 @@ new #[Layout('components.layouts.app')]
 
         return [
             'liveMatches' => ShootingMatch::with('organization')
-                ->where('status', MatchStatus::Active)
+                ->activeLiveToday()
                 ->orderBy('date', 'desc')
                 ->get(),
             'upcomingMatches' => ShootingMatch::with('organization')

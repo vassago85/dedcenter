@@ -2,6 +2,7 @@
 
 use App\Models\Organization;
 use App\Models\ShootingMatch;
+use App\Models\User;
 use App\Models\MatchDivision;
 use App\Models\MatchCategory;
 use App\Models\TargetSet;
@@ -24,11 +25,16 @@ new #[Layout('components.layouts.app')]
     public string $date = '';
     public string $location = '';
     public string $notes = '';
+    public string $public_bio = '';
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
     public int $concurrent_relays = 2;
     public string $corrections_pin = '';
+
+    public string $staffEmail = '';
+
+    public string $staffRole = 'range_officer';
 
     public string $tsDistance = '';
     public string $tsLabel = '';
@@ -70,8 +76,8 @@ new #[Layout('components.layouts.app')]
         $this->organization = $organization;
 
         if ($match && $match->exists) {
-            if ($match->created_by !== auth()->id() && !auth()->user()->isAdmin()) {
-                abort(403, 'Only the match creator can edit this match.');
+            if (! $match->userCanEditInOrg(auth()->user())) {
+                abort(403, 'You are not authorized to edit this match.');
             }
 
             $this->match = $match;
@@ -79,6 +85,7 @@ new #[Layout('components.layouts.app')]
             $this->date = $match->date?->format('Y-m-d') ?? '';
             $this->location = $match->location ?? '';
             $this->notes = $match->notes ?? '';
+            $this->public_bio = $match->public_bio ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
@@ -96,6 +103,7 @@ new #[Layout('components.layouts.app')]
             'date' => 'required|date',
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:5000',
+            'public_bio' => 'nullable|string|max:2000',
             'entry_fee' => 'nullable|numeric|min:0',
             'scoring_type' => 'required|in:standard,prs,elr',
             'corrections_pin' => 'nullable|string|min:4|max:6|regex:/^\d+$/',
@@ -119,6 +127,47 @@ new #[Layout('components.layouts.app')]
             Flux::toast('Match created.', variant: 'success');
             $this->redirect(route('org.matches.edit', [$this->organization, $this->match]), navigate: true);
         }
+    }
+
+    public function addMatchStaff(): void
+    {
+        if (! $this->match) {
+            return;
+        }
+
+        $this->validate([
+            'staffEmail' => 'required|email',
+            'staffRole' => 'required|in:match_director,range_officer',
+        ]);
+
+        $user = User::where('email', $this->staffEmail)->first();
+        if (! $user) {
+            $this->addError('staffEmail', 'No user found with that email.');
+
+            return;
+        }
+
+        if ($this->match->staff()->where('user_id', $user->id)->exists()) {
+            $this->match->staff()->updateExistingPivot($user->id, ['role' => $this->staffRole]);
+        } else {
+            $this->match->staff()->attach($user->id, ['role' => $this->staffRole]);
+        }
+
+        $this->reset('staffEmail');
+        $this->staffRole = 'range_officer';
+        $this->match->load('staff');
+        Flux::toast('Match team updated.', variant: 'success');
+    }
+
+    public function removeMatchStaff(int $userId): void
+    {
+        if (! $this->match) {
+            return;
+        }
+
+        $this->match->staff()->detach($userId);
+        $this->match->load('staff');
+        Flux::toast('Removed from match team.', variant: 'success');
     }
 
     public function addTargetSet(): void
@@ -788,7 +837,8 @@ new #[Layout('components.layouts.app')]
                     <p class="mt-1 text-xs text-muted">If set, this PIN is required for score corrections (reassign/move) on all scoring devices. Leave empty for no PIN requirement.</p>
                 </div>
             </div>
-            <flux:textarea wire:model="notes" label="Notes" placeholder="Optional notes about this match..." rows="3" />
+            <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes — not shown on the public portal..." rows="3" />
+            <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Short description for shooters — shown on the match page and portal..." rows="3" />
             <div class="flex justify-end pt-2">
                 <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                     {{ $match ? 'Save Changes' : 'Create Match' }}
@@ -798,6 +848,64 @@ new #[Layout('components.layouts.app')]
     </form>
 
     @if($match)
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Match Director &amp; range officers</h2>
+            <p class="text-sm text-muted">Assign registered users for this event only. They can still shoot or hold roles elsewhere.</p>
+
+            <div class="overflow-x-auto rounded-lg border border-border">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-border text-left text-muted">
+                            <th class="px-4 py-2 font-medium">Name</th>
+                            <th class="px-4 py-2 font-medium">Email</th>
+                            <th class="px-4 py-2 font-medium">Role</th>
+                            <th class="px-4 py-2 font-medium text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        @forelse($match->staff as $member)
+                            <tr wire:key="mstaff-{{ $member->id }}">
+                                <td class="px-4 py-2 font-medium text-primary">{{ $member->name }}</td>
+                                <td class="px-4 py-2 text-secondary">{{ $member->email }}</td>
+                                <td class="px-4 py-2">
+                                    @if($member->pivot->role === 'match_director')
+                                        <flux:badge size="sm" color="blue">Match Director</flux:badge>
+                                    @else
+                                        <flux:badge size="sm" color="green">Range Officer</flux:badge>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-2 text-right">
+                                    <flux:button size="sm" variant="ghost" class="!text-accent"
+                                                 wire:click="removeMatchStaff({{ $member->id }})"
+                                                 wire:confirm="Remove {{ $member->name }} from this match team?">
+                                        Remove
+                                    </flux:button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-4 py-6 text-center text-muted text-sm">No one assigned yet. Add by email below.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <form wire:submit="addMatchStaff" class="flex flex-wrap gap-3 items-end">
+                <div class="min-w-[200px] flex-1">
+                    <flux:input wire:model="staffEmail" label="User email" type="email" placeholder="registered@example.com" required />
+                </div>
+                <div class="w-44">
+                    <label class="block text-sm font-medium text-secondary mb-1">Role</label>
+                    <select wire:model="staffRole" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent">
+                        <option value="match_director">Match Director</option>
+                        <option value="range_officer">Range Officer</option>
+                    </select>
+                </div>
+                <flux:button type="submit" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add</flux:button>
+            </form>
+        </div>
+
         {{-- Status stepper --}}
         <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
             <h2 class="text-lg font-semibold text-primary">Match Lifecycle</h2>

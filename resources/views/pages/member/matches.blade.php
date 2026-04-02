@@ -15,7 +15,7 @@ new class extends Component {
             ->pluck('match_id');
 
         $liveMatches = ShootingMatch::whereIn('id', $myMatchIds)
-            ->where('status', MatchStatus::Active)
+            ->activeLiveToday()
             ->withCount('shooters')
             ->latest('date')
             ->get();

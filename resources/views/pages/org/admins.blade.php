@@ -80,7 +80,7 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6 max-w-2xl">
     <div>
         <flux:heading size="xl">Team</flux:heading>
-        <p class="mt-1 text-sm text-muted">{{ $organization->name }} — Manage match directors and range officers.</p>
+        <p class="mt-1 text-sm text-muted">{{ $organization->name }} — Organization owners manage banking in Settings. Here you add match directors and range officers for day-to-day running (they can still shoot in other events).</p>
     </div>
 
     <div class="rounded-xl border border-border bg-surface overflow-hidden">

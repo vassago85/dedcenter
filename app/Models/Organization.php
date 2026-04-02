@@ -33,6 +33,7 @@ class Organization extends Model
         'bank_account_holder',
         'bank_account_number',
         'bank_branch_code',
+        'season_standings_enabled',
     ];
 
     protected function casts(): array
@@ -41,6 +42,7 @@ class Organization extends Model
             'best_of' => 'integer',
             'entry_fee_default' => 'decimal:2',
             'portal_enabled' => 'boolean',
+            'season_standings_enabled' => 'boolean',
         ];
     }
 

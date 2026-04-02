@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MatchStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,7 @@ class ShootingMatch extends Model
         'max_squad_size',
         'elr_scoring_profile_id',
         'notes',
+        'public_bio',
         'created_by',
         'organization_id',
         'season_id',
@@ -71,6 +73,16 @@ class ShootingMatch extends Model
     public function season(): BelongsTo
     {
         return $this->belongsTo(Season::class);
+    }
+
+    /**
+     * Per-match match directors and range officers (users may still shoot elsewhere).
+     */
+    public function staff(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'match_staff')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function targetSets(): HasMany
@@ -223,5 +235,46 @@ class ShootingMatch extends Model
         $size = max(1, $this->concurrent_relays ?? 2);
 
         return array_chunk($squads, $size);
+    }
+
+    /**
+     * Active matches whose event date is today — used for “Live Now” so past-dated
+     * matches do not stay promoted after their day (before cron marks them completed).
+     */
+    public function scopeActiveLiveToday(Builder $query): Builder
+    {
+        return $query
+            ->where('status', MatchStatus::Active)
+            ->whereDate('date', today());
+    }
+
+    public function userCanEditInOrg(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if ($user->isOwner()) {
+            return true;
+        }
+        if ($this->organization_id && $user->isOrgMatchDirector($this->organization)) {
+            return true;
+        }
+
+        return (int) $this->created_by === (int) $user->id;
+    }
+
+    public function userCanManageSquadding(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+        if ($user->isOwner()) {
+            return true;
+        }
+        if ($this->organization_id && $user->isOrgRangeOfficer($this->organization)) {
+            return true;
+        }
+
+        return (int) $this->created_by === (int) $user->id;
     }
 }

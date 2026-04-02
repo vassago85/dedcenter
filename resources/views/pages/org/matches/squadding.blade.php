@@ -28,8 +28,8 @@ new #[Layout('components.layouts.app')]
         $this->match = $match;
         $this->defaultCapacity = $match->max_squad_size;
 
-        if ($match->created_by !== auth()->id() && !auth()->user()->isAdmin()) {
-            abort(403, 'Only the match creator can manage squadding.');
+        if (! $match->userCanManageSquadding(auth()->user())) {
+            abort(403, 'You are not authorized to manage squadding for this match.');
         }
     }
 
