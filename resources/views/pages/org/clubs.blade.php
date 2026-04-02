@@ -95,7 +95,8 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3 text-right text-secondary">{{ $club->admins_count }}</td>
                                 <td class="px-6 py-3 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        <flux:button size="sm" variant="ghost" href="{{ route('org.dashboard', $club) }}">Manage</flux:button>
+                                        <flux:button size="sm" variant="ghost" class="!text-secondary hover:!text-primary"
+                                                     href="{{ route('org.dashboard', $club) }}">Manage</flux:button>
                                         @if($club->matches_count === 0)
                                             <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
                                                          wire:click="removeClub({{ $club->id }})"

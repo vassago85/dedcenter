@@ -121,7 +121,8 @@ new #[Layout('components.layouts.app')]
                                                 Reject
                                             </flux:button>
                                         @elseif($org->isApproved())
-                                            <flux:button size="sm" variant="ghost" href="{{ route('org.dashboard', $org) }}">
+                                            <flux:button size="sm" variant="ghost" class="!text-secondary hover:!text-primary"
+                                                         href="{{ route('org.dashboard', $org) }}">
                                                 Manage
                                             </flux:button>
                                         @endif
