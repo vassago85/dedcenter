@@ -26,9 +26,24 @@ new #[Layout('components.layouts.auth')]
 
         session()->regenerate();
 
-        $redirect = auth()->user()->isOwner()
-            ? route('admin.dashboard')
-            : route('dashboard');
+        $user = auth()->user();
+
+        if (! $user->hasVerifiedEmail()) {
+            if (! $user->email_verification_code || $user->email_verification_code_expires_at?->isPast()) {
+                $code = $user->generateVerificationCode();
+                $user->notify(new \App\Notifications\EmailVerificationPin($code));
+            }
+            $this->redirect(route('verification.notice'), navigate: true);
+            return;
+        }
+
+        if ($user->isOwner()) {
+            $redirect = route('admin.dashboard');
+        } elseif ($user->canScore()) {
+            $redirect = route('dashboard');
+        } else {
+            $redirect = route('score');
+        }
 
         $this->redirect($redirect, navigate: true);
     }

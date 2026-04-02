@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ElrScoreController;
 use App\Http\Controllers\Api\MatchController;
+use App\Http\Controllers\Api\MemberMatchController;
 use App\Http\Controllers\Api\PrsScoreController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
@@ -57,6 +58,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('matches', [MatchController::class, 'index']);
     Route::get('matches/{match}', [MatchController::class, 'show']);
+
+    Route::get('member/matches', [MemberMatchController::class, 'index']);
 
     Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
     Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);

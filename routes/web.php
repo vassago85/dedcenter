@@ -13,6 +13,7 @@ use Livewire\Volt\Volt;
 
 Volt::route('/login', 'auth.login')->name('login');
 Volt::route('/register', 'auth.register')->name('register');
+Volt::route('/verify-email', 'auth.verify-email')->middleware('auth')->name('verification.notice');
 
 // ══════════════════════════════════════════════════
 // Public landing — domain-aware
@@ -30,6 +31,8 @@ Volt::route('/sponsorships', 'sponsorships')->name('sponsorships');
 Volt::route('/sponsor-marketplace', 'sponsor-marketplace')->name('sponsor-marketplace');
 Volt::route('/offline', 'offline')->name('offline');
 Volt::route('/setup', 'setup')->name('setup');
+Volt::route('/privacy', 'privacy')->name('privacy');
+Volt::route('/terms', 'terms')->name('terms');
 
 Route::get('/sitemap.xml', \App\Http\Controllers\SitemapController::class)->name('sitemap');
 
@@ -44,7 +47,7 @@ Route::get('/score/{any?}', function () {
     $token = $user->createToken('scoring-session')->plainTextToken;
 
     return view('scoring', ['apiToken' => $token]);
-})->where('any', '.*')->middleware('auth')->name('score');
+})->where('any', '.*')->middleware(['auth', 'verified'])->name('score');
 
 Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
 Volt::route('/live/{match}', 'live')->name('live');
@@ -62,7 +65,7 @@ Route::prefix('p/{organization}')->name('portal.')->group(function () {
 // Member (auth)
 // ══════════════════════════════════════════════════
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/dashboard', 'member.dashboard')->name('dashboard');
     Volt::route('/matches', 'member.matches')->name('matches');
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
@@ -78,7 +81,7 @@ Route::middleware('auth')->group(function () {
 // Organization Admin (auth + org.admin)
 // ══════════════════════════════════════════════════
 
-Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('org.')->group(function () {
+Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}')->name('org.')->group(function () {
     Volt::route('/dashboard', 'org.dashboard')->name('dashboard');
     Volt::route('/matches', 'org.matches.index')->name('matches.index');
     Volt::route('/matches/create', 'org.matches.edit')->name('matches.create');
@@ -110,7 +113,7 @@ Route::middleware(['auth', 'org.admin'])->prefix('org/{organization}')->name('or
 // Site Admin (auth + admin)
 // ══════════════════════════════════════════════════
 
-Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Volt::route('/dashboard', 'admin.dashboard')->name('dashboard');
     Volt::route('/organizations', 'admin.organizations')->name('organizations');
     Volt::route('/matches', 'admin.matches.index')->name('matches.index');

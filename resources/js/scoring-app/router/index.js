@@ -1,8 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { useUserStore } from '../stores/userStore';
 
 const LAST_MATCH_KEY = 'dc_last_match_id';
 const SQUAD_LOCK_KEY = 'dc_locked_squad';
 const STAGE_LOCK_KEY = 'dc_locked_stage';
+const MODE_KEY = 'dc_pwa_mode';
 
 function getLockedMatchId() {
     try {
@@ -19,6 +21,11 @@ const routes = [
         path: '/score',
         name: 'home',
         component: () => import('../views/HomeView.vue'),
+    },
+    {
+        path: '/score/member',
+        name: 'member-home',
+        component: () => import('../views/MemberHomeView.vue'),
     },
     {
         path: '/score/matches',
@@ -106,13 +113,37 @@ router.afterEach((to) => {
     }
 });
 
-router.beforeEach((to, from, next) => {
-    if ((to.name === 'home' || to.name === 'match-select') && !from.name) {
+router.beforeEach(async (to, from, next) => {
+    if (to.name === 'home' || to.name === 'member-home') {
+        const userStore = useUserStore();
+        await userStore.ensureLoaded();
+
+        const mode = localStorage.getItem(MODE_KEY);
+
+        if (to.name === 'home') {
+            if (!userStore.canScore || mode === 'member') {
+                return next({ name: 'member-home' });
+            }
+            if (!from.name) {
+                const lockedMatchId = getLockedMatchId();
+                if (lockedMatchId) {
+                    return next({ name: 'match-overview', params: { matchId: lockedMatchId } });
+                }
+            }
+        }
+
+        if (to.name === 'member-home' && userStore.canScore && mode === 'score') {
+            return next({ name: 'home' });
+        }
+    }
+
+    if (to.name === 'match-select' && !from.name) {
         const lockedMatchId = getLockedMatchId();
         if (lockedMatchId) {
             return next({ name: 'match-overview', params: { matchId: lockedMatchId } });
         }
     }
+
     next();
 });
 

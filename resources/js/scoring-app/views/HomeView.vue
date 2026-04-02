@@ -12,7 +12,14 @@
                 <h1 class="text-xl font-bold tracking-tight">
                     <span class="text-white/90">DEAD</span><span class="text-red-500">CENTER</span>
                 </h1>
-                <div class="ml-auto flex items-center gap-2">
+                <div class="ml-auto flex items-center gap-3">
+                    <button
+                        v-if="userStore.canScore"
+                        @click="switchToMemberMode"
+                        class="rounded-lg bg-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition-colors hover:bg-slate-600"
+                    >
+                        Member Mode
+                    </button>
                     <DeviceRoleChip />
                     <OnlineIndicator />
                 </div>
@@ -101,6 +108,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import { useUserStore } from '../stores/userStore';
 import { db } from '../db/index';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceRoleChip from '../components/DeviceRoleChip.vue';
@@ -111,7 +119,13 @@ const STAGE_LOCK_KEY = 'dc_locked_stage';
 
 const router = useRouter();
 const matchStore = useMatchStore();
+const userStore = useUserStore();
 const recentMatches = ref([]);
+
+function switchToMemberMode() {
+    userStore.setMode('member');
+    router.push({ name: 'member-home' });
+}
 
 const continueMatchId = computed(() => {
     try {

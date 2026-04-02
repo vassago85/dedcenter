@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\EmailVerificationPin;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,7 @@ new #[Layout('components.layouts.auth')]
     public string $email = '';
     public string $password = '';
     public string $password_confirmation = '';
+    public bool $accept_terms = false;
 
     public function register(): void
     {
@@ -23,17 +25,25 @@ new #[Layout('components.layouts.auth')]
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
+            'accept_terms' => ['accepted'],
+        ], [
+            'accept_terms.accepted' => 'You must accept the Terms and Conditions and Privacy Policy.',
         ]);
 
+        unset($validated['accept_terms']);
         $validated['password'] = Hash::make($validated['password']);
+        $validated['accepted_terms_at'] = now();
 
         $user = User::create($validated);
 
         event(new Registered($user));
 
+        $code = $user->generateVerificationCode();
+        $user->notify(new EmailVerificationPin($code));
+
         Auth::login($user);
 
-        $this->redirect(route('dashboard'), navigate: true); // New users are always members
+        $this->redirect(route('verification.notice'), navigate: true);
     }
 }; ?>
 
@@ -90,6 +100,22 @@ new #[Layout('components.layouts.auth')]
                     placeholder="••••••••"
                     required
                 />
+            </div>
+
+            <div>
+                <label class="flex items-start gap-2 text-sm text-secondary cursor-pointer select-none">
+                    <input type="checkbox" wire:model="accept_terms"
+                        class="mt-0.5 rounded border-border bg-surface-2 text-accent focus:ring-accent focus:ring-offset-app" />
+                    <span>
+                        I agree to the
+                        <a href="{{ route('terms') }}" target="_blank" class="text-accent hover:text-accent-hover font-medium">Terms and Conditions</a>
+                        and
+                        <a href="{{ route('privacy') }}" target="_blank" class="text-accent hover:text-accent-hover font-medium">Privacy Policy</a>
+                    </span>
+                </label>
+                @error('accept_terms')
+                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
+                @enderror
             </div>
 
             <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover w-full">

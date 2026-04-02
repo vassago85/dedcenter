@@ -21,17 +21,23 @@ class User extends Authenticatable
         'password',
         'role',
         'notification_preferences',
+        'email_verification_code',
+        'email_verification_code_expires_at',
+        'accepted_terms_at',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'email_verification_code',
     ];
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_verification_code_expires_at' => 'datetime',
+            'accepted_terms_at' => 'datetime',
             'password' => 'hashed',
             'notification_preferences' => 'array',
         ];
@@ -123,5 +129,43 @@ class User extends Authenticatable
             'shooter' => 'Shooter',
             default => ucfirst(str_replace('_', ' ', $this->role)),
         };
+    }
+
+    // ── Email Verification ──
+
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->email_verified_at !== null;
+    }
+
+    public function generateVerificationCode(): string
+    {
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        $this->update([
+            'email_verification_code' => $code,
+            'email_verification_code_expires_at' => now()->addMinutes(30),
+        ]);
+
+        return $code;
+    }
+
+    public function verifyWithCode(string $code): bool
+    {
+        if ($this->email_verification_code !== $code) {
+            return false;
+        }
+
+        if ($this->email_verification_code_expires_at?->isPast()) {
+            return false;
+        }
+
+        $this->update([
+            'email_verified_at' => now(),
+            'email_verification_code' => null,
+            'email_verification_code_expires_at' => null,
+        ]);
+
+        return true;
     }
 }
