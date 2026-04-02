@@ -7,30 +7,35 @@ use Illuminate\View\View;
 
 class BadgeGalleryController extends Controller
 {
-    /**
-     * Static emoji map — keep in sync with resources/views/pages/scoreboard.blade.php badge tabs.
-     */
-    public const BADGE_ICONS = [
-        'deadcenter' => '🎯',
-        'prs-full-send' => '💥',
-        'no-drop-stage' => '🔥',
-        'impact-chain' => '⛓️',
-        'high-efficiency' => '🎖️',
-        'first-blood' => '🩸',
-        'iron-shooter' => '🛡️',
-        'complete-shooter' => '✅',
-        'podium-gold' => '🥇',
-        'podium-silver' => '🥈',
-        'podium-bronze' => '🥉',
-        'first-full-send' => '⭐',
-        'first-podium' => '⭐',
-        'first-win' => '⭐',
-        'first-impact-chain' => '⭐',
-        'royal-flush' => '👑',
-        'flush-collector' => '🏆',
-        'small-gong-sniper' => '🎯',
-        'winning-hand' => '🃏',
-        'first-flush' => '⭐',
+    public const BADGE_CONFIG = [
+        // PRS badges
+        'deadcenter'         => ['icon' => 'timer',        'earnChip' => 'Awarded per match'],
+        'prs-full-send'      => ['icon' => 'rocket',       'earnChip' => 'Stackable'],
+        'no-drop-stage'      => ['icon' => 'flame',        'earnChip' => 'Stackable'],
+        'impact-chain'       => ['icon' => 'link-2',       'earnChip' => 'Stackable'],
+        'high-efficiency'    => ['icon' => 'gauge',        'earnChip' => 'Stackable'],
+        'first-blood'        => ['icon' => 'zap',          'earnChip' => 'Stackable'],
+        'iron-shooter'       => ['icon' => 'shield',       'earnChip' => 'Stackable'],
+        'complete-shooter'   => ['icon' => 'circle-check', 'earnChip' => 'Stackable'],
+        'podium-gold'        => ['icon' => 'trophy',       'earnChip' => 'Stackable'],
+        'podium-silver'      => ['icon' => 'medal',        'earnChip' => 'Stackable'],
+        'podium-bronze'      => ['icon' => 'award',        'earnChip' => 'Stackable'],
+        'first-full-send'    => ['icon' => 'rocket',       'earnChip' => 'Earned once'],
+        'first-podium'       => ['icon' => 'medal',        'earnChip' => 'Earned once'],
+        'first-win'          => ['icon' => 'trophy',       'earnChip' => 'Earned once'],
+        'first-impact-chain' => ['icon' => 'link-2',       'earnChip' => 'Earned once'],
+
+        // Royal Flush badges
+        'royal-flush'        => ['icon' => 'crown',        'earnChip' => 'Stackable'],
+        'flush-collector'    => ['icon' => 'layers',       'earnChip' => 'Stackable'],
+        'small-gong-sniper'  => ['icon' => 'crosshair',   'earnChip' => 'Stackable'],
+        'winning-hand'       => ['icon' => 'crown',        'earnChip' => 'Awarded per match'],
+        'first-flush'        => ['icon' => 'sparkles',     'earnChip' => 'Earned once'],
+    ];
+
+    public const SECTION_ICONS = [
+        'prs'         => 'target',
+        'royal_flush' => 'crown',
     ];
 
     public function __invoke(): View
@@ -44,7 +49,8 @@ class BadgeGalleryController extends Controller
 
         return view('pages.badge-gallery', [
             'achievements' => $achievements,
-            'badgeIcons' => self::BADGE_ICONS,
+            'badgeConfig' => self::BADGE_CONFIG,
+            'sectionIcons' => self::SECTION_ICONS,
         ]);
     }
 }
