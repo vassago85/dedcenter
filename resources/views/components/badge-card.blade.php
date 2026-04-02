@@ -126,7 +126,7 @@
     $s = ($isDist && isset($distanceCardStyles[$icon])) ? $distanceCardStyles[$icon] : ($styles[$tier] ?? $styles['earned']);
     $isFeatured = $tier === 'featured';
     $isElite = $tier === 'elite';
-    $titleSize = $isFeatured ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl';
+    $titleSize = 'text-lg sm:text-xl';
 
     $distOverlineLabels = [
         'dist-700' => 'Extreme Distance',
@@ -136,7 +136,7 @@
     ];
 @endphp
 
-<div class="group relative overflow-hidden rounded-3xl border p-6 sm:p-7
+<div class="group relative flex h-full flex-col overflow-hidden rounded-3xl border p-6 sm:p-7
     shadow-[0_10px_30px_rgba(0,0,0,0.35)]
     transition-all duration-300 ease-out
     hover:-translate-y-1
@@ -151,10 +151,10 @@
         <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r {{ $s['accent'] }}"></div>
     @endif
 
-    <div class="relative flex items-start gap-5 sm:gap-6">
+    <div class="relative flex flex-1 items-start gap-5 sm:gap-6">
         <x-badge-crest :icon="$icon" :tier="$tier" :family="$family" />
 
-        <div class="min-w-0 flex-1 space-y-2.5">
+        <div class="flex min-w-0 flex-1 flex-col space-y-2.5">
             {{-- Overline --}}
             <span class="text-[11px] font-semibold uppercase tracking-[0.16em] {{ $s['overline'] }}">
                 {{ ($isDist ? ($distOverlineLabels[$icon] ?? null) : null) ?? $tierLabels[$tier] ?? 'Badge' }}
@@ -171,7 +171,7 @@
             </p>
 
             @if($earnChip)
-                <div class="pt-1">
+                <div class="mt-auto pt-1">
                     <span class="inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-wide {{ $s['chip'] }}">
                         {{ $earnChip }}
                     </span>

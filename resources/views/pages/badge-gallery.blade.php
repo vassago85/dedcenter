@@ -125,7 +125,7 @@
                                         $earnChip = $cfg['earnChip'] ?? null;
                                         $isFeaturedCard = $badgeTier === 'featured';
                                     @endphp
-                                    <div class="{{ $isFeaturedCard ? 'md:col-span-2 xl:col-span-2' : '' }}">
+                                    <div>
                                         <x-badge-card
                                             :badge="$badge"
                                             :icon="$icon"
