@@ -384,12 +384,10 @@
 
         <!-- Time Entry Modal -->
         <Teleport to="body">
-            <div v-if="showTimeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
+            <div v-if="showTimeModal" class="fixed inset-0 z-50 flex flex-col bg-black/70 px-4 pt-8 pb-4 overflow-y-auto">
+                <div class="w-full max-w-sm mx-auto rounded-2xl bg-slate-800 p-5 shadow-2xl flex-shrink-0">
                     <h3 class="mb-1 text-lg font-bold text-white">Enter Stage Time</h3>
-                    <p class="mb-4 text-sm text-slate-400">
-                        {{ stageRequiresTime ? 'Time is required for this stage.' : 'Enter time or skip if not applicable.' }}
-                    </p>
+                    <p class="mb-3 text-sm text-slate-400">Time is required for this stage.</p>
 
                     <input
                         ref="modalTimeInput"
@@ -402,24 +400,21 @@
                         class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-center font-mono text-2xl text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
 
-                    <div v-if="modalTimeSeconds > 0" class="mt-3 text-center">
+                    <div v-if="modalTimeSeconds > 0" class="mt-2 text-center">
                         <p class="font-mono text-3xl font-bold text-amber-400">{{ modalTimeSeconds.toFixed(2) }}s</p>
                     </div>
 
-                    <div v-if="modalTimeLowWarning" class="mt-3 rounded-lg border border-amber-500/50 bg-amber-900/30 px-3 py-2 text-center">
+                    <div v-if="modalTimeLowWarning" class="mt-2 rounded-lg border border-amber-500/50 bg-amber-900/30 px-3 py-2 text-center">
                         <p class="text-sm font-medium text-amber-400">Time is under 10 seconds. Are you sure?</p>
                     </div>
 
-                    <div class="mt-4 flex gap-3">
-                        <button v-if="!stageRequiresTime" @click="skipTimeAndComplete" class="flex-1 rounded-lg border border-slate-600 py-3 text-sm font-medium text-slate-300 hover:bg-slate-700">
-                            Skip
-                        </button>
-                        <button v-else @click="showTimeModal = false" class="flex-1 rounded-lg border border-slate-600 py-3 text-sm font-medium text-slate-300 hover:bg-slate-700">
+                    <div class="mt-3 flex gap-3">
+                        <button @click="showTimeModal = false" class="flex-1 rounded-lg border border-slate-600 py-3 text-sm font-medium text-slate-300 hover:bg-slate-700">
                             Cancel
                         </button>
                         <button
                             @click="confirmTimeAndComplete"
-                            :disabled="stageRequiresTime && modalTimeSeconds <= 0"
+                            :disabled="modalTimeSeconds <= 0"
                             class="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors disabled:opacity-50"
                             :class="modalTimeLowWarning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'"
                         >
@@ -754,7 +749,7 @@ async function handleCompleteStage() {
     completeError.value = '';
 
     const time = prsStore.effectiveTime;
-    if (!time || time <= 0) {
+    if (stageRequiresTime.value && (!time || time <= 0)) {
         modalTimeDigits.value = '';
         modalTimeSeconds.value = 0;
         modalTimeLowWarning.value = false;
@@ -775,30 +770,18 @@ function onModalTimeInput(e) {
 }
 
 function confirmTimeAndComplete() {
-    if (modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10 && !modalTimeLowWarning.value) {
+    if (modalTimeSeconds.value <= 0) return;
+    if (modalTimeSeconds.value < 10 && !modalTimeLowWarning.value) {
         modalTimeLowWarning.value = true;
         return;
     }
-    if (modalTimeLowWarning.value && modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10) {
-        applyModalTimeAndComplete();
-        return;
-    }
-    if (modalTimeSeconds.value > 0) {
-        applyModalTimeAndComplete();
-    }
+    applyModalTimeAndComplete();
 }
 
 function applyModalTimeAndComplete() {
     prsStore.rawDigits = modalTimeDigits.value;
     prsStore.rawTimeSeconds = modalTimeSeconds.value;
     prsStore.timerMode = 'manual';
-    showTimeModal.value = false;
-    doCompleteStage();
-}
-
-function skipTimeAndComplete() {
-    prsStore.rawDigits = '';
-    prsStore.rawTimeSeconds = null;
     showTimeModal.value = false;
     doCompleteStage();
 }
