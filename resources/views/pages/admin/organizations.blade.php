@@ -39,6 +39,20 @@ new #[Layout('components.layouts.app')]
         Flux::toast("'{$org->name}' reactivated.", variant: 'success');
     }
 
+    public function toggleRoyalFlush(int $id): void
+    {
+        $org = Organization::findOrFail($id);
+
+        if ($org->royal_flush_enabled) {
+            $org->update(['royal_flush_enabled' => false]);
+            Flux::toast("Royal Flush removed from '{$org->name}'.", variant: 'warning');
+        } else {
+            Organization::where('royal_flush_enabled', true)->update(['royal_flush_enabled' => false]);
+            $org->update(['royal_flush_enabled' => true]);
+            Flux::toast("'{$org->name}' is now the Royal Flush organization.", variant: 'success');
+        }
+    }
+
     public function with(): array
     {
         $organizations = Organization::with(['creator', 'parent'])
@@ -92,7 +106,14 @@ new #[Layout('components.layouts.app')]
                     <tbody class="divide-y divide-slate-700">
                         @foreach($organizations as $org)
                             <tr class="hover:bg-surface-2/30 transition-colors" wire:key="org-{{ $org->id }}">
-                                <td class="px-6 py-3 font-medium text-primary">{{ $org->name }}</td>
+                                <td class="px-6 py-3 font-medium text-primary">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        {{ $org->name }}
+                                        @if($org->royal_flush_enabled)
+                                            <span class="text-amber-400" title="Royal Flush Organization">♛</span>
+                                        @endif
+                                    </span>
+                                </td>
                                 <td class="px-6 py-3 capitalize text-secondary">{{ $org->type }}</td>
                                 <td class="px-6 py-3 text-muted text-xs">{{ $org->parent?->name ?? '—' }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $org->creator->name }}</td>
@@ -125,6 +146,19 @@ new #[Layout('components.layouts.app')]
                                                          href="{{ route('org.dashboard', $org) }}">
                                                 Manage
                                             </flux:button>
+                                            @if($org->royal_flush_enabled)
+                                                <flux:button size="sm" variant="ghost" class="!text-amber-400 hover:!text-amber-300"
+                                                             wire:click="toggleRoyalFlush({{ $org->id }})"
+                                                             wire:confirm="Remove Royal Flush from '{{ $org->name }}'?">
+                                                    Remove RF
+                                                </flux:button>
+                                            @else
+                                                <flux:button size="sm" variant="ghost" class="!text-amber-400 hover:!text-amber-300"
+                                                             wire:click="toggleRoyalFlush({{ $org->id }})"
+                                                             wire:confirm="Set '{{ $org->name }}' as the Royal Flush organization? Any other org will lose this designation.">
+                                                    Set RF
+                                                </flux:button>
+                                            @endif
                                             <flux:button size="sm" variant="ghost" class="!text-amber-400 hover:!text-amber-300"
                                                          wire:click="deactivate({{ $org->id }})"
                                                          wire:confirm="Deactivate '{{ $org->name }}'? They will lose portal access.">

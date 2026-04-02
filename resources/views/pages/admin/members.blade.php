@@ -93,6 +93,28 @@ new #[Layout('components.layouts.app')]
         Flux::toast("{$user->name} removed from {$org->name}.", variant: 'success');
     }
 
+    public function deleteMember(int $userId): void
+    {
+        if ($userId === auth()->id()) {
+            Flux::toast('You cannot delete your own account.', variant: 'danger');
+            return;
+        }
+
+        $user = User::findOrFail($userId);
+        $name = $user->name;
+
+        $user->organizations()->detach();
+        $user->registrations()->delete();
+        $user->achievements()->delete();
+        $user->equipmentProfiles()->delete();
+        $user->pushSubscriptions()->delete();
+        $user->notifications()->delete();
+        $user->delete();
+
+        $this->expandedUserId = null;
+        Flux::toast("{$name} has been deleted.", variant: 'success');
+    }
+
     public function changeOrgRole(int $userId, int $orgId, string $newRole): void
     {
         if (! in_array($newRole, ['owner', 'match_director', 'range_officer'])) {
@@ -177,10 +199,16 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3">
                                     @switch($member->role)
                                         @case('owner')
-                                            <flux:badge size="sm" color="amber">Site Owner</flux:badge>
+                                            <div class="flex flex-wrap gap-1">
+                                                <flux:badge size="sm" color="amber">Site Owner</flux:badge>
+                                                <flux:badge size="sm" color="zinc">Shooter</flux:badge>
+                                            </div>
                                             @break
                                         @case('match_director')
-                                            <flux:badge size="sm" color="blue">Match Director</flux:badge>
+                                            <div class="flex flex-wrap gap-1">
+                                                <flux:badge size="sm" color="blue">Match Director</flux:badge>
+                                                <flux:badge size="sm" color="zinc">Shooter</flux:badge>
+                                            </div>
                                             @break
                                         @default
                                             <flux:badge size="sm" color="zinc">Shooter</flux:badge>
@@ -299,6 +327,17 @@ new #[Layout('components.layouts.app')]
                                                         </tbody>
                                                     </table>
                                                 </div>
+                                            </div>
+                                        @endif
+
+                                        {{-- Delete Member --}}
+                                        @if($member->id !== auth()->id())
+                                            <div class="mt-4 pt-4 border-t border-border" wire:click.stop>
+                                                <flux:button size="sm" variant="danger"
+                                                             wire:click="deleteMember({{ $member->id }})"
+                                                             wire:confirm="Permanently delete {{ $member->name }}? This removes all their registrations, achievements, equipment profiles, and organization memberships. This cannot be undone.">
+                                                    Delete Member
+                                                </flux:button>
                                             </div>
                                         @endif
                                     </td>

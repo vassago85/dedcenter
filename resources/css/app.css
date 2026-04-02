@@ -72,9 +72,10 @@ html.dark {
     color: var(--color-muted) !important;
 }
 
-/* ── Labels (app is html.dark; avoid pale zinc on white if modal ever renders light) ── */
-html.dark :where([data-flux-label]) {
-    color: #d1dcf0 !important;
+/* ── Labels: backup if an old cached bundle runs; published flux/label.blade.php sets text-primary ── */
+html.dark ui-label[data-flux-label],
+html.dark [data-flux-label] {
+    color: var(--color-primary) !important;
 }
 
 /* ── Inputs & textareas ── */

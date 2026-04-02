@@ -34,6 +34,7 @@ class Organization extends Model
         'bank_account_number',
         'bank_branch_code',
         'season_standings_enabled',
+        'royal_flush_enabled',
     ];
 
     protected function casts(): array
@@ -43,6 +44,7 @@ class Organization extends Model
             'entry_fee_default' => 'decimal:2',
             'portal_enabled' => 'boolean',
             'season_standings_enabled' => 'boolean',
+            'royal_flush_enabled' => 'boolean',
         ];
     }
 
@@ -150,6 +152,11 @@ class Organization extends Model
     public function isPending(): bool
     {
         return $this->status === 'pending';
+    }
+
+    public function isRoyalFlushOrg(): bool
+    {
+        return (bool) $this->royal_flush_enabled;
     }
 
     public function hasPortal(): bool

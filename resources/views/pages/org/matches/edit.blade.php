@@ -30,6 +30,8 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
+    public bool $royal_flush_enabled = false;
+    public bool $side_bet_enabled = false;
     public int $concurrent_relays = 2;
     public string $corrections_pin = '';
 
@@ -111,6 +113,8 @@ new #[Layout('components.layouts.app')]
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
+            $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
+            $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->corrections_pin = $match->corrections_pin ?? '';
             $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
             $this->loadCustomFields();
@@ -135,12 +139,21 @@ new #[Layout('components.layouts.app')]
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['image_url'] = $this->image_url !== '' ? $this->image_url : null;
+        $orgIsRf = $this->organization->isRoyalFlushOrg();
+        $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
+        $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['corrections_pin'] = $this->corrections_pin !== '' ? $this->corrections_pin : null;
 
         if ($this->match) {
             $this->match->update($validated);
+
+            if (! $validated['side_bet_enabled']) {
+                $this->match->sideBetShooters()->detach();
+                $this->sideBetShooterIds = [];
+            }
+
             Flux::toast('Match updated.', variant: 'success');
         } else {
             $this->match = ShootingMatch::create([
@@ -1054,14 +1067,44 @@ new #[Layout('components.layouts.app')]
                 </div>
             </div>
             @if($scoring_type === 'standard')
-                <div class="rounded-lg border border-border bg-surface-2/30 p-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-32">
-                            <label class="block text-sm font-medium text-secondary mb-1">Concurrent Relays</label>
-                            <input type="number" wire:model="concurrent_relays" min="1" max="10"
-                                   class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                <div class="rounded-lg border border-border bg-surface-2/30 p-4 space-y-4">
+                    @if($organization->isRoyalFlushOrg())
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" wire:model.live="royal_flush_enabled"
+                                   class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-5 w-5" />
+                            <div>
+                                <span class="text-sm font-medium text-primary">Enable Royal Flush</span>
+                                <p class="text-xs text-muted">Track when a shooter hits all targets at a distance. Awarded per distance for prize giving.</p>
+                            </div>
+                        </label>
+
+                        @if($royal_flush_enabled)
+                            <div class="ml-8 space-y-3 border-l-2 border-amber-600/30 pl-4">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" wire:model.live="side_bet_enabled"
+                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
+                                    <div>
+                                        <span class="text-sm font-medium text-primary">Enable Side Bet</span>
+                                        <p class="text-xs text-muted">Rank opted-in shooters by smallest gong hits. Only available on Royal Flush matches.</p>
+                                    </div>
+                                </label>
+
+                                @if($side_bet_enabled && $match)
+                                    <p class="text-xs text-muted italic">Add squads and shooters first, then select side bet participants.</p>
+                                @endif
+                            </div>
+                        @endif
+                    @endif
+
+                    <div class="{{ $organization->isRoyalFlushOrg() ? 'border-t border-border pt-4' : '' }}">
+                        <div class="flex items-center gap-4">
+                            <div class="w-32">
+                                <label class="block text-sm font-medium text-secondary mb-1">Concurrent Relays</label>
+                                <input type="number" wire:model="concurrent_relays" min="1" max="10"
+                                       class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary text-center focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                            </div>
+                            <p class="text-xs text-muted flex-1">How many relays shoot at the same time. Shared-rifle partners will be placed in different concurrent groups.</p>
                         </div>
-                        <p class="text-xs text-muted flex-1">How many relays shoot at the same time. Shared-rifle partners will be placed in different concurrent groups.</p>
                     </div>
                 </div>
             @endif
@@ -1861,7 +1904,7 @@ new #[Layout('components.layouts.app')]
                                 @endif
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
-                                <flux:button wire:click="editCustomField({{ $cf['id'] }})" variant="ghost" size="sm">Edit</flux:button>
+                                <flux:button wire:click="editCustomField({{ $cf['id'] }})" variant="ghost" size="sm" class="!text-secondary hover:!text-primary">Edit</flux:button>
                                 <flux:button wire:click="deleteCustomField({{ $cf['id'] }})" variant="ghost" size="sm" class="!text-red-400 hover:!text-red-300"
                                              wire:confirm="Remove this field? Existing responses will be deleted.">Remove</flux:button>
                             </div>
@@ -1921,7 +1964,7 @@ new #[Layout('components.layouts.app')]
                         {{ $editingCustomFieldId ? 'Update Field' : 'Add Field' }}
                     </flux:button>
                     @if($editingCustomFieldId)
-                        <flux:button wire:click="cancelCustomFieldEdit" variant="ghost" size="sm">Cancel</flux:button>
+                        <flux:button wire:click="cancelCustomFieldEdit" variant="ghost" size="sm" class="!text-secondary hover:!text-primary">Cancel</flux:button>
                     @endif
                 </div>
             </div>

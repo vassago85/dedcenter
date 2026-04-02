@@ -112,7 +112,8 @@ new #[Layout('components.layouts.app')]
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
-        $validated['royal_flush_enabled'] = $this->scoring_type === 'standard' && $this->royal_flush_enabled;
+        $orgIsRf = $this->match?->organization?->isRoyalFlushOrg() ?? false;
+        $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
@@ -961,33 +962,35 @@ new #[Layout('components.layouts.app')]
 
             @if($scoring_type === 'standard')
                 <div class="rounded-lg border border-border bg-surface-2/30 p-4 space-y-4">
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" wire:model.live="royal_flush_enabled"
-                               class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-5 w-5" />
-                        <div>
-                            <span class="text-sm font-medium text-primary">Enable Royal Flush</span>
-                            <p class="text-xs text-muted">Track when a shooter hits all targets at a distance. Awarded per distance for prize giving.</p>
-                        </div>
-                    </label>
+                    @if($match?->organization?->isRoyalFlushOrg())
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" wire:model.live="royal_flush_enabled"
+                                   class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-5 w-5" />
+                            <div>
+                                <span class="text-sm font-medium text-primary">Enable Royal Flush</span>
+                                <p class="text-xs text-muted">Track when a shooter hits all targets at a distance. Awarded per distance for prize giving.</p>
+                            </div>
+                        </label>
 
-                    @if($royal_flush_enabled)
-                        <div class="ml-8 space-y-3 border-l-2 border-amber-600/30 pl-4">
-                            <label class="flex items-center gap-3 cursor-pointer">
-                                <input type="checkbox" wire:model.live="side_bet_enabled"
-                                       class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
-                                <div>
-                                    <span class="text-sm font-medium text-primary">Enable Side Bet</span>
-                                    <p class="text-xs text-muted">Rank opted-in shooters by smallest gong hits. Only available on Royal Flush matches.</p>
-                                </div>
-                            </label>
+                        @if($royal_flush_enabled)
+                            <div class="ml-8 space-y-3 border-l-2 border-amber-600/30 pl-4">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" wire:model.live="side_bet_enabled"
+                                           class="rounded border-slate-600 bg-surface-2 text-accent focus:ring-red-500 focus:ring-offset-0 h-5 w-5" />
+                                    <div>
+                                        <span class="text-sm font-medium text-primary">Enable Side Bet</span>
+                                        <p class="text-xs text-muted">Rank opted-in shooters by smallest gong hits. Only available on Royal Flush matches.</p>
+                                    </div>
+                                </label>
 
-                            @if($side_bet_enabled && $match)
-                                <p class="text-xs text-muted">Participants are managed in the <strong>Side Bet Buy-In</strong> section below. Buy-in is locked once scoring starts.</p>
-                            @endif
-                        </div>
+                                @if($side_bet_enabled && $match)
+                                    <p class="text-xs text-muted">Participants are managed in the <strong>Side Bet Buy-In</strong> section below. Buy-in is locked once scoring starts.</p>
+                                @endif
+                            </div>
+                        @endif
                     @endif
 
-                    <div class="border-t border-border pt-4">
+                    <div class="{{ $match?->organization?->isRoyalFlushOrg() ? 'border-t border-border pt-4' : '' }}">
                         <div class="flex items-center gap-4">
                             <div class="w-32">
                                 <label class="block text-sm font-medium text-secondary mb-1">Concurrent Relays</label>
@@ -1637,7 +1640,7 @@ new #[Layout('components.layouts.app')]
                                 @endif
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
-                                <flux:button wire:click="editCustomField({{ $cf['id'] }})" variant="ghost" size="sm">Edit</flux:button>
+                                <flux:button wire:click="editCustomField({{ $cf['id'] }})" variant="ghost" size="sm" class="!text-secondary hover:!text-primary">Edit</flux:button>
                                 <flux:button wire:click="deleteCustomField({{ $cf['id'] }})" variant="ghost" size="sm" class="!text-red-400 hover:!text-red-300"
                                              wire:confirm="Remove this field? Existing responses will be deleted.">Remove</flux:button>
                             </div>
@@ -1650,7 +1653,7 @@ new #[Layout('components.layouts.app')]
                 <h3 class="text-sm font-semibold text-secondary">{{ $editingCustomFieldId ? 'Edit Field' : 'Add Field' }}</h3>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                        <label class="block text-xs font-medium text-muted mb-1">Label *</label>
+                        <label class="mb-1 block text-xs font-medium text-secondary">Label *</label>
                         <input type="text" wire:model="cfLabel" placeholder="e.g. Division, T-shirt Size"
                                class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
                         @error('cfLabel') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
@@ -1696,7 +1699,7 @@ new #[Layout('components.layouts.app')]
                         {{ $editingCustomFieldId ? 'Update Field' : 'Add Field' }}
                     </flux:button>
                     @if($editingCustomFieldId)
-                        <flux:button wire:click="cancelCustomFieldEdit" variant="ghost" size="sm">Cancel</flux:button>
+                        <flux:button wire:click="cancelCustomFieldEdit" variant="ghost" size="sm" class="!text-secondary hover:!text-primary">Cancel</flux:button>
                     @endif
                 </div>
             </div>
