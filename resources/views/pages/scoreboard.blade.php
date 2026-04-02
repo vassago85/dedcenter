@@ -138,7 +138,7 @@ new #[Layout('components.layouts.scoreboard')]
                     $grid = [];
                     foreach ($shooterShotList as $shot) {
                         $result = $shot->result instanceof \BackedEnum ? $shot->result->value : (string) $shot->result;
-                        $grid[$shot->stage_id][$shot->shot_number] = $result === 'not_taken' ? null : $result;
+                        $grid[$shot->stage_id][$shot->shot_number] = $result;
                     }
                     $shooter->shot_grid = $grid;
                 } else {
@@ -788,7 +788,7 @@ new #[Layout('components.layouts.scoreboard')]
                         <th class="px-2 py-2 text-center text-xs font-bold text-amber-400/60 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">N/T</th>
                     @endif
                     @if($isPrs)
-                        <th class="px-2 py-2 text-right text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Time</th>
+                        <th class="px-2 py-2 text-right text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">TB Time</th>
                     @endif
                     <th class="px-2 py-2 text-right text-xs font-bold text-amber-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">{{ $isPrs ? 'Pts' : 'Score' }}</th>
                 </tr>
@@ -836,8 +836,8 @@ new #[Layout('components.layouts.scoreboard')]
                         @endif
                         @if($isPrs)
                             <td class="whitespace-nowrap px-2 py-2 text-right text-xs font-mono text-secondary sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">
-                                @if($shooter->display_time > 0)
-                                    {{ sprintf('%02d:%05.2f', floor($shooter->display_time / 60), fmod($shooter->display_time, 60)) }}
+                                @if($shooter->tb_time > 0)
+                                    {{ number_format($shooter->tb_time, 1) }}s
                                 @else
                                     —
                                 @endif
@@ -903,6 +903,8 @@ new #[Layout('components.layouts.scoreboard')]
                                             <span class="inline-block h-3 w-3 rounded-full bg-green-500"></span>
                                         @elseif($shotResult === 'miss')
                                             <span class="inline-block h-3 w-3 rounded-full bg-red-500"></span>
+                                        @elseif($shotResult === 'not_taken')
+                                            <span class="inline-block h-3 w-3 rounded-full bg-amber-500/40"></span>
                                         @else
                                             <span class="inline-block h-3 w-3 rounded-full bg-zinc-700"></span>
                                         @endif
@@ -911,7 +913,7 @@ new #[Layout('components.layouts.scoreboard')]
                             @endforeach
                             {{-- Total column: raw hit count (per-gong grid context) --}}
                             <td class="px-2 py-1.5 text-center font-bold text-white tabular-nums border-l border-zinc-700">{{ $shooter->hits_count }}</td>
-                            <td class="px-2 py-1.5 text-center tabular-nums text-zinc-500">{{ $shooter->display_time > 0 ? number_format($shooter->display_time, 1) . 's' : '—' }}</td>
+                            <td class="px-2 py-1.5 text-center tabular-nums text-zinc-500">{{ $shooter->tb_time > 0 ? number_format($shooter->tb_time, 1) . 's' : '—' }}</td>
                         </tr>
                         @endforeach
                     </tbody>

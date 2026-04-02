@@ -143,7 +143,12 @@
                         v-for="ts in targetSets"
                         :key="ts.id"
                         @click="selectStage(ts)"
-                        class="flex w-full items-center justify-between rounded-xl border border-slate-700 bg-slate-800 p-5 text-left transition-all hover:border-amber-600 active:scale-[0.98]"
+                        class="flex w-full items-center justify-between rounded-xl border bg-slate-800 p-5 text-left transition-all active:scale-[0.98]"
+                        :class="{
+                            'border-green-500/60 hover:border-green-400': stageStatus(ts.id) === 'complete',
+                            'border-amber-500/60 hover:border-amber-400': stageStatus(ts.id) === 'partial',
+                            'border-slate-700 hover:border-amber-600': stageStatus(ts.id) === 'none',
+                        }"
                     >
                         <div>
                             <span class="text-lg font-bold">{{ ts.display_name || ts.label }}</span>
@@ -153,8 +158,18 @@
                                 <span v-if="ts.is_tiebreaker" class="rounded bg-orange-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">Tiebreaker</span>
                             </div>
                         </div>
-                        <div class="text-right text-sm text-slate-500">
-                            {{ stageSquadProgress(ts.id) }}
+                        <div class="flex items-center gap-2">
+                            <span
+                                class="text-sm font-medium"
+                                :class="{
+                                    'text-green-400': stageStatus(ts.id) === 'complete',
+                                    'text-amber-400': stageStatus(ts.id) === 'partial',
+                                    'text-slate-500': stageStatus(ts.id) === 'none',
+                                }"
+                            >{{ stageSquadProgress(ts.id).text }}</span>
+                            <svg v-if="stageStatus(ts.id) === 'complete'" class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
                         </div>
                     </button>
                 </div>
@@ -314,24 +329,9 @@
                         <button @click="undoShot" class="w-full rounded-xl border border-slate-600 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 active:scale-[0.98]">
                             Undo Last Shot
                         </button>
-                        <!-- Complete Stage -->
-                        <button @click="handleCompleteStage" class="w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
-                            COMPLETE STAGE
-                        </button>
-                        <p v-if="completeError" class="text-center text-sm text-red-400">{{ completeError }}</p>
-
-                        <!-- Timer — always visible, required/optional based on stage type -->
-                        <div class="rounded-xl border bg-slate-900 p-3" :class="stageRequiresTime ? 'border-amber-600/30' : 'border-slate-700'">
-                            <div class="flex items-center justify-between mb-2">
-                                <p class="text-xs font-medium text-slate-400">
-                                    Stage Time <span :class="stageRequiresTime ? 'text-red-400' : 'text-slate-500'">({{ stageRequiresTime ? 'Required' : 'Optional' }})</span>
-                                </p>
-                                <div class="flex gap-1">
-                                    <button @click="prsStore.timerMode = 'app'" class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="prsStore.timerMode === 'app' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">Timer</button>
-                                    <button @click="prsStore.timerMode = 'manual'" class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="prsStore.timerMode === 'manual' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'">Manual</button>
-                                </div>
-                            </div>
-                            <div v-if="prsStore.timerMode === 'app'" class="flex items-center gap-3">
+                        <!-- Timer display (when app timer is active) -->
+                        <div v-if="prsStore.timerMode === 'app'" class="rounded-xl border border-slate-700 bg-slate-900 p-3">
+                            <div class="flex items-center gap-3">
                                 <p class="flex-1 text-center font-mono text-3xl font-bold tracking-wider" :class="prsStore.isTimerRunning ? 'text-amber-400' : 'text-white'">
                                     {{ formattedTime }}
                                 </p>
@@ -341,33 +341,19 @@
                                     <button @click="resetTimer" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">Reset</button>
                                 </div>
                             </div>
-                            <div v-else class="flex items-center gap-2">
-                                <input
-                                    ref="timeInput"
-                                    type="text"
-                                    inputmode="numeric"
-                                    :value="prsStore.rawDigits"
-                                    @input="onDigitInput"
-                                    @keydown="onDigitKeydown"
-                                    placeholder="Digits e.g. 6532 = 65.32s"
-                                    class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-center font-mono text-xl text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                />
-                                <span v-if="prsStore.rawTimeSeconds" class="font-mono text-sm text-slate-400 whitespace-nowrap">{{ formattedTime }}</span>
-                                <button v-if="prsStore.rawDigits" @click="clearTimeInput" class="rounded bg-slate-700 px-2 py-1.5 text-xs font-bold text-slate-400 hover:bg-slate-600">Clear</button>
-                            </div>
-                            <p v-if="selectedStageObj?.par_time_seconds" class="mt-1.5 text-center text-[10px] text-slate-500">
-                                Par: {{ formatTime(selectedStageObj.par_time_seconds) }}
-                            </p>
+                        </div>
+                        <!-- Time preview when already entered manually -->
+                        <div v-else-if="prsStore.rawTimeSeconds > 0" class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2">
+                            <span class="text-xs text-slate-400">Time:</span>
+                            <span class="font-mono text-lg font-bold text-white">{{ prsStore.rawTimeSeconds.toFixed(2) }}s</span>
+                            <button @click="clearTimeInput" class="ml-2 rounded bg-slate-700 px-2 py-1 text-[10px] font-bold text-slate-400 hover:bg-slate-600">Clear</button>
                         </div>
 
-                        <!-- Low time warning -->
-                        <div v-if="showLowTimeWarning" class="rounded-lg border border-amber-500/50 bg-amber-900/30 px-3 py-2 text-center">
-                            <p class="text-sm font-medium text-amber-400">Time is under 15 seconds. Is this correct?</p>
-                            <div class="mt-2 flex justify-center gap-3">
-                                <button @click="confirmLowTime" class="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-700">Yes, it's correct</button>
-                                <button @click="cancelLowTime" class="rounded-lg bg-slate-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-600">No, fix it</button>
-                            </div>
-                        </div>
+                        <!-- Complete Stage -->
+                        <button @click="handleCompleteStage" class="w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
+                            COMPLETE STAGE
+                        </button>
+                        <p v-if="completeError" class="text-center text-sm text-red-400">{{ completeError }}</p>
                     </div>
                 </div>
             </div>
@@ -391,6 +377,54 @@
                     <div class="mt-4 flex gap-3">
                         <button @click="closePinModal" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
                         <button @click="submitPin" class="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-700">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Time Entry Modal -->
+        <Teleport to="body">
+            <div v-if="showTimeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
+                    <h3 class="mb-1 text-lg font-bold text-white">Enter Stage Time</h3>
+                    <p class="mb-4 text-sm text-slate-400">
+                        {{ stageRequiresTime ? 'Time is required for this stage.' : 'Enter time or skip if not applicable.' }}
+                    </p>
+
+                    <input
+                        ref="modalTimeInput"
+                        type="text"
+                        inputmode="numeric"
+                        :value="modalTimeDigits"
+                        @input="onModalTimeInput"
+                        @keydown="onDigitKeydown"
+                        placeholder="e.g. 10500 = 105.00s"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-center font-mono text-2xl text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+
+                    <div v-if="modalTimeSeconds > 0" class="mt-3 text-center">
+                        <p class="font-mono text-3xl font-bold text-amber-400">{{ modalTimeSeconds.toFixed(2) }}s</p>
+                    </div>
+
+                    <div v-if="modalTimeLowWarning" class="mt-3 rounded-lg border border-amber-500/50 bg-amber-900/30 px-3 py-2 text-center">
+                        <p class="text-sm font-medium text-amber-400">Time is under 10 seconds. Are you sure?</p>
+                    </div>
+
+                    <div class="mt-4 flex gap-3">
+                        <button v-if="!stageRequiresTime" @click="skipTimeAndComplete" class="flex-1 rounded-lg border border-slate-600 py-3 text-sm font-medium text-slate-300 hover:bg-slate-700">
+                            Skip
+                        </button>
+                        <button v-else @click="showTimeModal = false" class="flex-1 rounded-lg border border-slate-600 py-3 text-sm font-medium text-slate-300 hover:bg-slate-700">
+                            Cancel
+                        </button>
+                        <button
+                            @click="confirmTimeAndComplete"
+                            :disabled="stageRequiresTime && modalTimeSeconds <= 0"
+                            class="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors disabled:opacity-50"
+                            :class="modalTimeLowWarning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'"
+                        >
+                            {{ modalTimeLowWarning ? 'Yes, Confirm' : 'Confirm' }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -464,7 +498,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
@@ -485,8 +519,12 @@ const prsStore = usePrsScoringStore();
 const ready = ref(false);
 const completeError = ref('');
 const timeInput = ref(null);
-const showLowTimeWarning = ref(false);
-const lowTimeConfirmed = ref(false);
+
+const showTimeModal = ref(false);
+const modalTimeDigits = ref('');
+const modalTimeSeconds = ref(0);
+const modalTimeLowWarning = ref(false);
+const modalTimeInput = ref(null);
 
 let timerInterval = null;
 let syncInterval = null;
@@ -691,8 +729,7 @@ function openScoring(shooter) {
     prsStore.initStage(totalShots);
     prsStore.resetTimer();
     completeError.value = '';
-    showLowTimeWarning.value = false;
-    lowTimeConfirmed.value = false;
+    showTimeModal.value = false;
     prsStore.navigateTo('scoring');
 }
 
@@ -717,14 +754,57 @@ async function handleCompleteStage() {
     completeError.value = '';
 
     const time = prsStore.effectiveTime;
-    if (stageRequiresTime.value && time > 0 && time < 15 && !lowTimeConfirmed.value) {
-        showLowTimeWarning.value = true;
+    if (!time || time <= 0) {
+        modalTimeDigits.value = '';
+        modalTimeSeconds.value = 0;
+        modalTimeLowWarning.value = false;
+        showTimeModal.value = true;
+        nextTick(() => modalTimeInput.value?.focus());
         return;
     }
 
-    showLowTimeWarning.value = false;
-    lowTimeConfirmed.value = false;
+    await doCompleteStage();
+}
 
+function onModalTimeInput(e) {
+    const cleaned = e.target.value.replace(/\D/g, '');
+    modalTimeDigits.value = cleaned;
+    e.target.value = cleaned;
+    modalTimeSeconds.value = digitsToSeconds(cleaned);
+    modalTimeLowWarning.value = modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10;
+}
+
+function confirmTimeAndComplete() {
+    if (modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10 && !modalTimeLowWarning.value) {
+        modalTimeLowWarning.value = true;
+        return;
+    }
+    if (modalTimeLowWarning.value && modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10) {
+        applyModalTimeAndComplete();
+        return;
+    }
+    if (modalTimeSeconds.value > 0) {
+        applyModalTimeAndComplete();
+    }
+}
+
+function applyModalTimeAndComplete() {
+    prsStore.rawDigits = modalTimeDigits.value;
+    prsStore.rawTimeSeconds = modalTimeSeconds.value;
+    prsStore.timerMode = 'manual';
+    showTimeModal.value = false;
+    doCompleteStage();
+}
+
+function skipTimeAndComplete() {
+    prsStore.rawDigits = '';
+    prsStore.rawTimeSeconds = null;
+    showTimeModal.value = false;
+    doCompleteStage();
+}
+
+async function doCompleteStage() {
+    completeError.value = '';
     const result = await prsStore.completeStage(
         props.matchId,
         prsStore.selectedStageId,
@@ -739,17 +819,6 @@ async function handleCompleteStage() {
     stopTimerInternal();
     prsStore.navigateTo('shooter-list');
     savePrsProgress();
-}
-
-function confirmLowTime() {
-    lowTimeConfirmed.value = true;
-    showLowTimeWarning.value = false;
-    handleCompleteStage();
-}
-
-function cancelLowTime() {
-    showLowTimeWarning.value = false;
-    lowTimeConfirmed.value = false;
 }
 
 function getShooterCompletion(shooterId) {
@@ -767,12 +836,20 @@ function getStatusClass(shooterId) {
 }
 
 function stageSquadProgress(stageId) {
-    if (!prsStore.selectedSquadId) return '';
+    if (!prsStore.selectedSquadId) return { completed: 0, total: 0, text: '' };
     const squad = squads.value.find(s => s.id === prsStore.selectedSquadId);
-    if (!squad) return '';
+    if (!squad) return { completed: 0, total: 0, text: '' };
     const active = squad.shooters.filter(s => s.status === 'active');
     const completed = active.filter(s => prsStore.stageCompletions.has(`${s.id}-${stageId}`));
-    return `${completed.length}/${active.length} scored`;
+    return { completed: completed.length, total: active.length, text: `${completed.length}/${active.length} scored` };
+}
+
+function stageStatus(stageId) {
+    const p = stageSquadProgress(stageId);
+    if (p.total === 0) return 'none';
+    if (p.completed >= p.total) return 'complete';
+    if (p.completed > 0) return 'partial';
+    return 'none';
 }
 
 // Timer

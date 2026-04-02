@@ -349,6 +349,7 @@
                                         <div class="flex items-center gap-3 text-xs tabular-nums">
                                             <span class="text-green-400">{{ entry.stages?.[ts.id]?.hits ?? 0 }} hits</span>
                                             <span class="text-red-400">{{ entry.stages?.[ts.id]?.misses ?? 0 }} miss</span>
+                                            <span v-if="stageNotTaken(entry, ts.id) > 0" class="text-amber-400/60">{{ stageNotTaken(entry, ts.id) }} n/t</span>
                                             <span v-if="entry.stages?.[ts.id]?.time" class="text-amber-400">{{ entry.stages[ts.id].time.toFixed(1) }}s</span>
                                         </div>
                                     </div>
@@ -861,6 +862,15 @@ function prsStageShortLabel(ts) {
     return match ? match[1] : label.replace(/^Stage\s*\d+\s*/, '') || `S${targetSets.value.indexOf(ts) + 1}`;
 }
 
+function stageNotTaken(entry, tsId) {
+    const stageData = entry.stages?.[tsId];
+    if (!stageData) return 0;
+    if (stageData.not_taken != null) return stageData.not_taken;
+    const shots = stageData.shots;
+    if (!shots) return 0;
+    return shots.filter(s => s === 'not_taken').length;
+}
+
 function prsGongClass(entry, tsId, gongNum) {
     const stageData = entry.stages?.[tsId];
     if (!stageData) return 'bg-surface-2 text-muted';
@@ -869,6 +879,7 @@ function prsGongClass(entry, tsId, gongNum) {
         const result = shots[gongNum - 1];
         if (result === 'hit') return 'bg-green-600/30 text-green-400';
         if (result === 'miss') return 'bg-red-600/30 text-red-400';
+        if (result === 'not_taken') return 'bg-amber-600/20 text-amber-400/60';
         return 'bg-surface-2 text-muted/50';
     }
     return 'bg-surface-2 text-muted/50';
@@ -882,6 +893,7 @@ function gongDotClass(entry, tsId, gongNum) {
         const result = shots[gongNum - 1];
         if (result === 'hit') return 'bg-green-500';
         if (result === 'miss') return 'bg-red-500';
+        if (result === 'not_taken') return 'bg-amber-500/40';
     }
     return 'bg-slate-700';
 }

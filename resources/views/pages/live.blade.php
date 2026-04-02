@@ -731,10 +731,10 @@ new #[Layout('components.layouts.scoreboard')]
                                 <p class="text-[9px] text-muted/60">n/t</p>
                             </div>
                         @endif
-                        @if($isPrs && $shooter->display_time > 0)
+                        @if($isPrs && $shooter->tb_time > 0)
                             <div class="text-center">
-                                <p class="text-xs font-mono text-secondary">{{ sprintf('%02d:%05.2f', floor($shooter->display_time / 60), fmod($shooter->display_time, 60)) }}</p>
-                                <p class="text-[9px] text-muted/60">time</p>
+                                <p class="text-xs font-mono text-secondary">{{ number_format($shooter->tb_time, 1) }}s</p>
+                                <p class="text-[9px] text-muted/60">TB time</p>
                             </div>
                         @endif
                         <div class="text-center min-w-[2rem]">
