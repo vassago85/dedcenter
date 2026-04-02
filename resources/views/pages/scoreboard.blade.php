@@ -356,8 +356,10 @@ new #[Layout('components.layouts.scoreboard')]
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
         </div>
-        <x-app-logo size="md" class="shrink-0 self-start opacity-60 sm:hidden" />
-        <x-app-logo size="lg" class="hidden shrink-0 opacity-60 sm:block" />
+        <x-app-logo
+            size="lg"
+            class="shrink-0 self-start opacity-60 max-sm:origin-top-left max-sm:scale-[0.82]"
+        />
     </div>
 
     @if($divisions->isNotEmpty() || $categories->isNotEmpty())
@@ -644,8 +646,8 @@ new #[Layout('components.layouts.scoreboard')]
                 <table class="w-full text-[11px] leading-tight">
                     <thead>
                         <tr class="border-b border-zinc-700">
-                            <th class="sticky left-0 z-10 bg-zinc-800 px-2 py-2 text-left text-zinc-500 w-10">#</th>
-                            <th class="sticky left-10 z-10 bg-zinc-800 px-2 py-2 text-left text-zinc-500 min-w-[100px]">Shooter</th>
+                            <th class="relative z-0 w-10 min-w-10 bg-zinc-800 px-2 py-2 text-left text-zinc-500 sm:sticky sm:left-0 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]">#</th>
+                            <th class="relative z-0 min-w-[7rem] bg-zinc-800 px-2 py-2 text-left text-zinc-500 sm:sticky sm:left-10 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]">Shooter</th>
                             @foreach($prsTargetSets as $ts)
                                 <th colspan="{{ $ts->gongs_count }}" class="px-1 py-2 text-center border-l border-zinc-700/50 {{ $ts->is_tiebreaker ? 'text-amber-400 bg-amber-900/10' : 'text-zinc-500' }}">
                                     {{ $ts->label }}
@@ -655,8 +657,8 @@ new #[Layout('components.layouts.scoreboard')]
                             <th class="px-2 py-2 text-center text-zinc-500">Time</th>
                         </tr>
                         <tr class="border-b border-zinc-700 text-[9px] text-zinc-600">
-                            <th class="sticky left-0 z-10 bg-zinc-800"></th>
-                            <th class="sticky left-10 z-10 bg-zinc-800"></th>
+                            <th class="relative z-0 bg-zinc-800 sm:sticky sm:left-0 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]"></th>
+                            <th class="relative z-0 bg-zinc-800 sm:sticky sm:left-10 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]"></th>
                             @foreach($prsTargetSets as $ts)
                                 @for($g = 1; $g <= $ts->gongs_count; $g++)
                                     <th class="px-0.5 py-1 text-center {{ $g === 1 ? 'border-l border-zinc-700/50' : '' }}">{{ $g }}</th>
@@ -669,9 +671,9 @@ new #[Layout('components.layouts.scoreboard')]
                     <tbody class="divide-y divide-zinc-700/30">
                         @foreach($shooters as $shooter)
                         <tr class="hover:bg-zinc-700/20">
-                            <td class="sticky left-0 z-10 bg-zinc-800 px-2 py-1.5 text-center text-zinc-500">{{ $loop->iteration }}</td>
-                            <td class="sticky left-10 z-10 bg-zinc-800 px-2 py-1.5">
-                                <p class="font-medium text-white truncate max-w-[100px]" title="{{ $shooter->name }}">{{ $shooter->name }}</p>
+                            <td class="relative z-0 bg-zinc-800 px-2 py-1.5 text-center text-zinc-500 sm:sticky sm:left-0 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]">{{ $loop->iteration }}</td>
+                            <td class="relative z-0 bg-zinc-800 px-2 py-1.5 sm:sticky sm:left-10 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]">
+                                <p class="max-w-[6.5rem] truncate font-medium text-white sm:max-w-[100px]" title="{{ $shooter->name }}">{{ $shooter->name }}</p>
                             </td>
                             @foreach($prsTargetSets as $ts)
                                 @for($g = 1; $g <= $ts->gongs_count; $g++)
