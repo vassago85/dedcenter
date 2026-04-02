@@ -392,11 +392,11 @@
                     <input
                         ref="modalTimeInput"
                         type="text"
-                        inputmode="numeric"
+                        inputmode="decimal"
                         :value="modalTimeDigits"
                         @input="onModalTimeInput"
                         @keydown="onDigitKeydown"
-                        placeholder="e.g. 10500 = 105.00s"
+                        placeholder="e.g. 105.00"
                         class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-center font-mono text-2xl text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
 
@@ -762,10 +762,11 @@ async function handleCompleteStage() {
 }
 
 function onModalTimeInput(e) {
-    const cleaned = e.target.value.replace(/\D/g, '');
+    const cleaned = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
     modalTimeDigits.value = cleaned;
     e.target.value = cleaned;
-    modalTimeSeconds.value = digitsToSeconds(cleaned);
+    const val = parseFloat(cleaned);
+    modalTimeSeconds.value = isNaN(val) ? 0 : val;
     modalTimeLowWarning.value = modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10;
 }
 
@@ -865,14 +866,6 @@ function resetTimer() {
     prsStore.resetTimer();
 }
 
-function digitsToSeconds(digits) {
-    if (!digits || digits.length === 0) return 0;
-    const padded = digits.padStart(3, '0');
-    const whole = padded.slice(0, -2);
-    const frac = padded.slice(-2);
-    return parseFloat(`${whole || '0'}.${frac}`);
-}
-
 function formatTime(seconds) {
     if (seconds == null || seconds === 0) return '00:00.00';
     const t = parseFloat(seconds);
@@ -883,17 +876,10 @@ function formatTime(seconds) {
 
 const formattedTime = computed(() => formatTime(prsStore.effectiveTime));
 
-function onDigitInput(e) {
-    const cleaned = e.target.value.replace(/\D/g, '');
-    prsStore.rawDigits = cleaned;
-    e.target.value = cleaned;
-    prsStore.rawTimeSeconds = digitsToSeconds(cleaned);
-}
-
 function onDigitKeydown(e) {
     const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
     if (allowed.includes(e.key)) return;
-    if (!/^\d$/.test(e.key)) e.preventDefault();
+    if (!/^[\d.]$/.test(e.key)) e.preventDefault();
 }
 
 function clearTimeInput() {
