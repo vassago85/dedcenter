@@ -264,5 +264,52 @@ export const useMatchStore = defineStore('match', {
                 }
             }
         },
+
+        async issueDisqualification(matchId, shooterId, reason, targetSetId = null) {
+            const { data } = await axios.post(`/api/matches/${matchId}/disqualifications`, {
+                shooter_id: shooterId,
+                target_set_id: targetSetId,
+                reason,
+            });
+
+            if (!targetSetId && this.currentMatch) {
+                for (const squad of this.currentMatch.squads) {
+                    const shooter = squad.shooters.find(s => s.id === shooterId);
+                    if (shooter) {
+                        shooter.status = 'dq';
+                        break;
+                    }
+                }
+            }
+
+            if (this.currentMatch) {
+                if (!this.currentMatch.disqualifications) {
+                    this.currentMatch.disqualifications = [];
+                }
+                this.currentMatch.disqualifications.push(data.disqualification);
+            }
+
+            return data;
+        },
+
+        async revokeDisqualification(matchId, dqId) {
+            const { data } = await axios.delete(`/api/matches/${matchId}/disqualifications/${dqId}`);
+
+            if (this.currentMatch?.disqualifications) {
+                const dq = this.currentMatch.disqualifications.find(d => d.id === dqId);
+                if (dq && dq.type === 'match') {
+                    for (const squad of this.currentMatch.squads) {
+                        const shooter = squad.shooters.find(s => s.id === dq.shooter_id);
+                        if (shooter) {
+                            shooter.status = 'active';
+                            break;
+                        }
+                    }
+                }
+                this.currentMatch.disqualifications = this.currentMatch.disqualifications.filter(d => d.id !== dqId);
+            }
+
+            return data;
+        },
     },
 });

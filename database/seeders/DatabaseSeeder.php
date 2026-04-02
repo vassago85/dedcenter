@@ -42,6 +42,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(SettingsSeeder::class);
+        $this->call(AchievementSeeder::class);
 
         $royalFlush = Organization::firstOrCreate(
             ['slug' => 'royal-flush'],

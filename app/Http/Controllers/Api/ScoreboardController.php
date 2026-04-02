@@ -154,6 +154,7 @@ class ScoreboardController extends Controller
                 'bib_number' => $shooter->bib_number,
                 'squad_name' => $shooter->squad_name,
                 'status' => $shooter->status ?? 'active',
+                'dq' => ($shooter->status ?? 'active') === 'dq',
                 'total_score' => round($totalScore, 2),
                 'total_hits' => $totalHits,
                 'total_misses' => $totalMisses,
@@ -273,17 +274,19 @@ class ScoreboardController extends Controller
         }
 
         $shooters = $query
-            ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
+            ->select('shooters.id as shooter_id', 'shooters.name', 'shooters.status', 'squads.name as squad')
             ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
             ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
             ->selectRaw('COALESCE(SUM(CASE WHEN scores.is_hit = 1 THEN COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier ELSE 0 END), 0) as agg_total')
-            ->groupBy('shooters.id', 'shooters.name', 'squads.name')
+            ->groupBy('shooters.id', 'shooters.name', 'shooters.status', 'squads.name')
             ->orderByDesc('agg_total')
             ->get();
 
-        $maxScore = (float) ($shooters->max('agg_total') ?: 1);
+        $active = $shooters->where('status', '!=', 'dq');
+        $dqd = $shooters->where('status', 'dq');
+        $maxScore = (float) ($active->max('agg_total') ?: 1);
 
-        $leaderboard = $shooters->values()->map(fn ($shooter, $index) => [
+        $leaderboard = $active->values()->map(fn ($shooter, $index) => [
             'rank' => $index + 1,
             'shooter_id' => (int) $shooter->shooter_id,
             'name' => $shooter->name,
@@ -294,11 +297,29 @@ class ScoreboardController extends Controller
             'misses' => (int) $shooter->agg_misses,
             'total_score' => round((float) $shooter->agg_total, 2),
             'relative_score' => round((float) $shooter->agg_total / $maxScore * 100, 2),
+            'dq' => false,
         ]);
+
+        $dqEntries = $dqd->values()->map(fn ($shooter) => [
+            'rank' => null,
+            'shooter_id' => (int) $shooter->shooter_id,
+            'name' => $shooter->name,
+            'squad' => $shooter->squad,
+            'division_id' => $divisionIds[(int) $shooter->shooter_id] ?? null,
+            'division' => $divisionNames[(int) $shooter->shooter_id] ?? null,
+            'hits' => (int) $shooter->agg_hits,
+            'misses' => (int) $shooter->agg_misses,
+            'total_score' => round((float) $shooter->agg_total, 2),
+            'relative_score' => 0,
+            'dq' => true,
+        ]);
+
+        $leaderboard = $leaderboard->concat($dqEntries)->values();
 
         $response = [
             'match' => $this->matchMeta($match),
             'leaderboard' => $leaderboard,
+            'disqualifications' => $this->matchDisqualifications($match),
         ];
 
         $user = $request->user();
@@ -618,7 +639,7 @@ class ScoreboardController extends Controller
         $query = \App\Models\Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->where('squads.match_id', $match->id)
-            ->where('shooters.status', 'active');
+            ->whereIn('shooters.status', ['active', 'dq']);
 
         if ($divisionFilter) {
             $query->where('shooters.match_division_id', $divisionFilter);
@@ -628,7 +649,7 @@ class ScoreboardController extends Controller
             $query->whereIn('shooters.id', $catShooterIds);
         }
 
-        $shooters = $query->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')->get();
+        $shooters = $query->select('shooters.id as shooter_id', 'shooters.name', 'shooters.status', 'squads.name as squad')->get();
 
         $allResults = \App\Models\PrsStageResult::where('match_id', $match->id)->get()->groupBy('shooter_id');
 
@@ -686,6 +707,7 @@ class ScoreboardController extends Controller
                 'shooter_id' => $sid,
                 'name' => $shooter->name,
                 'squad' => $shooter->squad,
+                'status' => $shooter->status,
                 'division_id' => $divisionIds[$sid] ?? null,
                 'division' => $divisionNames[$sid] ?? null,
                 'hits' => $totalHits,
@@ -698,7 +720,10 @@ class ScoreboardController extends Controller
             ];
         });
 
-        $sorted = $entries->sort(function ($a, $b) {
+        $activeEntries = $entries->where('status', '!=', 'dq');
+        $dqEntries = $entries->where('status', 'dq');
+
+        $sorted = $activeEntries->sort(function ($a, $b) {
             if ($a['hits'] !== $b['hits']) return $b['hits'] <=> $a['hits'];
             if ($a['tb_hits'] !== $b['tb_hits']) return $b['tb_hits'] <=> $a['tb_hits'];
 
@@ -724,14 +749,35 @@ class ScoreboardController extends Controller
             'tb_hits' => $entry['tb_hits'],
             'tb_time' => $entry['tb_time'] !== null ? round($entry['tb_time'], 2) : 0.0,
             'stages' => $entry['stages'],
+            'dq' => false,
+        ]);
+
+        $dqRows = $dqEntries->values()->map(fn ($entry) => [
+            'rank' => null,
+            'shooter_id' => $entry['shooter_id'],
+            'name' => $entry['name'],
+            'squad' => $entry['squad'],
+            'division_id' => $entry['division_id'],
+            'division' => $entry['division'],
+            'hits' => $entry['hits'],
+            'misses' => $entry['misses'],
+            'not_taken' => $entry['not_taken'],
+            'total_score' => $entry['hits'],
+            'total_time' => $entry['agg_time'],
+            'tb_hits' => $entry['tb_hits'],
+            'tb_time' => $entry['tb_time'] !== null ? round($entry['tb_time'], 2) : 0.0,
+            'stages' => $entry['stages'],
+            'dq' => true,
         ]);
 
         $leaderboard = $this->withPrsRelativePoints(collect($leaderboard));
+        $leaderboard = $leaderboard->concat($dqRows)->values();
 
         return response()->json([
             'match' => $this->matchMeta($match),
             'target_sets' => $this->prsTargetSetsPayload($targetSets),
             'leaderboard' => $leaderboard,
+            'disqualifications' => $this->matchDisqualifications($match),
         ]);
     }
 
@@ -882,5 +928,26 @@ class ScoreboardController extends Controller
 
             return $row;
         });
+    }
+
+    private function matchDisqualifications(ShootingMatch $match): array
+    {
+        return $match->disqualifications()
+            ->with(['shooter:id,name', 'targetSet:id,label,distance_meters,stage_number', 'issuedBy:id,name'])
+            ->get()
+            ->map(fn ($dq) => [
+                'id' => $dq->id,
+                'shooter_id' => $dq->shooter_id,
+                'shooter_name' => $dq->shooter?->name,
+                'target_set_id' => $dq->target_set_id,
+                'stage_label' => $dq->targetSet
+                    ? ($dq->targetSet->label ?: "Stage {$dq->targetSet->stage_number}")
+                    : null,
+                'type' => $dq->isMatchDq() ? 'match' : 'stage',
+                'reason' => $dq->reason,
+                'issued_by' => $dq->issuedBy?->name,
+                'created_at' => $dq->created_at?->toIso8601String(),
+            ])
+            ->toArray();
     }
 }

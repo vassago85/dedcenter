@@ -131,18 +131,22 @@
                                     v-for="(entry, idx) in standings"
                                     :key="'prs-' + entry.shooter_id"
                                     class="transition-colors hover:bg-surface-2"
-                                    :class="rankRowClass(entry.rank)"
+                                    :class="rankRowClass(entry.rank, entry)"
                                 >
                                     <td class="px-2 py-3 text-center">
+                                        <span v-if="entry.dq" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white">DQ</span>
                                         <span
-                                            v-if="entry.rank <= 3"
+                                            v-else-if="entry.rank <= 3"
                                             class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
                                             :class="medalClass(entry.rank)"
                                         >{{ entry.rank }}</span>
                                         <span v-else class="text-muted">{{ entry.rank }}</span>
                                     </td>
                                     <td class="px-2 py-3">
-                                        <p class="font-medium truncate max-w-[120px]">{{ entry.name }}</p>
+                                        <div class="flex items-center gap-1">
+                                            <p class="font-medium truncate max-w-[120px]" :class="{ 'line-through text-muted': entry.dq }">{{ entry.name }}</p>
+                                            <span v-if="entry.dq" class="rounded bg-red-600/30 px-1 py-0.5 text-[8px] font-bold text-red-400">DQ</span>
+                                        </div>
                                         <p class="text-[10px] text-muted">{{ entry.squad }}</p>
                                     </td>
                                     <td
@@ -298,23 +302,29 @@
                             <button
                                 @click="toggleExpand('prs-' + entry.shooter_id)"
                                 class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                                :class="{ 'opacity-60': entry.dq }"
                             >
+                                <span v-if="entry.dq" class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white">DQ</span>
                                 <span
-                                    v-if="entry.rank <= 3"
+                                    v-else-if="entry.rank <= 3"
                                     class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
                                     :class="medalClass(entry.rank)"
                                 >{{ entry.rank }}</span>
                                 <span v-else class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted">{{ entry.rank }}</span>
 
                                 <div class="min-w-0 flex-1">
-                                    <p class="truncate font-semibold">{{ entry.name }}</p>
+                                    <div class="flex items-center gap-1">
+                                        <p class="truncate font-semibold" :class="{ 'line-through text-muted': entry.dq }">{{ entry.name }}</p>
+                                        <span v-if="entry.dq" class="rounded bg-red-600/30 px-1 py-0.5 text-[8px] font-bold text-red-400">DQ</span>
+                                    </div>
                                     <p class="text-xs text-muted">{{ entry.squad }} &middot; {{ entry.hits ?? entry.total_score }}/{{ totalTargetCount }} hits</p>
                                 </div>
 
-                                <div class="text-right">
+                                <div v-if="!entry.dq" class="text-right">
                                     <span class="text-xl font-bold tabular-nums">{{ prsPointsDisplay(entry) }}</span>
                                     <p v-if="entry.tb_time > 0" class="text-[10px] text-amber-400 tabular-nums">TB {{ entry.tb_time.toFixed(1) }}s</p>
                                 </div>
+                                <span v-else class="text-xs font-bold text-red-400">Disqualified</span>
 
                                 <svg
                                     class="h-5 w-5 flex-shrink-0 text-muted transition-transform"
@@ -751,7 +761,8 @@ function medalClass(rank) {
     return '';
 }
 
-function rankRowClass(rank) {
+function rankRowClass(rank, entry = null) {
+    if (entry?.dq) return 'bg-red-900/10 opacity-60';
     if (rank === 1) return 'bg-amber-900/15';
     if (rank === 2) return 'bg-slate-600/10';
     if (rank === 3) return 'bg-orange-900/10';

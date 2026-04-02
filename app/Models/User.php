@@ -57,6 +57,11 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function achievements(): HasMany
+    {
+        return $this->hasMany(UserAchievement::class);
+    }
+
     public function ownedOrganizations(): BelongsToMany
     {
         return $this->organizations()->wherePivot('role', 'owner');

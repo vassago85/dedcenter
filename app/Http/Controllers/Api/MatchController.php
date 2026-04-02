@@ -32,7 +32,7 @@ class MatchController extends Controller
     {
         $eagerLoads = [
             'squads' => fn ($q) => $q->orderBy('sort_order'),
-            'squads.shooters' => fn ($q) => $q->active()->orderBy('sort_order'),
+            'squads.shooters' => fn ($q) => $q->orderBy('sort_order'),
             'squads.shooters.division',
             'squads.shooters.categories',
             'divisions' => fn ($q) => $q->orderBy('sort_order'),
@@ -55,6 +55,8 @@ class MatchController extends Controller
         if ($match->side_bet_enabled) {
             $eagerLoads[] = 'sideBetShooters';
         }
+
+        $eagerLoads['disqualifications'] = fn ($q) => $q->with('issuedBy:id,name');
 
         $match->load($eagerLoads);
 

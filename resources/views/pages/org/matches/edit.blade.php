@@ -57,6 +57,12 @@ new #[Layout('components.layouts.app')]
     public string $categoryName = '';
     public array $shooterCategories = [];
 
+    // DQ
+    public ?int $dqShooterId = null;
+    public ?int $dqTargetSetId = null;
+    public string $dqReason = '';
+    public bool $showDqModal = false;
+
     // ELR stage properties
     public string $elrStageLabel = '';
     public string $elrStageType = 'ladder';
@@ -565,11 +571,97 @@ new #[Layout('components.layouts.app')]
     public function toggleShooterStatus(int $id): void
     {
         $shooter = Shooter::findOrFail($id);
+        if ($shooter->isDq()) {
+            Flux::toast("{$shooter->name} is disqualified — revoke the DQ first.", variant: 'danger');
+            return;
+        }
         $shooter->update(['status' => $shooter->isActive() ? 'withdrawn' : 'active']);
         Flux::toast('Shooter ' . ($shooter->isActive() ? 'reactivated' : 'withdrawn') . '.', variant: 'success');
     }
 
     public function deleteShooter(int $id): void { Shooter::destroy($id); Flux::toast('Shooter removed permanently.', variant: 'success'); }
+
+    public function openDqModal(int $shooterId, ?int $targetSetId = null): void
+    {
+        $this->dqShooterId = $shooterId;
+        $this->dqTargetSetId = $targetSetId;
+        $this->dqReason = '';
+        $this->showDqModal = true;
+    }
+
+    public function issueDq(): void
+    {
+        $this->validate(['dqReason' => 'required|string|min:5|max:1000']);
+
+        $shooter = Shooter::findOrFail($this->dqShooterId);
+        $isMatchDq = $this->dqTargetSetId === null;
+
+        $existing = \App\Models\Disqualification::where('match_id', $this->match->id)
+            ->where('shooter_id', $shooter->id)
+            ->where('target_set_id', $this->dqTargetSetId)
+            ->exists();
+
+        if ($existing) {
+            Flux::toast('This DQ already exists.', variant: 'danger');
+            $this->showDqModal = false;
+            return;
+        }
+
+        \App\Models\Disqualification::create([
+            'match_id' => $this->match->id,
+            'shooter_id' => $shooter->id,
+            'target_set_id' => $this->dqTargetSetId,
+            'reason' => $this->dqReason,
+            'issued_by' => auth()->id(),
+        ]);
+
+        if ($isMatchDq) {
+            $shooter->update(['status' => 'dq']);
+        }
+
+        \App\Services\ScoreAuditService::log(
+            $this->match->id,
+            $shooter,
+            $isMatchDq ? 'match_dq' : 'stage_dq',
+            null,
+            ['target_set_id' => $this->dqTargetSetId, 'reason' => $this->dqReason],
+            $this->dqReason,
+        );
+
+        $this->showDqModal = false;
+        $type = $isMatchDq ? 'match' : 'stage';
+        Flux::toast("{$shooter->name} disqualified ({$type} DQ).", variant: 'danger');
+    }
+
+    public function revokeDq(int $dqId): void
+    {
+        $dq = \App\Models\Disqualification::where('match_id', $this->match->id)->findOrFail($dqId);
+        $shooter = $dq->shooter;
+        $wasMatchDq = $dq->isMatchDq();
+
+        \App\Services\ScoreAuditService::log(
+            $this->match->id,
+            $shooter,
+            'dq_revoked',
+            ['target_set_id' => $dq->target_set_id, 'reason' => $dq->reason],
+            null,
+            "DQ revoked by " . auth()->user()->name,
+        );
+
+        $dq->delete();
+
+        if ($wasMatchDq) {
+            $hasOther = \App\Models\Disqualification::where('match_id', $this->match->id)
+                ->where('shooter_id', $shooter->id)
+                ->whereNull('target_set_id')
+                ->exists();
+            if (! $hasOther) {
+                $shooter->update(['status' => 'active']);
+            }
+        }
+
+        Flux::toast("{$shooter->name}'s DQ has been revoked.", variant: 'success');
+    }
 
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
@@ -711,6 +803,13 @@ new #[Layout('components.layouts.app')]
             return;
         }
         $this->match->update(['status' => $targetStatus]);
+        if ($targetStatus === MatchStatus::Completed && $this->match->isPrs()) {
+            try {
+                \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+            }
+        }
         Flux::toast("Match status changed to {$targetStatus->label()}.", variant: 'success');
     }
 
@@ -740,6 +839,13 @@ new #[Layout('components.layouts.app')]
         $this->scores_published = ! $this->scores_published;
         if ($this->match) {
             $this->match->update(['scores_published' => $this->scores_published]);
+            if ($this->scores_published && $this->match->isPrs()) {
+                try {
+                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+                }
+            }
             Flux::toast($this->scores_published ? 'Scores are now live.' : 'Scores hidden from public.', variant: 'success');
         }
     }
@@ -750,6 +856,7 @@ new #[Layout('components.layouts.app')]
         if ($this->match) {
             $data['targetSets'] = $this->match->targetSets()->with('gongs')->orderBy('sort_order')->get();
             $data['squads'] = $this->match->squads()->with(['shooters.division', 'shooters.categories'])->orderBy('sort_order')->get();
+            $data['disqualifications'] = $this->match->disqualifications()->with(['shooter:id,name', 'targetSet:id,label,stage_number', 'issuedBy:id,name'])->latest()->get();
             $data['divisions'] = $this->match->divisions()->orderBy('sort_order')->get();
             $data['categories'] = $this->match->categories()->orderBy('sort_order')->get();
 
@@ -1447,6 +1554,121 @@ new #[Layout('components.layouts.app')]
                 </div>
             </div>
         </div>
+        @endif
+
+        <flux:separator />
+
+        {{-- Disqualifications --}}
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-semibold text-primary">Disqualifications</h2>
+                    @if($disqualifications->isNotEmpty())
+                        <span class="rounded-full bg-red-600/20 px-2 py-0.5 text-xs font-bold text-red-400">{{ $disqualifications->count() }}</span>
+                    @endif
+                </div>
+                @if($squads->flatMap(fn($s) => $s->shooters)->isNotEmpty())
+                    <div x-data="{ open: false, type: 'match', shooterId: null, stageId: null }" class="relative">
+                        <button @click="open = !open" class="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-600/30 transition-colors">
+                            + Issue DQ
+                        </button>
+                        <div x-show="open" x-transition @click.away="open = false" class="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-border bg-surface-2 p-4 shadow-xl space-y-3">
+                            <div>
+                                <label class="text-xs font-medium text-muted">DQ Type</label>
+                                <select x-model="type" class="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-primary">
+                                    <option value="match">Match DQ (full disqualification)</option>
+                                    <option value="stage">Stage DQ (single stage)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-medium text-muted">Shooter</label>
+                                <select x-model="shooterId" class="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-primary">
+                                    <option value="">Select shooter...</option>
+                                    @foreach($squads as $squad)
+                                        @foreach($squad->shooters->where('status', '!=', 'dq') as $sh)
+                                            <option value="{{ $sh->id }}">{{ $sh->name }} ({{ $squad->name }})</option>
+                                        @endforeach
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div x-show="type === 'stage'">
+                                <label class="text-xs font-medium text-muted">Stage</label>
+                                <select x-model="stageId" class="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-primary">
+                                    <option value="">Select stage...</option>
+                                    @foreach($targetSets as $ts)
+                                        <option value="{{ $ts->id }}">{{ $ts->label ?: 'Stage '.$ts->sort_order }} {{ $ts->distance_meters ? "— {$ts->distance_meters}m" : '' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <button
+                                @click="if(shooterId) { $wire.openDqModal(parseInt(shooterId), type === 'stage' && stageId ? parseInt(stageId) : null); open = false; }"
+                                class="w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors"
+                            >Continue — Enter Reason</button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            @if($disqualifications->isNotEmpty())
+                <div class="space-y-2">
+                    @foreach($disqualifications as $dq)
+                        <div class="flex items-center justify-between rounded-lg border border-red-600/30 bg-red-900/10 px-4 py-3">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="rounded bg-red-600/30 px-1.5 py-0.5 text-[10px] font-bold text-red-400">{{ $dq->isMatchDq() ? 'MATCH DQ' : 'STAGE DQ' }}</span>
+                                    <span class="text-sm font-semibold text-primary">{{ $dq->shooter?->name ?? 'Unknown' }}</span>
+                                    @if($dq->targetSet)
+                                        <span class="text-xs text-muted">{{ $dq->targetSet->label ?: "Stage {$dq->targetSet->stage_number}" }}</span>
+                                    @endif
+                                </div>
+                                <p class="mt-1 text-xs text-muted">{{ $dq->reason }}</p>
+                                <p class="mt-0.5 text-[10px] text-muted/60">By {{ $dq->issuedBy?->name ?? 'Unknown' }} &middot; {{ $dq->created_at->diffForHumans() }}</p>
+                            </div>
+                            <button wire:click="revokeDq({{ $dq->id }})" wire:confirm="Revoke this DQ for {{ $dq->shooter?->name }}?" class="ml-3 rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:border-green-500 hover:text-green-400 transition-colors">
+                                Revoke
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-sm text-muted">No disqualifications issued.</p>
+            @endif
+        </div>
+
+        {{-- DQ Reason Modal --}}
+        @if($showDqModal)
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" wire:click.self="$set('showDqModal', false)">
+                <div class="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl space-y-4">
+                    <h3 class="text-lg font-bold text-primary">
+                        @if($dqTargetSetId)
+                            Stage Disqualification
+                        @else
+                            Match Disqualification
+                        @endif
+                    </h3>
+                    @php
+                        $dqShooter = $dqShooterId ? \App\Models\Shooter::find($dqShooterId) : null;
+                        $dqStage = $dqTargetSetId ? \App\Models\TargetSet::find($dqTargetSetId) : null;
+                    @endphp
+                    <p class="text-sm text-muted">
+                        Disqualifying <span class="font-semibold text-primary">{{ $dqShooter?->name ?? 'Unknown' }}</span>
+                        @if($dqStage)
+                            from <span class="font-semibold text-primary">{{ $dqStage->label ?: "Stage {$dqStage->stage_number}" }}</span>
+                        @else
+                            from the <span class="font-semibold text-red-400">entire match</span>
+                        @endif
+                    </p>
+                    <div>
+                        <label class="text-xs font-medium text-muted">Reason (required)</label>
+                        <textarea wire:model="dqReason" rows="3" placeholder="Describe the offence..." class="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted/40 focus:border-red-500 focus:ring-red-500"></textarea>
+                        @error('dqReason') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex gap-3">
+                        <button wire:click="$set('showDqModal', false)" class="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted hover:bg-surface-2 transition-colors">Cancel</button>
+                        <button wire:click="issueDq" class="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors">Confirm DQ</button>
+                    </div>
+                </div>
+            </div>
         @endif
 
         <flux:separator />

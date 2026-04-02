@@ -37,25 +37,44 @@
                         v-for="shooter in shooters"
                         :key="shooter.id"
                         class="flex items-center justify-between rounded-xl border bg-surface px-4 py-3 transition-colors"
-                        :class="shooter.status === 'active' ? 'border-border' : 'border-border/50 opacity-50'"
+                        :class="{
+                            'border-border': shooter.status === 'active',
+                            'border-red-600/50 bg-red-900/10': shooter.status === 'dq',
+                            'border-border/50 opacity-50': shooter.status === 'withdrawn',
+                        }"
                     >
                         <div class="min-w-0 flex-1">
-                            <p class="truncate font-medium">{{ shooter.name }}</p>
+                            <div class="flex items-center gap-1.5">
+                                <p class="truncate font-medium" :class="{ 'line-through text-muted': shooter.status === 'dq' }">{{ shooter.name }}</p>
+                                <span v-if="shooter.status === 'dq'" class="rounded bg-red-600/30 px-1.5 py-0.5 text-[9px] font-bold text-red-400">DQ</span>
+                            </div>
                             <p v-if="shooter.bib_number" class="text-xs text-muted">Bib #{{ shooter.bib_number }}</p>
                         </div>
 
-                        <button
-                            @click="toggleShooter(shooter)"
-                            class="relative ml-3 h-7 w-12 flex-shrink-0 rounded-full transition-colors focus:outline-none"
-                            :class="shooter.status === 'active' ? 'bg-[#22c55e]' : 'bg-surface-2'"
-                            role="switch"
-                            :aria-checked="shooter.status === 'active'"
-                        >
-                            <span
-                                class="absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform"
-                                :class="shooter.status === 'active' ? 'translate-x-5' : 'translate-x-0'"
-                            ></span>
-                        </button>
+                        <div class="flex items-center gap-2 ml-3">
+                            <button
+                                v-if="shooter.status !== 'dq'"
+                                @click="openDqModal(shooter)"
+                                class="rounded-lg bg-red-600/20 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-600/30 transition-colors"
+                                title="Disqualify"
+                            >DQ</button>
+
+                            <button
+                                v-if="shooter.status !== 'dq'"
+                                @click="toggleShooter(shooter)"
+                                class="relative h-7 w-12 flex-shrink-0 rounded-full transition-colors focus:outline-none"
+                                :class="shooter.status === 'active' ? 'bg-[#22c55e]' : 'bg-surface-2'"
+                                role="switch"
+                                :aria-checked="shooter.status === 'active'"
+                            >
+                                <span
+                                    class="absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform"
+                                    :class="shooter.status === 'active' ? 'translate-x-5' : 'translate-x-0'"
+                                ></span>
+                            </button>
+
+                            <span v-if="shooter.status === 'dq'" class="text-xs font-bold text-red-400">Disqualified</span>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -75,11 +94,51 @@
                 </div>
             </div>
         </template>
+
+        <!-- DQ Modal -->
+        <div v-if="dqModal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="dqModal.show = false">
+            <div class="w-full max-w-sm mx-4 rounded-xl border border-border bg-surface p-5 shadow-2xl space-y-4">
+                <h3 class="text-lg font-bold text-primary">Disqualify Shooter</h3>
+                <p class="text-sm text-muted">
+                    DQ <span class="font-semibold text-primary">{{ dqModal.shooterName }}</span> from:
+                </p>
+                <div class="flex gap-2">
+                    <button
+                        @click="dqModal.type = 'match'"
+                        class="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors"
+                        :class="dqModal.type === 'match' ? 'border-red-500 bg-red-600/20 text-red-400' : 'border-border text-muted hover:bg-surface-2'"
+                    >Entire Match</button>
+                    <button
+                        @click="dqModal.type = 'stage'"
+                        class="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors"
+                        :class="dqModal.type === 'stage' ? 'border-red-500 bg-red-600/20 text-red-400' : 'border-border text-muted hover:bg-surface-2'"
+                    >This Stage Only</button>
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-muted">Reason (required)</label>
+                    <textarea
+                        v-model="dqModal.reason"
+                        rows="3"
+                        placeholder="Describe the offence..."
+                        class="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-[var(--color-text-muted)] focus:border-red-500"
+                    ></textarea>
+                    <p v-if="dqModal.error" class="mt-1 text-xs text-red-400">{{ dqModal.error }}</p>
+                </div>
+                <div class="flex gap-3">
+                    <button @click="dqModal.show = false" class="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted hover:bg-surface-2 transition-colors">Cancel</button>
+                    <button
+                        @click="confirmDq"
+                        :disabled="dqModal.submitting"
+                        class="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >{{ dqModal.submitting ? 'Processing...' : 'Confirm DQ' }}</button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -117,7 +176,48 @@ const distanceLabel = computed(() =>
 
 const shooters = computed(() => squad.value?.shooters ?? []);
 
+const dqModal = reactive({
+    show: false,
+    shooterId: null,
+    shooterName: '',
+    type: 'match',
+    reason: '',
+    error: '',
+    submitting: false,
+});
+
+function openDqModal(shooter) {
+    dqModal.shooterId = shooter.id;
+    dqModal.shooterName = shooter.name;
+    dqModal.type = 'match';
+    dqModal.reason = '';
+    dqModal.error = '';
+    dqModal.submitting = false;
+    dqModal.show = true;
+}
+
+async function confirmDq() {
+    if (!dqModal.reason || dqModal.reason.trim().length < 5) {
+        dqModal.error = 'Reason must be at least 5 characters.';
+        return;
+    }
+
+    dqModal.submitting = true;
+    dqModal.error = '';
+
+    try {
+        const stageId = dqModal.type === 'stage' ? targetSetId.value : null;
+        await matchStore.issueDisqualification(matchId.value, dqModal.shooterId, dqModal.reason.trim(), stageId);
+        dqModal.show = false;
+    } catch (e) {
+        dqModal.error = e.response?.data?.message || 'Failed to issue DQ.';
+    } finally {
+        dqModal.submitting = false;
+    }
+}
+
 async function toggleShooter(shooter) {
+    if (shooter.status === 'dq') return;
     const newStatus = shooter.status === 'active' ? 'withdrawn' : 'active';
     try {
         await matchStore.updateShooterStatus(matchId.value, shooter.id, newStatus);

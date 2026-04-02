@@ -138,7 +138,7 @@ class ScoreController extends Controller
             abort(404);
         }
 
-        $request->validate(['status' => 'required|in:active,withdrawn']);
+        $request->validate(['status' => 'required|in:active,withdrawn,dq']);
         $shooter->update(['status' => $request->status]);
 
         return response()->json(['status' => $shooter->status]);

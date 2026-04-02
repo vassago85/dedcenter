@@ -161,6 +161,14 @@ class ScoreManagementController extends Controller
 
         $match->update(['scores_published' => $validated['published']]);
 
+        if ($validated['published'] && $match->isPrs()) {
+            try {
+                \App\Services\AchievementService::evaluateMatchCompletion($match);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+            }
+        }
+
         return response()->json([
             'message' => $validated['published'] ? 'Scores are now published.' : 'Scores are now hidden from public.',
             'scores_published' => (bool) $match->scores_published,

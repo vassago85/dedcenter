@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\MemberMatchController;
 use App\Http\Controllers\Api\PrsScoreController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
+use App\Http\Controllers\Api\DisqualificationController;
 use App\Http\Controllers\Api\ScoreManagementController;
 use App\Http\Controllers\Api\SeasonController;
 use App\Http\Middleware\EnforceDeviceLock;
@@ -15,6 +16,20 @@ use Illuminate\Support\Facades\Route;
 Route::post('login', [AuthController::class, 'login']);
 
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
+
+Route::get('matches/{match}/badges', function (\App\Models\ShootingMatch $match) {
+    $badges = \App\Models\UserAchievement::where('match_id', $match->id)
+        ->with('achievement:id,slug,label,description,category')
+        ->get()
+        ->groupBy('user_id')
+        ->map(fn ($group) => $group->map(fn ($ua) => [
+            'slug' => $ua->achievement->slug,
+            'label' => $ua->achievement->label,
+            'category' => $ua->achievement->category,
+        ])->values());
+
+    return response()->json(['badges' => $badges]);
+});
 
 Route::get('matches/{match}/prs-backfill', function (App\Models\ShootingMatch $match) {
     if (! $match->isPrs()) {
@@ -61,6 +76,35 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('member/matches', [MemberMatchController::class, 'index']);
 
+    Route::get('member/achievements', function (\Illuminate\Http\Request $request) {
+        $badges = \App\Models\UserAchievement::where('user_id', $request->user()->id)
+            ->with(['achievement:id,slug,label,description,category,scope,is_repeatable', 'match:id,name,date'])
+            ->orderByDesc('awarded_at')
+            ->get()
+            ->map(fn ($ua) => [
+                'id' => $ua->id,
+                'slug' => $ua->achievement->slug,
+                'label' => $ua->achievement->label,
+                'description' => $ua->achievement->description,
+                'category' => $ua->achievement->category,
+                'match_name' => $ua->match?->name,
+                'match_date' => $ua->match?->date?->toDateString(),
+                'awarded_at' => $ua->awarded_at->toIso8601String(),
+                'metadata' => $ua->metadata,
+            ]);
+
+        $grouped = [
+            'repeatable' => $badges->where('category', 'repeatable')->values(),
+            'lifetime' => $badges->where('category', 'lifetime')->values(),
+            'match_special' => $badges->where('category', 'match_special')->values(),
+        ];
+
+        return response()->json([
+            'achievements' => $grouped,
+            'total_count' => $badges->count(),
+        ]);
+    });
+
     Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
     Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
     Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
@@ -76,6 +120,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
     Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
     Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
+
+    // Disqualifications (MD only)
+    Route::get('matches/{match}/disqualifications', [DisqualificationController::class, 'index']);
+    Route::post('matches/{match}/disqualifications', [DisqualificationController::class, 'store']);
+    Route::delete('matches/{match}/disqualifications/{disqualification}', [DisqualificationController::class, 'destroy']);
 
     Route::get('matches/{match}/scores/sync', [\App\Http\Controllers\Api\SyncController::class, 'scores']);
 

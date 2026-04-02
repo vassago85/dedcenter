@@ -86,6 +86,22 @@ new #[Layout('components.layouts.app')]
     </div>
     @endif
 
+    {{-- My Achievements --}}
+    @php
+        $achievementCount = \App\Models\UserAchievement::where('user_id', auth()->id())->count();
+    @endphp
+    @if($achievementCount > 0)
+    <div class="rounded-xl border border-border bg-surface">
+        <div class="border-b border-border px-6 py-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-primary">My Achievements</h2>
+            <span class="rounded-full bg-accent/20 px-2.5 py-0.5 text-xs font-bold text-accent">{{ $achievementCount }}</span>
+        </div>
+        <div class="p-6">
+            <x-shooter-badges :userId="auth()->id()" />
+        </div>
+    </div>
+    @endif
+
     {{-- My Registrations --}}
     <div class="rounded-xl border border-border bg-surface">
         <div class="border-b border-border px-6 py-4">

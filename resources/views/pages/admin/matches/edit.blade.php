@@ -570,6 +570,10 @@ new #[Layout('components.layouts.app')]
     public function toggleShooterStatus(int $id): void
     {
         $shooter = Shooter::findOrFail($id);
+        if ($shooter->isDq()) {
+            Flux::toast("{$shooter->name} is disqualified — revoke the DQ first.", variant: 'danger');
+            return;
+        }
         $shooter->update([
             'status' => $shooter->isActive() ? 'withdrawn' : 'active',
         ]);

@@ -38,9 +38,19 @@ class Shooter extends Model
         return $this->status === 'withdrawn';
     }
 
+    public function isDq(): bool
+    {
+        return $this->status === 'dq';
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    public function scopeCompeting($query)
+    {
+        return $query->whereIn('status', ['active', 'withdrawn']);
     }
 
     // ── Relationships ──
@@ -83,6 +93,21 @@ class Shooter extends Model
     public function sideBetMatches(): BelongsToMany
     {
         return $this->belongsToMany(ShootingMatch::class, 'side_bet_shooters', 'shooter_id', 'match_id');
+    }
+
+    public function disqualifications(): HasMany
+    {
+        return $this->hasMany(Disqualification::class);
+    }
+
+    public function matchDq(): HasMany
+    {
+        return $this->hasMany(Disqualification::class)->whereNull('target_set_id');
+    }
+
+    public function stageDqs(): HasMany
+    {
+        return $this->hasMany(Disqualification::class)->whereNotNull('target_set_id');
     }
 
     // ── Computed Attributes ──

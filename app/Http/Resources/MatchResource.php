@@ -123,6 +123,15 @@ class MatchResource extends JsonResource
                 'official_time_seconds' => $r->official_time_seconds ? (float) $r->official_time_seconds : null,
                 'completed_at' => $r->completed_at?->toIso8601String(),
             ])),
+            'disqualifications' => $this->whenLoaded('disqualifications', fn () => $this->disqualifications->map(fn ($dq) => [
+                'id' => $dq->id,
+                'shooter_id' => $dq->shooter_id,
+                'target_set_id' => $dq->target_set_id,
+                'type' => $dq->target_set_id ? 'stage' : 'match',
+                'reason' => $dq->reason,
+                'issued_by' => $dq->issuedBy?->name,
+                'created_at' => $dq->created_at?->toIso8601String(),
+            ])),
             'scoring_sponsor' => $this->resolveScoringsSponsor(),
             'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
                 'id' => $s->id,

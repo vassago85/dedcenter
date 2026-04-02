@@ -155,6 +155,15 @@ class PrsScoreController extends Controller
             'time' => $stageResult->raw_time_seconds,
         ]);
 
+        try {
+            $shooter = \App\Models\Shooter::find($stageResult->shooter_id);
+            if ($shooter) {
+                \App\Services\AchievementService::evaluateStageCompletion($match, $stage, $shooter, $stageResult);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+        }
+
         return response()->json([
             'message' => 'Stage score saved.',
             'stage_result' => [

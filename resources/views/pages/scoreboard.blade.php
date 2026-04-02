@@ -316,6 +316,19 @@ new #[Layout('components.layouts.scoreboard')]
             })->sortByDesc('total_score')->values();
         }
 
+        $matchBadges = collect();
+        if ($isPrs) {
+            $matchBadges = \App\Models\UserAchievement::where('match_id', $this->match->id)
+                ->with([
+                    'achievement',
+                    'user:id,name',
+                    'stage:id,label,stage_number,distance_meters,is_tiebreaker',
+                    'shooter:id,name',
+                ])
+                ->orderBy('awarded_at')
+                ->get();
+        }
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
@@ -327,6 +340,7 @@ new #[Layout('components.layouts.scoreboard')]
             'detailedData' => $detailedData,
             'targetSetDetails' => $targetSetDetails,
             'prsTargetSets' => $prsTargetSets,
+            'matchBadges' => $matchBadges,
         ];
     }
 }; ?>
@@ -561,6 +575,7 @@ new #[Layout('components.layouts.scoreboard')]
         <div class="mb-4 flex min-w-0 gap-1.5">
             <button type="button" @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Leaderboard</button>
             <button type="button" @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Score Sheet</button>
+            <button type="button" @click="prsTab = 'badges'" :class="prsTab === 'badges' ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Badges Awarded</button>
         </div>
         <div x-show="prsTab === 'leaderboard'">
     @endif
@@ -606,6 +621,9 @@ new #[Layout('components.layouts.scoreboard')]
                         <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $rank }}</td>
                         <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold text-primary sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
                             <span class="line-clamp-2 sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
+                            @if($shooter->user_id)
+                                <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :compact="true" />
+                            @endif
                         </td>
                         <td class="max-w-[4.5rem] truncate px-2 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl" title="{{ $shooter->squad?->name ?? '—' }}">{{ $shooter->squad?->name ?? '—' }}</td>
                         @if($divisions->isNotEmpty())
@@ -700,6 +718,200 @@ new #[Layout('components.layouts.scoreboard')]
                 </table>
             </div>
         </div>
+
+        {{-- ============ BADGES AWARDED TAB ============ --}}
+        <div x-show="prsTab === 'badges'" x-cloak class="min-w-0">
+            @php
+                $badgesByCategory = $matchBadges->groupBy(fn ($ua) => $ua->achievement?->category ?? 'unknown');
+                $matchSpecials = $badgesByCategory->get('match_special', collect());
+                $lifetimeBadges = $badgesByCategory->get('lifetime', collect());
+                $repeatableBadges = $badgesByCategory->get('repeatable', collect());
+                $hasBadges = $matchBadges->isNotEmpty();
+
+                $iconMap = [
+                    'deadcenter' => '🎯',
+                    'prs-full-send' => '💥',
+                    'no-drop-stage' => '🔥',
+                    'impact-chain' => '⛓️',
+                    'high-efficiency' => '🎖️',
+                    'first-blood' => '🩸',
+                    'iron-shooter' => '🛡️',
+                    'complete-shooter' => '✅',
+                    'podium-gold' => '🥇',
+                    'podium-silver' => '🥈',
+                    'podium-bronze' => '🥉',
+                    'first-full-send' => '⭐',
+                    'first-podium' => '⭐',
+                    'first-win' => '⭐',
+                    'first-impact-chain' => '⭐',
+                ];
+
+                $categoryColors = [
+                    'match_special' => 'amber',
+                    'lifetime' => 'purple',
+                    'repeatable' => 'sky',
+                ];
+
+                $categoryLabels = [
+                    'match_special' => 'Match Special',
+                    'lifetime' => 'Lifetime Milestone',
+                    'repeatable' => 'Repeatable',
+                ];
+            @endphp
+
+            @if(!$hasBadges)
+                <div class="flex flex-col items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-800/30 px-6 py-16 text-center">
+                    <span class="mb-3 text-4xl opacity-40">🏅</span>
+                    <h3 class="text-lg font-bold text-zinc-300">No badges awarded yet</h3>
+                    <p class="mt-2 max-w-sm text-sm text-zinc-500">Badges earned during this PRS match will appear here once scoring has been finalized and achievements have been evaluated.</p>
+                </div>
+            @else
+                <div class="space-y-6">
+
+                    {{-- ── MATCH SPECIALS (DeadCenter first) ── --}}
+                    @php $deadCenter = $matchSpecials->first(fn ($ua) => $ua->achievement?->slug === 'deadcenter'); @endphp
+                    @if($deadCenter)
+                        <section>
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Match Specials</span>
+                                <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Match Special</span>
+                            </div>
+                            <div class="overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-900/20 via-zinc-900 to-zinc-900">
+                                <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
+                                    <div class="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-3xl sm:h-20 sm:w-20 sm:text-4xl">🎯</div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <h3 class="text-xl font-black text-amber-400 sm:text-2xl">DeadCenter</h3>
+                                        </div>
+                                        <p class="mt-1 text-sm text-zinc-300">{{ $deadCenter->achievement->description }}</p>
+                                        <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                                            <span class="font-bold text-white">{{ $deadCenter->shooter?->name ?? $deadCenter->user?->name ?? 'Unknown' }}</span>
+                                            @if($deadCenter->stage)
+                                                <span class="text-zinc-500">&bull;</span>
+                                                <span class="text-zinc-400">{{ $deadCenter->stage->label ?? 'Stage ' . $deadCenter->stage->stage_number }}</span>
+                                            @endif
+                                            @if($deadCenter->metadata && isset($deadCenter->metadata['time']))
+                                                <span class="text-zinc-500">&bull;</span>
+                                                <span class="tabular-nums text-amber-400">{{ number_format($deadCenter->metadata['time'], 2) }}s</span>
+                                            @endif
+                                        </div>
+                                        <p class="mt-2 text-xs text-zinc-500">Awarded for the fastest clean run on the tiebreaker stage</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    @else
+                        <section>
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Match Specials</span>
+                                <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Match Special</span>
+                            </div>
+                            <div class="rounded-2xl border border-zinc-700/50 bg-zinc-800/20 px-5 py-8 text-center">
+                                <span class="mb-2 block text-2xl opacity-30">🎯</span>
+                                <p class="text-sm font-semibold text-zinc-400">No DeadCenter was awarded for this match.</p>
+                                <p class="mt-1 text-xs text-zinc-600">DeadCenter is awarded only for the fastest clean run on the compulsory timed tiebreaker stage. If no shooter qualifies, it is not awarded.</p>
+                            </div>
+                        </section>
+                    @endif
+
+                    {{-- ── LIFETIME MILESTONES ── --}}
+                    @if($lifetimeBadges->isNotEmpty())
+                        <section>
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Lifetime Milestones</span>
+                                <span class="rounded-full bg-purple-600/20 px-2 py-0.5 text-[10px] font-bold text-purple-400">Lifetime</span>
+                                <span class="text-[10px] text-zinc-600">&mdash; earned once per shooter, permanent</span>
+                            </div>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                @foreach($lifetimeBadges->sortBy(fn ($ua) => $ua->achievement?->sort_order ?? 99) as $ua)
+                                    @php $badge = $ua->achievement; @endphp
+                                    <div class="flex items-start gap-3 rounded-xl border border-purple-500/20 bg-purple-900/10 px-4 py-3">
+                                        <span class="mt-0.5 text-xl">{{ $iconMap[$badge->slug] ?? '⭐' }}</span>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="font-bold text-purple-300">{{ $badge->label }}</span>
+                                            </div>
+                                            <p class="mt-0.5 text-xs text-zinc-400">{{ $badge->description }}</p>
+                                            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                                <span class="font-semibold text-white">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</span>
+                                                @if($ua->stage)
+                                                    <span class="text-zinc-600">&bull;</span>
+                                                    <span class="text-zinc-500">{{ $ua->stage->label ?? 'Stage ' . $ua->stage->stage_number }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
+
+                    {{-- ── REPEATABLE BADGES ── --}}
+                    @if($repeatableBadges->isNotEmpty())
+                        <section>
+                            <div class="mb-3 flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Repeatable Badges</span>
+                                <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold text-sky-400">Repeatable</span>
+                                <span class="text-[10px] text-zinc-600">&mdash; earned each time conditions are met</span>
+                            </div>
+                            @php
+                                $badgeOrder = [
+                                    'prs-full-send', 'no-drop-stage', 'impact-chain', 'high-efficiency',
+                                    'first-blood', 'iron-shooter', 'complete-shooter',
+                                    'podium-gold', 'podium-silver', 'podium-bronze',
+                                ];
+                                $grouped = $repeatableBadges->groupBy(fn ($ua) => $ua->achievement?->slug ?? 'unknown');
+                                $orderedSlugs = collect($badgeOrder)->filter(fn ($s) => $grouped->has($s))->merge($grouped->keys()->diff($badgeOrder));
+                            @endphp
+                            <div class="space-y-3">
+                                @foreach($orderedSlugs as $slug)
+                                    @php
+                                        $entries = $grouped->get($slug, collect());
+                                        $badge = $entries->first()?->achievement;
+                                        if (!$badge) continue;
+                                    @endphp
+                                    <div class="rounded-xl border border-sky-500/15 bg-sky-900/5">
+                                        <div class="flex items-center gap-3 border-b border-sky-500/10 px-4 py-2.5">
+                                            <span class="text-lg">{{ $iconMap[$badge->slug] ?? '🏅' }}</span>
+                                            <div class="min-w-0 flex-1">
+                                                <span class="font-bold text-sky-300">{{ $badge->label }}</span>
+                                                <span class="ml-2 text-xs text-zinc-500">&mdash; {{ $badge->description }}</span>
+                                            </div>
+                                            <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-sky-400">{{ $entries->count() }}x</span>
+                                        </div>
+                                        <div class="divide-y divide-zinc-800">
+                                            @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
+                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
+                                                    <span class="font-medium text-white">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</span>
+                                                    @if($ua->stage)
+                                                        <span class="text-xs text-zinc-500">{{ $ua->stage->label ?? 'Stage ' . $ua->stage->stage_number }}</span>
+                                                    @elseif($badge->scope === 'match')
+                                                        <span class="text-xs text-zinc-600">Match Achievement</span>
+                                                    @endif
+                                                    @if($ua->metadata)
+                                                        @if(isset($ua->metadata['streak']))
+                                                            <span class="text-xs tabular-nums text-zinc-500">{{ $ua->metadata['streak'] }} consecutive hits</span>
+                                                        @endif
+                                                        @if(isset($ua->metadata['rank']))
+                                                            <span class="text-xs text-zinc-500">#{{ $ua->metadata['rank'] }} overall</span>
+                                                        @endif
+                                                        @if(isset($ua->metadata['time']))
+                                                            <span class="text-xs tabular-nums text-zinc-500">{{ number_format($ua->metadata['time'], 2) }}s</span>
+                                                        @endif
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
+
+                </div>
+            @endif
+        </div>
+
     </div>
     @endif
 

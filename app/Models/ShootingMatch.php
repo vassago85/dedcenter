@@ -145,6 +145,11 @@ class ShootingMatch extends Model
         return $this->hasMany(ScoreAuditLog::class, 'match_id');
     }
 
+    public function disqualifications(): HasMany
+    {
+        return $this->hasMany(Disqualification::class, 'match_id');
+    }
+
     public function matchBook(): HasOne
     {
         return $this->hasOne(MatchBook::class, 'match_id');
