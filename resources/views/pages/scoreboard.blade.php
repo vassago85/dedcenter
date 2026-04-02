@@ -230,6 +230,7 @@ new #[Layout('components.layouts.scoreboard')]
             $royalFlushEntries = collect($rfProfiles)->map(fn ($p, $i) => (object) [
                 'rank' => $i + 1,
                 'name' => $p['shooter']->name,
+                'user_id' => $p['shooter']->user_id,
                 'squad_name' => $p['shooter']->squad?->name ?? '—',
                 'flush_count' => $p['flush_count'],
                 'flush_distances' => $p['flush_distances'],
@@ -582,7 +583,13 @@ new #[Layout('components.layouts.scoreboard')]
                         @endphp
                         <tr class="{{ $rowClass }} transition-colors">
                             <td class="px-3 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry->rank }}</td>
-                            <td class="max-w-[10rem] truncate px-3 py-2 text-sm font-semibold text-primary sm:max-w-none sm:px-6 sm:py-4 sm:text-xl lg:text-2xl" title="{{ $entry->name }}">{{ $entry->name }}</td>
+                            <td class="max-w-[10rem] truncate px-3 py-2 text-sm font-semibold sm:max-w-none sm:px-6 sm:py-4 sm:text-xl lg:text-2xl" title="{{ $entry->name }}">
+                                @if($entry->user_id)
+                                    <a href="{{ route('shooter.profile', $entry->user_id) }}" class="text-primary hover:underline">{{ $entry->name }}</a>
+                                @else
+                                    <span class="text-primary">{{ $entry->name }}</span>
+                                @endif
+                            </td>
                             <td class="max-w-[6rem] truncate px-3 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl">{{ $entry->squad_name }}</td>
                             <td class="px-3 py-2 text-center text-lg font-black text-amber-400 sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry->flush_count }}</td>
                             <td class="px-3 py-2 sm:px-6 sm:py-4">
@@ -812,8 +819,12 @@ new #[Layout('components.layouts.scoreboard')]
                     @endphp
                     <tr class="{{ $rowClass }} transition-colors">
                         <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $rank }}</td>
-                        <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold text-primary sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
-                            <span class="line-clamp-2 sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
+                        <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
+                            @if($shooter->user_id)
+                                <a href="{{ route('shooter.profile', $shooter->user_id) }}" class="line-clamp-2 text-primary hover:underline sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</a>
+                            @else
+                                <span class="line-clamp-2 text-primary sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
+                            @endif
                             @if($shooter->user_id)
                                 <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :competitionType="$isPrs ? 'prs' : ($royalFlushEnabled ? 'royal_flush' : null)" :compact="true" />
                             @endif

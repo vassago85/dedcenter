@@ -33,7 +33,7 @@ class AchievementService
 
         // prs-full-send: all hits, zero not_taken
         if ($result->hits === $maxHits && $result->not_taken === 0 && $maxHits > 0) {
-            $badge = self::awardRepeatable('prs-full-send', $shooter, $match, $stage);
+            $badge = self::awardBadge('prs-full-send', $shooter, $match, $stage);
             if ($badge) {
                 $awarded[] = $badge;
                 $awarded = array_merge($awarded, self::checkLifetime('first-full-send', 'prs-full-send', $shooter, $match));
@@ -42,7 +42,7 @@ class AchievementService
 
         // no-drop-stage: max_hits - 1 hits, zero not_taken
         if ($result->hits === $maxHits - 1 && $result->not_taken === 0 && $maxHits > 1) {
-            $badge = self::awardRepeatable('no-drop-stage', $shooter, $match, $stage);
+            $badge = self::awardBadge('no-drop-stage', $shooter, $match, $stage);
             if ($badge) {
                 $awarded[] = $badge;
             }
@@ -51,17 +51,17 @@ class AchievementService
         // impact-chain: 5+ consecutive hits on a single stage
         $chainLength = self::longestConsecutiveHits($match->id, $stage->id, $shooter->id);
         if ($chainLength >= 5) {
-            $badge = self::awardRepeatable('impact-chain', $shooter, $match, $stage, ['streak' => $chainLength]);
+            $badge = self::awardBadge('impact-chain', $shooter, $match, $stage, ['streak' => $chainLength]);
             if ($badge) {
                 $awarded[] = $badge;
                 $awarded = array_merge($awarded, self::checkLifetime('first-impact-chain', 'impact-chain', $shooter, $match));
             }
         }
 
-        // high-efficiency: >= 90% hit rate on shots actually taken
+        // high-efficiency: >= 80% hit rate on shots actually taken
         $shotsTaken = $result->hits + $result->misses;
-        if ($shotsTaken > 0 && ($result->hits / $shotsTaken) >= 0.90) {
-            $badge = self::awardRepeatable('high-efficiency', $shooter, $match, $stage);
+        if ($shotsTaken > 0 && ($result->hits / $shotsTaken) >= 0.80) {
+            $badge = self::awardBadge('high-efficiency', $shooter, $match, $stage);
             if ($badge) {
                 $awarded[] = $badge;
             }
@@ -86,7 +86,7 @@ class AchievementService
             if (! $anyoneElseComplete) {
                 $existing = self::hasMatchBadge('first-blood', $shooter->user_id, $match->id);
                 if (! $existing) {
-                    $badge = self::awardRepeatable('first-blood', $shooter, $match);
+                    $badge = self::awardBadge('first-blood', $shooter, $match);
                     if ($badge) {
                         $awarded[] = $badge;
                     }
@@ -153,7 +153,7 @@ class AchievementService
                 }
             }
             if ($allAbove80) {
-                $badge = self::awardRepeatable('iron-shooter', $shooter, $match);
+                $badge = self::awardBadge('iron-shooter', $shooter, $match);
                 if ($badge) {
                     $awarded[] = $badge;
                 }
@@ -164,7 +164,7 @@ class AchievementService
             $totalHits = $results->sum('hits');
             $totalMaxHits = array_sum($maxHitsByStage);
             if ($totalNotTaken === 0 && $totalMaxHits > 0 && ($totalHits / $totalMaxHits) >= 0.75) {
-                $badge = self::awardRepeatable('complete-shooter', $shooter, $match);
+                $badge = self::awardBadge('complete-shooter', $shooter, $match);
                 if ($badge) {
                     $awarded[] = $badge;
                 }
@@ -190,7 +190,7 @@ class AchievementService
             }
 
             if (! self::hasMatchBadge($slug, $shooter->user_id, $match->id)) {
-                $badge = self::awardRepeatable($slug, $shooter, $match, null, ['rank' => $rank]);
+                $badge = self::awardBadge($slug, $shooter, $match, null, ['rank' => $rank]);
                 if ($badge) {
                     $awarded[] = $badge;
 
@@ -291,7 +291,7 @@ class AchievementService
                 if ($needed > 0 && $hitsAtTs >= $needed) {
                     $flushDistances[] = $ts->distance_meters;
 
-                    $badge = self::awardRepeatable('royal-flush', $shooter, $match, $ts, [
+                    $badge = self::awardBadge('royal-flush', $shooter, $match, $ts, [
                         'distance_meters' => $ts->distance_meters,
                         'target_set_label' => $ts->label,
                     ]);
@@ -301,7 +301,7 @@ class AchievementService
                     }
 
                     $distSlug = 'flush-' . (int) $ts->distance_meters;
-                    $distBadge = self::awardRepeatable($distSlug, $shooter, $match, $ts, [
+                    $distBadge = self::awardBadge($distSlug, $shooter, $match, $ts, [
                         'distance_meters' => $ts->distance_meters,
                     ]);
                     if ($distBadge) {
@@ -311,7 +311,7 @@ class AchievementService
             }
 
             if (count($flushDistances) >= 2) {
-                $badge = self::awardRepeatable('flush-collector', $shooter, $match, null, [
+                $badge = self::awardBadge('flush-collector', $shooter, $match, null, [
                     'flush_count' => count($flushDistances),
                     'distances' => $flushDistances,
                 ]);
@@ -323,7 +323,7 @@ class AchievementService
             if ($smallGongAtFurthest && $furthestTs) {
                 $shooterGongs = $hitGongsByShooter[$shooter->id] ?? [];
                 if (in_array($smallGongAtFurthest->id, $shooterGongs)) {
-                    $badge = self::awardRepeatable('small-gong-sniper', $shooter, $match, $furthestTs, [
+                    $badge = self::awardBadge('small-gong-sniper', $shooter, $match, $furthestTs, [
                         'distance_meters' => $furthestTs->distance_meters,
                         'gong_label' => $smallGongAtFurthest->label,
                         'multiplier' => (float) $smallGongAtFurthest->multiplier,
@@ -584,7 +584,7 @@ class AchievementService
         return [$ua];
     }
 
-    private static function awardRepeatable(
+    private static function awardBadge(
         string $slug,
         Shooter $shooter,
         ShootingMatch $match,
@@ -600,8 +600,14 @@ class AchievementService
             return null;
         }
 
-        // For repeatable stage badges, prevent duplicate for same shooter+match+stage
-        if ($stage && $achievement->is_repeatable) {
+        if (! $achievement->is_repeatable) {
+            $exists = UserAchievement::where('user_id', $shooter->user_id)
+                ->where('achievement_id', $achievement->id)
+                ->exists();
+            if ($exists) {
+                return null;
+            }
+        } elseif ($stage) {
             $exists = UserAchievement::where('user_id', $shooter->user_id)
                 ->where('achievement_id', $achievement->id)
                 ->where('match_id', $match->id)
@@ -610,10 +616,7 @@ class AchievementService
             if ($exists) {
                 return null;
             }
-        }
-
-        // For repeatable match badges, prevent duplicate for same shooter+match
-        if (! $stage && $achievement->is_repeatable) {
+        } else {
             $exists = UserAchievement::where('user_id', $shooter->user_id)
                 ->where('achievement_id', $achievement->id)
                 ->where('match_id', $match->id)

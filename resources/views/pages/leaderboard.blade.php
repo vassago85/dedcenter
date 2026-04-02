@@ -205,7 +205,20 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-4 py-3 font-bold {{ $rank === 0 ? 'text-amber-400' : ($rank === 1 ? 'text-secondary' : ($rank === 2 ? 'text-amber-700' : 'text-muted')) }}">
                                     {{ $rank + 1 }}
                                 </td>
-                                <td class="px-4 py-3 font-medium text-primary">{{ $entry['name'] }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2">
+                                        @if($entry['user_id'])
+                                            <a href="{{ route('shooter.profile', $entry['user_id']) }}" class="font-medium text-primary hover:underline">{{ $entry['name'] }}</a>
+                                        @else
+                                            <span class="font-medium text-primary">{{ $entry['name'] }}</span>
+                                        @endif
+                                    </div>
+                                    @if($entry['user_id'])
+                                        <div class="mt-0.5">
+                                            <x-badge-flair :userId="$entry['user_id']" :limit="4" />
+                                        </div>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-right font-bold text-primary">{{ number_format($entry['total_score'], 2) }}</td>
                                 <td class="px-4 py-3 text-right text-muted">
                                     {{ $entry['counted_matches'] }}{{ $bestOf ? '/' . $entry['match_count'] : '' }}

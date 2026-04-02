@@ -170,11 +170,18 @@ new #[Layout('components.layouts.app')]
                     <tbody class="divide-y divide-border">
                         @foreach($registrations as $reg)
                             <tr class="hover:bg-surface-2/30 transition-colors cursor-pointer" wire:key="reg-{{ $reg->id }}" wire:click="toggleDetails({{ $reg->id }})">
-                                <td class="px-6 py-3 text-primary">
-                                    {{ $reg->user->name }}
-                                    @if($reg->share_rifle_with)
-                                        <span class="ml-1 rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">Shares rifle</span>
-                                    @endif
+                                <td class="px-6 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <a href="{{ route('shooter.profile', $reg->user_id) }}" class="font-medium text-primary hover:underline" onclick="event.stopPropagation()">
+                                            {{ $reg->user->name }}
+                                        </a>
+                                        @if($reg->share_rifle_with)
+                                            <span class="rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">Shares rifle</span>
+                                        @endif
+                                    </div>
+                                    <div class="mt-1">
+                                        <x-badge-flair :userId="$reg->user_id" :limit="4" />
+                                    </div>
                                 </td>
                                 <td class="px-6 py-3 text-secondary">{{ $reg->match->name }}</td>
                                 <td class="px-6 py-3 font-mono text-xs text-muted">{{ $reg->payment_reference }}</td>

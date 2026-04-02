@@ -497,7 +497,8 @@ new #[Layout('components.layouts.scoreboard')]
                 return $b['shooter']->total_score <=> $a['shooter']->total_score;
             });
             $royalFlushEntries = collect($rfProfiles)->map(fn ($p, $i) => (object) [
-                'rank' => $i + 1, 'name' => $p['shooter']->name, 'squad_name' => $p['shooter']->squad?->name ?? '—',
+                'rank' => $i + 1, 'name' => $p['shooter']->name, 'user_id' => $p['shooter']->user_id,
+                'squad_name' => $p['shooter']->squad?->name ?? '—',
                 'flush_count' => $p['flush_count'], 'flush_distances' => $p['flush_distances'], 'total_score' => $p['shooter']->total_score,
             ]);
         }
@@ -635,7 +636,11 @@ new #[Layout('components.layouts.scoreboard')]
                         <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center text-sm text-muted font-medium">{{ $entry->rank }}</span>
                     @endif
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm font-semibold text-primary truncate">{{ $entry->name }}</p>
+                        @if($entry->user_id ?? null)
+                            <a href="{{ route('shooter.profile', $entry->user_id) }}" class="text-sm font-semibold text-primary truncate hover:underline">{{ $entry->name }}</a>
+                        @else
+                            <p class="text-sm font-semibold text-primary truncate">{{ $entry->name }}</p>
+                        @endif
                         <span class="text-[10px] text-muted">{{ $entry->squad_name }}</span>
                     </div>
                     <div class="flex items-center gap-2.5 flex-shrink-0">
@@ -696,7 +701,11 @@ new #[Layout('components.layouts.scoreboard')]
                 {{-- Name + Division --}}
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5">
-                        <p class="text-sm font-semibold truncate {{ $isDq ? 'text-muted line-through' : 'text-primary' }}">{{ $shooter->name }}</p>
+                        @if($shooter->user_id && !$isDq)
+                            <a href="{{ route('shooter.profile', $shooter->user_id) }}" class="text-sm font-semibold truncate text-primary hover:underline">{{ $shooter->name }}</a>
+                        @else
+                            <p class="text-sm font-semibold truncate {{ $isDq ? 'text-muted line-through' : 'text-primary' }}">{{ $shooter->name }}</p>
+                        @endif
                         @if($isDq)
                             <span class="rounded bg-red-600/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">DQ</span>
                         @endif

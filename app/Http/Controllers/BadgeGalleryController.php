@@ -7,34 +7,44 @@ use Illuminate\View\View;
 
 class BadgeGalleryController extends Controller
 {
+    /**
+     * Prestige tiers: featured > elite > milestone > earned
+     * Icons: Lucide name, custom name, or 'dist-XXX' for distance text rendering.
+     */
     public const BADGE_CONFIG = [
-        // PRS badges
-        'deadcenter'         => ['icon' => 'deadcenter',   'earnChip' => 'Awarded per match'],
-        'prs-full-send'      => ['icon' => 'rocket',       'earnChip' => 'Stackable'],
-        'no-drop-stage'      => ['icon' => 'flame',        'earnChip' => 'Stackable'],
-        'impact-chain'       => ['icon' => 'link-2',       'earnChip' => 'Stackable'],
-        'high-efficiency'    => ['icon' => 'gauge',        'earnChip' => 'Stackable'],
-        'first-blood'        => ['icon' => 'zap',          'earnChip' => 'Stackable'],
-        'iron-shooter'       => ['icon' => 'shield',       'earnChip' => 'Stackable'],
-        'complete-shooter'   => ['icon' => 'circle-check', 'earnChip' => 'Stackable'],
-        'podium-gold'        => ['icon' => 'trophy',       'earnChip' => 'Stackable'],
-        'podium-silver'      => ['icon' => 'medal',        'earnChip' => 'Stackable'],
-        'podium-bronze'      => ['icon' => 'award',        'earnChip' => 'Stackable'],
-        'first-full-send'    => ['icon' => 'flag',         'earnChip' => 'Earned once'],
-        'first-podium'       => ['icon' => 'podium',       'earnChip' => 'Earned once'],
-        'first-win'          => ['icon' => 'crown',        'earnChip' => 'Earned once'],
-        'first-impact-chain' => ['icon' => 'git-branch',   'earnChip' => 'Earned once'],
+        // ── PRS ──
+        'deadcenter'         => ['icon' => 'deadcenter',   'tier' => 'featured',  'earnChip' => 'Awarded per match'],
 
-        // Royal Flush badges
-        'royal-flush'        => ['icon' => 'crown',        'earnChip' => 'Stackable'],
-        'flush-400'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
-        'flush-500'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
-        'flush-600'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
-        'flush-700'          => ['icon' => 'target',       'earnChip' => 'Stackable'],
-        'flush-collector'    => ['icon' => 'layers',       'earnChip' => 'Stackable'],
-        'small-gong-sniper'  => ['icon' => 'target',       'earnChip' => 'Stackable'],
-        'winning-hand'       => ['icon' => 'spade',        'earnChip' => 'Awarded per match'],
-        'first-flush'        => ['icon' => 'sparkles',     'earnChip' => 'Earned once'],
+        'podium-gold'        => ['icon' => 'trophy',       'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'podium-silver'      => ['icon' => 'medal',        'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'podium-bronze'      => ['icon' => 'award',        'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'first-win'          => ['icon' => 'crown',        'tier' => 'elite',     'earnChip' => 'Earned once'],
+
+        'first-full-send'    => ['icon' => 'flag',         'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'first-podium'       => ['icon' => 'podium',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'first-impact-chain' => ['icon' => 'git-branch',   'tier' => 'milestone', 'earnChip' => 'Earned once'],
+
+        'prs-full-send'      => ['icon' => 'rocket',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'no-drop-stage'      => ['icon' => 'flame',        'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'impact-chain'       => ['icon' => 'link-2',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'high-efficiency'    => ['icon' => 'gauge',        'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'first-blood'        => ['icon' => 'zap',          'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'iron-shooter'       => ['icon' => 'shield',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'complete-shooter'   => ['icon' => 'circle-check', 'tier' => 'milestone', 'earnChip' => 'Earned once'],
+
+        // ── Royal Flush ──
+        'winning-hand'       => ['icon' => 'spade',        'tier' => 'featured',  'earnChip' => 'Awarded per match'],
+
+        'royal-flush'        => ['icon' => 'crown',        'tier' => 'elite',     'earnChip' => 'Earned once'],
+        'flush-collector'    => ['icon' => 'layers',       'tier' => 'elite',     'earnChip' => 'Earned once'],
+        'small-gong-sniper'  => ['icon' => 'target',       'tier' => 'elite',     'earnChip' => 'Stackable'],
+
+        'first-flush'        => ['icon' => 'sparkles',     'tier' => 'milestone', 'earnChip' => 'Earned once'],
+
+        'flush-400'          => ['icon' => 'dist-400',     'tier' => 'earned',    'earnChip' => 'Stackable'],
+        'flush-500'          => ['icon' => 'dist-500',     'tier' => 'earned',    'earnChip' => 'Stackable'],
+        'flush-600'          => ['icon' => 'dist-600',     'tier' => 'earned',    'earnChip' => 'Stackable'],
+        'flush-700'          => ['icon' => 'dist-700',     'tier' => 'earned',    'earnChip' => 'Stackable'],
     ];
 
     public const SECTION_ICONS = [

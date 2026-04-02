@@ -1,9 +1,11 @@
 @props([
-    'badge',
+    'achievement',
     'icon' => 'target',
     'tier' => 'earned',
     'family' => 'prs',
-    'earnChip' => null,
+    'count' => 1,
+    'lastAwarded' => null,
+    'matchName' => null,
 ])
 
 @php
@@ -24,6 +26,7 @@
             'overline' => 'text-sky-400/70',
             'title'    => 'text-white',
             'chip'     => 'border-sky-400/20 bg-sky-400/8 text-sky-300/80',
+            'count'    => 'text-sky-300',
         ],
         'elite' => [
             'card'     => 'border-sky-400/15 bg-zinc-950/90',
@@ -32,6 +35,7 @@
             'overline' => 'text-sky-400/60',
             'title'    => 'text-white/95',
             'chip'     => 'border-sky-400/15 bg-sky-400/6 text-sky-300/70',
+            'count'    => 'text-sky-300/80',
         ],
         'milestone' => [
             'card'     => 'border-white/10 bg-zinc-950/90',
@@ -40,6 +44,7 @@
             'overline' => 'text-sky-300/50',
             'title'    => 'text-white/90',
             'chip'     => 'border-white/10 bg-white/5 text-white/55',
+            'count'    => 'text-white/60',
         ],
         'earned' => [
             'card'     => 'border-white/8 bg-zinc-950/90',
@@ -48,6 +53,7 @@
             'overline' => 'text-white/35',
             'title'    => 'text-white/85',
             'chip'     => 'border-white/8 bg-white/4 text-white/50',
+            'count'    => 'text-white/50',
         ],
     ];
 
@@ -59,6 +65,7 @@
             'overline' => 'text-amber-400/70',
             'title'    => 'text-white',
             'chip'     => 'border-amber-400/20 bg-amber-400/8 text-amber-300/80',
+            'count'    => 'text-amber-300',
         ],
         'elite' => [
             'card'     => 'border-amber-400/15 bg-zinc-950/90',
@@ -67,6 +74,7 @@
             'overline' => 'text-amber-400/60',
             'title'    => 'text-white/95',
             'chip'     => 'border-amber-400/15 bg-amber-400/6 text-amber-300/70',
+            'count'    => 'text-amber-300/80',
         ],
         'milestone' => [
             'card'     => 'border-white/10 bg-zinc-950/90',
@@ -75,6 +83,7 @@
             'overline' => 'text-amber-400/50',
             'title'    => 'text-white/90',
             'chip'     => 'border-white/10 bg-white/5 text-white/55',
+            'count'    => 'text-white/60',
         ],
         'earned' => [
             'card'     => 'border-white/8 bg-zinc-950/90',
@@ -83,13 +92,13 @@
             'overline' => 'text-white/35',
             'title'    => 'text-white/85',
             'chip'     => 'border-white/8 bg-white/4 text-white/50',
+            'count'    => 'text-white/50',
         ],
     ];
 
     $styles = $isPrs ? $prs : $rf;
     $s = $styles[$tier] ?? $styles['earned'];
     $isFeatured = $tier === 'featured';
-    $isElite = $tier === 'elite';
     $titleSize = $isFeatured ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl';
 @endphp
 
@@ -99,41 +108,42 @@
     hover:-translate-y-1
     {{ $s['card'] }} {{ $s['hover'] }}">
 
-    {{-- Radial highlight overlay --}}
     <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.06),transparent_50%)]"></div>
     <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.025)_0%,transparent_40%,transparent_80%,rgba(255,255,255,0.015)_100%)]"></div>
 
     @if($s['accent'])
-        {{-- Top accent glow line --}}
         <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r {{ $s['accent'] }}"></div>
     @endif
 
     <div class="relative flex items-start gap-5 sm:gap-6">
         <x-badge-crest :icon="$icon" :tier="$tier" :family="$family" />
 
-        <div class="min-w-0 flex-1 space-y-2.5">
-            {{-- Overline --}}
+        <div class="min-w-0 flex-1 space-y-2">
             <span class="text-[11px] font-semibold uppercase tracking-[0.16em] {{ $s['overline'] }}">
                 {{ $tierLabels[$tier] ?? 'Badge' }}
             </span>
 
-            {{-- Title --}}
             <h3 class="font-semibold leading-tight {{ $titleSize }} {{ $s['title'] }}">
-                {{ $badge->label }}
+                {{ $achievement->label }}
+                @if($count > 1)
+                    <span class="ml-1.5 text-sm font-medium {{ $s['count'] }}">&times;{{ $count }}</span>
+                @endif
             </h3>
 
-            {{-- Description --}}
-            <p class="text-sm leading-6 text-zinc-400">
-                {{ $badge->description }}
-            </p>
+            <p class="text-sm leading-6 text-zinc-400">{{ $achievement->description }}</p>
 
-            @if($earnChip)
-                <div class="pt-1">
-                    <span class="inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-wide {{ $s['chip'] }}">
-                        {{ $earnChip }}
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+                @if($matchName)
+                    <span class="inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium {{ $s['chip'] }}">
+                        {{ $matchName }}
                     </span>
-                </div>
-            @endif
+                @endif
+                @if($lastAwarded)
+                    <span class="text-[11px] text-zinc-500">
+                        {{ $lastAwarded->format('d M Y') }}
+                    </span>
+                @endif
+            </div>
         </div>
     </div>
 </div>

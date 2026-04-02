@@ -1,10 +1,18 @@
-{{-- Inline Lucide icons for the badge system (ISC license, lucide-static v0.460.0) --}}
+{{-- Inline Lucide icons + custom icons for the badge system (ISC license, lucide-static v0.460.0) --}}
 @props(['name', 'class' => 'h-6 w-6'])
 
 @php
-$svgClass = $class;
+    $svgClass = $class;
+    $isDist = str_starts_with($name, 'dist-');
 @endphp
 
+@if($isDist)
+    {{-- Distance text icon: renders "400m", "500m" etc. as styled text --}}
+    @php $meters = substr($name, 5); @endphp
+    <span {{ $attributes->merge(['class' => $svgClass . ' inline-flex items-center justify-center font-black leading-none']) }} aria-hidden="true">
+        <span class="text-[0.55em] tracking-tight">{{ $meters }}<span class="text-[0.7em] font-bold">m</span></span>
+    </span>
+@else
 <svg {{ $attributes->merge(['class' => $svgClass]) }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 @switch($name)
     @case('target')
@@ -76,3 +84,4 @@ $svgClass = $class;
         <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
 @endswitch
 </svg>
+@endif
