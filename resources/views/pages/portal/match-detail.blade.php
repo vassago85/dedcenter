@@ -33,6 +33,7 @@ new #[Layout('components.layouts.portal')]
     public string $share_rifle_with = '';
     public string $contact_number = '';
     public string $sa_id_number = '';
+    public array $customFieldValues = [];
 
     public function mount(Organization $organization, ShootingMatch $match): void
     {
@@ -43,12 +44,29 @@ new #[Layout('components.layouts.portal')]
             $this->registration = MatchRegistration::where('match_id', $match->id)
                 ->where('user_id', auth()->id())
                 ->first();
+
+            if ($this->registration) {
+                foreach ($this->registration->customValues as $cv) {
+                    $this->customFieldValues[$cv->match_custom_field_id] = $cv->value;
+                }
+            }
         }
     }
 
     public function getTitle(): string
     {
         return $this->match->name . ' — ' . $this->organization->name;
+    }
+
+    public function loadProfile($profileId): void
+    {
+        if (! $profileId || ! auth()->check()) return;
+        $profile = auth()->user()->equipmentProfiles()->find($profileId);
+        if (! $profile) return;
+
+        foreach (\App\Models\UserEquipmentProfile::EQUIPMENT_FIELDS as $field) {
+            $this->{$field} = $profile->{$field} ?? '';
+        }
     }
 
     public function preRegister(): void
@@ -128,11 +146,35 @@ new #[Layout('components.layouts.portal')]
             ]);
         }
 
+        $this->saveCustomFieldValues();
+
         if ($this->match->isFree()) {
             $this->createShooter();
             Flux::toast('Registered! You are confirmed.', variant: 'success');
         } else {
             Flux::toast('Registered! Please make your EFT payment and upload proof.', variant: 'success');
+        }
+    }
+
+    private function saveCustomFieldValues(): void
+    {
+        if (! $this->registration) return;
+
+        foreach ($this->match->customFields()->orderBy('sort_order')->get() as $cf) {
+            if ($cf->is_required && empty($this->customFieldValues[$cf->id] ?? null) && $cf->type !== 'checkbox') {
+                $this->addError("customFieldValues.{$cf->id}", "{$cf->label} is required.");
+                return;
+            }
+        }
+
+        foreach ($this->customFieldValues as $fieldId => $value) {
+            \App\Models\MatchRegistrationCustomValue::updateOrCreate(
+                [
+                    'match_registration_id' => $this->registration->id,
+                    'match_custom_field_id' => $fieldId,
+                ],
+                ['value' => $value ?? '']
+            );
         }
     }
 
@@ -170,7 +212,7 @@ new #[Layout('components.layouts.portal')]
 
     public function with(): array
     {
-        $this->match->loadMissing('staff');
+        $this->match->loadMissing(['staff', 'customFields']);
 
         return [
             'targetSets' => $this->match->targetSets()->with('gongs')->orderBy('sort_order')->get(),

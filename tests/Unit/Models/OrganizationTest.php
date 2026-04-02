@@ -9,7 +9,7 @@ it('generates a unique slug on creation', function () {
     $org = Organization::create([
         'name' => 'Test League',
         'type' => 'league',
-        'status' => 'approved',
+        'status' => 'active',
         'created_by' => $user->id,
     ]);
 
@@ -18,7 +18,7 @@ it('generates a unique slug on creation', function () {
     $org2 = Organization::create([
         'name' => 'Test League',
         'type' => 'league',
-        'status' => 'approved',
+        'status' => 'active',
         'created_by' => $user->id,
     ]);
 
@@ -37,14 +37,15 @@ it('identifies type correctly', function () {
     expect($challenge->isChallenge())->toBeTrue();
 });
 
-it('detects approved status', function () {
-    $approved = Organization::factory()->create(['status' => 'approved']);
+it('detects active and inactive status', function () {
     $active = Organization::factory()->create(['status' => 'active']);
+    $inactive = Organization::factory()->create(['status' => 'inactive']);
     $pending = Organization::factory()->pending()->create();
 
-    expect($approved->isApproved())->toBeTrue();
-    expect($active->isApproved())->toBeTrue();
-    expect($pending->isApproved())->toBeFalse();
+    expect($active->isActive())->toBeTrue();
+    expect($inactive->isActive())->toBeFalse();
+    expect($inactive->isInactive())->toBeTrue();
+    expect($pending->isActive())->toBeFalse();
     expect($pending->isPending())->toBeTrue();
 });
 

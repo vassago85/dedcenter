@@ -90,9 +90,14 @@ class Organization extends Model
 
     // ── Scopes ──
 
-    public function scopeApproved($query)
+    public function scopeActive($query)
     {
-        return $query->whereIn('status', ['approved', 'active']);
+        return $query->where('status', 'active');
+    }
+
+    public function scopeInactive($query)
+    {
+        return $query->where('status', 'inactive');
     }
 
     public function scopeOfType($query, string $type)
@@ -132,9 +137,14 @@ class Organization extends Model
         return $this->type === 'challenge';
     }
 
-    public function isApproved(): bool
+    public function isActive(): bool
     {
-        return in_array($this->status, ['approved', 'active']);
+        return $this->status === 'active';
+    }
+
+    public function isInactive(): bool
+    {
+        return $this->status === 'inactive';
     }
 
     public function isPending(): bool
@@ -144,7 +154,7 @@ class Organization extends Model
 
     public function hasPortal(): bool
     {
-        return $this->portal_enabled && $this->isApproved();
+        return $this->portal_enabled && $this->isActive();
     }
 
     public function isOwnedBy(User $user): bool

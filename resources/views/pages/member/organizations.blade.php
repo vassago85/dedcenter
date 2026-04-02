@@ -13,7 +13,7 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
-        $organizations = Organization::approved()
+        $organizations = Organization::active()
             ->withCount(['matches', 'children', 'admins'])
             ->when($this->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->when($this->type, fn ($q, $t) => $q->where('type', $t))

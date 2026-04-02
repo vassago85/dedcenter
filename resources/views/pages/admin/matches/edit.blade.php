@@ -30,6 +30,16 @@ new #[Layout('components.layouts.app')]
     public bool $royal_flush_enabled = false;
     public array $sideBetShooterIds = [];
     public bool $scores_published = true;
+
+    // Custom Registration Fields
+    public array $customFields = [];
+    public string $cfLabel = '';
+    public string $cfType = 'text';
+    public string $cfOptions = '';
+    public bool $cfRequired = false;
+    public bool $cfShowScoreboard = false;
+    public bool $cfShowResults = false;
+    public ?int $editingCustomFieldId = null;
     public int $concurrent_relays = 2;
     public ?int $season_id = null;
 
@@ -85,6 +95,7 @@ new #[Layout('components.layouts.app')]
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->season_id = $match->season_id;
+            $this->loadCustomFields();
         }
     }
 
@@ -145,6 +156,91 @@ new #[Layout('components.layouts.app')]
 
         $this->match->sideBetShooters()->sync($this->sideBetShooterIds);
         Flux::toast('Side bet participants saved.', variant: 'success');
+    }
+
+    // ── Custom Registration Fields ──
+
+    private function loadCustomFields(): void
+    {
+        if (! $this->match) return;
+        $this->customFields = $this->match->customFields()->orderBy('sort_order')->get()->toArray();
+    }
+
+    public function saveCustomField(): void
+    {
+        if (! $this->match) return;
+
+        $this->validate([
+            'cfLabel' => 'required|string|max:255',
+            'cfType' => 'required|in:text,number,select,checkbox',
+            'cfOptions' => $this->cfType === 'select' ? 'required|string' : 'nullable|string',
+        ]);
+
+        $options = null;
+        if ($this->cfType === 'select' && $this->cfOptions) {
+            $options = array_map('trim', explode(',', $this->cfOptions));
+            $options = array_filter($options, fn ($o) => $o !== '');
+            $options = array_values($options);
+        }
+
+        $data = [
+            'label' => $this->cfLabel,
+            'type' => $this->cfType,
+            'options' => $options,
+            'is_required' => $this->cfRequired,
+            'show_on_scoreboard' => $this->cfShowScoreboard,
+            'show_on_results' => $this->cfShowResults,
+            'sort_order' => $this->editingCustomFieldId
+                ? \App\Models\MatchCustomField::find($this->editingCustomFieldId)?->sort_order ?? 0
+                : ($this->match->customFields()->max('sort_order') ?? 0) + 1,
+        ];
+
+        if ($this->editingCustomFieldId) {
+            $field = $this->match->customFields()->findOrFail($this->editingCustomFieldId);
+            $field->update($data);
+            Flux::toast('Custom field updated.', variant: 'success');
+        } else {
+            $this->match->customFields()->create($data);
+            Flux::toast('Custom field added.', variant: 'success');
+        }
+
+        $this->resetCustomFieldForm();
+        $this->loadCustomFields();
+    }
+
+    public function editCustomField(int $id): void
+    {
+        $field = $this->match->customFields()->findOrFail($id);
+        $this->editingCustomFieldId = $field->id;
+        $this->cfLabel = $field->label;
+        $this->cfType = $field->type;
+        $this->cfOptions = is_array($field->options) ? implode(', ', $field->options) : '';
+        $this->cfRequired = $field->is_required;
+        $this->cfShowScoreboard = $field->show_on_scoreboard;
+        $this->cfShowResults = $field->show_on_results;
+    }
+
+    public function deleteCustomField(int $id): void
+    {
+        $this->match->customFields()->findOrFail($id)->delete();
+        $this->loadCustomFields();
+        Flux::toast('Custom field removed.', variant: 'success');
+    }
+
+    public function cancelCustomFieldEdit(): void
+    {
+        $this->resetCustomFieldForm();
+    }
+
+    private function resetCustomFieldForm(): void
+    {
+        $this->editingCustomFieldId = null;
+        $this->cfLabel = '';
+        $this->cfType = 'text';
+        $this->cfOptions = '';
+        $this->cfRequired = false;
+        $this->cfShowScoreboard = false;
+        $this->cfShowResults = false;
     }
 
     // ── Target Sets ──
@@ -1505,6 +1601,103 @@ new #[Layout('components.layouts.app')]
                 <div class="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
                     <p class="text-2xl font-bold text-primary">{{ $match->registrations()->count() }}</p>
                     <p class="text-xs text-muted">Registrations</p>
+                </div>
+            </div>
+        </div>
+
+        {{-- Custom Registration Fields --}}
+        <flux:separator />
+
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-lg font-semibold text-primary">Custom Registration Fields</h2>
+                <p class="mt-1 text-xs text-muted">Add extra fields to the registration form. Shooters fill these in when signing up.</p>
+            </div>
+
+            @if(count($customFields) > 0)
+                <div class="space-y-2">
+                    @foreach($customFields as $cf)
+                        <div class="flex items-center justify-between rounded-lg border border-border bg-surface-2/30 px-4 py-3">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-medium text-primary">{{ $cf['label'] }}</span>
+                                    <span class="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-muted uppercase">{{ $cf['type'] }}</span>
+                                    @if($cf['is_required'])
+                                        <span class="rounded bg-red-900/30 px-1.5 py-0.5 text-[10px] font-medium text-red-400">Required</span>
+                                    @endif
+                                    @if($cf['show_on_scoreboard'])
+                                        <span class="rounded bg-blue-900/30 px-1.5 py-0.5 text-[10px] font-medium text-blue-400">Scoreboard</span>
+                                    @endif
+                                    @if($cf['show_on_results'])
+                                        <span class="rounded bg-green-900/30 px-1.5 py-0.5 text-[10px] font-medium text-green-400">Results</span>
+                                    @endif
+                                </div>
+                                @if($cf['type'] === 'select' && !empty($cf['options']))
+                                    <p class="mt-0.5 text-xs text-muted">Options: {{ implode(', ', $cf['options']) }}</p>
+                                @endif
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <flux:button wire:click="editCustomField({{ $cf['id'] }})" variant="ghost" size="sm">Edit</flux:button>
+                                <flux:button wire:click="deleteCustomField({{ $cf['id'] }})" variant="ghost" size="sm" class="!text-red-400 hover:!text-red-300"
+                                             wire:confirm="Remove this field? Existing responses will be deleted.">Remove</flux:button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            <div class="rounded-lg border border-dashed border-border bg-surface-2/20 p-4 space-y-3">
+                <h3 class="text-sm font-semibold text-secondary">{{ $editingCustomFieldId ? 'Edit Field' : 'Add Field' }}</h3>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-xs font-medium text-muted mb-1">Label *</label>
+                        <input type="text" wire:model="cfLabel" placeholder="e.g. Division, T-shirt Size"
+                               class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                        @error('cfLabel') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-muted mb-1">Type</label>
+                        <select wire:model.live="cfType"
+                                class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                            <option value="text">Text</option>
+                            <option value="number">Number</option>
+                            <option value="select">Dropdown (Select)</option>
+                            <option value="checkbox">Checkbox</option>
+                        </select>
+                    </div>
+                </div>
+
+                @if($cfType === 'select')
+                    <div>
+                        <label class="block text-xs font-medium text-muted mb-1">Options (comma-separated) *</label>
+                        <input type="text" wire:model="cfOptions" placeholder="e.g. Open, Factory, Custom"
+                               class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                        @error('cfOptions') <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
+                <div class="flex flex-wrap gap-x-6 gap-y-2">
+                    <label class="flex items-center gap-2 text-xs text-secondary">
+                        <input type="checkbox" wire:model="cfRequired" class="rounded border-border bg-surface-2 text-accent focus:ring-accent h-3.5 w-3.5">
+                        Mandatory
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-secondary">
+                        <input type="checkbox" wire:model="cfShowScoreboard" class="rounded border-border bg-surface-2 text-blue-500 focus:ring-blue-500 h-3.5 w-3.5">
+                        Show on scoreboard
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-secondary">
+                        <input type="checkbox" wire:model="cfShowResults" class="rounded border-border bg-surface-2 text-green-500 focus:ring-green-500 h-3.5 w-3.5">
+                        Show on results
+                    </label>
+                </div>
+
+                <div class="flex items-center gap-2 pt-1">
+                    <flux:button wire:click="saveCustomField" variant="primary" size="sm" class="!bg-accent hover:!bg-accent-hover">
+                        {{ $editingCustomFieldId ? 'Update Field' : 'Add Field' }}
+                    </flux:button>
+                    @if($editingCustomFieldId)
+                        <flux:button wire:click="cancelCustomFieldEdit" variant="ghost" size="sm">Cancel</flux:button>
+                    @endif
                 </div>
             </div>
         </div>

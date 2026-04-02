@@ -73,9 +73,7 @@
                 <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">From creating a match to updating season standings &mdash; DeadCenter handles the entire workflow in ten steps.</p>
             </div>
 
-            <div class="relative">
-                <div class="hidden lg:block absolute top-10 left-[calc(5%+28px)] right-[calc(5%+28px)] h-0.5" style="background: linear-gradient(to right, var(--lp-red), rgba(225,6,0,0.3), var(--lp-red));"></div>
-
+            <div>
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
                     @foreach([
                         ['icon' => 'M12 4.5v15m7.5-7.5h-15', 'title' => 'Create Match'],

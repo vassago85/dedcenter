@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MatchRegistration extends Model
 {
@@ -34,6 +35,7 @@ class MatchRegistration extends Model
         'contact_number',
         'is_free_entry',
         'pre_registered_at',
+        'equipment_profile_id',
     ];
 
     protected function casts(): array
@@ -42,6 +44,8 @@ class MatchRegistration extends Model
             'amount' => 'decimal:2',
             'is_free_entry' => 'boolean',
             'pre_registered_at' => 'datetime',
+            'sa_id_number' => 'encrypted',
+            'contact_number' => 'encrypted',
         ];
     }
 
@@ -55,6 +59,16 @@ class MatchRegistration extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function equipmentProfile(): BelongsTo
+    {
+        return $this->belongsTo(UserEquipmentProfile::class, 'equipment_profile_id');
+    }
+
+    public function customValues(): HasMany
+    {
+        return $this->hasMany(MatchRegistrationCustomValue::class);
     }
 
     // ── Helpers ──

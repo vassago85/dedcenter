@@ -72,9 +72,9 @@ html.dark {
     color: var(--color-muted) !important;
 }
 
-/* ── Labels ── */
-:where([data-flux-label]) {
-    color: var(--color-secondary) !important;
+/* ── Labels (app is html.dark; avoid pale zinc on white if modal ever renders light) ── */
+html.dark :where([data-flux-label]) {
+    color: #d1dcf0 !important;
 }
 
 /* ── Inputs & textareas ── */
@@ -87,7 +87,10 @@ html.dark {
 }
 :where([data-flux-input]) input::placeholder,
 :where([data-flux-input]) textarea::placeholder {
-    color: var(--color-muted) !important;
+    color: #a8b9d4 !important;
+}
+html.dark :where([data-flux-input]) input[type='datetime-local'] {
+    color-scheme: dark;
 }
 :where([data-flux-input]) input:focus,
 :where([data-flux-input]) textarea:focus {
@@ -156,6 +159,15 @@ html.dark {
    Flux does not emit `data-variant` on the DOM; variants are class-only. Do not force one text color
    on all buttons — that made primary actions white-on-white when Flux used white `--color-accent`. */
 
+/* Ghost / outline / subtle / filled: Flux uses `text-zinc-800` + `dark:text-white`; when `dark:` does not
+   match our `html.dark` tree the label is nearly black on navy. Keep primary / danger / explicit !text-* alone. */
+html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([class*='bg-red-']):not([class*='!text-']) {
+    color: var(--color-secondary) !important;
+}
+html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([class*='bg-red-']):not([class*='!text-']):is(:hover, :focus-visible) {
+    color: #ffffff !important;
+}
+
 /* ── Separator ── */
 :where([data-flux-separator]) {
     border-color: var(--color-border) !important;
@@ -168,8 +180,19 @@ html.dark {
     border-color: var(--color-border) !important;
 }
 
-/* ── Modal / dialog ── */
-:where([data-flux-modal]),
+/* ── Modal / dialog ──
+   `data-flux-modal` sits on <ui-modal>; Flux uses bg-white + dark:bg-zinc-800 on <dialog>. When `dark:`
+   utilities miss, the panel stays white while labels use light-theme tints — unreadable. Pin the panel. */
+html.dark ui-modal[data-flux-modal] > dialog:not([data-flux-flyout]) {
+    background: var(--color-sidebar) !important;
+    color: var(--color-secondary) !important;
+    border-color: var(--color-border) !important;
+    --tw-ring-color: var(--color-border) !important;
+}
+html.dark ui-modal[data-flux-modal] [data-flux-modal-content] {
+    background: var(--color-sidebar) !important;
+    color: var(--color-secondary) !important;
+}
 :where([data-flux-dialog-panel]) {
     color: var(--color-secondary) !important;
     background: var(--color-sidebar) !important;
@@ -192,7 +215,7 @@ html.dark {
 
 /* ── Table ── */
 :where([data-flux-table]) th {
-    color: var(--color-muted) !important;
+    color: var(--color-secondary) !important;
     border-color: var(--color-border) !important;
 }
 :where([data-flux-table]) td {
@@ -219,8 +242,8 @@ html.dark {
 }
 
 /* ── Description / text ── */
-:where([data-flux-description]) {
-    color: var(--color-muted) !important;
+html.dark :where([data-flux-description]) {
+    color: #9eb0d0 !important;
 }
 :where([data-flux-error]) {
     color: var(--color-accent) !important;

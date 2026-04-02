@@ -219,7 +219,67 @@ class ScoreboardController extends Controller
             $meta['categories'] = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug])->values();
         }
 
+        $customFields = $match->customFields()
+            ->where(fn ($q) => $q->where('show_on_scoreboard', true)->orWhere('show_on_results', true))
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($customFields->isNotEmpty()) {
+            $meta['custom_fields'] = $customFields->map(fn ($f) => [
+                'id' => $f->id,
+                'label' => $f->label,
+                'show_on_scoreboard' => $f->show_on_scoreboard,
+                'show_on_results' => $f->show_on_results,
+            ])->values();
+        }
+
         return $meta;
+    }
+
+    /**
+     * Build a lookup of custom field values keyed by shooter_id for display on scoreboards.
+     * Returns [ shooter_id => [ field_label => value, ... ] ]
+     */
+    private function customFieldValuesByShooter(ShootingMatch $match, string $context = 'scoreboard'): array
+    {
+        $column = $context === 'scoreboard' ? 'show_on_scoreboard' : 'show_on_results';
+
+        $fields = $match->customFields()->where($column, true)->orderBy('sort_order')->get();
+        if ($fields->isEmpty()) return [];
+
+        $registrations = \App\Models\MatchRegistration::where('match_id', $match->id)
+            ->with(['customValues' => fn ($q) => $q->whereIn('match_custom_field_id', $fields->pluck('id'))])
+            ->get()
+            ->keyBy('user_id');
+
+        $shooterUsers = DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->whereNotNull('shooters.user_id')
+            ->pluck('shooters.user_id', 'shooters.id')
+            ->toArray();
+
+        $result = [];
+        $fieldLabels = $fields->pluck('label', 'id');
+
+        foreach ($shooterUsers as $shooterId => $userId) {
+            $reg = $registrations->get($userId);
+            if (! $reg) continue;
+
+            $values = [];
+            foreach ($reg->customValues as $cv) {
+                $label = $fieldLabels->get($cv->match_custom_field_id);
+                if ($label) {
+                    $values[$label] = $cv->value;
+                }
+            }
+
+            if (! empty($values)) {
+                $result[$shooterId] = $values;
+            }
+        }
+
+        return $result;
     }
 
     private function categoryShooterIds(?string $categoryFilter): ?array
@@ -321,6 +381,11 @@ class ScoreboardController extends Controller
             'leaderboard' => $leaderboard,
             'disqualifications' => $this->matchDisqualifications($match),
         ];
+
+        $cfValues = $this->customFieldValuesByShooter($match, 'scoreboard');
+        if (! empty($cfValues)) {
+            $response['custom_field_values'] = $cfValues;
+        }
 
         $user = $request->user();
         $isMd = $user && ($user->isOwner()
@@ -773,12 +838,19 @@ class ScoreboardController extends Controller
         $leaderboard = $this->withPrsRelativePoints(collect($leaderboard));
         $leaderboard = $leaderboard->concat($dqRows)->values();
 
-        return response()->json([
+        $response = [
             'match' => $this->matchMeta($match),
             'target_sets' => $this->prsTargetSetsPayload($targetSets),
             'leaderboard' => $leaderboard,
             'disqualifications' => $this->matchDisqualifications($match),
-        ]);
+        ];
+
+        $cfValues = $this->customFieldValuesByShooter($match, 'scoreboard');
+        if (! empty($cfValues)) {
+            $response['custom_field_values'] = $cfValues;
+        }
+
+        return response()->json($response);
     }
 
     private function prsScoreboardLegacy(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)

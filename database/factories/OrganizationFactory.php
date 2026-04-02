@@ -24,7 +24,7 @@ class OrganizationFactory extends Factory
             'description' => fake()->optional()->sentence(),
             'type' => fake()->randomElement(['league', 'club', 'competition', 'challenge']),
             'parent_id' => null,
-            'status' => 'approved',
+            'status' => 'active',
             'created_by' => User::factory(),
             'logo_path' => null,
             'primary_color' => '#dc2626',

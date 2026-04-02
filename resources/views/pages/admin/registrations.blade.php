@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\MatchRegistration;
+use App\Models\ShootingMatch;
 use App\Models\Squad;
 use App\Models\Shooter;
+use App\Enums\MatchStatus;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -12,6 +14,7 @@ new #[Layout('components.layouts.app')]
     #[Title('Registrations')]
     class extends Component {
     public string $filter = 'proof_submitted';
+    public string $matchFilter = '';
 
     public ?int $expandedRegId = null;
 
@@ -74,10 +77,35 @@ new #[Layout('components.layouts.app')]
     {
         $registrations = MatchRegistration::with(['user', 'match'])
             ->when($this->filter !== 'all', fn ($q) => $q->where('payment_status', $this->filter))
+            ->when($this->matchFilter !== '', fn ($q) => $q->where('match_id', $this->matchFilter))
             ->latest()
             ->get();
 
-        return ['registrations' => $registrations];
+        $upcomingStatuses = [
+            MatchStatus::PreRegistration->value,
+            MatchStatus::RegistrationOpen->value,
+            MatchStatus::RegistrationClosed->value,
+            MatchStatus::SquaddingOpen->value,
+            MatchStatus::Active->value,
+        ];
+
+        $matchesWithRegs = ShootingMatch::whereHas('registrations')
+            ->orderByRaw("FIELD(status, 'registration_open', 'pre_registration', 'squadding_open', 'active', 'registration_closed', 'draft', 'completed') ASC")
+            ->orderBy('date', 'desc')
+            ->get()
+            ->map(fn ($m) => (object) [
+                'id' => $m->id,
+                'name' => $m->name,
+                'date' => $m->date?->format('d M Y'),
+                'status' => $m->status,
+                'is_upcoming' => in_array($m->status->value, $upcomingStatuses),
+                'reg_count' => $m->registrations()->count(),
+            ]);
+
+        return [
+            'registrations' => $registrations,
+            'matchesWithRegs' => $matchesWithRegs,
+        ];
     }
 }; ?>
 
@@ -87,14 +115,40 @@ new #[Layout('components.layouts.app')]
         <p class="mt-1 text-sm text-muted">Review and approve member registrations.</p>
     </div>
 
-    {{-- Filter --}}
-    <div class="flex gap-2">
-        @foreach(['proof_submitted' => 'Pending Review', 'pending_payment' => 'Awaiting Payment', 'confirmed' => 'Confirmed', 'rejected' => 'Rejected', 'all' => 'All'] as $value => $label)
-            <button wire:click="$set('filter', '{{ $value }}')"
-                    class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
-                {{ $label }}
-            </button>
-        @endforeach
+    {{-- Filters --}}
+    <div class="space-y-3">
+        {{-- Match filter --}}
+        <div>
+            <label class="block text-xs font-medium text-muted mb-1">Filter by Match</label>
+            <select wire:model.live="matchFilter"
+                    class="w-full max-w-sm rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                <option value="">All Matches</option>
+                @if($matchesWithRegs->where('is_upcoming', true)->isNotEmpty())
+                    <optgroup label="Upcoming / Active">
+                        @foreach($matchesWithRegs->where('is_upcoming', true) as $m)
+                            <option value="{{ $m->id }}">{{ $m->name }} — {{ $m->date ?? 'No date' }} ({{ $m->reg_count }}) [{{ $m->status->label() }}]</option>
+                        @endforeach
+                    </optgroup>
+                @endif
+                @if($matchesWithRegs->where('is_upcoming', false)->isNotEmpty())
+                    <optgroup label="Past / Completed">
+                        @foreach($matchesWithRegs->where('is_upcoming', false) as $m)
+                            <option value="{{ $m->id }}">{{ $m->name }} — {{ $m->date ?? 'No date' }} ({{ $m->reg_count }})</option>
+                        @endforeach
+                    </optgroup>
+                @endif
+            </select>
+        </div>
+
+        {{-- Status filter --}}
+        <div class="flex flex-wrap gap-2">
+            @foreach(['proof_submitted' => 'Pending Review', 'pending_payment' => 'Awaiting Payment', 'confirmed' => 'Confirmed', 'rejected' => 'Rejected', 'all' => 'All'] as $value => $label)
+                <button wire:click="$set('filter', '{{ $value }}')"
+                        class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                    {{ $label }}
+                </button>
+            @endforeach
+        </div>
     </div>
 
     {{-- Table --}}

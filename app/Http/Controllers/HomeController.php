@@ -11,21 +11,9 @@ class HomeController extends Controller
 {
     public function __invoke(Request $request)
     {
-        if (auth()->check()) {
-            $user = auth()->user();
-
-            if ($user->isOwner()) {
-                return redirect()->route('admin.dashboard');
-            }
-
-            return $user->canScore()
-                ? redirect()->route('dashboard')
-                : redirect()->route('score');
-        }
-
         $context = domain_context();
 
-        if ($context === 'app') {
+        if ($context === 'app' && ! auth()->check()) {
             return redirect()->route('login');
         }
 

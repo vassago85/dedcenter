@@ -25,7 +25,7 @@ new #[Layout('components.layouts.app')]
             'description' => $this->clubDescription ?: null,
             'type' => 'club',
             'parent_id' => $this->organization->id,
-            'status' => 'approved',
+            'status' => 'active',
             'created_by' => auth()->id(),
         ]);
 

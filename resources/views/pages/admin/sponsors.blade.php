@@ -243,7 +243,7 @@ new #[Layout('components.layouts.app')]
                                 class="h-8 max-w-[5rem] object-contain rounded border border-zinc-800/20 dark:border-white/10"
                             />
                         @else
-                            <span class="text-xs text-zinc-500">—</span>
+                            <span class="text-xs text-muted">—</span>
                         @endif
                     </flux:table.cell>
                     <flux:table.cell>
@@ -261,7 +261,7 @@ new #[Layout('components.layouts.app')]
                         @endif
                     </flux:table.cell>
                     <flux:table.cell>
-                        <div class="whitespace-normal text-xs text-zinc-500 dark:text-zinc-400">
+                        <div class="whitespace-normal text-xs text-muted">
                             @if($sponsor->starts_at || $sponsor->ends_at)
                                 @if($sponsor->starts_at)
                                     <div>From {{ $sponsor->starts_at->format('d M Y H:i') }}</div>
@@ -276,13 +276,16 @@ new #[Layout('components.layouts.app')]
                     </flux:table.cell>
                     <flux:table.cell align="end">
                         <div class="flex flex-wrap items-center justify-end gap-2">
-                            <flux:button size="sm" variant="ghost" wire:click="openEdit({{ $sponsor->id }})">Edit</flux:button>
-                            <flux:button size="sm" variant="ghost" wire:click="toggleActive({{ $sponsor->id }})">
+                            <flux:button size="sm" variant="ghost" class="!text-secondary hover:!text-primary"
+                                         wire:click="openEdit({{ $sponsor->id }})">Edit</flux:button>
+                            <flux:button size="sm" variant="ghost" class="!text-secondary hover:!text-primary"
+                                         wire:click="toggleActive({{ $sponsor->id }})">
                                 {{ $sponsor->active ? 'Deactivate' : 'Activate' }}
                             </flux:button>
                             <flux:button
                                 size="sm"
                                 variant="ghost"
+                                class="!text-secondary hover:!text-primary"
                                 wire:click="delete({{ $sponsor->id }})"
                                 wire:confirm="Delete sponsor &quot;{{ $sponsor->name }}&quot;? This cannot be undone."
                             >
@@ -294,7 +297,7 @@ new #[Layout('components.layouts.app')]
             @empty
                 <flux:table.row>
                     <flux:table.cell colspan="6">
-                        <span class="text-sm text-zinc-500">No sponsors found.</span>
+                        <span class="text-sm text-muted">No sponsors found.</span>
                     </flux:table.cell>
                 </flux:table.row>
             @endforelse
@@ -314,10 +317,10 @@ new #[Layout('components.layouts.app')]
             <flux:input type="file" wire:model="logo" label="Logo" description="PNG, JPG, or WebP up to 4 MB." />
 
             @if($logo)
-                <p class="text-xs text-zinc-500">New file: {{ $logo->getClientOriginalName() }}</p>
+                <p class="text-xs text-muted">New file: {{ $logo->getClientOriginalName() }}</p>
             @elseif($editingLogoPath)
                 <div class="flex items-center gap-3">
-                    <span class="text-xs text-zinc-500">Current:</span>
+                    <span class="text-xs text-muted">Current:</span>
                     <img src="{{ Storage::url($editingLogoPath) }}" alt="" class="h-10 max-w-[8rem] object-contain rounded border border-zinc-800/20 dark:border-white/10" />
                 </div>
             @endif
@@ -345,7 +348,7 @@ new #[Layout('components.layouts.app')]
 
             <div class="flex flex-wrap gap-2 pt-2">
                 <flux:button type="submit" variant="primary">{{ $editingId ? 'Save changes' : 'Create sponsor' }}</flux:button>
-                <flux:button type="button" variant="ghost" wire:click="cancelForm">Cancel</flux:button>
+                <flux:button type="button" variant="ghost" class="!text-secondary hover:!text-primary" wire:click="cancelForm">Cancel</flux:button>
             </div>
         </form>
     </flux:modal>

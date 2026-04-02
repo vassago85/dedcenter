@@ -502,6 +502,35 @@ new #[Layout('components.layouts.scoreboard')]
             ]);
         }
 
+        $scoreboardFields = $this->match->customFields()
+            ->where('show_on_scoreboard', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        $customFieldMap = [];
+        if ($scoreboardFields->isNotEmpty()) {
+            $registrations = \App\Models\MatchRegistration::where('match_id', $this->match->id)
+                ->with(['customValues' => fn ($q) => $q->whereIn('match_custom_field_id', $scoreboardFields->pluck('id'))])
+                ->get()
+                ->keyBy('user_id');
+
+            foreach ($shooters as $s) {
+                if (! $s->user_id) continue;
+                $reg = $registrations->get($s->user_id);
+                if (! $reg) continue;
+                $values = [];
+                foreach ($reg->customValues as $cv) {
+                    $field = $scoreboardFields->firstWhere('id', $cv->match_custom_field_id);
+                    if ($field && $cv->value) {
+                        $values[] = ['label' => $field->label, 'value' => $cv->value];
+                    }
+                }
+                if (! empty($values)) {
+                    $customFieldMap[$s->id] = $values;
+                }
+            }
+        }
+
         return [
             'scoresPublished' => true,
             'isPrs' => $isPrs,
@@ -510,6 +539,7 @@ new #[Layout('components.layouts.scoreboard')]
             'categories' => $categories,
             'royalFlushEnabled' => $royalFlushEnabled,
             'royalFlushEntries' => $royalFlushEntries,
+            'customFieldMap' => $customFieldMap,
         ];
     }
 }; ?>
@@ -675,6 +705,11 @@ new #[Layout('components.layouts.scoreboard')]
                         <span class="text-[10px] text-muted">{{ $shooter->squad?->name ?? '' }}</span>
                         @if($shooter->division)
                             <span class="rounded bg-surface px-1 py-0.5 text-[9px] font-medium text-muted">{{ $shooter->division->name }}</span>
+                        @endif
+                        @if(isset($customFieldMap[$shooter->id]))
+                            @foreach($customFieldMap[$shooter->id] as $cfv)
+                                <span class="rounded bg-surface px-1 py-0.5 text-[9px] font-medium text-muted" title="{{ $cfv['label'] }}">{{ $cfv['value'] }}</span>
+                            @endforeach
                         @endif
                     </div>
                 </div>

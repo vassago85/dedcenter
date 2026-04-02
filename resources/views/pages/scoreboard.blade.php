@@ -331,6 +331,36 @@ new #[Layout('components.layouts.scoreboard')]
                 ->get();
         }
 
+        // Custom registration field values visible on scoreboard
+        $scoreboardFields = $this->match->customFields()
+            ->where('show_on_scoreboard', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        $customFieldMap = [];
+        if ($scoreboardFields->isNotEmpty()) {
+            $registrations = \App\Models\MatchRegistration::where('match_id', $this->match->id)
+                ->with(['customValues' => fn ($q) => $q->whereIn('match_custom_field_id', $scoreboardFields->pluck('id'))])
+                ->get()
+                ->keyBy('user_id');
+
+            foreach ($shooters as $s) {
+                if (! $s->user_id) continue;
+                $reg = $registrations->get($s->user_id);
+                if (! $reg) continue;
+                $values = [];
+                foreach ($reg->customValues as $cv) {
+                    $field = $scoreboardFields->firstWhere('id', $cv->match_custom_field_id);
+                    if ($field && $cv->value) {
+                        $values[] = ['label' => $field->label, 'value' => $cv->value];
+                    }
+                }
+                if (! empty($values)) {
+                    $customFieldMap[$s->id] = $values;
+                }
+            }
+        }
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
@@ -343,6 +373,7 @@ new #[Layout('components.layouts.scoreboard')]
             'targetSetDetails' => $targetSetDetails,
             'prsTargetSets' => $prsTargetSets,
             'matchBadges' => $matchBadges,
+            'customFieldMap' => $customFieldMap,
         ];
     }
 }; ?>
@@ -785,6 +816,13 @@ new #[Layout('components.layouts.scoreboard')]
                             <span class="line-clamp-2 sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
                             @if($shooter->user_id)
                                 <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :competitionType="$isPrs ? 'prs' : ($royalFlushEnabled ? 'royal_flush' : null)" :compact="true" />
+                            @endif
+                            @if(isset($customFieldMap[$shooter->id]))
+                                <div class="flex flex-wrap gap-1 mt-0.5">
+                                    @foreach($customFieldMap[$shooter->id] as $cfv)
+                                        <span class="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted" title="{{ $cfv['label'] }}">{{ $cfv['value'] }}</span>
+                                    @endforeach
+                                </div>
                             @endif
                         </td>
                         <td class="max-w-[4.5rem] truncate px-2 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl" title="{{ $shooter->squad?->name ?? '—' }}">{{ $shooter->squad?->name ?? '—' }}</td>

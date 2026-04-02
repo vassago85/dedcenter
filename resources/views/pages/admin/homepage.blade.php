@@ -108,7 +108,7 @@ new #[Layout('components.layouts.app')]
             'featuredMatches' => FeaturedItem::ofType('match')->ordered()->get(),
             'featuredOrgs' => FeaturedItem::ofType('organization')->ordered()->get(),
             'availableMatches' => ShootingMatch::orderByDesc('date')->take(50)->get(),
-            'availableOrgs' => Organization::approved()->orderBy('name')->get(),
+            'availableOrgs' => Organization::active()->orderBy('name')->get(),
         ];
     }
 }; ?>

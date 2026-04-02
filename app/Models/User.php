@@ -62,6 +62,11 @@ class User extends Authenticatable
         return $this->hasMany(UserAchievement::class);
     }
 
+    public function equipmentProfiles(): HasMany
+    {
+        return $this->hasMany(UserEquipmentProfile::class);
+    }
+
     public function ownedOrganizations(): BelongsToMany
     {
         return $this->organizations()->wherePivot('role', 'owner');
@@ -79,9 +84,14 @@ class User extends Authenticatable
         return $this->role === 'owner';
     }
 
+    public function isMatchDirector(): bool
+    {
+        return $this->role === 'match_director';
+    }
+
     public function isAdmin(): bool
     {
-        return $this->isOwner();
+        return $this->isOwner() || $this->isMatchDirector();
     }
 
     public function isShooter(): bool
@@ -103,12 +113,14 @@ class User extends Authenticatable
 
     public function isOrgMatchDirector(Organization $organization): bool
     {
-        return $this->isOwner() || in_array($this->orgRole($organization), ['owner', 'match_director']);
+        return $this->isOwner() || $this->isMatchDirector()
+            || in_array($this->orgRole($organization), ['owner', 'match_director']);
     }
 
     public function isOrgRangeOfficer(Organization $organization): bool
     {
-        return $this->isOwner() || in_array($this->orgRole($organization), ['owner', 'match_director', 'range_officer']);
+        return $this->isOwner() || $this->isMatchDirector()
+            || in_array($this->orgRole($organization), ['owner', 'match_director', 'range_officer']);
     }
 
     public function isOrgAdmin(Organization $organization): bool
@@ -118,7 +130,7 @@ class User extends Authenticatable
 
     public function canScore(): bool
     {
-        return $this->isOwner() || $this->organizations()->exists();
+        return $this->isOwner() || $this->isMatchDirector() || $this->organizations()->exists();
     }
 
     public function wantsNotification(string $type): bool
@@ -131,6 +143,7 @@ class User extends Authenticatable
     {
         return match ($this->role) {
             'owner' => 'Site Owner',
+            'match_director' => 'Match Director',
             'shooter' => 'Shooter',
             default => ucfirst(str_replace('_', ' ', $this->role)),
         };

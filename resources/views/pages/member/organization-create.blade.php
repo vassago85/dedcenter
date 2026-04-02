@@ -39,7 +39,7 @@ new #[Layout('components.layouts.app')]
     public function with(): array
     {
         return [
-            'leagues' => Organization::approved()->ofType('league')->orderBy('name')->get(['id', 'name']),
+            'leagues' => Organization::active()->ofType('league')->orderBy('name')->get(['id', 'name']),
         ];
     }
 }; ?>

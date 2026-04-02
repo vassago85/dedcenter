@@ -136,11 +136,11 @@ it('approves organization and makes creator owner', function () {
     $creator = User::factory()->create();
     $org = Organization::factory()->pending()->create(['created_by' => $creator->id]);
 
-    $org->update(['status' => 'approved']);
+    $org->update(['status' => 'active']);
     $org->admins()->syncWithoutDetaching([
         $creator->id => ['role' => 'owner'],
     ]);
 
-    expect($org->fresh()->isApproved())->toBeTrue();
+    expect($org->fresh()->isActive())->toBeTrue();
     expect($org->isOwnedBy($creator))->toBeTrue();
 });

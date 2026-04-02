@@ -70,6 +70,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/matches', 'member.matches')->name('matches');
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
     Volt::route('/matches/{match}/squadding', 'member.match-squadding')->name('matches.squadding');
+    Volt::route('/equipment', 'member.equipment')->name('equipment');
     Volt::route('/organizations', 'member.organizations')->name('organizations');
     Volt::route('/organizations/create', 'member.organization-create')->name('organizations.create');
     Volt::route('/settings', 'member.settings')->name('settings');
@@ -116,6 +117,7 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
 Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Volt::route('/dashboard', 'admin.dashboard')->name('dashboard');
     Volt::route('/organizations', 'admin.organizations')->name('organizations');
+    Volt::route('/members', 'admin.members')->name('members');
     Volt::route('/matches', 'admin.matches.index')->name('matches.index');
     Volt::route('/matches/create', 'admin.matches.edit')->name('matches.create');
     Volt::route('/matches/{match}', 'admin.matches.edit')->name('matches.edit');

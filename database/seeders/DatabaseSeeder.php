@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Royal Flush',
                 'description' => 'Year-long precision shooting competition. Compete across multiple matches to claim the top spot on the leaderboard.',
                 'type' => 'competition',
-                'status' => 'approved',
+                'status' => 'active',
                 'created_by' => $admin->id,
                 'primary_color' => '#b91c1c',
                 'secondary_color' => '#0f172a',

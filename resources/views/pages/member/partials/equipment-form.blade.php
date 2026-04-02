@@ -13,7 +13,23 @@
 </div>
 
 <div class="border-t border-border pt-4">
-    <h3 class="text-sm font-semibold text-primary mb-3">Rifle & Equipment</h3>
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-primary">Rifle & Equipment</h3>
+        @auth
+            @if(auth()->user()->equipmentProfiles()->exists())
+                <div class="flex items-center gap-2">
+                    <label class="text-xs text-muted">Load profile:</label>
+                    <select wire:change="loadProfile($event.target.value)"
+                            class="rounded-lg border border-border bg-surface-2 px-2 py-1 text-xs text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                        <option value="">-- Select --</option>
+                        @foreach(auth()->user()->equipmentProfiles()->orderByDesc('is_default')->orderBy('name')->get() as $ep)
+                            <option value="{{ $ep->id }}">{{ $ep->name }}{{ $ep->is_default ? ' (default)' : '' }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+        @endauth
+    </div>
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
             <label class="block text-sm font-medium text-secondary mb-1">Caliber *</label>
@@ -88,3 +104,46 @@
         </div>
     </div>
 </div>
+
+{{-- Custom Registration Fields --}}
+@if(isset($match) && $match->customFields->isNotEmpty())
+    <div class="border-t border-border pt-4">
+        <h3 class="text-sm font-semibold text-primary mb-3">Additional Information</h3>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            @foreach($match->customFields()->orderBy('sort_order')->get() as $cf)
+                <div @if($cf->type === 'checkbox') class="sm:col-span-2" @endif>
+                    <label class="block text-sm font-medium text-secondary mb-1">
+                        {{ $cf->label }}{{ $cf->is_required ? ' *' : '' }}
+                    </label>
+
+                    @if($cf->type === 'text')
+                        <input type="text" wire:model="customFieldValues.{{ $cf->id }}"
+                               {{ $cf->is_required ? 'required' : '' }}
+                               class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                    @elseif($cf->type === 'number')
+                        <input type="number" wire:model="customFieldValues.{{ $cf->id }}"
+                               {{ $cf->is_required ? 'required' : '' }}
+                               class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                    @elseif($cf->type === 'select')
+                        <select wire:model="customFieldValues.{{ $cf->id }}"
+                                {{ $cf->is_required ? 'required' : '' }}
+                                class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                            <option value="">-- Select --</option>
+                            @foreach($cf->options ?? [] as $opt)
+                                <option value="{{ $opt }}">{{ $opt }}</option>
+                            @endforeach
+                        </select>
+                    @elseif($cf->type === 'checkbox')
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" wire:model="customFieldValues.{{ $cf->id }}"
+                                   class="rounded border-border bg-surface-2 text-accent focus:ring-accent">
+                            <span class="text-sm text-muted">{{ $cf->label }}</span>
+                        </label>
+                    @endif
+
+                    @error('customFieldValues.' . $cf->id) <p class="mt-1 text-xs text-accent">{{ $message }}</p> @enderror
+                </div>
+            @endforeach
+        </div>
+    </div>
+@endif

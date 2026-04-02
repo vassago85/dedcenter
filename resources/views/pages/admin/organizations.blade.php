@@ -14,21 +14,29 @@ new #[Layout('components.layouts.app')]
     public function approve(int $id): void
     {
         $org = Organization::findOrFail($id);
-        $org->update(['status' => 'approved']);
+        $org->update(['status' => 'active']);
 
         $org->admins()->syncWithoutDetaching([
             $org->created_by => ['role' => 'owner'],
         ]);
 
-        Flux::toast("'{$org->name}' approved. Creator is now the owner.", variant: 'success');
+        Flux::toast("'{$org->name}' approved and active. Creator is now the owner.", variant: 'success');
     }
 
-    public function reject(int $id): void
+    public function deactivate(int $id): void
     {
         $org = Organization::findOrFail($id);
-        $org->update(['status' => 'archived']);
+        $org->update(['status' => 'inactive']);
 
-        Flux::toast("'{$org->name}' rejected.", variant: 'warning');
+        Flux::toast("'{$org->name}' deactivated.", variant: 'warning');
+    }
+
+    public function reactivate(int $id): void
+    {
+        $org = Organization::findOrFail($id);
+        $org->update(['status' => 'active']);
+
+        Flux::toast("'{$org->name}' reactivated.", variant: 'success');
     }
 
     public function with(): array
@@ -51,7 +59,7 @@ new #[Layout('components.layouts.app')]
 
     {{-- Filter --}}
     <div class="flex gap-2 flex-wrap">
-        @foreach(['pending' => 'Pending', 'approved' => 'Approved', 'active' => 'Active', 'archived' => 'Archived', 'all' => 'All'] as $value => $label)
+        @foreach(['pending' => 'Pending', 'active' => 'Active', 'inactive' => 'Inactive', 'all' => 'All'] as $value => $label)
             <button wire:click="$set('filter', '{{ $value }}')"
                     class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                 {{ $label }}
@@ -93,14 +101,11 @@ new #[Layout('components.layouts.app')]
                                         @case('pending')
                                             <flux:badge size="sm" color="amber">Pending</flux:badge>
                                             @break
-                                        @case('approved')
-                                            <flux:badge size="sm" color="green">Approved</flux:badge>
-                                            @break
                                         @case('active')
-                                            <flux:badge size="sm" color="blue">Active</flux:badge>
+                                            <flux:badge size="sm" color="green">Active</flux:badge>
                                             @break
-                                        @case('archived')
-                                            <flux:badge size="sm" color="zinc">Archived</flux:badge>
+                                        @case('inactive')
+                                            <flux:badge size="sm" color="zinc">Inactive</flux:badge>
                                             @break
                                     @endswitch
                                 </td>
@@ -115,15 +120,21 @@ new #[Layout('components.layouts.app')]
                                                          wire:confirm="Approve '{{ $org->name }}'? The creator will become the owner.">
                                                 Approve
                                             </flux:button>
-                                            <flux:button size="sm" variant="ghost" class="!text-accent hover:!text-accent"
-                                                         wire:click="reject({{ $org->id }})"
-                                                         wire:confirm="Reject '{{ $org->name }}'?">
-                                                Reject
-                                            </flux:button>
-                                        @elseif($org->isApproved())
+                                        @elseif($org->isActive())
                                             <flux:button size="sm" variant="ghost" class="!text-secondary hover:!text-primary"
                                                          href="{{ route('org.dashboard', $org) }}">
                                                 Manage
+                                            </flux:button>
+                                            <flux:button size="sm" variant="ghost" class="!text-amber-400 hover:!text-amber-300"
+                                                         wire:click="deactivate({{ $org->id }})"
+                                                         wire:confirm="Deactivate '{{ $org->name }}'? They will lose portal access.">
+                                                Deactivate
+                                            </flux:button>
+                                        @elseif($org->isInactive())
+                                            <flux:button size="sm" variant="primary" class="!bg-green-600 hover:!bg-green-700"
+                                                         wire:click="reactivate({{ $org->id }})"
+                                                         wire:confirm="Reactivate '{{ $org->name }}'?">
+                                                Reactivate
                                             </flux:button>
                                         @endif
                                     </div>
