@@ -38,6 +38,7 @@ class ShootingMatch extends Model
         'entry_fee',
         'device_lock_mode',
         'corrections_pin',
+        'image_url',
     ];
 
     protected $hidden = [

@@ -26,6 +26,7 @@ new #[Layout('components.layouts.app')]
     public string $location = '';
     public string $notes = '';
     public string $public_bio = '';
+    public string $image_url = '';
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
@@ -92,6 +93,7 @@ new #[Layout('components.layouts.app')]
             $this->location = $match->location ?? '';
             $this->notes = $match->notes ?? '';
             $this->public_bio = $match->public_bio ?? '';
+            $this->image_url = $match->image_url ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->scoring_type = $match->scoring_type ?? 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
@@ -110,12 +112,14 @@ new #[Layout('components.layouts.app')]
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:5000',
             'public_bio' => 'nullable|string|max:2000',
+            'image_url' => 'nullable|url|max:500',
             'entry_fee' => 'nullable|numeric|min:0',
             'scoring_type' => 'required|in:standard,prs,elr',
             'corrections_pin' => 'nullable|string|min:4|max:6|regex:/^\d+$/',
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
+        $validated['image_url'] = $this->image_url !== '' ? $this->image_url : null;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['corrections_pin'] = $this->corrections_pin !== '' ? $this->corrections_pin : null;
@@ -956,6 +960,7 @@ new #[Layout('components.layouts.app')]
             </div>
             <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes — not shown on the public portal..." rows="3" />
             <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Short description for shooters — shown on the match page and portal..." rows="3" />
+            <flux:input wire:model="image_url" label="Cover image URL (optional)" type="url" placeholder="https://example.com/match-photo.jpg" description="Direct link to a match cover image. Displayed on match cards and listings." />
             <div class="flex justify-end pt-2">
                 <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                     {{ $match ? 'Save Changes' : 'Create Match' }}

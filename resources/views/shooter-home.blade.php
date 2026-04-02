@@ -244,24 +244,7 @@
             @if($featuredOrgs->count())
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach($featuredOrgs as $org)
-                        <a href="{{ $org->hasPortal() ? route('portal.home', $org) : '#' }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
-                            <div class="flex items-center gap-4 mb-3">
-                                @if($org->logo_path)
-                                    <img src="{{ Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-10 w-10 rounded-lg object-contain" style="background: var(--lp-surface-2);">
-                                @else
-                                    <div class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold" style="background: rgba(225,6,0,0.08); color: var(--lp-red);">
-                                        {{ strtoupper(substr($org->name, 0, 2)) }}
-                                    </div>
-                                @endif
-                                <div>
-                                    <h3 class="text-base font-semibold group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $org->name }}</h3>
-                                    <span class="text-[11px] font-medium uppercase tracking-wider" style="color: var(--lp-text-muted);">{{ $org->type }}</span>
-                                </div>
-                            </div>
-                            @if($org->description)
-                                <p class="text-sm leading-relaxed line-clamp-2" style="color: var(--lp-text-soft);">{{ $org->description }}</p>
-                            @endif
-                        </a>
+                        <x-club-card :organization="$org" context="marketing" />
                     @endforeach
                 </div>
             @else
