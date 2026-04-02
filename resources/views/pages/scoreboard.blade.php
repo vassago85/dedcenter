@@ -13,6 +13,7 @@ new #[Layout('components.layouts.scoreboard')]
     public ?int $activeDivision = null;
     public ?int $activeCategory = null;
     public string $activeTab = 'main';
+    public ?int $rfDistanceFilter = null;
     public ?int $expandedShooterId = null;
 
     public function toggleExpand(int $id): void
@@ -171,12 +172,15 @@ new #[Layout('components.layouts.scoreboard')]
 
         $royalFlushEnabled = !$isPrs && (bool) $this->match->royal_flush_enabled;
         $royalFlushEntries = collect();
+        $rfDistances = collect();
 
         if ($royalFlushEnabled) {
             $rfTargetSets = $this->match->targetSets()
                 ->orderByDesc('distance_meters')
                 ->with('gongs')
                 ->get();
+
+            $rfDistances = $rfTargetSets->pluck('distance_meters')->map(fn ($d) => (int) $d)->unique()->sortDesc()->values();
 
             $allShooterIds = $shooters->pluck('id')->toArray();
             $rfGongIds = $rfTargetSets->flatMap(fn ($ts) => $ts->gongs->pluck('id'))->toArray();
@@ -219,6 +223,10 @@ new #[Layout('components.layouts.scoreboard')]
                 ];
             }
 
+            if ($this->rfDistanceFilter) {
+                $rfProfiles = array_filter($rfProfiles, fn ($p) => in_array($this->rfDistanceFilter, $p['flush_distances']));
+            }
+
             usort($rfProfiles, function ($a, $b) {
                 if ($a['flush_count'] !== $b['flush_count']) return $b['flush_count'] <=> $a['flush_count'];
                 $aMax = !empty($a['flush_distances']) ? max($a['flush_distances']) : 0;
@@ -227,7 +235,7 @@ new #[Layout('components.layouts.scoreboard')]
                 return $b['shooter']->display_score <=> $a['shooter']->display_score;
             });
 
-            $royalFlushEntries = collect($rfProfiles)->map(fn ($p, $i) => (object) [
+            $royalFlushEntries = collect(array_values($rfProfiles))->map(fn ($p, $i) => (object) [
                 'rank' => $i + 1,
                 'name' => $p['shooter']->name,
                 'user_id' => $p['shooter']->user_id,
@@ -369,6 +377,7 @@ new #[Layout('components.layouts.scoreboard')]
             'divisions' => $divisions,
             'categories' => $categories,
             'royalFlushEnabled' => $royalFlushEnabled,
+            'rfDistances' => $rfDistances,
             'royalFlushEntries' => $royalFlushEntries,
             'detailedData' => $detailedData,
             'targetSetDetails' => $targetSetDetails,
@@ -553,6 +562,20 @@ new #[Layout('components.layouts.scoreboard')]
             @endforelse
         </div>
     @elseif($royalFlushEnabled && $activeTab === 'royalflush')
+        @if($rfDistances->count() > 1)
+            <div class="mb-4 flex flex-wrap gap-2">
+                <button type="button" wire:click="$set('rfDistanceFilter', null)"
+                        class="rounded-full px-4 py-1.5 text-xs font-bold transition-colors {{ $rfDistanceFilter === null ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                    All
+                </button>
+                @foreach($rfDistances as $dist)
+                    <button type="button" wire:click="$set('rfDistanceFilter', {{ $dist }})"
+                            class="rounded-full px-4 py-1.5 text-xs font-bold transition-colors {{ $rfDistanceFilter === $dist ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                        {{ $dist }}m
+                    </button>
+                @endforeach
+            </div>
+        @endif
         <div class="overflow-x-auto rounded-2xl border border-amber-700/50 bg-app [-webkit-overflow-scrolling:touch]">
             <table class="w-full min-w-[36rem] text-left">
                 <thead>

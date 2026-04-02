@@ -308,6 +308,23 @@ class AchievementService
             }
         }
 
+        // Royal Flush podium badges (top 3 by total score)
+        $ranked = $shooters->filter(fn ($s) => $s->user_id)->sortByDesc('display_score')->values();
+        foreach ($ranked->take(3) as $rank => $shooter) {
+            $slug = match ($rank) {
+                0 => 'rf-podium-gold',
+                1 => 'rf-podium-silver',
+                2 => 'rf-podium-bronze',
+                default => null,
+            };
+            if ($slug && ! self::hasMatchBadge($slug, $shooter->user_id, $match->id)) {
+                $badge = self::awardBadge($slug, $shooter, $match, null, ['rank' => $rank + 1]);
+                if ($badge) {
+                    $awarded[] = $badge;
+                }
+            }
+        }
+
         if ($match->side_bet_enabled) {
             $awarded = array_merge($awarded, self::evaluateWinningHand($match, $targetSets, $shooters, $hitGongsByShooter));
         }

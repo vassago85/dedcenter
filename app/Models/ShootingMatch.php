@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MatchStatus;
+use App\Enums\Province;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,6 +40,7 @@ class ShootingMatch extends Model
         'device_lock_mode',
         'corrections_pin',
         'image_url',
+        'province',
     ];
 
     protected $hidden = [
@@ -56,6 +58,7 @@ class ShootingMatch extends Model
             'concurrent_relays' => 'integer',
             'max_squad_size' => 'integer',
             'entry_fee' => 'decimal:2',
+            'province' => Province::class,
         ];
     }
 

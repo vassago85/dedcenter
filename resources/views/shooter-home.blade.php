@@ -40,7 +40,7 @@
                 </p>
 
                 <div class="mt-10 flex flex-col items-center gap-3.5 sm:flex-row sm:justify-center">
-                    <a href="#events"
+                    <a href="{{ route('events') }}"
                        class="lp-btn-primary group relative inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold transition-all duration-200"
                        style="box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25);">
                         View Upcoming Events
@@ -311,6 +311,13 @@
                     <p class="text-sm" style="color: var(--lp-text-muted);">No upcoming events at the moment. Check back soon.</p>
                 </div>
             @endif
+
+            <div class="mt-10 text-center">
+                <a href="{{ route('events') }}"
+                   class="lp-btn-secondary inline-flex items-center justify-center rounded-xl px-8 py-3 text-[15px] font-semibold backdrop-blur-sm transition-all duration-200">
+                    Browse All Events &rarr;
+                </a>
+            </div>
         </div>
     </section>
 

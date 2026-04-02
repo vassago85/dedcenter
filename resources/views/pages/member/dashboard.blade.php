@@ -219,6 +219,9 @@ new #[Layout('components.layouts.app')]
                 @endforeach
             </div>
         @endif
+        <div class="px-6 pb-4 text-center">
+            <a href="{{ route('events') }}" class="text-xs font-medium text-accent hover:underline">Browse All Events &rarr;</a>
+        </div>
     </div>
 
     {{-- Recent Results --}}

@@ -39,6 +39,10 @@ class BadgeGalleryController extends Controller
         'flush-collector'    => ['icon' => 'layers',       'tier' => 'elite',     'earnChip' => 'Earned once'],
         'small-gong-sniper'  => ['icon' => 'target',       'tier' => 'elite',     'earnChip' => 'Stackable'],
 
+        'rf-podium-gold'     => ['icon' => 'medal-1',      'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'rf-podium-silver'   => ['icon' => 'medal-2',      'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'rf-podium-bronze'   => ['icon' => 'medal-3',      'tier' => 'elite',     'earnChip' => 'Stackable'],
+
         'first-flush'        => ['icon' => 'sparkles',     'tier' => 'milestone', 'earnChip' => 'Earned once'],
 
         'flush-400'          => ['icon' => 'dist-400',     'tier' => 'earned',    'earnChip' => 'Stackable'],

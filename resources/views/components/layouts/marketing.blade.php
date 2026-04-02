@@ -57,7 +57,7 @@
                     <a href="#how-it-works" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">How It Works</a>
                     <a href="#for-clubs" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">For Clubs</a>
                 @else
-                    <a href="{{ route('home') }}#events" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Events</a>
+                    <a href="{{ route('events') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('events') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Events</a>
                     <a href="{{ route('home') }}#results" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Results</a>
                     <a href="{{ route('home') }}#standings" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
                     <a href="{{ route('home') }}#disciplines" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Disciplines</a>
@@ -98,7 +98,7 @@
                                 <a href="#how-it-works" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">How It Works</a>
                                 <a href="#for-clubs" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">For Clubs</a>
                             @else
-                                <a href="{{ route('home') }}#events" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Events</a>
+                                <a href="{{ route('events') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Events</a>
                                 <a href="{{ route('home') }}#results" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Results</a>
                                 <a href="{{ route('home') }}#standings" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Standings</a>
                                 <a href="{{ route('home') }}#disciplines" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Disciplines</a>

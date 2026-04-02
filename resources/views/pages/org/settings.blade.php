@@ -3,14 +3,19 @@
 use App\Models\Organization;
 use App\Models\ShootingMatch;
 use Flux\Flux;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('components.layouts.app')]
     #[Title('Organization Settings')]
     class extends Component {
+    use WithFileUploads;
+
     public Organization $organization;
+    public $logo = null;
 
     public string $name = '';
     public string $description = '';
@@ -54,6 +59,15 @@ new #[Layout('components.layouts.app')]
         }
     }
 
+    public function removeLogo(): void
+    {
+        if ($this->organization->logo_path) {
+            Storage::disk('public')->delete($this->organization->logo_path);
+            $this->organization->update(['logo_path' => null]);
+            Flux::toast('Logo removed.', variant: 'success');
+        }
+    }
+
     public function save(): void
     {
         $validated = $this->validate([
@@ -69,6 +83,7 @@ new #[Layout('components.layouts.app')]
             'bank_account_holder' => 'nullable|string|max:255',
             'bank_account_number' => 'nullable|string|max:50',
             'bank_branch_code' => 'nullable|string|max:20',
+            'logo' => 'nullable|image|max:4096',
         ]);
 
         $canEditBank = auth()->user()->isOrgOwner($this->organization);
@@ -91,6 +106,14 @@ new #[Layout('components.layouts.app')]
             $payload['bank_account_holder'] = $validated['bank_account_holder'] ?: null;
             $payload['bank_account_number'] = $validated['bank_account_number'] ?: null;
             $payload['bank_branch_code'] = $validated['bank_branch_code'] ?: null;
+        }
+
+        if ($this->logo) {
+            if ($this->organization->logo_path) {
+                Storage::disk('public')->delete($this->organization->logo_path);
+            }
+            $payload['logo_path'] = $this->logo->store('org-logos/' . $this->organization->id, 'public');
+            $this->logo = null;
         }
 
         $this->organization->update($payload);
@@ -117,6 +140,26 @@ new #[Layout('components.layouts.app')]
 
             <flux:input wire:model="name" label="Name" required />
             <flux:textarea wire:model="description" label="Description" placeholder="What is this organization about..." rows="3" />
+
+            <flux:separator />
+
+            <h2 class="text-lg font-semibold text-primary">Logo</h2>
+            <div class="flex items-start gap-4">
+                @if($organization->logo_path)
+                    <div class="flex-shrink-0">
+                        <img src="{{ Storage::url($organization->logo_path) }}" alt="Logo" class="h-16 w-16 rounded-lg border border-border object-cover" />
+                    </div>
+                @endif
+                <div class="flex-1 space-y-2">
+                    <input type="file" wire:model="logo" accept="image/*"
+                           class="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface-2 file:px-4 file:py-2 file:text-sm file:font-medium file:text-secondary hover:file:bg-surface-2/80" />
+                    @error('logo') <p class="text-xs text-red-400">{{ $message }}</p> @enderror
+                    @if($organization->logo_path)
+                        <button type="button" wire:click="removeLogo" wire:confirm="Remove the current logo?" class="text-xs text-red-400 hover:underline">Remove logo</button>
+                    @endif
+                    <p class="text-xs text-muted">Max 4 MB. Shown on event cards and the events page.</p>
+                </div>
+            </div>
 
             <flux:separator />
 

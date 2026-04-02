@@ -10,6 +10,7 @@ use App\Models\Gong;
 use App\Models\Squad;
 use App\Models\Shooter;
 use App\Enums\MatchStatus;
+use App\Enums\Province;
 use chillerlan\QRCode\{QRCode, QROptions};
 use chillerlan\QRCode\Output\QRMarkupSVG;
 use Flux\Flux;
@@ -24,6 +25,7 @@ new #[Layout('components.layouts.app')]
     public string $name = '';
     public string $date = '';
     public string $location = '';
+    public string $province = '';
     public string $notes = '';
     public string $public_bio = '';
     public string $image_url = '';
@@ -106,6 +108,7 @@ new #[Layout('components.layouts.app')]
             $this->name = $match->name;
             $this->date = $match->date?->format('Y-m-d') ?? '';
             $this->location = $match->location ?? '';
+            $this->province = $match->province?->value ?? '';
             $this->notes = $match->notes ?? '';
             $this->public_bio = $match->public_bio ?? '';
             $this->image_url = $match->image_url ?? '';
@@ -129,6 +132,7 @@ new #[Layout('components.layouts.app')]
             'name' => 'required|string|max:255',
             'date' => 'required|date',
             'location' => 'nullable|string|max:255',
+            'province' => 'nullable|string|in:' . implode(',', array_column(Province::cases(), 'value')),
             'notes' => 'nullable|string|max:5000',
             'public_bio' => 'nullable|string|max:2000',
             'image_url' => 'nullable|url|max:500',
@@ -139,6 +143,7 @@ new #[Layout('components.layouts.app')]
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
         $validated['image_url'] = $this->image_url !== '' ? $this->image_url : null;
+        $validated['province'] = $this->province !== '' ? $this->province : null;
         $orgIsRf = $this->organization->isRoyalFlushOrg();
         $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
@@ -1034,6 +1039,15 @@ new #[Layout('components.layouts.app')]
                 Matches still <strong>Active</strong> or <strong>Squadding Open</strong> are automatically set to <strong>Completed</strong> the day after this date ({{ config('app.timezone') }}). Update the date if the event moves.
             </p>
             <flux:input wire:model="location" label="Location" placeholder="e.g. Range 3, Pretoria" />
+            <div>
+                <label class="block text-sm font-medium text-secondary mb-1">Province</label>
+                <select wire:model="province" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent">
+                    <option value="">— Select province —</option>
+                    @foreach(\App\Enums\Province::cases() as $p)
+                        <option value="{{ $p->value }}">{{ $p->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <flux:input wire:model="entry_fee" label="Entry Fee (ZAR)" type="number" step="0.01" min="0" placeholder="Leave empty for free" />

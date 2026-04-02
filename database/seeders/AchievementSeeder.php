@@ -55,6 +55,11 @@ class AchievementSeeder extends Seeder
             // ── Royal Flush Lifetime ──
             ['slug' => 'first-flush', 'label' => 'First Flush', 'description' => 'Achieved your first Royal Flush.', 'category' => 'lifetime', 'scope' => 'lifetime', 'is_repeatable' => false, 'sort_order' => 200, 'competition_type' => 'royal_flush'],
 
+            // ── Royal Flush Repeatable (podiums stack across matches) ──
+            ['slug' => 'rf-podium-gold',   'label' => 'Podium Gold',   'description' => 'Won the Royal Flush match.',                  'category' => 'repeatable', 'scope' => 'match', 'is_repeatable' => true, 'sort_order' => 80,  'competition_type' => 'royal_flush'],
+            ['slug' => 'rf-podium-silver', 'label' => 'Podium Silver', 'description' => 'Finished second overall at a Royal Flush match.', 'category' => 'repeatable', 'scope' => 'match', 'is_repeatable' => true, 'sort_order' => 90,  'competition_type' => 'royal_flush'],
+            ['slug' => 'rf-podium-bronze', 'label' => 'Podium Bronze', 'description' => 'Finished third overall at a Royal Flush match.',  'category' => 'repeatable', 'scope' => 'match', 'is_repeatable' => true, 'sort_order' => 100, 'competition_type' => 'royal_flush'],
+
             // ── Royal Flush Match Special ──
             ['slug' => 'winning-hand', 'label' => 'Winning Hand', 'description' => 'Won the side bet by hitting the most small gongs across all distances. Awarded once per match, or not at all.', 'category' => 'match_special', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 300, 'competition_type' => 'royal_flush'],
         ];
