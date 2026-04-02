@@ -61,9 +61,55 @@
                     &larr; Match Overview
                 </router-link>
 
-                <button @click="showCorrectionLogs = true" class="mt-2 text-sm text-amber-500 hover:text-amber-300 transition-colors">
+                <button @click="showCorrections = !showCorrections" class="mt-4 w-full max-w-sm rounded-xl border border-slate-700 bg-slate-800/60 px-6 py-3 text-sm font-semibold text-amber-400 transition-all hover:border-amber-600 hover:bg-slate-800">
+                    {{ showCorrections ? 'Hide Corrections' : 'Manage Corrections' }}
+                </button>
+
+                <button @click="showCorrectionLogs = true" class="mt-1 text-xs text-slate-500 hover:text-slate-300 transition-colors">
                     View Corrections Log
                 </button>
+            </div>
+
+            <!-- Corrections Management Panel -->
+            <div v-if="showCorrections" class="border-t border-slate-700 bg-slate-800/30 px-4 py-6">
+                <div class="mx-auto w-full max-w-2xl space-y-4">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-amber-400">Score Corrections</h3>
+
+                    <select
+                        v-model="correctionStageId"
+                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                    >
+                        <option :value="null" disabled>Select a stage...</option>
+                        <option v-for="ts in targetSets" :key="ts.id" :value="ts.id">
+                            {{ ts.display_name || ts.label }}
+                        </option>
+                    </select>
+
+                    <div v-if="correctionStageId && correctionShooters.length === 0" class="rounded-lg border border-slate-700 bg-slate-900/50 p-4 text-center text-sm text-slate-500">
+                        No completed scores for this stage yet.
+                    </div>
+
+                    <div v-if="correctionStageId && correctionShooters.length > 0" class="space-y-2">
+                        <div
+                            v-for="shooter in correctionShooters"
+                            :key="shooter.id"
+                            class="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/60 p-3"
+                        >
+                            <div class="min-w-0 flex-1 mr-3">
+                                <span class="text-sm font-bold block truncate">{{ shooter.name }}</span>
+                                <span class="text-xs text-green-400">{{ shooter.hits }}/{{ shooter.total }} hits</span>
+                            </div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <button @click="openReassignModal(shooter, correctionStageId)" class="rounded bg-amber-600/20 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-600/30">
+                                    Reassign
+                                </button>
+                                <button @click="openMoveModal(shooter, correctionStageId)" class="rounded bg-blue-600/20 px-3 py-1.5 text-xs font-bold text-blue-400 hover:bg-blue-600/30">
+                                    Move
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -151,31 +197,23 @@
                         v-for="shooter in currentShooters"
                         :key="shooter.id"
                         @click="openScoring(shooter)"
-                        class="flex w-full items-center justify-between rounded-xl border border-slate-700 bg-slate-800 p-4 text-left transition-all hover:border-amber-600 active:scale-[0.98]"
+                        class="flex w-full flex-col gap-2 rounded-xl border border-slate-700 bg-slate-800 p-4 text-left transition-all hover:border-amber-600 active:scale-[0.98]"
                     >
-                        <div class="flex items-center gap-3">
-                            <div>
-                                <span class="text-lg font-bold">{{ shooter.name }}</span>
-                                <span v-if="shooter.bib_number" class="ml-2 text-sm text-slate-500">#{{ shooter.bib_number }}</span>
+                        <div class="flex w-full items-center justify-between">
+                            <div class="min-w-0 flex-1 mr-3">
+                                <span class="text-base font-bold block truncate">{{ shooter.name }}</span>
+                                <span v-if="shooter.bib_number" class="text-xs text-slate-500">#{{ shooter.bib_number }}</span>
                             </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span v-if="getShooterCompletion(shooter.id)" class="text-sm font-bold text-green-400">
-                                {{ getShooterCompletion(shooter.id).hits }}/{{ selectedStageObj?.total_shots || selectedStageObj?.gongs?.length }} hits
-                            </span>
-                            <span
-                                class="rounded-full px-3 py-1 text-xs font-bold uppercase"
-                                :class="getStatusClass(shooter.id)"
-                            >
-                                {{ getStatusLabel(shooter.id) }}
-                            </span>
-                            <div v-if="getShooterCompletion(shooter.id)" class="flex gap-1 ml-2">
-                                <button @click.stop="openReassignModal(shooter)" class="rounded bg-amber-600/20 px-2 py-1 text-[10px] font-bold text-amber-400 hover:bg-amber-600/30" title="Reassign to another shooter">
-                                    Reassign
-                                </button>
-                                <button @click.stop="openMoveModal(shooter)" class="rounded bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-400 hover:bg-blue-600/30" title="Move to different stage">
-                                    Move
-                                </button>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <span v-if="getShooterCompletion(shooter.id)" class="text-sm font-bold text-green-400 whitespace-nowrap">
+                                    {{ getShooterCompletion(shooter.id).hits }}/{{ selectedStageObj?.total_shots || selectedStageObj?.gongs?.length }}
+                                </span>
+                                <span
+                                    class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap"
+                                    :class="getStatusClass(shooter.id)"
+                                >
+                                    {{ getStatusLabel(shooter.id) }}
+                                </span>
                             </div>
                         </div>
                     </button>
@@ -363,7 +401,7 @@
             <div v-if="showReassignModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="showReassignModal = false">
                 <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
                     <h3 class="mb-2 text-lg font-bold text-white">Reassign Score</h3>
-                    <p class="mb-4 text-sm text-slate-400">Transfer {{ reassignShooter?.name }}'s score at {{ selectedStageObj?.label }} to another shooter.</p>
+                    <p class="mb-4 text-sm text-slate-400">Transfer {{ reassignShooter?.name }}'s score at {{ activeCorrectStageName }} to another shooter.</p>
                     <select v-model="reassignTargetId" class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none">
                         <option :value="null" disabled>Select target shooter</option>
                         <option v-for="s in availableReassignTargets" :key="s.id" :value="s.id">{{ s.name }}</option>
@@ -382,7 +420,7 @@
             <div v-if="showMoveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="showMoveModal = false">
                 <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
                     <h3 class="mb-2 text-lg font-bold text-white">Move to Different Stage</h3>
-                    <p class="mb-4 text-sm text-slate-400">Move {{ moveShooter?.name }}'s score from {{ selectedStageObj?.label }} to another stage.</p>
+                    <p class="mb-4 text-sm text-slate-400">Move {{ moveShooter?.name }}'s score from {{ activeCorrectStageName }} to another stage.</p>
                     <select v-model="moveTargetStageId" class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none">
                         <option :value="null" disabled>Select target stage</option>
                         <option v-for="ts in availableMoveTargets" :key="ts.id" :value="ts.id">{{ ts.display_name || ts.label }}</option>
@@ -454,6 +492,9 @@ let timerInterval = null;
 let syncInterval = null;
 
 // Corrections management
+const showCorrections = ref(false);
+const correctionStageId = ref(null);
+const activeCorrectStageId = ref(null);
 const showPinModal = ref(false);
 const pinInput = ref('');
 const pinError = ref('');
@@ -498,13 +539,36 @@ const currentShooters = computed(() => {
 
 const correctionsPin = computed(() => matchStore.currentMatch?.corrections_pin ?? null);
 
+const allActiveShooters = computed(() => {
+    return squads.value.flatMap(sq => sq.shooters?.filter(s => s.status === 'active') ?? []);
+});
+
+const correctionStageObj = computed(() => targetSets.value.find(ts => ts.id === correctionStageId.value));
+
+const correctionShooters = computed(() => {
+    if (!correctionStageId.value) return [];
+    const stageId = correctionStageId.value;
+    const stageGongs = correctionStageObj.value?.total_shots || correctionStageObj.value?.gongs?.length || 0;
+    return allActiveShooters.value
+        .filter(s => prsStore.stageCompletions.has(`${s.id}-${stageId}`))
+        .map(s => {
+            const comp = prsStore.stageCompletions.get(`${s.id}-${stageId}`);
+            return { ...s, hits: comp?.hits ?? 0, total: stageGongs };
+        });
+});
+
 const availableReassignTargets = computed(() => {
-    if (!selectedSquadObj.value || !reassignShooter.value) return [];
-    return selectedSquadObj.value.shooters.filter(s => s.status === 'active' && s.id !== reassignShooter.value.id);
+    if (!reassignShooter.value) return [];
+    return allActiveShooters.value.filter(s => s.id !== reassignShooter.value.id);
 });
 
 const availableMoveTargets = computed(() => {
-    return targetSets.value.filter(ts => ts.id !== prsStore.selectedStageId);
+    return targetSets.value.filter(ts => ts.id !== activeCorrectStageId.value);
+});
+
+const activeCorrectStageName = computed(() => {
+    const ts = targetSets.value.find(s => s.id === activeCorrectStageId.value);
+    return ts?.display_name || ts?.label || 'Stage';
 });
 
 const stageRequiresTime = computed(() => {
@@ -777,8 +841,9 @@ function clearTimeInput() {
     prsStore.rawTimeSeconds = null;
 }
 
-function openReassignModal(shooter) {
+function openReassignModal(shooter, stageId) {
     reassignShooter.value = shooter;
+    activeCorrectStageId.value = stageId || correctionStageId.value;
     reassignTargetId.value = null;
     correctionError.value = '';
     if (correctionsPin.value) {
@@ -791,8 +856,9 @@ function openReassignModal(shooter) {
     }
 }
 
-function openMoveModal(shooter) {
+function openMoveModal(shooter, stageId) {
     moveShooter.value = shooter;
+    activeCorrectStageId.value = stageId || correctionStageId.value;
     moveTargetStageId.value = null;
     correctionError.value = '';
     if (correctionsPin.value) {
@@ -825,11 +891,12 @@ function submitPin() {
 }
 
 async function executeReassign() {
-    if (!reassignShooter.value || !reassignTargetId.value) return;
+    if (!reassignShooter.value || !reassignTargetId.value || !activeCorrectStageId.value) return;
     correctionError.value = '';
     try {
+        const stageId = activeCorrectStageId.value;
         const resp = await axios.post(
-            `/api/matches/${props.matchId}/stages/${prsStore.selectedStageId}/reassign`,
+            `/api/matches/${props.matchId}/stages/${stageId}/reassign`,
             {
                 shooter_id: reassignShooter.value.id,
                 new_shooter_id: reassignTargetId.value,
@@ -838,8 +905,8 @@ async function executeReassign() {
         );
         if (resp.data?.success) {
             showReassignModal.value = false;
-            prsStore.stageCompletions.delete(`${reassignShooter.value.id}-${prsStore.selectedStageId}`);
-            prsStore.stageCompletions.set(`${reassignTargetId.value}-${prsStore.selectedStageId}`, resp.data);
+            prsStore.stageCompletions.delete(`${reassignShooter.value.id}-${stageId}`);
+            prsStore.stageCompletions.set(`${reassignTargetId.value}-${stageId}`, resp.data);
         }
     } catch (e) {
         correctionError.value = e.response?.data?.message || 'Reassignment failed';
@@ -847,11 +914,12 @@ async function executeReassign() {
 }
 
 async function executeMove() {
-    if (!moveShooter.value || !moveTargetStageId.value) return;
+    if (!moveShooter.value || !moveTargetStageId.value || !activeCorrectStageId.value) return;
     correctionError.value = '';
     try {
+        const stageId = activeCorrectStageId.value;
         const resp = await axios.post(
-            `/api/matches/${props.matchId}/stages/${prsStore.selectedStageId}/move`,
+            `/api/matches/${props.matchId}/stages/${stageId}/move`,
             {
                 shooter_id: moveShooter.value.id,
                 new_stage_id: moveTargetStageId.value,
@@ -860,7 +928,7 @@ async function executeMove() {
         );
         if (resp.data?.success) {
             showMoveModal.value = false;
-            prsStore.stageCompletions.delete(`${moveShooter.value.id}-${prsStore.selectedStageId}`);
+            prsStore.stageCompletions.delete(`${moveShooter.value.id}-${stageId}`);
         }
     } catch (e) {
         correctionError.value = e.response?.data?.message || 'Move failed';

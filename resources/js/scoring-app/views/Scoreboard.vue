@@ -122,7 +122,7 @@
                                         {{ prsStageShortLabel(ts) }}
                                         <span v-if="ts.is_tiebreaker" class="block text-[9px]">TB</span>
                                     </th>
-                                    <th class="px-2 py-3 text-center font-bold">Total</th>
+                                    <th class="px-2 py-3 text-center font-bold">Points</th>
                                     <th class="px-2 py-3 text-center">TB&nbsp;Time</th>
                                 </tr>
                             </thead>
@@ -158,7 +158,7 @@
                                         </template>
                                         <span v-else class="text-muted">&mdash;</span>
                                     </td>
-                                    <td class="px-2 py-3 text-center text-lg font-bold tabular-nums">{{ entry.total_score ?? entry.hits }}</td>
+                                    <td class="px-2 py-3 text-center text-lg font-bold tabular-nums">{{ prsPointsDisplay(entry) }}</td>
                                     <td class="px-2 py-3 text-center tabular-nums text-amber-400">
                                         {{ entry.tb_time > 0 ? entry.tb_time.toFixed(1) + 's' : '&mdash;' }}
                                     </td>
@@ -312,7 +312,7 @@
                                 </div>
 
                                 <div class="text-right">
-                                    <span class="text-xl font-bold tabular-nums">{{ entry.hits ?? entry.total_score }}</span>
+                                    <span class="text-xl font-bold tabular-nums">{{ prsPointsDisplay(entry) }}</span>
                                     <p v-if="entry.tb_time > 0" class="text-[10px] text-amber-400 tabular-nums">TB {{ entry.tb_time.toFixed(1) }}s</p>
                                 </div>
 
@@ -544,7 +544,7 @@
                                             {{ prsStageShortLabel(ts) }}
                                         </th>
                                     </template>
-                                    <th class="px-2 py-2 text-center font-bold text-muted border-l border-border">Total</th>
+                                    <th class="px-2 py-2 text-center font-bold text-muted border-l border-border">Points</th>
                                     <th class="px-2 py-2 text-center font-medium text-muted">Time</th>
                                 </tr>
                                 <tr class="border-b border-border text-[9px] text-muted/60">
@@ -588,7 +588,7 @@
                                             <span class="inline-block h-3 w-3 rounded-full" :class="gongDotClass(entry, ts.id, g)"></span>
                                         </td>
                                     </template>
-                                    <td class="px-2 py-1.5 text-center font-bold tabular-nums border-l border-border">{{ entry.total_score ?? entry.hits }}</td>
+                                    <td class="px-2 py-1.5 text-center font-bold tabular-nums border-l border-border">{{ prsPointsDisplay(entry) }}</td>
                                     <td class="px-2 py-1.5 text-center tabular-nums text-muted">
                                         {{ entry.total_time > 0 ? entry.total_time.toFixed(1) + 's' : '—' }}
                                     </td>
@@ -827,6 +827,22 @@ async function fetchData() {
 }
 
 const totalTargetCount = computed(() => targetSets.value.reduce((sum, ts) => sum + (ts.gong_count || 0), 0));
+
+const prsMaxHits = computed(() => {
+    if (!standings.value.length) return 0;
+    return Math.max(0, ...standings.value.map((e) => Number(e.hits ?? e.total_score ?? 0)));
+});
+
+/** PRS leaderboard points vs match top hit count (100.00 = tied for lead). */
+function prsPointsDisplay(entry) {
+    if (entry?.points != null && Number.isFinite(Number(entry.points))) {
+        return Number(entry.points).toFixed(2);
+    }
+    const hits = Number(entry?.hits ?? entry?.total_score ?? 0);
+    const max = prsMaxHits.value;
+    if (max <= 0) return '0.00';
+    return ((hits / max) * 100).toFixed(2);
+}
 
 function prsStageShortLabel(ts) {
     const label = ts.label || '';

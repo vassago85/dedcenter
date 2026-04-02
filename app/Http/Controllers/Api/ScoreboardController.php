@@ -11,6 +11,7 @@ use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use App\Models\TargetSet;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ScoreboardController extends Controller
@@ -725,6 +726,8 @@ class ScoreboardController extends Controller
             'stages' => $entry['stages'],
         ]);
 
+        $leaderboard = $this->withPrsRelativePoints(collect($leaderboard));
+
         return response()->json([
             'match' => $this->matchMeta($match),
             'target_sets' => $this->prsTargetSetsPayload($targetSets),
@@ -848,10 +851,36 @@ class ScoreboardController extends Controller
             'stages' => $entry['stages'],
         ]);
 
+        $leaderboard = $this->withPrsRelativePoints(collect($leaderboard));
+
         return response()->json([
             'match' => $this->matchMeta($match),
             'target_sets' => $this->prsTargetSetsPayload($targetSets),
             'leaderboard' => $leaderboard,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $leaderboard
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function withPrsRelativePoints(Collection $leaderboard): Collection
+    {
+        $maxHits = (int) $leaderboard->max('hits');
+
+        if ($maxHits <= 0) {
+            return $leaderboard->map(function (array $row) {
+                $row['points'] = 0.0;
+
+                return $row;
+            });
+        }
+
+        return $leaderboard->map(function (array $row) use ($maxHits) {
+            $hits = (int) ($row['hits'] ?? 0);
+            $row['points'] = round($hits / $maxHits * 100, 2);
+
+            return $row;
+        });
     }
 }

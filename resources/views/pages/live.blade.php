@@ -136,6 +136,13 @@ new #[Layout('components.layouts.scoreboard')]
                 if ($a->tb_time !== $b->tb_time) return $a->tb_time <=> $b->tb_time;
                 return $a->display_time <=> $b->display_time;
             })->values();
+
+            $maxPrsHits = (int) $shooters->max('hits_count');
+            foreach ($shooters as $s) {
+                $s->prs_points = $maxPrsHits > 0
+                    ? round($s->hits_count / $maxPrsHits * 100, 2)
+                    : 0.0;
+            }
         } else {
             $shooters = $shooters->sortByDesc('display_score')->values();
         }
@@ -363,8 +370,8 @@ new #[Layout('components.layouts.scoreboard')]
                         </div>
                     @endif
                     <div class="text-center min-w-[2rem]">
-                        <p class="text-base font-bold text-amber-400">{{ $isPrs ? $shooter->display_score : number_format($shooter->display_score, 1) }}</p>
-                        <p class="text-[9px] text-muted/60">score</p>
+                        <p class="text-base font-bold text-amber-400">{{ $isPrs ? number_format($shooter->prs_points ?? 0, 2) : number_format($shooter->display_score, 1) }}</p>
+                        <p class="text-[9px] text-muted/60">{{ $isPrs ? 'pts' : 'score' }}</p>
                     </div>
                 </div>
             </div>

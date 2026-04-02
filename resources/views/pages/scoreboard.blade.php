@@ -158,6 +158,13 @@ new #[Layout('components.layouts.scoreboard')]
                 if ($a->tb_time !== $b->tb_time) return $a->tb_time <=> $b->tb_time;
                 return $a->display_time <=> $b->display_time;
             })->values();
+
+            $maxPrsHits = (int) $shooters->max('hits_count');
+            foreach ($shooters as $s) {
+                $s->prs_points = $maxPrsHits > 0
+                    ? round($s->hits_count / $maxPrsHits * 100, 2)
+                    : 0.0;
+            }
         } else {
             $shooters = $shooters->sortByDesc('display_score')->values();
         }
@@ -572,7 +579,7 @@ new #[Layout('components.layouts.scoreboard')]
                     @if($isPrs)
                         <th class="px-6 py-4 text-right text-lg font-bold text-secondary lg:text-xl">Time</th>
                     @endif
-                    <th class="px-6 py-4 text-right text-lg font-bold text-amber-400 lg:text-xl">Score</th>
+                    <th class="px-6 py-4 text-right text-lg font-bold text-amber-400 lg:text-xl">{{ $isPrs ? 'Points' : 'Score' }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-border">
@@ -614,7 +621,7 @@ new #[Layout('components.layouts.scoreboard')]
                             </td>
                         @endif
                         <td class="px-6 py-4 text-right text-2xl font-black text-amber-400 lg:text-3xl">
-                            {{ $isPrs ? $shooter->display_score : number_format($shooter->display_score, 1) }}
+                            {{ $isPrs ? number_format($shooter->prs_points ?? 0, 2) : number_format($shooter->display_score, 1) }}
                         </td>
                     </tr>
                 @empty
@@ -679,7 +686,8 @@ new #[Layout('components.layouts.scoreboard')]
                                     </td>
                                 @endfor
                             @endforeach
-                            <td class="px-2 py-1.5 text-center font-bold text-white tabular-nums border-l border-zinc-700">{{ $shooter->display_score }}</td>
+                            {{-- Total column: raw hit count (per-gong grid context) --}}
+                            <td class="px-2 py-1.5 text-center font-bold text-white tabular-nums border-l border-zinc-700">{{ $shooter->hits_count }}</td>
                             <td class="px-2 py-1.5 text-center tabular-nums text-zinc-500">{{ $shooter->display_time > 0 ? number_format($shooter->display_time, 1) . 's' : '—' }}</td>
                         </tr>
                         @endforeach

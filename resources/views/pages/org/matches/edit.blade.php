@@ -734,6 +734,9 @@ new #[Layout('components.layouts.app')]
                 <flux:input wire:model="name" label="Name" placeholder="e.g. Monthly Steel Challenge" required />
                 <flux:input wire:model="date" label="Date" type="date" required />
             </div>
+            <p class="text-xs text-muted">
+                Matches still <strong>Active</strong> or <strong>Squadding Open</strong> are automatically set to <strong>Completed</strong> the day after this date ({{ config('app.timezone') }}). Update the date if the event moves.
+            </p>
             <flux:input wire:model="location" label="Location" placeholder="e.g. Range 3, Pretoria" />
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
