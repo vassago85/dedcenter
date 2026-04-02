@@ -3,7 +3,6 @@
 use App\Models\User;
 use App\Models\UserAchievement;
 use App\Models\Shooter;
-use App\Models\MatchRegistration;
 use App\Enums\MatchStatus;
 use App\Http\Controllers\BadgeGalleryController;
 use Livewire\Attributes\Layout;
@@ -19,18 +18,13 @@ new #[Layout('components.layouts.scoreboard')]
         $badgeConfig = BadgeGalleryController::BADGE_CONFIG;
 
         $earned = UserAchievement::where('user_id', $userId)
-            ->with(['achievement', 'match'])
+            ->with(['achievement', 'match', 'stage'])
             ->orderBy('awarded_at', 'desc')
             ->get();
 
         $uniqueBadges = $earned->unique('achievement_id');
 
-        $repeatCounts = $earned
-            ->filter(fn ($b) => $b->achievement->is_repeatable)
-            ->groupBy(fn ($b) => $b->achievement->slug)
-            ->map(fn ($g) => $g->count());
-
-        $byCompetition = $uniqueBadges->groupBy(fn ($b) => $b->achievement->competition_type ?? 'prs');
+        $byCompetition = $earned->groupBy(fn ($b) => $b->achievement->competition_type ?? 'prs');
 
         $matchesShot = Shooter::where('user_id', $userId)
             ->whereHas('squad.match', fn ($q) => $q->where('status', MatchStatus::Completed))
@@ -39,18 +33,13 @@ new #[Layout('components.layouts.scoreboard')]
         $totalBadges = $earned->count();
         $uniqueCount = $uniqueBadges->count();
 
-        $podiumBadges = $earned->filter(
+        $podiums = $earned->filter(
             fn ($b) => in_array($b->achievement->slug, ['podium-gold', 'podium-silver', 'podium-bronze'])
-        );
-        $podiums = $podiumBadges->count();
-
-        $featured = $uniqueBadges->filter(
-            fn ($b) => ($badgeConfig[$b->achievement->slug]['tier'] ?? 'earned') === 'featured'
-        );
+        )->count();
 
         return compact(
-            'earned', 'uniqueBadges', 'repeatCounts', 'byCompetition',
-            'matchesShot', 'totalBadges', 'uniqueCount', 'podiums', 'featured',
+            'earned', 'uniqueBadges', 'byCompetition',
+            'matchesShot', 'totalBadges', 'uniqueCount', 'podiums',
             'badgeConfig'
         );
     }
@@ -90,7 +79,7 @@ new #[Layout('components.layouts.scoreboard')]
         <div class="mt-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
     </header>
 
-    @if($uniqueBadges->isEmpty())
+    @if($earned->isEmpty())
         <div class="flex flex-col items-center justify-center rounded-3xl border border-white/8 bg-zinc-950/80 px-6 py-16 text-center">
             <x-badge-icon name="award" class="mb-4 h-12 w-12 text-zinc-600" />
             <p class="text-lg font-semibold text-white/60">No badges earned yet</p>
@@ -105,17 +94,18 @@ new #[Layout('components.layouts.scoreboard')]
                     'iconColor' => 'text-sky-300/70',
                     'titleColor' => 'text-sky-200/90',
                     'divider' => 'from-transparent via-sky-400/20 to-transparent',
+                    'accent' => 'sky',
                 ],
                 'royal_flush' => [
                     'label' => 'Royal Flush Badges',
                     'iconColor' => 'text-amber-300/70',
                     'titleColor' => 'text-amber-200/90',
                     'divider' => 'from-transparent via-amber-400/20 to-transparent',
+                    'accent' => 'amber',
                 ],
             ];
 
             $sectionIcons = ['prs' => 'target', 'royal_flush' => 'crown'];
-
             $tierOrder = ['featured' => 0, 'elite' => 1, 'milestone' => 2, 'earned' => 3];
         @endphp
 
@@ -126,6 +116,7 @@ new #[Layout('components.layouts.scoreboard')]
                     'iconColor' => 'text-white/50',
                     'titleColor' => 'text-white/80',
                     'divider' => 'from-transparent via-white/8 to-transparent',
+                    'accent' => 'white',
                 ];
                 $sIcon = $sectionIcons[$cType] ?? 'target';
 
@@ -141,30 +132,34 @@ new #[Layout('components.layouts.scoreboard')]
                         <x-badge-icon :name="$sIcon" class="h-4 w-4 {{ $meta['iconColor'] }}" />
                     </div>
                     <h2 class="text-lg font-semibold tracking-tight {{ $meta['titleColor'] }} sm:text-xl">{{ $meta['label'] }}</h2>
+                    <span class="ml-auto rounded-full border border-white/8 bg-white/4 px-3 py-0.5 text-[11px] tabular-nums text-zinc-400">{{ $typeBadges->count() }} earned</span>
                 </div>
                 <div class="mb-8 h-px bg-gradient-to-r {{ $meta['divider'] }}"></div>
 
-                <div class="grid gap-5 grid-cols-1 md:grid-cols-2">
+                <div class="space-y-4">
                     @foreach($sorted as $userBadge)
                         @php
                             $a = $userBadge->achievement;
                             $cfg = $badgeConfig[$a->slug] ?? [];
                             $icon = $cfg['icon'] ?? 'target';
                             $tier = $cfg['tier'] ?? 'earned';
-                            $count = $repeatCounts[$a->slug] ?? 1;
                             $isFeatured = $tier === 'featured';
+                            $match = $userBadge->match;
+                            $stage = $userBadge->stage;
+                            $md = $userBadge->metadata ?? [];
                         @endphp
-                        <div class="{{ $isFeatured ? 'md:col-span-2' : '' }}">
-                            <x-badge-card-earned
-                                :achievement="$a"
-                                :icon="$icon"
-                                :tier="$tier"
-                                :family="$cType"
-                                :count="$count"
-                                :lastAwarded="$userBadge->awarded_at"
-                                :matchName="$userBadge->match?->name"
-                            />
-                        </div>
+                        <x-badge-card-earned
+                            :achievement="$a"
+                            :icon="$icon"
+                            :tier="$tier"
+                            :family="$cType"
+                            :count="1"
+                            :lastAwarded="$userBadge->awarded_at"
+                            :matchName="$match?->name"
+                            :matchLocation="$match?->location"
+                            :stageName="$stage?->label"
+                            :metadata="$md"
+                        />
                     @endforeach
                 </div>
             </section>

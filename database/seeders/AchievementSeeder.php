@@ -19,7 +19,7 @@ class AchievementSeeder extends Seeder
             ['slug' => 'no-drop-stage',     'label' => 'No Drop Stage',     'description' => 'Dropped only one point on a PRS stage while completing all shots.',                                       'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 20,  'competition_type' => 'prs'],
             ['slug' => 'impact-chain',      'label' => 'Impact Chain',      'description' => 'Built a streak of consecutive hits on a single stage.',                                                   'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 30,  'competition_type' => 'prs'],
             ['slug' => 'high-efficiency',   'label' => 'High Efficiency',   'description' => 'Achieved 80% or higher hit rate on shots taken across the match.',                                        'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 40,  'competition_type' => 'prs'],
-            ['slug' => 'first-blood',       'label' => 'First Blood',       'description' => 'Finished scoring before anyone else at the match.',                                                       'category' => 'lifetime', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 50,  'competition_type' => 'prs'],
+            ['slug' => 'early-bird',        'label' => 'Early Bird',        'description' => 'First shooter to register for a PRS match.',                                                               'category' => 'lifetime', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 50,  'competition_type' => 'prs'],
             ['slug' => 'iron-shooter',      'label' => 'Iron Shooter',      'description' => 'Maintained 80% or higher hit rate on every stage in the match.',                                          'category' => 'lifetime', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 60,  'competition_type' => 'prs'],
             ['slug' => 'complete-shooter',  'label' => 'Complete Shooter',  'description' => 'Completed the full PRS match without any shots not taken and finished on 75% or higher overall.',          'category' => 'lifetime', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 70,  'competition_type' => 'prs'],
 
@@ -65,5 +65,7 @@ class AchievementSeeder extends Seeder
                 $badge,
             );
         }
+
+        Achievement::where('slug', 'first-blood')->update(['is_active' => false]);
     }
 }

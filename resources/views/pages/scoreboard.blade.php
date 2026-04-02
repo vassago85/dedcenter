@@ -620,51 +620,46 @@ new #[Layout('components.layouts.scoreboard')]
             $lifetimeBadges = $badgesByCategory->get('lifetime', collect());
             $repeatableBadges = $badgesByCategory->get('repeatable', collect());
             $hasBadges = $matchBadges->isNotEmpty();
-
-            $rfIconMap = [
-                'royal-flush' => '👑',
-                'flush-collector' => '🏆',
-                'small-gong-sniper' => '🎯',
-                'winning-hand' => '🃏',
-                'first-flush' => '⭐',
-            ];
+            $bcfg = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG;
         @endphp
 
         @if(!$hasBadges)
             <div class="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface/30 px-6 py-16 text-center">
-                <span class="mb-3 text-4xl opacity-40">🏅</span>
+                <x-badge-icon name="award" class="mb-3 h-10 w-10 text-muted opacity-40" />
                 <h3 class="text-lg font-bold text-primary">No badges awarded yet</h3>
-                <p class="mt-2 max-w-sm text-sm text-muted">Badges earned during this match will appear here once scoring has been finalized and achievements have been evaluated.</p>
+                <p class="mt-2 max-w-sm text-sm text-muted">Badges earned during this match will appear here once scoring has been finalized.</p>
             </div>
         @else
             <div class="space-y-6">
 
-                {{-- ── MATCH SPECIALS (Winning Hand) ── --}}
                 @php $winningHand = $matchSpecials->first(fn ($ua) => $ua->achievement?->slug === 'winning-hand'); @endphp
                 @if($winningHand)
                     <section>
                         <div class="mb-3 flex items-center gap-2">
-                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Match Specials</span>
-                            <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Match Special</span>
+                            <x-badge-icon name="sparkles" class="h-3.5 w-3.5 text-amber-400" />
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Signature Badge</span>
                         </div>
                         <div class="overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-900/20 via-surface to-surface">
                             <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
-                                <div class="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-3xl sm:h-20 sm:w-20 sm:text-4xl">🃏</div>
+                                <x-badge-crest icon="spade" tier="featured" family="royal_flush" />
                                 <div class="min-w-0 flex-1">
-                                    <h3 class="text-xl font-black text-amber-400 sm:text-2xl">Winning Hand</h3>
+                                    <h3 class="text-xl font-semibold text-amber-300 sm:text-2xl">Winning Hand</h3>
                                     <p class="mt-1 text-sm text-secondary">{{ $winningHand->achievement->description }}</p>
                                     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                                        <span class="font-bold text-primary">{{ $winningHand->shooter?->name ?? $winningHand->user?->name ?? 'Unknown' }}</span>
-                                        @if($winningHand->metadata && isset($winningHand->metadata['small_gong_hits']))
+                                        @if($winningHand->user_id)
+                                            <a href="{{ route('shooter.profile', $winningHand->user_id) }}" class="font-bold text-primary hover:underline">{{ $winningHand->shooter?->name ?? $winningHand->user?->name ?? 'Unknown' }}</a>
+                                        @else
+                                            <span class="font-bold text-primary">{{ $winningHand->shooter?->name ?? 'Unknown' }}</span>
+                                        @endif
+                                        @if(isset($winningHand->metadata['small_gong_hits']))
                                             <span class="text-muted">&bull;</span>
                                             <span class="tabular-nums text-amber-400">{{ $winningHand->metadata['small_gong_hits'] }} small gong hits</span>
                                         @endif
-                                        @if($winningHand->metadata && !empty($winningHand->metadata['distances_hit']))
+                                        @if(!empty($winningHand->metadata['distances_hit']))
                                             <span class="text-muted">&bull;</span>
                                             <span class="text-muted">{{ implode('m, ', $winningHand->metadata['distances_hit']) }}m</span>
                                         @endif
                                     </div>
-                                    <p class="mt-2 text-xs text-muted">Awarded for winning the side bet</p>
                                 </div>
                             </div>
                         </div>
@@ -672,35 +667,45 @@ new #[Layout('components.layouts.scoreboard')]
                 @elseif($this->match->side_bet_enabled)
                     <section>
                         <div class="mb-3 flex items-center gap-2">
-                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Match Specials</span>
-                            <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Match Special</span>
+                            <x-badge-icon name="sparkles" class="h-3.5 w-3.5 text-amber-400" />
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Signature Badge</span>
                         </div>
                         <div class="rounded-2xl border border-border/50 bg-surface/20 px-5 py-8 text-center">
-                            <span class="mb-2 block text-2xl opacity-30">🃏</span>
+                            <x-badge-icon name="spade" class="mx-auto mb-2 h-8 w-8 text-muted opacity-30" />
                             <p class="text-sm font-semibold text-muted">No Winning Hand was awarded for this match.</p>
-                            <p class="mt-1 text-xs text-muted/60">Winning Hand is awarded to the side bet winner. If participants are perfectly tied, it is not awarded.</p>
+                            <p class="mt-1 text-xs text-muted/60">Awarded to the side bet winner. If tied, it is not awarded.</p>
                         </div>
                     </section>
                 @endif
 
-                {{-- ── LIFETIME MILESTONES ── --}}
                 @if($lifetimeBadges->isNotEmpty())
                     <section>
                         <div class="mb-3 flex items-center gap-2">
-                            <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Lifetime Milestones</span>
-                            <span class="rounded-full bg-purple-600/20 px-2 py-0.5 text-[10px] font-bold text-purple-400">Lifetime</span>
-                            <span class="text-[10px] text-muted/60">&mdash; earned once per shooter, permanent</span>
+                            <x-badge-icon name="award" class="h-3.5 w-3.5 text-amber-400/70" />
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400/70">Lifetime Achievements</span>
                         </div>
-                        <div class="grid gap-2 sm:grid-cols-2">
+                        <div class="grid gap-3 sm:grid-cols-2">
                             @foreach($lifetimeBadges->sortBy(fn ($ua) => $ua->achievement?->sort_order ?? 99) as $ua)
-                                @php $badge = $ua->achievement; @endphp
-                                <div class="flex items-start gap-3 rounded-xl border border-purple-500/20 bg-purple-900/10 px-4 py-3">
-                                    <span class="mt-0.5 text-xl">{{ $rfIconMap[$badge->slug] ?? '⭐' }}</span>
+                                @php
+                                    $badge = $ua->achievement;
+                                    $cfg = $bcfg[$badge->slug] ?? [];
+                                    $icon = $cfg['icon'] ?? 'target';
+                                @endphp
+                                <div class="flex items-start gap-3 rounded-xl border border-amber-400/15 bg-amber-900/8 px-4 py-3">
+                                    <x-badge-icon :name="$icon" class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-300" />
                                     <div class="min-w-0 flex-1">
-                                        <span class="font-bold text-purple-300">{{ $badge->label }}</span>
+                                        <span class="font-bold text-amber-200">{{ $badge->label }}</span>
                                         <p class="mt-0.5 text-xs text-muted">{{ $badge->description }}</p>
                                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                            <span class="font-semibold text-primary">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</span>
+                                            @if($ua->user_id)
+                                                <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-semibold text-primary hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
+                                            @else
+                                                <span class="font-semibold text-primary">{{ $ua->shooter?->name ?? 'Unknown' }}</span>
+                                            @endif
+                                            @if(isset($ua->metadata['distance_meters']))
+                                                <span class="text-muted">&bull;</span>
+                                                <span class="tabular-nums text-muted">{{ $ua->metadata['distance_meters'] }}m</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -709,54 +714,48 @@ new #[Layout('components.layouts.scoreboard')]
                     </section>
                 @endif
 
-                {{-- ── REPEATABLE BADGES ── --}}
                 @if($repeatableBadges->isNotEmpty())
                     <section>
                         <div class="mb-3 flex items-center gap-2">
-                            <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Repeatable Badges</span>
-                            <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold text-sky-400">Repeatable</span>
-                            <span class="text-[10px] text-muted/60">&mdash; earned each time conditions are met</span>
+                            <x-badge-icon name="layers" class="h-3.5 w-3.5 text-amber-500/60" />
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-500/60">Stackable Badges</span>
                         </div>
                         @php
-                            $rfBadgeOrder = ['royal-flush', 'flush-collector', 'small-gong-sniper'];
                             $rfGrouped = $repeatableBadges->groupBy(fn ($ua) => $ua->achievement?->slug ?? 'unknown');
-                            $rfOrderedSlugs = collect($rfBadgeOrder)->filter(fn ($s) => $rfGrouped->has($s))->merge($rfGrouped->keys()->diff($rfBadgeOrder));
                         @endphp
                         <div class="space-y-3">
-                            @foreach($rfOrderedSlugs as $slug)
+                            @foreach($rfGrouped as $slug => $entries)
                                 @php
-                                    $entries = $rfGrouped->get($slug, collect());
                                     $badge = $entries->first()?->achievement;
                                     if (!$badge) continue;
+                                    $cfg = $bcfg[$badge->slug] ?? [];
+                                    $icon = $cfg['icon'] ?? 'target';
                                 @endphp
-                                <div class="rounded-xl border border-sky-500/15 bg-sky-900/5">
-                                    <div class="flex items-center gap-3 border-b border-sky-500/10 px-4 py-2.5">
-                                        <span class="text-lg">{{ $rfIconMap[$badge->slug] ?? '🏅' }}</span>
+                                <div class="rounded-xl border border-amber-500/12 bg-amber-900/5">
+                                    <div class="flex items-center gap-3 border-b border-amber-500/10 px-4 py-2.5">
+                                        <x-badge-icon :name="$icon" class="h-4 w-4 text-amber-300" />
                                         <div class="min-w-0 flex-1">
-                                            <span class="font-bold text-sky-300">{{ $badge->label }}</span>
+                                            <span class="font-bold text-amber-200">{{ $badge->label }}</span>
                                             <span class="ml-2 text-xs text-muted">&mdash; {{ $badge->description }}</span>
                                         </div>
-                                        <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-sky-400">{{ $entries->count() }}x</span>
+                                        <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-400">{{ $entries->count() }}&times;</span>
                                     </div>
                                     <div class="divide-y divide-border/30">
                                         @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
                                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
-                                                <span class="font-medium text-primary">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</span>
+                                                @if($ua->user_id)
+                                                    <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-medium text-primary hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
+                                                @else
+                                                    <span class="font-medium text-primary">{{ $ua->shooter?->name ?? 'Unknown' }}</span>
+                                                @endif
                                                 @if($ua->stage)
                                                     <span class="text-xs text-muted">{{ $ua->stage->label ?? 'Stage ' . $ua->stage->stage_number }}</span>
-                                                @elseif($badge->scope === 'match')
-                                                    <span class="text-xs text-muted/60">Match Achievement</span>
                                                 @endif
-                                                @if($ua->metadata)
-                                                    @if(isset($ua->metadata['distance_meters']))
-                                                        <span class="text-xs tabular-nums text-muted">{{ $ua->metadata['distance_meters'] }}m</span>
-                                                    @endif
-                                                    @if(isset($ua->metadata['flush_count']))
-                                                        <span class="text-xs tabular-nums text-muted">{{ $ua->metadata['flush_count'] }} flushes</span>
-                                                    @endif
-                                                    @if(isset($ua->metadata['multiplier']))
-                                                        <span class="text-xs tabular-nums text-muted">{{ $ua->metadata['multiplier'] }}x multiplier</span>
-                                                    @endif
+                                                @if(isset($ua->metadata['distance_meters']))
+                                                    <span class="text-xs tabular-nums text-muted">{{ $ua->metadata['distance_meters'] }}m</span>
+                                                @endif
+                                                @if(isset($ua->metadata['flush_count']))
+                                                    <span class="text-xs tabular-nums text-muted">{{ $ua->metadata['flush_count'] }} flushes</span>
                                                 @endif
                                             </div>
                                         @endforeach
@@ -940,80 +939,46 @@ new #[Layout('components.layouts.scoreboard')]
                 $lifetimeBadges = $badgesByCategory->get('lifetime', collect());
                 $repeatableBadges = $badgesByCategory->get('repeatable', collect());
                 $hasBadges = $matchBadges->isNotEmpty();
-
-                $iconMap = [
-                    'deadcenter' => '🎯',
-                    'prs-full-send' => '💥',
-                    'no-drop-stage' => '🔥',
-                    'impact-chain' => '⛓️',
-                    'high-efficiency' => '🎖️',
-                    'first-blood' => '🩸',
-                    'iron-shooter' => '🛡️',
-                    'complete-shooter' => '✅',
-                    'podium-gold' => '🥇',
-                    'podium-silver' => '🥈',
-                    'podium-bronze' => '🥉',
-                    'first-full-send' => '⭐',
-                    'first-podium' => '⭐',
-                    'first-win' => '⭐',
-                    'first-impact-chain' => '⭐',
-                    'royal-flush' => '👑',
-                    'flush-collector' => '🏆',
-                    'small-gong-sniper' => '🎯',
-                    'winning-hand' => '🃏',
-                    'first-flush' => '⭐',
-                ];
-
-                $categoryColors = [
-                    'match_special' => 'amber',
-                    'lifetime' => 'purple',
-                    'repeatable' => 'sky',
-                ];
-
-                $categoryLabels = [
-                    'match_special' => 'Match Special',
-                    'lifetime' => 'Lifetime Milestone',
-                    'repeatable' => 'Repeatable',
-                ];
+                $bcfg = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG;
             @endphp
 
             @if(!$hasBadges)
                 <div class="flex flex-col items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-800/30 px-6 py-16 text-center">
-                    <span class="mb-3 text-4xl opacity-40">🏅</span>
+                    <x-badge-icon name="award" class="mx-auto mb-3 h-10 w-10 text-zinc-600 opacity-40" />
                     <h3 class="text-lg font-bold text-zinc-300">No badges awarded yet</h3>
-                    <p class="mt-2 max-w-sm text-sm text-zinc-500">Badges earned during this PRS match will appear here once scoring has been finalized and achievements have been evaluated.</p>
+                    <p class="mt-2 max-w-sm text-sm text-zinc-500">Badges earned during this PRS match will appear here once scoring has been finalized.</p>
                 </div>
             @else
                 <div class="space-y-6">
 
-                    {{-- ── MATCH SPECIALS (DeadCenter first) ── --}}
                     @php $deadCenter = $matchSpecials->first(fn ($ua) => $ua->achievement?->slug === 'deadcenter'); @endphp
                     @if($deadCenter)
                         <section>
                             <div class="mb-3 flex items-center gap-2">
-                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Match Specials</span>
-                                <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Match Special</span>
+                                <x-badge-icon name="sparkles" class="h-3.5 w-3.5 text-sky-400" />
+                                <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Signature Badge</span>
                             </div>
-                            <div class="overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-900/20 via-zinc-900 to-zinc-900">
+                            <div class="overflow-hidden rounded-2xl border-2 border-sky-500/40 bg-gradient-to-br from-sky-900/20 via-zinc-900 to-zinc-900">
                                 <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
-                                    <div class="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-3xl sm:h-20 sm:w-20 sm:text-4xl">🎯</div>
+                                    <x-badge-crest icon="deadcenter" tier="featured" family="prs" />
                                     <div class="min-w-0 flex-1">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <h3 class="text-xl font-black text-amber-400 sm:text-2xl">DeadCenter</h3>
-                                        </div>
+                                        <h3 class="text-xl font-semibold text-sky-300 sm:text-2xl">DeadCenter</h3>
                                         <p class="mt-1 text-sm text-zinc-300">{{ $deadCenter->achievement->description }}</p>
                                         <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                                            <span class="font-bold text-white">{{ $deadCenter->shooter?->name ?? $deadCenter->user?->name ?? 'Unknown' }}</span>
+                                            @if($deadCenter->user_id)
+                                                <a href="{{ route('shooter.profile', $deadCenter->user_id) }}" class="font-bold text-white hover:underline">{{ $deadCenter->shooter?->name ?? $deadCenter->user?->name ?? 'Unknown' }}</a>
+                                            @else
+                                                <span class="font-bold text-white">{{ $deadCenter->shooter?->name ?? 'Unknown' }}</span>
+                                            @endif
                                             @if($deadCenter->stage)
                                                 <span class="text-zinc-500">&bull;</span>
                                                 <span class="text-zinc-400">{{ $deadCenter->stage->label ?? 'Stage ' . $deadCenter->stage->stage_number }}</span>
                                             @endif
-                                            @if($deadCenter->metadata && isset($deadCenter->metadata['time']))
+                                            @if(isset($deadCenter->metadata['time']))
                                                 <span class="text-zinc-500">&bull;</span>
-                                                <span class="tabular-nums text-amber-400">{{ number_format($deadCenter->metadata['time'], 2) }}s</span>
+                                                <span class="tabular-nums text-sky-400">{{ number_format($deadCenter->metadata['time'], 2) }}s</span>
                                             @endif
                                         </div>
-                                        <p class="mt-2 text-xs text-zinc-500">Awarded for the fastest clean run on the tiebreaker stage</p>
                                     </div>
                                 </div>
                             </div>
@@ -1021,37 +986,41 @@ new #[Layout('components.layouts.scoreboard')]
                     @else
                         <section>
                             <div class="mb-3 flex items-center gap-2">
-                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Match Specials</span>
-                                <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Match Special</span>
+                                <x-badge-icon name="sparkles" class="h-3.5 w-3.5 text-sky-400" />
+                                <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Signature Badge</span>
                             </div>
                             <div class="rounded-2xl border border-zinc-700/50 bg-zinc-800/20 px-5 py-8 text-center">
-                                <span class="mb-2 block text-2xl opacity-30">🎯</span>
+                                <x-badge-icon name="deadcenter" class="mx-auto mb-2 h-8 w-8 text-zinc-600 opacity-30" />
                                 <p class="text-sm font-semibold text-zinc-400">No DeadCenter was awarded for this match.</p>
-                                <p class="mt-1 text-xs text-zinc-600">DeadCenter is awarded only for the fastest clean run on the compulsory timed tiebreaker stage. If no shooter qualifies, it is not awarded.</p>
+                                <p class="mt-1 text-xs text-zinc-600">Awarded for the fastest clean run on the tiebreaker stage.</p>
                             </div>
                         </section>
                     @endif
 
-                    {{-- ── LIFETIME MILESTONES ── --}}
                     @if($lifetimeBadges->isNotEmpty())
                         <section>
                             <div class="mb-3 flex items-center gap-2">
-                                <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Lifetime Milestones</span>
-                                <span class="rounded-full bg-purple-600/20 px-2 py-0.5 text-[10px] font-bold text-purple-400">Lifetime</span>
-                                <span class="text-[10px] text-zinc-600">&mdash; earned once per shooter, permanent</span>
+                                <x-badge-icon name="award" class="h-3.5 w-3.5 text-sky-400/70" />
+                                <span class="text-xs font-bold uppercase tracking-wider text-sky-400/70">Lifetime Achievements</span>
                             </div>
-                            <div class="grid gap-2 sm:grid-cols-2">
+                            <div class="grid gap-3 sm:grid-cols-2">
                                 @foreach($lifetimeBadges->sortBy(fn ($ua) => $ua->achievement?->sort_order ?? 99) as $ua)
-                                    @php $badge = $ua->achievement; @endphp
-                                    <div class="flex items-start gap-3 rounded-xl border border-purple-500/20 bg-purple-900/10 px-4 py-3">
-                                        <span class="mt-0.5 text-xl">{{ $iconMap[$badge->slug] ?? '⭐' }}</span>
+                                    @php
+                                        $badge = $ua->achievement;
+                                        $cfg = $bcfg[$badge->slug] ?? [];
+                                        $icon = $cfg['icon'] ?? 'target';
+                                    @endphp
+                                    <div class="flex items-start gap-3 rounded-xl border border-sky-400/15 bg-sky-900/8 px-4 py-3">
+                                        <x-badge-icon :name="$icon" class="mt-0.5 h-5 w-5 flex-shrink-0 text-sky-300" />
                                         <div class="min-w-0 flex-1">
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <span class="font-bold text-purple-300">{{ $badge->label }}</span>
-                                            </div>
+                                            <span class="font-bold text-sky-200">{{ $badge->label }}</span>
                                             <p class="mt-0.5 text-xs text-zinc-400">{{ $badge->description }}</p>
                                             <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                                <span class="font-semibold text-white">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</span>
+                                                @if($ua->user_id)
+                                                    <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-semibold text-white hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
+                                                @else
+                                                    <span class="font-semibold text-white">{{ $ua->shooter?->name ?? 'Unknown' }}</span>
+                                                @endif
                                                 @if($ua->stage)
                                                     <span class="text-zinc-600">&bull;</span>
                                                     <span class="text-zinc-500">{{ $ua->stage->label ?? 'Stage ' . $ua->stage->stage_number }}</span>
@@ -1064,43 +1033,40 @@ new #[Layout('components.layouts.scoreboard')]
                         </section>
                     @endif
 
-                    {{-- ── REPEATABLE BADGES ── --}}
                     @if($repeatableBadges->isNotEmpty())
                         <section>
                             <div class="mb-3 flex items-center gap-2">
-                                <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Repeatable Badges</span>
-                                <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold text-sky-400">Repeatable</span>
-                                <span class="text-[10px] text-zinc-600">&mdash; earned each time conditions are met</span>
+                                <x-badge-icon name="layers" class="h-3.5 w-3.5 text-sky-500/60" />
+                                <span class="text-xs font-bold uppercase tracking-wider text-sky-500/60">Stackable Badges</span>
                             </div>
                             @php
-                                $badgeOrder = [
-                                    'prs-full-send', 'no-drop-stage', 'impact-chain', 'high-efficiency',
-                                    'first-blood', 'iron-shooter', 'complete-shooter',
-                                    'podium-gold', 'podium-silver', 'podium-bronze',
-                                ];
                                 $grouped = $repeatableBadges->groupBy(fn ($ua) => $ua->achievement?->slug ?? 'unknown');
-                                $orderedSlugs = collect($badgeOrder)->filter(fn ($s) => $grouped->has($s))->merge($grouped->keys()->diff($badgeOrder));
                             @endphp
                             <div class="space-y-3">
-                                @foreach($orderedSlugs as $slug)
+                                @foreach($grouped as $slug => $entries)
                                     @php
-                                        $entries = $grouped->get($slug, collect());
                                         $badge = $entries->first()?->achievement;
                                         if (!$badge) continue;
+                                        $cfg = $bcfg[$badge->slug] ?? [];
+                                        $icon = $cfg['icon'] ?? 'target';
                                     @endphp
-                                    <div class="rounded-xl border border-sky-500/15 bg-sky-900/5">
+                                    <div class="rounded-xl border border-sky-500/12 bg-sky-900/5">
                                         <div class="flex items-center gap-3 border-b border-sky-500/10 px-4 py-2.5">
-                                            <span class="text-lg">{{ $iconMap[$badge->slug] ?? '🏅' }}</span>
+                                            <x-badge-icon :name="$icon" class="h-4 w-4 text-sky-300" />
                                             <div class="min-w-0 flex-1">
-                                                <span class="font-bold text-sky-300">{{ $badge->label }}</span>
+                                                <span class="font-bold text-sky-200">{{ $badge->label }}</span>
                                                 <span class="ml-2 text-xs text-zinc-500">&mdash; {{ $badge->description }}</span>
                                             </div>
-                                            <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-sky-400">{{ $entries->count() }}x</span>
+                                            <span class="rounded-full bg-sky-600/20 px-2 py-0.5 text-[10px] font-bold tabular-nums text-sky-400">{{ $entries->count() }}&times;</span>
                                         </div>
                                         <div class="divide-y divide-zinc-800">
                                             @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
                                                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
-                                                    <span class="font-medium text-white">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</span>
+                                                    @if($ua->user_id)
+                                                        <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-medium text-white hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
+                                                    @else
+                                                        <span class="font-medium text-white">{{ $ua->shooter?->name ?? 'Unknown' }}</span>
+                                                    @endif
                                                     @if($ua->stage)
                                                         <span class="text-xs text-zinc-500">{{ $ua->stage->label ?? 'Stage ' . $ua->stage->stage_number }}</span>
                                                     @elseif($badge->scope === 'match')

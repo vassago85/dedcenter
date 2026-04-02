@@ -67,33 +67,6 @@ class AchievementService
             }
         }
 
-        // first-blood: first shooter to complete ALL stages in the match
-        $totalStages = $match->targetSets()->count();
-        $completedStages = PrsStageResult::where('match_id', $match->id)
-            ->where('shooter_id', $shooter->id)
-            ->whereNotNull('completed_at')
-            ->count();
-
-        if ($completedStages === $totalStages && $totalStages > 0) {
-            $anyoneElseComplete = PrsStageResult::where('match_id', $match->id)
-                ->where('shooter_id', '!=', $shooter->id)
-                ->whereNotNull('completed_at')
-                ->select('shooter_id')
-                ->groupBy('shooter_id')
-                ->havingRaw('COUNT(DISTINCT stage_id) = ?', [$totalStages])
-                ->exists();
-
-            if (! $anyoneElseComplete) {
-                $existing = self::hasMatchBadge('first-blood', $shooter->user_id, $match->id);
-                if (! $existing) {
-                    $badge = self::awardBadge('first-blood', $shooter, $match);
-                    if ($badge) {
-                        $awarded[] = $badge;
-                    }
-                }
-            }
-        }
-
         return $awarded;
     }
 
@@ -340,6 +313,51 @@ class AchievementService
         }
 
         return $awarded;
+    }
+
+    /**
+     * Award "Early Bird" to the first user to register for a PRS match.
+     * Call after a MatchRegistration is created.
+     */
+    public static function evaluateEarlyBird(ShootingMatch $match, int $userId): ?UserAchievement
+    {
+        if (! $match->isPrs()) {
+            return null;
+        }
+
+        $achievement = Achievement::bySlug('early-bird');
+        if (! $achievement) {
+            return null;
+        }
+
+        if (! $achievement->is_repeatable) {
+            $alreadyHas = UserAchievement::where('user_id', $userId)
+                ->where('achievement_id', $achievement->id)
+                ->exists();
+            if ($alreadyHas) {
+                return null;
+            }
+        }
+
+        $registrationCount = \App\Models\MatchRegistration::where('match_id', $match->id)->count();
+        if ($registrationCount > 1) {
+            return null;
+        }
+
+        $ua = UserAchievement::create([
+            'user_id' => $userId,
+            'achievement_id' => $achievement->id,
+            'match_id' => $match->id,
+            'metadata' => ['registered_at' => now()->toIso8601String()],
+            'awarded_at' => now(),
+        ]);
+
+        Log::info('Achievement awarded: early-bird', [
+            'user_id' => $userId,
+            'match_id' => $match->id,
+        ]);
+
+        return $ua;
     }
 
     // ── Private helpers ──

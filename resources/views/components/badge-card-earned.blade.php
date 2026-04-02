@@ -6,6 +6,9 @@
     'count' => 1,
     'lastAwarded' => null,
     'matchName' => null,
+    'matchLocation' => null,
+    'stageName' => null,
+    'metadata' => [],
 ])
 
 @php
@@ -132,10 +135,16 @@
 
             <p class="text-sm leading-6 text-zinc-400">{{ $achievement->description }}</p>
 
-            <div class="flex flex-wrap items-center gap-2 pt-1">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
                 @if($matchName)
                     <span class="inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium {{ $s['chip'] }}">
                         {{ $matchName }}
+                    </span>
+                @endif
+                @if($matchLocation)
+                    <span class="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+                        <x-badge-icon name="map-pin" class="h-3 w-3" />
+                        {{ $matchLocation }}
                     </span>
                 @endif
                 @if($lastAwarded)
@@ -144,6 +153,41 @@
                     </span>
                 @endif
             </div>
+
+            @if($stageName || !empty($metadata))
+                <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-zinc-500">
+                    @if($stageName)
+                        <span class="inline-flex items-center gap-1">
+                            <x-badge-icon name="flag" class="h-3 w-3" />
+                            {{ $stageName }}
+                        </span>
+                    @endif
+                    @if(isset($metadata['distance_meters']))
+                        <span class="tabular-nums">{{ $metadata['distance_meters'] }}m</span>
+                    @endif
+                    @if(isset($metadata['time']))
+                        <span class="tabular-nums">{{ number_format($metadata['time'], 2) }}s</span>
+                    @endif
+                    @if(isset($metadata['rank']))
+                        <span>#{{ $metadata['rank'] }} overall</span>
+                    @endif
+                    @if(isset($metadata['streak']))
+                        <span>{{ $metadata['streak'] }}-hit streak</span>
+                    @endif
+                    @if(isset($metadata['flush_count']))
+                        <span>{{ $metadata['flush_count'] }} flushes</span>
+                    @endif
+                    @if(isset($metadata['small_gong_hits']))
+                        <span>{{ $metadata['small_gong_hits'] }} small gong hits</span>
+                    @endif
+                    @if(!empty($metadata['distances_hit']))
+                        <span>{{ implode('m, ', $metadata['distances_hit']) }}m</span>
+                    @endif
+                    @if(isset($metadata['hit_rate']))
+                        <span>{{ round($metadata['hit_rate'] * 100) }}% hit rate</span>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 </div>

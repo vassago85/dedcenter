@@ -15,9 +15,9 @@ class BadgeGalleryController extends Controller
         // ── PRS ──
         'deadcenter'         => ['icon' => 'deadcenter',   'tier' => 'featured',  'earnChip' => 'Awarded per match'],
 
-        'podium-gold'        => ['icon' => 'trophy',       'tier' => 'elite',     'earnChip' => 'Stackable'],
-        'podium-silver'      => ['icon' => 'medal',        'tier' => 'elite',     'earnChip' => 'Stackable'],
-        'podium-bronze'      => ['icon' => 'award',        'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'podium-gold'        => ['icon' => 'medal-1',      'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'podium-silver'      => ['icon' => 'medal-2',      'tier' => 'elite',     'earnChip' => 'Stackable'],
+        'podium-bronze'      => ['icon' => 'medal-3',      'tier' => 'elite',     'earnChip' => 'Stackable'],
         'first-win'          => ['icon' => 'crown',        'tier' => 'elite',     'earnChip' => 'Earned once'],
 
         'first-full-send'    => ['icon' => 'flag',         'tier' => 'milestone', 'earnChip' => 'Earned once'],
@@ -28,7 +28,7 @@ class BadgeGalleryController extends Controller
         'no-drop-stage'      => ['icon' => 'flame',        'tier' => 'milestone', 'earnChip' => 'Earned once'],
         'impact-chain'       => ['icon' => 'link-2',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
         'high-efficiency'    => ['icon' => 'gauge',        'tier' => 'milestone', 'earnChip' => 'Earned once'],
-        'first-blood'        => ['icon' => 'zap',          'tier' => 'milestone', 'earnChip' => 'Earned once'],
+        'early-bird'         => ['icon' => 'sunrise',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
         'iron-shooter'       => ['icon' => 'shield',       'tier' => 'milestone', 'earnChip' => 'Earned once'],
         'complete-shooter'   => ['icon' => 'circle-check', 'tier' => 'milestone', 'earnChip' => 'Earned once'],
 

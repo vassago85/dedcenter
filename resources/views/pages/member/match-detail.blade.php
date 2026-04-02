@@ -76,6 +76,8 @@ new #[Layout('components.layouts.app')]
             'pre_registered_at' => now(),
         ]);
 
+        \App\Services\AchievementService::evaluateEarlyBird($this->match, auth()->id());
+
         Flux::toast('Pre-registered! You\'ll be notified when full registration opens.', variant: 'success');
     }
 
@@ -132,6 +134,7 @@ new #[Layout('components.layouts.app')]
                 'user_id' => auth()->id(),
                 'payment_reference' => $ref,
             ]);
+            \App\Services\AchievementService::evaluateEarlyBird($this->match, auth()->id());
         }
 
         $this->saveCustomFieldValues();
