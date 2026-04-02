@@ -80,7 +80,7 @@ class ShootingMatch extends Model
      */
     public function staff(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'match_staff')
+        return $this->belongsToMany(User::class, 'match_staff', 'match_id', 'user_id')
             ->withPivot('role')
             ->withTimestamps();
     }
