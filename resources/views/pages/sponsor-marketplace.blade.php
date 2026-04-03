@@ -10,9 +10,9 @@ use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.marketing', [
-    'description' => 'Browse available sponsorship placements for upcoming shooting matches. Connect your brand with competitive shooters on the DeadCenter platform.',
+    'description' => 'Browse available advertising placements for upcoming shooting matches. Connect your brand with competitive shooters on the DeadCenter platform.',
 ])]
-    #[Title('Sponsor a Shooting Match — DeadCenter')]
+    #[Title('Advertise on DeadCenter')]
     class extends Component {
 
     #[Validate('required|string|max:100')]
@@ -93,10 +93,10 @@ new #[Layout('components.layouts.marketing', [
 <section class="relative overflow-hidden py-20 lg:py-28" style="border-bottom: 1px solid var(--lp-border);">
     <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(225,6,0,0.08) 0%, transparent 70%);"></div>
     <div class="relative mx-auto max-w-4xl px-6 text-center">
-        <span class="inline-block rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">Marketplace</span>
-        <h1 class="mt-6 text-4xl font-bold tracking-tight lg:text-5xl" style="color: var(--lp-text);">Sponsor a Shooting Match</h1>
+        <span class="inline-block rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">Advertising</span>
+        <h1 class="mt-6 text-4xl font-bold tracking-tight lg:text-5xl" style="color: var(--lp-text);">Advertise on DeadCenter</h1>
         <p class="mx-auto mt-5 max-w-2xl text-lg leading-relaxed" style="color: var(--lp-text-soft);">
-            Put your brand in front of competitive shooters. Browse available sponsorship placements for upcoming matches and connect directly with the DeadCenter team.
+            Put your brand in front of competitive shooters. Browse available advertising placements for upcoming matches and connect directly with the DeadCenter team.
         </p>
     </div>
 </section>
@@ -109,7 +109,7 @@ new #[Layout('components.layouts.marketing', [
             <div class="text-center">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl text-xl font-black text-white" style="background: var(--lp-red);">1</div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Browse</h3>
-                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">See which upcoming matches have sponsorship slots open — leaderboards, scoring screens, match books, and more.</p>
+                <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">See which upcoming events have advertising placements available — leaderboards, results, and scoring screens.</p>
             </div>
             <div class="text-center">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl text-xl font-black text-white" style="background: var(--lp-red);">2</div>
@@ -129,11 +129,11 @@ new #[Layout('components.layouts.marketing', [
 <section class="py-16 lg:py-20">
     <div class="mx-auto max-w-5xl px-6">
         <h2 class="text-center text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Available Placements</h2>
-        <p class="mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed" style="color: var(--lp-text-soft);">These matches currently have open sponsorship slots. Grab one before they're taken.</p>
+        <p class="mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed" style="color: var(--lp-text-soft);">These events currently have open advertising placements. Grab one before they're taken.</p>
 
         @if($grouped->isEmpty())
             <div class="mt-12 rounded-2xl p-10 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                <p class="text-lg" style="color: var(--lp-text-muted);">No sponsorship placements are available right now. Check back soon or <a href="{{ route('sponsorships') }}" class="underline" style="color: var(--lp-red);">contact us directly</a>.</p>
+                <p class="text-lg" style="color: var(--lp-text-muted);">No advertising placements are available right now. Check back soon or <a href="{{ route('sponsorships') }}" class="underline" style="color: var(--lp-red);">contact us directly</a>.</p>
             </div>
         @else
             <div class="mt-12 space-y-8">

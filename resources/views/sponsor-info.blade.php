@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>Sponsorship Opportunities — DeadCenter + MatchBook Pro</title>
+    <title>Advertising Opportunities — DeadCenter + MatchBook Pro</title>
     <style>
         :root {
             --color-primary: #1e293b;
@@ -109,7 +109,7 @@
     <div class="container">
         <div class="header">
             <div class="badge">Confidential</div>
-            <h1>Sponsorship Opportunities</h1>
+            <h1>Advertising Opportunities</h1>
             <p class="subtitle">DeadCenter Competition Platform + MatchBook Pro</p>
         </div>
 
@@ -122,14 +122,14 @@
 
         @if($content['visibility'])
             <div class="section">
-                <h2>Sponsor Visibility Locations</h2>
+                <h2>Brand Visibility Locations</h2>
                 <div class="content">{{ $content['visibility'] }}</div>
             </div>
         @endif
 
         @if($content['matchbook_section'])
             <div class="section">
-                <h2>Match Books as a Sponsor Product</h2>
+                <h2>Match Books as a Brand Visibility Product</h2>
                 <div class="highlight-box">
                     <div class="content">{{ $content['matchbook_section'] }}</div>
                 </div>
@@ -145,7 +145,7 @@
 
         @if($content['tiers'])
             <div class="section">
-                <h2>Sponsorship Tiers</h2>
+                <h2>Advertising Packages</h2>
                 <div class="content">{{ $content['tiers'] }}</div>
                 <div class="highlight-box" style="margin-top: 1.5rem;">
                     <strong>Pricing available on request.</strong> Packages tailored to event reach and visibility.
@@ -168,7 +168,7 @@
         @endif
 
         <div class="footer">
-            <p>This document is intended for potential sponsors and partners only.</p>
+            <p>This document is intended for potential advertisers only.</p>
             <p>DeadCenter + MatchBook Pro &mdash; {{ date('Y') }}</p>
         </div>
     </div>

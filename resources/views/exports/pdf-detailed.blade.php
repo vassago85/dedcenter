@@ -39,7 +39,7 @@
             @if($sponsorAssignment->sponsor->logo_path)
                 <img src="{{ public_path('storage/' . $sponsorAssignment->sponsor->logo_path) }}" alt="">
             @endif
-            <span>{{ $sponsorAssignment->displayLabel() }} {{ $sponsorAssignment->sponsor->name }}</span>
+            <span>Results powered by {{ $sponsorAssignment->sponsor->name }}</span>
         </div>
     @endif
 

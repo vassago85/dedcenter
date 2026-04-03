@@ -62,7 +62,7 @@
                     <a href="{{ route('home') }}#standings" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
                     <a href="{{ route('home') }}#disciplines" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Disciplines</a>
                     <a href="{{ route('features') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('features') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">About</a>
-                    <a href="{{ route('sponsorships') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('sponsorships') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Sponsors</a>
+                    <a href="{{ route('sponsorships') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('sponsorships') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Advertise</a>
                 @endif
             </div>
 
@@ -103,7 +103,7 @@
                                 <a href="{{ route('home') }}#standings" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Standings</a>
                                 <a href="{{ route('home') }}#disciplines" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Disciplines</a>
                                 <a href="{{ route('features') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">About</a>
-                                <a href="{{ route('sponsorships') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Sponsors</a>
+                                <a href="{{ route('sponsorships') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Advertise</a>
                             @endif
 
                             <div class="mt-3 border-t pt-3 space-y-1" style="border-color: var(--lp-border);">
@@ -138,7 +138,7 @@
                     @else
                         <a href="{{ md_url('/') }}" class="hover:!text-white transition-colors">For Match Directors</a>
                     @endif
-                    <a href="{{ route('sponsorships') }}" class="hover:!text-white transition-colors">Sponsors</a>
+                    <a href="{{ route('sponsorships') }}" class="hover:!text-white transition-colors">Advertise</a>
                     <a href="{{ app_url('/login') }}" class="hover:!text-white transition-colors">Sign In</a>
                     <span style="opacity: 0.5;">deadcenter.co.za</span>
                 </div>

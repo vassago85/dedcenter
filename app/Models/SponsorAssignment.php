@@ -120,6 +120,6 @@ class SponsorAssignment extends Model
      */
     public function displayLabel(): string
     {
-        return $this->label_override ?? 'Sponsored by';
+        return $this->label_override ?? 'Powered by';
     }
 }

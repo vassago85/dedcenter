@@ -24,7 +24,7 @@ enum PlacementKey: string
     case MatchbookInsideCover = 'matchbook_inside_cover';
     case MatchbookResultsSection = 'matchbook_results_section';
 
-    // Sponsor info page
+    // Brand info page (legacy)
     case SponsorInfoFeature = 'sponsor_info_feature';
 
     /**
@@ -47,7 +47,7 @@ enum PlacementKey: string
             self::MatchbookFooter => 'Match Book Footer',
             self::MatchbookInsideCover => 'Match Book Inside Cover',
             self::MatchbookResultsSection => 'Match Book Results Section',
-            self::SponsorInfoFeature => 'Sponsor Info Page Feature',
+            self::SponsorInfoFeature => 'Brand Info Page Feature',
         };
     }
 
@@ -64,7 +64,7 @@ enum PlacementKey: string
             self::GlobalMatchbook, self::MatchMatchbook,
             self::MatchbookCover, self::MatchbookFooter,
             self::MatchbookInsideCover, self::MatchbookResultsSection => 'matchbook',
-            self::SponsorInfoFeature => 'sponsor_info',
+            self::SponsorInfoFeature => 'brand_info',
         };
     }
 
@@ -105,6 +105,31 @@ enum PlacementKey: string
     public function isMatchbookLevel(): bool
     {
         return str_starts_with($this->value, 'matchbook_');
+    }
+
+    /**
+     * The 3 active advertising placements for the current version.
+     */
+    public static function advertisingPlacements(): array
+    {
+        return [
+            self::MatchLeaderboard,
+            self::MatchResults,
+            self::MatchScoring,
+        ];
+    }
+
+    /**
+     * "Powered by" label for feature-based display.
+     */
+    public function poweredByLabel(): string
+    {
+        return match ($this) {
+            self::MatchLeaderboard, self::GlobalLeaderboard => 'Leaderboard',
+            self::MatchResults, self::GlobalResults => 'Results',
+            self::MatchScoring, self::GlobalScoring => 'Scoring',
+            default => 'Feature',
+        };
     }
 
     /**

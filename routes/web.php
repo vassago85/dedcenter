@@ -141,8 +141,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
     Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
 
-    // ── Sponsors ──
+    // ── Brands & Advertising ──
     Volt::route('/sponsors', 'admin.sponsors')->name('sponsors');
+    Volt::route('/advertising', 'admin.advertising')->name('advertising');
     Volt::route('/sponsor-assignments', 'admin.sponsor-assignments')->name('sponsor-assignments');
     Volt::route('/sponsor-info', 'admin.sponsor-info')->name('sponsor-info');
     Volt::route('/contact-submissions', 'admin.contact-submissions')->name('contact-submissions');

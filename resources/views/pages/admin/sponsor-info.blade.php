@@ -8,7 +8,7 @@ use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
-    #[Title('Sponsor Info')]
+    #[Title('Brand Info Page')]
     class extends Component {
     public string $overview = '';
 
@@ -58,7 +58,7 @@ new #[Layout('components.layouts.app')]
         Setting::set('sponsor_info_custom_packages', $this->custom_packages);
         Setting::set('sponsor_info_contact', $this->contact);
 
-        Flux::toast('Sponsor info content saved.', variant: 'success');
+        Flux::toast('Brand info content saved.', variant: 'success');
     }
 
     public function regenerateToken(): void
@@ -72,8 +72,8 @@ new #[Layout('components.layouts.app')]
 
 <div class="mx-auto max-w-3xl space-y-8">
     <div>
-        <flux:heading size="xl">Sponsor Information Page</flux:heading>
-        <p class="mt-2 text-sm text-muted">Edit the private sponsor-facing content. The page is only accessible via the secret URL below.</p>
+        <flux:heading size="xl">Brand Information Page</flux:heading>
+        <p class="mt-2 text-sm text-muted">Edit the private brand-facing content. The page is only accessible via the secret URL below.</p>
     </div>
 
     <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
@@ -109,8 +109,8 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <flux:heading size="lg">Match Book Sponsorship</flux:heading>
-            <p class="text-sm text-muted">Match books as a sponsor product.</p>
+            <flux:heading size="lg">Match Book Advertising</flux:heading>
+            <p class="text-sm text-muted">Match books as a brand visibility product.</p>
             <flux:textarea wire:model="matchbook_section" rows="6" />
         </div>
 

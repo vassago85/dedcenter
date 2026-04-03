@@ -54,7 +54,7 @@ class MatchSponsorAssignment extends Component
         if ($selected !== '') {
             $sponsor = Sponsor::where('assignable_by_match_director', true)->active()->find((int) $selected);
             if (! $sponsor) {
-                Flux::toast('Sponsor cannot be assigned.', variant: 'danger');
+                Flux::toast('Brand cannot be assigned.', variant: 'danger');
                 $this->loadSelections();
                 return;
             }
@@ -69,7 +69,7 @@ class MatchSponsorAssignment extends Component
             ]);
         }
 
-        Flux::toast('Sponsor assignment updated.', variant: 'success');
+        Flux::toast('Brand assignment updated.', variant: 'success');
     }
 
     public function render(): View
@@ -77,11 +77,11 @@ class MatchSponsorAssignment extends Component
         return view('livewire.match-sponsor-assignment', [
             'sponsors' => Sponsor::assignableByMatchDirector()->active()->orderBy('name')->get(),
             'placementLabels' => [
-                PlacementKey::MatchLeaderboard->value => 'Leaderboard Sponsor',
-                PlacementKey::MatchResults->value => 'Results Sponsor',
-                PlacementKey::MatchScoring->value => 'Scoring Branding',
-                PlacementKey::MatchExports->value => 'Export Sponsor',
-                PlacementKey::MatchMatchbook->value => 'Match Book Sponsor',
+                PlacementKey::MatchLeaderboard->value => 'Leaderboard Brand',
+                PlacementKey::MatchResults->value => 'Results Brand',
+                PlacementKey::MatchScoring->value => 'Scoring Brand',
+                PlacementKey::MatchExports->value => 'Export Brand',
+                PlacementKey::MatchMatchbook->value => 'Match Book Brand',
             ],
             'matchPlacements' => PlacementKey::matchDirectorPlacements(),
         ]);

@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\AdvertisingMode;
 use App\Enums\MatchStatus;
+use App\Enums\MdPackageStatus;
+use App\Enums\PlacementKey;
 use App\Enums\Province;
+use App\Enums\SponsorScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -42,6 +46,11 @@ class ShootingMatch extends Model
         'image_url',
         'province',
         'registration_closes_at',
+        'advertising_mode',
+        'md_package_status',
+        'full_package_brand_id',
+        'md_package_price',
+        'individual_placement_price',
     ];
 
     protected $hidden = [
@@ -61,6 +70,10 @@ class ShootingMatch extends Model
             'entry_fee' => 'decimal:2',
             'province' => Province::class,
             'registration_closes_at' => 'datetime',
+            'advertising_mode' => AdvertisingMode::class,
+            'md_package_status' => MdPackageStatus::class,
+            'md_package_price' => 'decimal:2',
+            'individual_placement_price' => 'decimal:2',
         ];
     }
 
@@ -164,6 +177,11 @@ class ShootingMatch extends Model
     public function matchBook(): HasOne
     {
         return $this->hasOne(MatchBook::class, 'match_id');
+    }
+
+    public function fullPackageBrand(): BelongsTo
+    {
+        return $this->belongsTo(Sponsor::class, 'full_package_brand_id');
     }
 
     // ── Computed Attributes ──
@@ -304,5 +322,52 @@ class ShootingMatch extends Model
         }
 
         return (int) $this->created_by === (int) $user->id;
+    }
+
+    // ── Advertising Helpers ──
+
+    public function isFullPackageSold(): bool
+    {
+        return $this->full_package_brand_id !== null;
+    }
+
+    public function hasIndividualPlacements(): bool
+    {
+        return SponsorAssignment::forMatch($this->id)
+            ->whereIn('placement_key', PlacementKey::advertisingPlacements())
+            ->whereNotNull('sponsor_id')
+            ->active()
+            ->exists();
+    }
+
+    public function soldPlacementKeys(): array
+    {
+        return SponsorAssignment::forMatch($this->id)
+            ->whereIn('placement_key', PlacementKey::advertisingPlacements())
+            ->whereNotNull('sponsor_id')
+            ->active()
+            ->pluck('placement_key')
+            ->all();
+    }
+
+    public function availablePlacementKeys(): array
+    {
+        if ($this->isFullPackageSold()) {
+            return [];
+        }
+
+        $sold = collect($this->soldPlacementKeys())->map(fn ($k) => $k->value)->all();
+
+        return collect(PlacementKey::advertisingPlacements())
+            ->filter(fn ($k) => ! in_array($k->value, $sold))
+            ->values()
+            ->all();
+    }
+
+    public function isPackageAvailable(): bool
+    {
+        return $this->advertising_mode === AdvertisingMode::PublicOpen
+            && ! $this->isFullPackageSold()
+            && ! $this->hasIndividualPlacements();
     }
 }

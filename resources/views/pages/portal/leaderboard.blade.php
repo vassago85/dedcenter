@@ -129,7 +129,7 @@ new #[Layout('components.layouts.portal')]
             @endif
         </p>
         </div>
-        <x-sponsor-block placement="global_leaderboard" variant="block" />
+        <x-powered-by-block feature="leaderboard" variant="block" />
     </div>
 
     @if($divisionNames->isNotEmpty() || $categoryNames->isNotEmpty())

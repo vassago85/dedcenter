@@ -13,7 +13,7 @@ class MatchResource extends JsonResource
     {
         try {
             $resolver = app(SponsorPlacementResolver::class);
-            $assignment = $resolver->resolve(PlacementKey::GlobalScoring, $this->id);
+            $assignment = $resolver->resolve(PlacementKey::MatchScoring, $this->id);
             if (! $assignment?->sponsor) {
                 return null;
             }
@@ -21,7 +21,6 @@ class MatchResource extends JsonResource
 
             return [
                 'name' => $sponsor->name,
-                'label' => $assignment->displayLabel(),
                 'logo_url' => $sponsor->hasLogo() ? asset('storage/'.$sponsor->logo_path) : null,
             ];
         } catch (\Throwable) {

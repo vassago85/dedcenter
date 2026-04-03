@@ -1,8 +1,10 @@
-# Sponsorship System — Developer Guide
+# Advertising System — Developer Guide
+
+> **Note:** The system was refactored from "sponsorship" to "advertising" (April 2026). The underlying tables (`sponsors`, `sponsor_assignments`) retain their original names. All user-facing UI uses "brand", "advertiser", and "powered by" wording. Internally in code, the `Sponsor` model represents a brand/advertiser.
 
 ## Overview
 
-DeadCenter uses a unified sponsorship system across platform surfaces, match-level placements, and generated match books. Sponsors are managed centrally and assigned to placements via a hierarchical resolution service.
+DeadCenter uses an advertising system for feature-based "powered by" brand placements. Three active placements per event: Leaderboard, Results, and Scoring. The `matches` table holds advertising mode, MD package status, and full-package brand FK. Individual placements are tracked in `sponsor_assignments`.
 
 ## Data Model
 

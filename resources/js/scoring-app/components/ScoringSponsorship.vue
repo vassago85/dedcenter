@@ -8,7 +8,7 @@
                 class="h-4 w-auto max-w-[80px] object-contain opacity-60"
             />
             <span class="text-[10px] tracking-wide text-slate-500">
-                {{ sponsor.label }} {{ sponsor.name }}
+                Scoring powered by {{ sponsor.name }}
             </span>
         </div>
     </div>

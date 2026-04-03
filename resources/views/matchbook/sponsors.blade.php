@@ -4,7 +4,7 @@
 @endphp
 @if($ackText !== '' || $sponsorAssignments->isNotEmpty())
 <div class="page">
-    <div class="page-header" style="color:#92400e;border-bottom-color:#f59e0b;">Sponsors</div>
+    <div class="page-header" style="color:#92400e;border-bottom-color:#f59e0b;">Brand Partners</div>
 
     @if($ackText !== '')
         <div class="section-stripe--sponsor">

@@ -10,7 +10,7 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
 new #[Layout('components.layouts.app')]
-    #[Title('Sponsors')]
+    #[Title('Brands')]
     class extends Component {
     use WithFileUploads;
 
@@ -131,7 +131,7 @@ new #[Layout('components.layouts.app')]
             }
 
             $sponsor->update($payload);
-            Flux::toast('Sponsor updated.', variant: 'success');
+            Flux::toast('Brand updated.', variant: 'success');
         } else {
             $sponsor = Sponsor::create($payload);
 
@@ -141,7 +141,7 @@ new #[Layout('components.layouts.app')]
                 ]);
             }
 
-            Flux::toast('Sponsor created.', variant: 'success');
+            Flux::toast('Brand created.', variant: 'success');
         }
 
         $this->logo = null;
@@ -159,7 +159,7 @@ new #[Layout('components.layouts.app')]
     {
         $sponsor = Sponsor::findOrFail($id);
         $sponsor->update(['active' => ! $sponsor->active]);
-        Flux::toast($sponsor->active ? 'Sponsor activated.' : 'Sponsor deactivated.', variant: 'success');
+        Flux::toast($sponsor->active ? 'Brand activated.' : 'Brand deactivated.', variant: 'success');
     }
 
     public function delete(int $id): void
@@ -169,7 +169,7 @@ new #[Layout('components.layouts.app')]
             Storage::disk('public')->delete($sponsor->logo_path);
         }
         $sponsor->delete();
-        Flux::toast('Sponsor deleted.', variant: 'success');
+        Flux::toast('Brand deleted.', variant: 'success');
     }
 
     public function resetForm(): void
@@ -208,10 +208,10 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <flux:heading size="xl">Sponsors</flux:heading>
-            <p class="mt-1 text-sm text-muted">Create and manage sponsors, logos, and visibility windows.</p>
+            <flux:heading size="xl">Brands</flux:heading>
+            <p class="mt-1 text-sm text-muted">Create and manage brands, logos, and visibility windows.</p>
         </div>
-        <flux:button variant="primary" wire:click="openCreate">Add sponsor</flux:button>
+        <flux:button variant="primary" wire:click="openCreate">Add brand</flux:button>
     </div>
 
     <div class="max-w-md">
@@ -287,7 +287,7 @@ new #[Layout('components.layouts.app')]
                                 variant="ghost"
                                 class="!text-secondary hover:!text-primary"
                                 wire:click="delete({{ $sponsor->id }})"
-                                wire:confirm="Delete sponsor &quot;{{ $sponsor->name }}&quot;? This cannot be undone."
+                                wire:confirm="Delete brand &quot;{{ $sponsor->name }}&quot;? This cannot be undone."
                             >
                                 Delete
                             </flux:button>
@@ -297,7 +297,7 @@ new #[Layout('components.layouts.app')]
             @empty
                 <flux:table.row>
                     <flux:table.cell colspan="6">
-                        <span class="text-sm text-muted">No sponsors found.</span>
+                        <span class="text-sm text-muted">No brands found.</span>
                     </flux:table.cell>
                 </flux:table.row>
             @endforelse
@@ -306,9 +306,9 @@ new #[Layout('components.layouts.app')]
 
     <flux:modal name="sponsor-form" class="min-w-[min(100vw-2rem,42rem)]">
         <form wire:submit="save" class="space-y-4">
-            <flux:heading size="lg">{{ $editingId ? 'Edit sponsor' : 'New sponsor' }}</flux:heading>
+            <flux:heading size="lg">{{ $editingId ? 'Edit brand' : 'New brand' }}</flux:heading>
 
-            <flux:input wire:model="name" label="Name" placeholder="Sponsor name" required />
+            <flux:input wire:model="name" label="Name" placeholder="Brand name" required />
 
             @if($editingId)
                 <flux:input :value="$slug" label="Slug" disabled description="Auto-generated from name on save." />
@@ -347,7 +347,7 @@ new #[Layout('components.layouts.app')]
             </div>
 
             <div class="flex flex-wrap gap-2 pt-2">
-                <flux:button type="submit" variant="primary">{{ $editingId ? 'Save changes' : 'Create sponsor' }}</flux:button>
+                <flux:button type="submit" variant="primary">{{ $editingId ? 'Save changes' : 'Create brand' }}</flux:button>
                 <flux:button type="button" variant="ghost" class="!text-secondary hover:!text-primary" wire:click="cancelForm">Cancel</flux:button>
             </div>
         </form>

@@ -561,7 +561,7 @@ new #[Layout('components.layouts.scoreboard')]
                     {{ $match->date?->format('d M Y') }}
                     @if($match->location) &mdash; {{ $match->location }} @endif
                 </p>
-                <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
+                <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
             </div>
             <div class="flex items-center gap-2 ml-3 flex-shrink-0">
                 @if($isPrs)
@@ -779,7 +779,7 @@ new #[Layout('components.layouts.scoreboard')]
                     {{ $match->date?->format('d M Y') }}
                     @if($match->location) &mdash; {{ $match->location }} @endif
                 </p>
-                <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
+                <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
             </div>
             <div class="flex items-center gap-2 ml-3 flex-shrink-0">
                 @if($isPrs)

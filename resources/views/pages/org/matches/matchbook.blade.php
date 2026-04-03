@@ -247,7 +247,7 @@ new #[Layout('components.layouts.app')]
             <flux:textarea wire:model="procedures" label="Procedures" rows="6" />
             <flux:textarea wire:model="safety" label="Safety" rows="6" />
             <flux:textarea wire:model="match_breakdown" label="Match breakdown" rows="6" />
-            <flux:textarea wire:model="sponsor_acknowledgement" label="Sponsor acknowledgement" rows="4" />
+            <flux:textarea wire:model="sponsor_acknowledgement" label="Brand acknowledgement" rows="4" />
         </flux:tab.panel>
 
         <flux:tab.panel name="branding" class="mt-6 space-y-6">

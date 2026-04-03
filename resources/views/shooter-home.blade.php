@@ -509,7 +509,7 @@
 
             <div class="space-y-4" x-data="{ open: null }">
                 @foreach([
-                    ['q' => 'Is DeadCenter free to use?', 'a' => 'Yes. DeadCenter is completely free for shooters, clubs, and match directors. We sustain the platform through the sponsor marketplace and optional promoted placements.'],
+                    ['q' => 'Is DeadCenter free to use?', 'a' => 'Yes. DeadCenter is completely free for shooters, clubs, and match directors. We sustain the platform through advertising placements on event features.'],
                     ['q' => 'What types of shooting competitions does DeadCenter support?', 'a' => 'DeadCenter supports three scoring disciplines: Relay Scoring for traditional gong/field matches, PRS Scoring for precision rifle series competitions, and ELR Scoring for extreme long range events. More engines will be added over time.'],
                     ['q' => 'How do I register for a match?', 'a' => 'Create a free account, browse upcoming matches on the platform or through a club portal, and register online. Select your division, category, and equipment details during registration. When squadding opens, choose your preferred squad.'],
                     ['q' => 'Can I view results without an account?', 'a' => 'Yes. Scoreboards and live results are publicly accessible. Just scan the QR code at the range or visit the scoreboard link shared by the match organizer.'],

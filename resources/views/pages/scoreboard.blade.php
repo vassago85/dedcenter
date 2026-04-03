@@ -411,7 +411,7 @@ new #[Layout('components.layouts.scoreboard')]
                 @if($match->location) &mdash; {{ $match->location }} @endif
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
-            <x-sponsor-block placement="global_results" :match-id="$match->id" variant="inline" />
+            <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
         </div>
         <x-app-logo
             size="lg"

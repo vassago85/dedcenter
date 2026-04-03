@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\PlacementKey;
 use App\Enums\SponsorScope;
+use App\Models\ShootingMatch;
 use App\Models\SponsorAssignment;
 use Illuminate\Support\Collection;
 
@@ -21,6 +22,22 @@ class SponsorPlacementResolver
     public function resolve(PlacementKey|string $placementKey, ?int $matchId = null, ?int $matchBookId = null): ?SponsorAssignment
     {
         $placementKey = $placementKey instanceof PlacementKey ? $placementKey : PlacementKey::from($placementKey);
+
+        // 0. Full-package shortcut: if this is one of the 3 advertising keys
+        //    and the match has a full_package_brand set, resolve immediately.
+        if ($matchId && in_array($placementKey, PlacementKey::advertisingPlacements())) {
+            $match = ShootingMatch::find($matchId);
+            if ($match?->full_package_brand_id) {
+                $assignment = SponsorAssignment::forMatch($matchId)
+                    ->forPlacement($placementKey)
+                    ->with('sponsor')
+                    ->active()
+                    ->first();
+                if ($assignment) {
+                    return $assignment;
+                }
+            }
+        }
 
         // 1. Matchbook-specific (only for matchbook placements)
         if ($matchBookId && $placementKey->isMatchbookLevel()) {

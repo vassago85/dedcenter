@@ -11,7 +11,7 @@ use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
-    #[Title('Platform Sponsor Assignments')]
+    #[Title('Platform Defaults')]
     class extends Component {
     public ?int $editingId = null;
 
@@ -141,7 +141,7 @@ new #[Layout('components.layouts.app')]
             'scoring' => 'Scoring',
             'exports' => 'Exports',
             'matchbook' => 'Match Book',
-            'sponsor_info' => 'Sponsor Info',
+            'brand_info' => 'Brand Info',
             default => ucfirst(str_replace('_', ' ', $surface)),
         };
     }
@@ -177,8 +177,8 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-8">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <flux:heading size="xl">Platform Sponsor Assignments</flux:heading>
-            <p class="mt-1 text-sm text-muted">Global sponsor placements across DeadCenter (not tied to a match or match book).</p>
+            <flux:heading size="xl">Platform Defaults</flux:heading>
+            <p class="mt-1 text-sm text-muted">Default brand placements across DeadCenter (not tied to a specific event).</p>
         </div>
         <flux:button variant="primary" wire:click="openAdd">Add assignment</flux:button>
     </div>
@@ -194,7 +194,7 @@ new #[Layout('components.layouts.app')]
                 <flux:table>
                     <flux:table.columns>
                         <flux:table.column>Placement</flux:table.column>
-                        <flux:table.column>Sponsor</flux:table.column>
+                        <flux:table.column>Brand</flux:table.column>
                         <flux:table.column>Label</flux:table.column>
                         <flux:table.column>Order</flux:table.column>
                         <flux:table.column align="center">Active</flux:table.column>
@@ -231,7 +231,7 @@ new #[Layout('components.layouts.app')]
                                             size="sm"
                                             variant="ghost"
                                             wire:click="delete({{ $assignment->id }})"
-                                            wire:confirm="Remove this sponsor assignment?"
+                                            wire:confirm="Remove this brand assignment?"
                                         >
                                             Delete
                                         </flux:button>
@@ -248,10 +248,10 @@ new #[Layout('components.layouts.app')]
     <flux:modal name="assignment-form" class="min-w-[min(100vw-2rem,28rem)]">
         <form wire:submit="save" class="space-y-4">
             <flux:heading size="lg">{{ $editingId ? 'Edit assignment' : 'Add assignment' }}</flux:heading>
-            <p class="text-sm text-muted">Platform-level only. Match and match book placements are managed elsewhere.</p>
+            <p class="text-sm text-muted">Platform-level defaults. Event advertising is managed in the Advertising page.</p>
 
-            <flux:select wire:model="sponsor_id" label="Sponsor" required>
-                <option value="">Select a sponsor…</option>
+            <flux:select wire:model="sponsor_id" label="Brand" required>
+                <option value="">Select a brand…</option>
                 @foreach($sponsors as $s)
                     <option value="{{ $s->id }}">{{ $s->name }}</option>
                 @endforeach
@@ -263,7 +263,7 @@ new #[Layout('components.layouts.app')]
                 @endforeach
             </flux:select>
 
-            <flux:input wire:model="label_override" label="Label override" placeholder='e.g. "Powered by", "Presented by"' description="Optional. Overrides the default &quot;Sponsored by&quot; text." />
+            <flux:input wire:model="label_override" label="Label override" placeholder='e.g. "Powered by"' description="Optional. Overrides the default &quot;Powered by&quot; text." />
 
             <flux:input wire:model.number="display_order" label="Display order" type="number" min="0" />
 
