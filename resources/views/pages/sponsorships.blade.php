@@ -40,7 +40,7 @@ new #[Layout('components.layouts.marketing', [
             'phone'   => $this->contactPhone ?: null,
             'company' => $this->contactCompany ?: null,
             'message' => $this->contactMessage,
-            'source'  => 'sponsorship',
+            'source'  => 'advertising',
         ]);
 
         $this->submitted = true;
@@ -88,8 +88,7 @@ new #[Layout('components.layouts.marketing', [
                     {{ $overview }}
                 @else
                     DeadCenter is a competition scoring platform used by match directors, clubs, and federations.
-                    MatchBook Pro generates professional digital match books distributed to every competitor.
-                    Together they create high-visibility surfaces tied to real match engagement.
+                    Brands advertise on platform features — leaderboards, results, and scoring screens — reaching engaged competitors at every event.
                 @endif
             </p>
         </div>
@@ -112,8 +111,8 @@ new #[Layout('components.layouts.marketing', [
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600/10">
                     <svg class="h-7 w-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
                 </div>
-                <h3 class="text-lg font-semibold" style="color: var(--lp-text);">MatchBook Pro</h3>
-                <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Professional match books generated for every event &mdash; distributed digitally and in print to all competitors.</p>
+                <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Scoring Screens</h3>
+                <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Brand visibility on the scoring app used by every scorer during the match &mdash; seen on tablets and devices at the range.</p>
             </div>
         </div>
     </div>
@@ -173,7 +172,7 @@ new #[Layout('components.layouts.marketing', [
     </div>
 </section>
 
-{{-- Match Book Sponsorship --}}
+{{-- How It Works --}}
 <section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
     <div class="mx-auto max-w-5xl px-6">
         <div class="grid items-center gap-10 lg:grid-cols-2">
@@ -218,15 +217,15 @@ new #[Layout('components.layouts.marketing', [
                     <div class="flex items-center gap-3 rounded-xl p-4" style="background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15);">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg font-bold bg-blue-600 text-white">2</div>
                         <div>
-                            <p class="text-sm font-semibold" style="color: var(--lp-text);">Sponsor branding is applied</p>
-                            <p class="text-xs" style="color: var(--lp-text-muted);">Cover, inside pages, footer, acknowledgement</p>
+                            <p class="text-sm font-semibold" style="color: var(--lp-text);">MD takes or declines the advertising package</p>
+                            <p class="text-xs" style="color: var(--lp-text-muted);">Full package or individual placements open to public</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3 rounded-xl p-4" style="background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.15);">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg font-bold bg-green-600 text-white">3</div>
                         <div>
-                            <p class="text-sm font-semibold" style="color: var(--lp-text);">Competitors receive branded match books</p>
-                            <p class="text-xs" style="color: var(--lp-text-muted);">PDF download, print-ready, shared pre-match</p>
+                            <p class="text-sm font-semibold" style="color: var(--lp-text);">Brand appears across platform features</p>
+                            <p class="text-xs" style="color: var(--lp-text-muted);">Leaderboard, Results, and Scoring powered by your brand</p>
                         </div>
                     </div>
                 </div>
@@ -296,7 +295,7 @@ new #[Layout('components.layouts.marketing', [
             @endif
         </p>
         <div class="mx-auto mt-8 flex max-w-lg flex-wrap justify-center gap-3">
-            @foreach(['Event size', 'Number of matches', 'Region coverage', 'Leaderboard presence', 'Results branding', 'Match book branding', 'Export branding'] as $factor)
+            @foreach(['Event size', 'Number of matches', 'Region coverage', 'Leaderboard placement', 'Results placement', 'Scoring placement', 'Full package'] as $factor)
                 <span class="rounded-full px-4 py-1.5 text-xs font-medium" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);">{{ $factor }}</span>
             @endforeach
         </div>
