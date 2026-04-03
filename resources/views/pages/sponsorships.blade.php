@@ -294,12 +294,12 @@ new #[Layout('components.layouts.marketing', [
 <section id="contact" class="py-20 lg:py-24">
     <div class="mx-auto max-w-2xl px-6">
         <div class="text-center">
-            <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Interested?</h2>
+            <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Get Your Brand in Front of Shooters</h2>
             <p class="mx-auto mt-4 max-w-xl leading-relaxed" style="color: var(--lp-text-soft);">
                 @if(filled($contact))
                     {{ $contact }}
                 @else
-                    Send us a message and we'll get back to you with a tailored proposal.
+                    Tell us about your brand and we'll put together an advertising package that fits your goals.
                 @endif
             </p>
         </div>
