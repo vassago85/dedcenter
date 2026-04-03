@@ -6,6 +6,7 @@ use App\Enums\MatchStatus;
 use App\Models\Gong;
 use App\Models\MatchCategory;
 use App\Models\MatchDivision;
+use App\Models\MatchRegistration;
 use App\Models\Organization;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
@@ -42,6 +43,8 @@ class PrsDemoMatchSeeder extends Seeder
                 'entry_fee' => 200.00,
             ]
         );
+
+        $match->update(['date' => now()->toDateString()]);
 
         // ── Divisions (PRS standard: Open / Factory / Limited) ──
         $divOpen = MatchDivision::firstOrCreate(['match_id' => $match->id, 'name' => 'Open'], ['sort_order' => 1]);
@@ -177,6 +180,11 @@ class PrsDemoMatchSeeder extends Seeder
                 $bibNumber++;
             }
         }
+
+        MatchRegistration::firstOrCreate(
+            ['match_id' => $match->id, 'user_id' => $owner->id],
+            ['payment_status' => 'confirmed', 'amount' => $match->entry_fee ?? 0]
+        );
 
         $this->command->info("PRS demo match seeded: \"{$match->name}\" — 6 stages, 16 shooters.");
     }
