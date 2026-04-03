@@ -241,9 +241,15 @@ new #[Layout('components.layouts.scoreboard')]
                         ];
                         $fallbackGradient = $scoringColors[$match->scoring_type ?? 'standard'] ?? $scoringColors['standard'];
 
-                        $href = $isCompleted
-                            ? route('scoreboard', $match)
-                            : ($org ? route('portal.matches.show', [$org, $match]) : route('scoreboard', $match));
+                        if ($isCompleted) {
+                            $href = route('scoreboard', $match);
+                        } elseif ($canRegister && auth()->check()) {
+                            $href = route('matches.show', $match);
+                        } elseif ($org) {
+                            $href = route('portal.matches.show', [$org, $match]);
+                        } else {
+                            $href = route('scoreboard', $match);
+                        }
                     @endphp
 
                     <a href="{{ $href }}" class="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-md transition-all duration-200 hover:scale-[1.01] hover:shadow-lg hover:border-border/80">
