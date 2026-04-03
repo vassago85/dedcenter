@@ -27,7 +27,7 @@ class HomeController extends Controller
 
     private function shooterData(): array
     {
-        $featuredMatches = FeaturedItem::with('item')
+        $adminFeatured = FeaturedItem::with('item')
             ->active()
             ->ofType('match')
             ->inPlacement('featured')
@@ -36,6 +36,16 @@ class HomeController extends Controller
             ->get()
             ->pluck('item')
             ->filter();
+
+        $selfFeatured = ShootingMatch::where('featured_status', 'active')
+            ->with('organization')
+            ->orderBy('date')
+            ->take(6)
+            ->get();
+
+        $featuredMatches = $adminFeatured->merge($selfFeatured)
+            ->unique('id')
+            ->take(6);
 
         $featuredOrgs = FeaturedItem::with('item')
             ->active()

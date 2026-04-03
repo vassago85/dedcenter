@@ -10,6 +10,9 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.app')]
     #[Title('Settings')]
     class extends Component {
+    // Pricing
+    public string $featured_match_price = '500';
+
     // Bank
     public string $bank_name = '';
     public string $bank_account_name = '';
@@ -27,6 +30,8 @@ new #[Layout('components.layouts.app')]
 
     public function mount(): void
     {
+        $this->featured_match_price = (string) Setting::get('featured_match_price', '500');
+
         $this->bank_name = Setting::get('bank_name', '');
         $this->bank_account_name = Setting::get('bank_account_name', '');
         $this->bank_account_number = Setting::get('bank_account_number', '');
@@ -40,6 +45,17 @@ new #[Layout('components.layouts.app')]
         $this->mail_from_name = Setting::get('mail_from_name', 'DeadCenter');
 
         $this->mail_test_recipient = auth()->user()->email;
+    }
+
+    public function savePricing(): void
+    {
+        $this->validate([
+            'featured_match_price' => 'required|numeric|min:0',
+        ]);
+
+        Setting::set('featured_match_price', $this->featured_match_price);
+
+        Flux::toast('Pricing saved.', variant: 'success');
     }
 
     public function save(): void
@@ -186,6 +202,23 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
     @endif
+
+    {{-- Pricing --}}
+    <form wire:submit="savePricing" class="space-y-6">
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-white">Pricing</h2>
+            <p class="text-sm text-muted">Set prices for platform features. These are shown to Match Directors when they request services.</p>
+
+            <flux:input wire:model="featured_match_price" label="Featured Event Price (R)" type="number" min="0" step="1" placeholder="e.g. 500" required />
+            <p class="text-xs text-muted">Match Directors pay this amount to have their event featured on the homepage and ranked higher in listings.</p>
+
+            <div class="flex justify-end pt-2">
+                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
+                    Save Pricing
+                </flux:button>
+            </div>
+        </div>
+    </form>
 
     {{-- Bank Details --}}
     <form wire:submit="save" class="space-y-6">

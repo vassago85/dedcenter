@@ -126,8 +126,8 @@
     <section id="events" style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-12 text-center">
-                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Featured Competitions</h2>
-                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Hand-picked events and competitions happening across South Africa.</p>
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Featured Events</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Featured events and competitions happening across South Africa.</p>
             </div>
 
             @if($featuredMatches->count())
@@ -135,10 +135,18 @@
                     @foreach($featuredMatches as $match)
                         <div class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
                             <div class="flex items-center justify-between mb-3">
-                                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                                      style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
-                                    {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
-                                </span>
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                                          style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
+                                        {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
+                                    </span>
+                                    @if($match->isFeatured())
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style="background: rgba(245,158,11,0.15); color: rgb(251,191,36);">
+                                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
+                                            Featured
+                                        </span>
+                                    @endif
+                                </div>
                                 @if($match->date)
                                     <span class="text-xs" style="color: var(--lp-text-muted);">{{ $match->date->format('d M Y') }}</span>
                                 @endif
@@ -178,7 +186,7 @@
                 </div>
             @else
                 <div class="rounded-2xl p-12 text-center" style="border: 1px dashed var(--lp-border); background: var(--lp-surface);">
-                    <p class="text-sm" style="color: var(--lp-text-muted);">Featured competitions will appear here as they are announced.</p>
+                    <p class="text-sm" style="color: var(--lp-text-muted);">Featured events will appear here as they are announced.</p>
                     <a href="{{ app_url('/register') }}" class="mt-4 inline-block text-sm font-medium" style="color: var(--lp-red);">Register to get notified &rarr;</a>
                 </div>
             @endif
@@ -200,10 +208,18 @@
                 @foreach($popularMatches as $match)
                     <div class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
                         <div class="flex items-center justify-between mb-3">
-                            <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                                  style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
-                                {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                                      style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
+                                    {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
+                                </span>
+                                @if($match->isFeatured())
+                                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style="background: rgba(245,158,11,0.15); color: rgb(251,191,36);">
+                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
+                                        Featured
+                                    </span>
+                                @endif
+                            </div>
                             <span class="text-xs font-medium" style="color: var(--lp-text-muted);">{{ $match->registrations_count }} registered</span>
                         </div>
                         <h3 class="text-lg font-semibold mb-1 group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
@@ -291,6 +307,12 @@
                                           style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
                                         {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
                                     </span>
+                                    @if($match->isFeatured())
+                                        <span class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" style="background: rgba(245,158,11,0.15); color: rgb(251,191,36);">
+                                            <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
+                                            Featured
+                                        </span>
+                                    @endif
                                     @if($match->location)
                                         <span class="text-[10px]" style="color: var(--lp-text-muted);">{{ $match->location }}</span>
                                     @endif

@@ -191,6 +191,20 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Side bet participants saved.', variant: 'success');
     }
 
+    public function requestFeatured(): void
+    {
+        if (! $this->match) return;
+        $this->match->update(['featured_status' => 'requested']);
+        Flux::toast('Featured listing requested — you will be contacted for payment.', variant: 'success');
+    }
+
+    public function cancelFeaturedRequest(): void
+    {
+        if (! $this->match) return;
+        $this->match->update(['featured_status' => null]);
+        Flux::toast('Featured request cancelled.', variant: 'success');
+    }
+
     private function loadCustomFields(): void
     {
         if (! $this->match) return;
@@ -1313,6 +1327,47 @@ new #[Layout('components.layouts.app')]
             <h2 class="text-lg font-semibold text-primary">Advertising Options</h2>
             <p class="text-sm text-muted">Control advertising placements for this event. Brands pay for visibility — not event sponsorship.</p>
             @livewire('match-advertising-options', ['match' => $match], key('match-advertising-' . $match->id))
+        </div>
+
+        {{-- Featured Event --}}
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <h2 class="text-lg font-semibold text-primary">Featured Event</h2>
+                @if($match->isFeatured())
+                    <span class="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">Active</span>
+                @elseif($match->isFeatureRequested())
+                    <span class="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">Pending</span>
+                @endif
+            </div>
+
+            @if($match->isFeatured())
+                <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+                    <p class="text-sm text-emerald-400 font-medium">This event is featured on the homepage and ranks higher in event listings.</p>
+                    @if($match->featured_until)
+                        <p class="mt-1 text-xs text-muted">Featured until {{ $match->featured_until->format('d M Y') }}</p>
+                    @endif
+                </div>
+            @elseif($match->isFeatureRequested())
+                <div class="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+                    <p class="text-sm text-blue-400 font-medium">Your featured listing request has been submitted.</p>
+                    <p class="text-xs text-muted">You will be contacted by the platform administrator for payment of R{{ number_format(\App\Models\ShootingMatch::featurePrice()) }}. Once confirmed, your event will be featured.</p>
+                    <flux:button wire:click="cancelFeaturedRequest" variant="ghost" size="sm">Cancel Request</flux:button>
+                </div>
+            @else
+                <p class="text-sm text-muted">Get your event more visibility by featuring it on the homepage and at the top of event listings.</p>
+                <div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-primary">Featured listing</span>
+                        <span class="text-lg font-bold text-amber-400">R{{ number_format(\App\Models\ShootingMatch::featurePrice()) }}</span>
+                    </div>
+                    <ul class="text-xs text-muted space-y-1 ml-4 list-disc">
+                        <li>Highlighted on the homepage</li>
+                        <li>Featured badge on your event card</li>
+                        <li>Ranks higher in event listings</li>
+                    </ul>
+                </div>
+                <flux:button wire:click="requestFeatured" variant="primary" size="sm">Request Featured Listing</flux:button>
+            @endif
         </div>
 
         <flux:separator />

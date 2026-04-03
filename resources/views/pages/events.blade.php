@@ -60,17 +60,17 @@ new #[Layout('components.layouts.scoreboard')]
             ->withCount(['registrations', 'shooters'])
             ->where('status', '!=', MatchStatus::Draft);
 
-        // Status tab
+        // Status tab — featured events always rank first
         match ($this->status) {
             'upcoming' => $query->whereIn('status', [
                 MatchStatus::PreRegistration,
                 MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed,
                 MatchStatus::SquaddingOpen,
-            ])->orderBy('date'),
-            'live' => $query->where('status', MatchStatus::Active)->orderByDesc('date'),
-            'completed' => $query->where('status', MatchStatus::Completed)->orderByDesc('date'),
-            default => $query->orderByDesc('date'),
+            ])->orderByRaw("CASE WHEN featured_status = 'active' THEN 0 ELSE 1 END")->orderBy('date'),
+            'live' => $query->where('status', MatchStatus::Active)->orderByRaw("CASE WHEN featured_status = 'active' THEN 0 ELSE 1 END")->orderByDesc('date'),
+            'completed' => $query->where('status', MatchStatus::Completed)->orderByRaw("CASE WHEN featured_status = 'active' THEN 0 ELSE 1 END")->orderByDesc('date'),
+            default => $query->orderByRaw("CASE WHEN featured_status = 'active' THEN 0 ELSE 1 END")->orderByDesc('date'),
         };
 
         // Search
@@ -269,6 +269,9 @@ new #[Layout('components.layouts.scoreboard')]
 
                             {{-- Status badge --}}
                             <div class="absolute top-3 right-3 flex items-center gap-1.5">
+                                @if($match->isFeatured())
+                                    <span class="rounded-full bg-amber-500/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">Featured</span>
+                                @endif
                                 @if($isLive)
                                     <span class="inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
                                         <span class="relative flex h-2 w-2">

@@ -87,6 +87,30 @@ new #[Layout('components.layouts.app')]
         Flux::toast($key->poweredByLabel() . ' placement cleared.', variant: 'success');
     }
 
+    public function approveFeatured(int $matchId): void
+    {
+        $match = ShootingMatch::findOrFail($matchId);
+        $match->update([
+            'featured_status' => 'active',
+            'featured_until' => $match->date,
+        ]);
+        Flux::toast('Featured listing approved for ' . $match->name, variant: 'success');
+    }
+
+    public function declineFeatured(int $matchId): void
+    {
+        $match = ShootingMatch::findOrFail($matchId);
+        $match->update(['featured_status' => null, 'featured_until' => null]);
+        Flux::toast('Featured request declined.', variant: 'success');
+    }
+
+    public function removeFeatured(int $matchId): void
+    {
+        $match = ShootingMatch::findOrFail($matchId);
+        $match->update(['featured_status' => null, 'featured_until' => null]);
+        Flux::toast('Featured listing removed for ' . $match->name, variant: 'success');
+    }
+
     public function with(): array
     {
         $query = ShootingMatch::query()
@@ -126,6 +150,16 @@ new #[Layout('components.layouts.app')]
             ->where('active', true)
             ->count();
 
+        $featuredRequests = ShootingMatch::where('featured_status', 'requested')
+            ->with('organization', 'creator')
+            ->orderBy('date')
+            ->get();
+
+        $activeFeatured = ShootingMatch::where('featured_status', 'active')
+            ->with('organization')
+            ->orderBy('date')
+            ->get();
+
         return [
             'matches' => $matches,
             'matchPlacements' => $matchPlacements,
@@ -133,6 +167,9 @@ new #[Layout('components.layouts.app')]
             'advertisingPlacements' => PlacementKey::advertisingPlacements(),
             'totalPackagesSold' => $totalPackagesSold,
             'totalIndividual' => $totalIndividual,
+            'featuredRequests' => $featuredRequests,
+            'activeFeatured' => $activeFeatured,
+            'featuredPrice' => ShootingMatch::featurePrice(),
         ];
     }
 }; ?>
@@ -170,6 +207,62 @@ new #[Layout('components.layouts.app')]
             <p class="mt-1 text-2xl font-bold text-primary">{{ $matches->filter(fn($m) => !$m->isFullPackageSold() && $m->advertising_mode === \App\Enums\AdvertisingMode::PublicOpen)->count() }}</p>
         </div>
     </div>
+
+    {{-- Featured Event Requests --}}
+    @if($featuredRequests->count() || $activeFeatured->count())
+    <div class="rounded-xl border border-amber-500/30 bg-surface p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-primary">Featured Events</h2>
+                <p class="text-sm text-muted">Manage featured event requests. Price: R{{ number_format($featuredPrice) }} per event.</p>
+            </div>
+            <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-400">
+                {{ $featuredRequests->count() }} {{ Str::plural('request', $featuredRequests->count()) }}
+            </span>
+        </div>
+
+        @if($featuredRequests->count())
+        <div class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">Pending Requests</h3>
+            @foreach($featuredRequests as $fr)
+                <div class="flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <div>
+                        <p class="text-sm font-medium text-primary">{{ $fr->name }}</p>
+                        <p class="text-xs text-muted">
+                            {{ $fr->date?->format('d M Y') }}
+                            @if($fr->organization) &bull; {{ $fr->organization->name }} @endif
+                            @if($fr->creator) &bull; MD: {{ $fr->creator->name }} @endif
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <flux:button wire:click="approveFeatured({{ $fr->id }})" variant="primary" size="xs">Approve</flux:button>
+                        <flux:button wire:click="declineFeatured({{ $fr->id }})" variant="ghost" size="xs">Decline</flux:button>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        @endif
+
+        @if($activeFeatured->count())
+        <div class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">Currently Featured</h3>
+            @foreach($activeFeatured as $af)
+                <div class="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <div>
+                        <p class="text-sm font-medium text-primary">{{ $af->name }}</p>
+                        <p class="text-xs text-muted">
+                            {{ $af->date?->format('d M Y') }}
+                            @if($af->organization) &bull; {{ $af->organization->name }} @endif
+                            @if($af->featured_until) &bull; Until {{ $af->featured_until->format('d M Y') }} @endif
+                        </p>
+                    </div>
+                    <flux:button wire:click="removeFeatured({{ $af->id }})" variant="ghost" size="xs">Remove</flux:button>
+                </div>
+            @endforeach
+        </div>
+        @endif
+    </div>
+    @endif
 
     {{-- Filters --}}
     <div class="flex flex-wrap gap-2">

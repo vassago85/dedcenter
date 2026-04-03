@@ -51,6 +51,8 @@ class ShootingMatch extends Model
         'full_package_brand_id',
         'md_package_price',
         'individual_placement_price',
+        'featured_status',
+        'featured_until',
     ];
 
     protected $hidden = [
@@ -74,6 +76,7 @@ class ShootingMatch extends Model
             'md_package_status' => MdPackageStatus::class,
             'md_package_price' => 'decimal:2',
             'individual_placement_price' => 'decimal:2',
+            'featured_until' => 'date',
         ];
     }
 
@@ -369,5 +372,27 @@ class ShootingMatch extends Model
         return $this->advertising_mode === AdvertisingMode::PublicOpen
             && ! $this->isFullPackageSold()
             && ! $this->hasIndividualPlacements();
+    }
+
+    // ── Featured Helpers ──
+
+    public function isFeatured(): bool
+    {
+        return $this->featured_status === 'active';
+    }
+
+    public function isFeatureRequested(): bool
+    {
+        return $this->featured_status === 'requested';
+    }
+
+    public static function featurePrice(): int
+    {
+        return (int) Setting::get('featured_match_price', 500);
+    }
+
+    public function scopeFeatured(Builder $query): Builder
+    {
+        return $query->where('featured_status', 'active');
     }
 }
