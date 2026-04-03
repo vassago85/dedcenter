@@ -73,8 +73,8 @@
 @endphp
 
 @if($compact)
-    <div class="flex flex-wrap items-center gap-1.5">
-        @foreach($badges->unique(fn ($b) => $b->achievement_id)->sortBy(fn ($b) => ($tierOrder[$badgeConfig[$b->achievement->slug]['tier'] ?? 'earned'] ?? 9)) as $badge)
+    <div class="flex flex-wrap items-center gap-1" x-data="{ activePopover: null }" @click.outside="activePopover = null">
+        @foreach($badges->unique(fn ($b) => $b->achievement_id)->sortBy(fn ($b) => ($tierOrder[$badgeConfig[$b->achievement->slug]['tier'] ?? 'earned'] ?? 9))->values() as $bi => $badge)
             @php
                 $a = $badge->achievement;
                 $cfg = $badgeConfig[$a->slug] ?? [];
@@ -85,30 +85,32 @@
                 $crest = ($isDist && isset($distCrestStyles[$icon])) ? $distCrestStyles[$icon] : ($crestStyles[$family][$tier] ?? $crestStyles['prs']['earned']);
                 $count = $repeatableCounts[$a->slug] ?? 1;
             @endphp
-            <div x-data="{ open: false }" class="relative">
-                <button type="button" @click.stop="open = !open"
-                        class="group relative inline-flex items-center justify-center rounded-lg border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} {{ $isDist ? 'h-6 px-1.5 gap-0.5' : 'h-7 w-7' }}">
-                    @if($isDist)
-                        <x-badge-icon :name="$icon" class="h-3 w-3" />
-                    @else
-                        <x-badge-icon :name="$icon" class="h-3.5 w-3.5" />
-                    @endif
+            <div class="relative">
+                <button type="button" @click.stop="activePopover = activePopover === {{ $bi }} ? null : {{ $bi }}"
+                        class="group relative inline-flex items-center justify-center rounded-md border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} {{ $isDist ? 'h-5 min-w-[2rem] px-1' : 'h-6 w-6' }}">
+                    <x-badge-icon :name="$icon" class="{{ $isDist ? 'h-2.5 w-2.5' : 'h-3 w-3' }}" />
                     @if($a->is_repeatable && $count > 1)
-                        <span class="absolute -top-1 -right-1 flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-white/15 px-0.5 text-[8px] font-bold text-white/80 backdrop-blur-sm">{{ $count }}</span>
+                        <span class="absolute -top-1 -right-1 flex h-3 min-w-[0.75rem] items-center justify-center rounded-full bg-white/15 px-0.5 text-[7px] font-bold text-white/80 backdrop-blur-sm">{{ $count }}</span>
                     @endif
                 </button>
-                <div x-show="open" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95 translate-y-1" x-transition:enter-end="opacity-100 scale-100 translate-y-0" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95" @click.outside="open = false"
-                     class="absolute bottom-full left-1/2 z-50 mb-2 w-52 -translate-x-1/2 rounded-xl border border-border bg-surface p-3 shadow-xl">
-                    <div class="flex items-start gap-2.5">
-                        <div class="flex-shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-xl border {{ $crest }}">
-                            <x-badge-icon :name="$icon" class="h-4.5 w-4.5" />
+                <div x-show="activePopover === {{ $bi }}" x-cloak
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     class="absolute left-1/2 z-50 w-48 -translate-x-1/2 rounded-lg border border-border bg-surface p-2.5 shadow-xl"
+                     :class="$el.getBoundingClientRect().top < 120 ? 'top-full mt-1' : 'bottom-full mb-1'">
+                    <div class="flex items-start gap-2">
+                        <div class="flex-shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg border {{ $crest }}">
+                            <x-badge-icon :name="$icon" class="h-4 w-4" />
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-bold text-primary leading-tight">{{ $a->label }}</p>
-                            <p class="mt-0.5 text-[11px] leading-snug text-muted">{{ $a->description }}</p>
+                            <p class="text-xs font-bold text-primary leading-tight">{{ $a->label }}</p>
+                            <p class="mt-0.5 text-[10px] leading-snug text-muted line-clamp-2">{{ $a->description }}</p>
                         </div>
                     </div>
-                    <div class="absolute left-1/2 -bottom-1.5 -translate-x-1/2 h-3 w-3 rotate-45 border-r border-b border-border bg-surface"></div>
                 </div>
             </div>
         @endforeach

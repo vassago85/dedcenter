@@ -17,6 +17,7 @@ class Shooter extends Model
         'bib_number',
         'user_id',
         'match_division_id',
+        'team_id',
         'sort_order',
         'status',
     ];
@@ -83,6 +84,11 @@ class Shooter extends Model
     public function division(): BelongsTo
     {
         return $this->belongsTo(MatchDivision::class, 'match_division_id');
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class);
     }
 
     public function categories(): BelongsToMany

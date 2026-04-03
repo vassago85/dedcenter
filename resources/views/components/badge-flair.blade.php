@@ -44,8 +44,9 @@
 @endphp
 
 @if($badges->isNotEmpty())
-    <div class="flex items-center gap-1.5">
-        @foreach($badges as $userBadge)
+    @php $flairId = 'bf-' . $userId . '-' . Str::random(4); @endphp
+    <div class="flex items-center gap-1" x-data="{ activePopover: null }" @click.outside="activePopover = null">
+        @foreach($badges as $bi => $userBadge)
             @php
                 $a = $userBadge->achievement;
                 $cfg = $badgeConfig[$a->slug] ?? [];
@@ -55,49 +56,44 @@
                 $isDist = str_starts_with($icon, 'dist-');
                 $styles = $familyStyles[$family] ?? $familyStyles['prs'];
                 $crestClass = ($isDist && isset($distFlairStyles[$icon])) ? $distFlairStyles[$icon] : ($styles[$tier] ?? $styles['earned']);
+                $popId = $bi;
             @endphp
-            <div x-data="{ open: false }" class="relative">
+            <div class="relative">
                 <button type="button"
-                        @mouseenter="$el._tipTimer = setTimeout(() => $el._showTip = true, 400)"
-                        @mouseleave="clearTimeout($el._tipTimer); $el._showTip = false"
-                        @click.stop="open = !open"
-                        x-ref="trigger"
-                        class="group relative inline-flex items-center justify-center rounded-lg border {{ $crestClass }} transition-transform duration-150 hover:scale-110 cursor-pointer {{ $isDist ? 'h-6 px-1.5 gap-0.5' : 'h-7 w-7' }}">
-                    <x-badge-icon :name="$icon" class="{{ $isDist ? 'h-3 w-3' : 'h-3.5 w-3.5' }}" />
+                        @click.stop="activePopover = activePopover === {{ $popId }} ? null : {{ $popId }}"
+                        class="group relative inline-flex items-center justify-center rounded-md border {{ $crestClass }} transition-transform duration-150 hover:scale-110 cursor-pointer {{ $isDist ? 'h-5 min-w-[2rem] px-1' : 'h-6 w-6' }}">
+                    <x-badge-icon :name="$icon" class="{{ $isDist ? 'h-2.5 w-2.5' : 'h-3 w-3' }}" />
                 </button>
 
-                {{-- Popover on click --}}
-                <div x-show="open"
+                <div x-show="activePopover === {{ $popId }}" x-cloak
                      x-transition:enter="transition ease-out duration-150"
-                     x-transition:enter-start="opacity-0 scale-95 translate-y-1"
-                     x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
                      x-transition:leave="transition ease-in duration-100"
-                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-start="opacity-100"
                      x-transition:leave-end="opacity-0 scale-95"
-                     @click.outside="open = false"
-                     class="absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-xl border border-border bg-surface p-3 shadow-xl">
-                    <div class="flex items-start gap-2.5">
-                        <div class="flex-shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl border {{ $crestClass }}">
-                            <x-badge-icon :name="$icon" class="h-5 w-5" />
+                     class="absolute left-1/2 z-50 mb-1 w-48 -translate-x-1/2 rounded-lg border border-border bg-surface p-2.5 shadow-xl"
+                     :class="$el.getBoundingClientRect().top < 120 ? 'top-full mt-1' : 'bottom-full mb-1'">
+                    <div class="flex items-start gap-2">
+                        <div class="flex-shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg border {{ $crestClass }}">
+                            <x-badge-icon :name="$icon" class="h-4 w-4" />
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-bold text-primary leading-tight">{{ $a->label }}</p>
-                            <p class="mt-0.5 text-[11px] leading-snug text-muted">{{ $a->description }}</p>
+                            <p class="text-xs font-bold text-primary leading-tight">{{ $a->label }}</p>
+                            <p class="mt-0.5 text-[10px] leading-snug text-muted line-clamp-2">{{ $a->description }}</p>
                         </div>
                     </div>
-                    <a href="{{ route('badges.preview') }}" class="mt-2 block text-center text-[10px] font-medium text-amber-400 hover:underline">View all badges &rarr;</a>
-                    <div class="absolute left-1/2 -bottom-1.5 -translate-x-1/2 h-3 w-3 rotate-45 border-r border-b border-border bg-surface"></div>
                 </div>
             </div>
         @endforeach
 
         @if($remaining > 0 && $linkProfile)
             <a href="{{ route('shooter.profile', $userId) }}"
-               class="inline-flex h-7 items-center rounded-lg border border-white/10 bg-white/5 px-2 text-[10px] font-medium text-zinc-400 transition-colors hover:text-white hover:bg-white/10">
+               class="inline-flex h-5 items-center rounded-md border border-white/10 bg-white/5 px-1.5 text-[9px] font-medium text-zinc-400 transition-colors hover:text-white hover:bg-white/10">
                 +{{ $remaining }}
             </a>
         @elseif($remaining > 0)
-            <span class="inline-flex h-7 items-center rounded-lg border border-white/10 bg-white/5 px-2 text-[10px] font-medium text-zinc-400">
+            <span class="inline-flex h-5 items-center rounded-md border border-white/10 bg-white/5 px-1.5 text-[9px] font-medium text-zinc-400">
                 +{{ $remaining }}
             </span>
         @endif

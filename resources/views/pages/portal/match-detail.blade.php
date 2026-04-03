@@ -200,6 +200,58 @@ new #[Layout('components.layouts.portal')]
         Flux::toast('Proof uploaded. It will be reviewed shortly.', variant: 'success');
     }
 
+    public string $newTeamName = '';
+
+    public function createTeam(): void
+    {
+        if (! auth()->check() || ! $this->match->isTeamEvent()) return;
+        $this->validate(['newTeamName' => 'required|string|max:255']);
+        $maxSort = $this->match->teams()->max('sort_order') ?? 0;
+        $team = $this->match->teams()->create([
+            'name' => $this->newTeamName,
+            'max_size' => $this->match->team_size,
+            'sort_order' => $maxSort + 1,
+        ]);
+        $shooter = $this->getMyShooter();
+        if ($shooter) {
+            $shooter->update(['team_id' => $team->id]);
+        }
+        $this->reset('newTeamName');
+        Flux::toast("Team '{$team->name}' created!", variant: 'success');
+    }
+
+    public function joinTeam(int $teamId): void
+    {
+        if (! auth()->check() || ! $this->match->isTeamEvent()) return;
+        $team = $this->match->teams()->findOrFail($teamId);
+        if ($team->isFull()) {
+            Flux::toast("{$team->name} is full.", variant: 'danger');
+            return;
+        }
+        $shooter = $this->getMyShooter();
+        if ($shooter) {
+            $shooter->update(['team_id' => $team->id]);
+            Flux::toast("Joined {$team->name}!", variant: 'success');
+        }
+    }
+
+    public function leaveTeam(): void
+    {
+        if (! auth()->check()) return;
+        $shooter = $this->getMyShooter();
+        if ($shooter) {
+            $shooter->update(['team_id' => null]);
+            Flux::toast('Left team.', variant: 'success');
+        }
+    }
+
+    private function getMyShooter(): ?\App\Models\Shooter
+    {
+        return \App\Models\Shooter::where('user_id', auth()->id())
+            ->whereIn('squad_id', $this->match->squads()->pluck('id'))
+            ->first();
+    }
+
     private function createShooter(): void
     {
         $squad = $this->match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
@@ -217,6 +269,25 @@ new #[Layout('components.layouts.portal')]
     {
         $this->match->loadMissing(['staff', 'customFields']);
 
+        $registrants = $this->match->registrations()
+            ->where('payment_status', 'confirmed')
+            ->with('user:id,name')
+            ->get();
+
+        $squads = collect();
+        $showSquads = in_array($this->match->status, [
+            \App\Enums\MatchStatus::SquaddingOpen,
+            \App\Enums\MatchStatus::Active,
+            \App\Enums\MatchStatus::Completed,
+        ]);
+        if ($showSquads) {
+            $squads = $this->match->squads()
+                ->with(['shooters' => fn ($q) => $q->orderBy('sort_order')])
+                ->orderBy('sort_order')
+                ->get()
+                ->reject(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
+        }
+
         return [
             'targetSets' => $this->match->targetSets()->with('gongs')->orderBy('sort_order')->get(),
             'bankDetails' => [
@@ -225,6 +296,13 @@ new #[Layout('components.layouts.portal')]
                 'bank_account_number' => $this->organization->bank_account_number ?: Setting::get('bank_account_number', ''),
                 'bank_branch_code' => $this->organization->bank_branch_code ?: Setting::get('bank_branch_code', ''),
             ],
+            'registrants' => $registrants,
+            'squads' => $squads,
+            'showSquads' => $showSquads,
+            'teams' => $this->match->isTeamEvent()
+                ? $this->match->teams()->withCount('shooters')->orderBy('sort_order')->get()
+                : collect(),
+            'myShooter' => auth()->check() ? $this->getMyShooter() : null,
         ];
     }
 }; ?>
@@ -423,6 +501,119 @@ new #[Layout('components.layouts.portal')]
             @endif
         @endauth
     </div>
+
+    {{-- Registered Shooters --}}
+    @if($registrants->isNotEmpty() && !$match->isPreRegistration())
+        <div class="rounded-xl border border-white/10 bg-app p-8 space-y-4">
+            <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold text-primary">Registered Shooters</h2>
+                <span class="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-bold text-secondary">{{ $registrants->count() }}</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                @foreach($registrants as $reg)
+                    <span class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-secondary">{{ $reg->user?->name ?? 'Unknown' }}</span>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    {{-- Squads --}}
+    @if($showSquads && $squads->isNotEmpty())
+        <div class="rounded-xl border border-white/10 bg-app p-8 space-y-4">
+            <h2 class="text-xl font-bold text-primary">Squads</h2>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                @foreach($squads as $squad)
+                    <div class="rounded-lg border border-white/10 bg-white/5 p-4 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-primary">{{ $squad->name }}</h3>
+                            <span class="text-xs text-muted">{{ $squad->shooters->count() }} shooters</span>
+                        </div>
+                        @if($squad->shooters->isNotEmpty())
+                            <ul class="space-y-1">
+                                @foreach($squad->shooters as $shooter)
+                                    <li class="flex items-center gap-2 text-sm {{ auth()->check() && $shooter->user_id === auth()->id() ? 'text-green-400 font-medium' : 'text-secondary' }}">
+                                        @if(auth()->check() && $shooter->user_id === auth()->id())
+                                            <span class="h-1.5 w-1.5 rounded-full bg-green-400"></span>
+                                        @else
+                                            <span class="h-1.5 w-1.5 rounded-full bg-white/20"></span>
+                                        @endif
+                                        {{ $shooter->name }}
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-xs text-muted">No shooters assigned yet.</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+
+            @auth
+                @if($match->isSquaddingOpen() && $match->isSelfSquaddingEnabled() && $registration && $registration->isConfirmed())
+                    <a href="{{ route('matches.squadding', $match) }}" class="inline-flex items-center rounded-lg portal-bg-primary portal-bg-primary-hover px-5 py-2.5 text-sm font-medium text-primary transition-colors">
+                        Pick Your Squad
+                    </a>
+                @endif
+            @endauth
+        </div>
+    @endif
+
+    {{-- Team Selection --}}
+    @if($match->isTeamEvent() && $teams->isNotEmpty() || ($match->isTeamEvent() && $registration && $registration->isConfirmed()))
+        <div class="rounded-xl border border-white/10 bg-app p-8 space-y-4">
+            <h2 class="text-xl font-bold text-primary">Teams</h2>
+            @php $myTeamId = $myShooter?->team_id; @endphp
+
+            @if($myTeamId)
+                @php $currentTeam = $teams->firstWhere('id', $myTeamId); @endphp
+                @if($currentTeam)
+                    <div class="rounded-lg border border-green-800 bg-green-900/20 p-4">
+                        <p class="text-sm font-medium text-green-400">You're on team: {{ $currentTeam->name }}</p>
+                        <p class="text-xs text-muted mt-1">{{ $currentTeam->shooters_count }}/{{ $currentTeam->effectiveMaxSize() }} members</p>
+                    </div>
+                    <button wire:click="leaveTeam" class="text-xs text-muted hover:text-secondary transition-colors">Leave team</button>
+                @endif
+            @endif
+
+            @if($teams->isNotEmpty())
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    @foreach($teams as $team)
+                        @php $isMyTeam = $myTeamId === $team->id; @endphp
+                        <div class="rounded-lg border {{ $isMyTeam ? 'border-green-600 ring-2 ring-green-600/30' : 'border-white/10' }} bg-white/5 p-4 space-y-2 {{ $team->isFull() && !$isMyTeam ? 'opacity-50' : '' }}">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-bold text-primary">{{ $team->name }}</span>
+                                <span class="text-xs text-muted">{{ $team->shooters_count }}/{{ $team->effectiveMaxSize() }}</span>
+                            </div>
+                            @if(!$isMyTeam && !$team->isFull() && $registration && $registration->isConfirmed() && $myShooter)
+                                <button wire:click="joinTeam({{ $team->id }})" class="w-full rounded-lg portal-bg-primary portal-bg-primary-hover px-3 py-1.5 text-xs font-semibold text-primary transition-colors">
+                                    Join
+                                </button>
+                            @elseif($isMyTeam)
+                                <p class="text-center text-xs text-green-400/60">Your team</p>
+                            @elseif($team->isFull())
+                                <p class="text-center text-xs text-muted">Full</p>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            @auth
+                @if($registration && $registration->isConfirmed() && $myShooter && !$myTeamId)
+                    <div class="border-t border-white/10 pt-4 space-y-3">
+                        <h3 class="text-sm font-medium text-secondary">Create a New Team</h3>
+                        <div class="flex gap-3 items-end">
+                            <div class="flex-1">
+                                <input type="text" wire:model="newTeamName" placeholder="e.g. Team Alpha"
+                                       class="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-primary placeholder-muted focus:border-white/40" />
+                            </div>
+                            <button wire:click="createTeam" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-4 py-2 text-sm font-medium text-primary transition-colors">Create</button>
+                        </div>
+                    </div>
+                @endif
+            @endauth
+        </div>
+    @endif
 
     {{-- Scoreboard link --}}
     <div class="text-center">

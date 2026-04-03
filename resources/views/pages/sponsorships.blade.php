@@ -280,15 +280,19 @@ new #[Layout('components.layouts.marketing', [
     </div>
 </section>
 
-{{-- Reach / Footprint --}}
-@if(filled($reach))
+{{-- Reach / Visibility --}}
 <section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
     <div class="mx-auto max-w-4xl px-6 text-center">
-        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Reach &amp; Footprint</h2>
-        <p class="mx-auto mt-4 max-w-2xl leading-relaxed whitespace-pre-line" style="color: var(--lp-text-soft);">{{ $reach }}</p>
+        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Reach &amp; Visibility</h2>
+        <p class="mx-auto mt-4 max-w-2xl leading-relaxed" style="color: var(--lp-text-soft);">
+            @if(filled($reach))
+                {{ $reach }}
+            @else
+                Your brand is seen by registered shooters, live leaderboard viewers, and audiences accessing match results and shared materials before and after each event.
+            @endif
+        </p>
     </div>
 </section>
-@endif
 
 {{-- Contact Form --}}
 <section id="contact" class="py-20 lg:py-24">

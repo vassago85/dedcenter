@@ -169,6 +169,75 @@ new #[Layout('components.layouts.app')]
         return $pairs;
     }
 
+    public function autoSquad(): void
+    {
+        $match = $this->match;
+        $squads = $match->squads()->orderBy('sort_order')->get()
+            ->reject(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
+
+        if ($squads->isEmpty()) {
+            Flux::toast('No squads exist. Add squads first.', variant: 'warning');
+            return;
+        }
+
+        $confirmedRegs = $match->registrations()->where('payment_status', 'confirmed')->with('user')->get();
+        $existingShooterUserIds = $match->shooters()->whereNotNull('user_id')->pluck('user_id')->toArray();
+        $regsToAssign = $confirmedRegs->filter(fn ($r) => !in_array($r->user_id, $existingShooterUserIds));
+
+        $defaultSquad = $match->squads()->where('name', 'Default')->first()
+            ?? $match->squads()->where('name', 'Unassigned')->first();
+
+        $unassignedShooters = $defaultSquad
+            ? Shooter::where('squad_id', $defaultSquad->id)->get()
+            : collect();
+
+        foreach ($regsToAssign as $reg) {
+            $holder = $match->squads()->firstOrCreate(['name' => 'Unassigned'], ['sort_order' => 999]);
+            $maxSort = Shooter::where('squad_id', $holder->id)->max('sort_order') ?? 0;
+            $newShooter = Shooter::create([
+                'squad_id' => $holder->id,
+                'name' => $reg->user->name,
+                'user_id' => $reg->user_id,
+                'sort_order' => $maxSort + 1,
+            ]);
+            $unassignedShooters->push($newShooter);
+        }
+
+        if ($unassignedShooters->isEmpty()) {
+            Flux::toast('No unassigned shooters to distribute.', variant: 'warning');
+            return;
+        }
+
+        $squadIds = $squads->pluck('id')->toArray();
+        $counts = [];
+        foreach ($squadIds as $sid) {
+            $counts[$sid] = Shooter::where('squad_id', $sid)->count();
+        }
+
+        foreach ($unassignedShooters as $shooter) {
+            $targetId = null;
+            $minCount = PHP_INT_MAX;
+            foreach ($squadIds as $sid) {
+                $squad = $squads->firstWhere('id', $sid);
+                $cap = $squad->effectiveCapacity();
+                if ($cap !== null && $counts[$sid] >= $cap) continue;
+                if ($counts[$sid] < $minCount) {
+                    $minCount = $counts[$sid];
+                    $targetId = $sid;
+                }
+            }
+
+            if (!$targetId) continue;
+
+            $counts[$targetId]++;
+            $maxSort = Shooter::where('squad_id', $targetId)->max('sort_order') ?? 0;
+            $shooter->update(['squad_id' => $targetId, 'sort_order' => $maxSort + 1]);
+        }
+
+        $this->match->refresh();
+        Flux::toast('Unassigned shooters distributed across squads.', variant: 'success');
+    }
+
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
         $shooter = Shooter::findOrFail($shooterId);
@@ -186,6 +255,60 @@ new #[Layout('components.layouts.app')]
         $maxSort = Shooter::where('squad_id', $defaultSquad->id)->max('sort_order') ?? 0;
         $shooter->update(['squad_id' => $defaultSquad->id, 'sort_order' => $maxSort + 1]);
         Flux::toast("{$shooter->name} moved to unassigned.", variant: 'success');
+    }
+
+    public function assignToTeam(int $shooterId, int $teamId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $team = $this->match->teams()->findOrFail($teamId);
+        if ($team->isFull()) {
+            Flux::toast("{$team->name} is full.", variant: 'danger');
+            return;
+        }
+        $shooter->update(['team_id' => $teamId]);
+        Flux::toast("{$shooter->name} assigned to {$team->name}.", variant: 'success');
+    }
+
+    public function removeFromTeam(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $shooter->update(['team_id' => null]);
+        Flux::toast("{$shooter->name} removed from team.", variant: 'success');
+    }
+
+    public function autoTeam(): void
+    {
+        $teams = $this->match->teams()->withCount('shooters')->orderBy('sort_order')->get();
+        if ($teams->isEmpty()) {
+            Flux::toast('No teams exist. Add teams in match settings first.', variant: 'warning');
+            return;
+        }
+
+        $unassigned = $this->match->shooters()->whereNull('team_id')->active()->get();
+        if ($unassigned->isEmpty()) {
+            Flux::toast('No unassigned shooters to distribute.', variant: 'warning');
+            return;
+        }
+
+        $counts = $teams->pluck('shooters_count', 'id')->toArray();
+        foreach ($unassigned as $shooter) {
+            $targetId = null;
+            $minCount = PHP_INT_MAX;
+            foreach ($teams as $team) {
+                $max = $team->effectiveMaxSize();
+                if ($counts[$team->id] >= $max) continue;
+                if ($counts[$team->id] < $minCount) {
+                    $minCount = $counts[$team->id];
+                    $targetId = $team->id;
+                }
+            }
+            if (!$targetId) continue;
+            $shooter->update(['team_id' => $targetId]);
+            $counts[$targetId]++;
+        }
+
+        $this->match->refresh();
+        Flux::toast('Shooters distributed into teams.', variant: 'success');
     }
 
     public function addWalkin(): void
@@ -211,6 +334,10 @@ new #[Layout('components.layouts.app')]
         foreach ($regs as $reg) { $shareMap[$reg->user_id] = $reg->share_rifle_with; }
         $concurrentSize = max(1, $this->match->concurrent_relays ?? 2);
 
+        $teams = $this->match->isTeamEvent()
+            ? $this->match->teams()->with(['shooters' => fn ($q) => $q->orderBy('sort_order')])->withCount('shooters')->orderBy('sort_order')->get()
+            : collect();
+
         return [
             'squads' => $realSquads,
             'allSquads' => $squads,
@@ -218,6 +345,8 @@ new #[Layout('components.layouts.app')]
             'confirmedCount' => $confirmedCount,
             'shareMap' => $shareMap,
             'concurrentSize' => $concurrentSize,
+            'teams' => $teams,
+            'isTeamEvent' => $this->match->isTeamEvent(),
         ];
     }
 }; ?>
@@ -241,6 +370,8 @@ new #[Layout('components.layouts.app')]
                 <flux:badge color="indigo" size="sm">Squadding Open</flux:badge>
                 <flux:button wire:click="closeSquadding" variant="ghost" wire:confirm="Close squadding and activate match?">Close &amp; Activate</flux:button>
             @endif
+            <flux:button wire:click="autoSquad" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700"
+                         wire:confirm="Auto-assign all unassigned registrants across squads (round-robin)?">Auto-Squad</flux:button>
             <flux:button wire:click="randomizeRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover"
                          wire:confirm="Randomize all shooters into relays? Existing assignments will be reshuffled.">Randomize Relays</flux:button>
         </div>
@@ -372,6 +503,74 @@ new #[Layout('components.layouts.app')]
                     </div>
                 @endforeach
             </div>
+        </div>
+    @endif
+
+    {{-- Team Assignment --}}
+    @if($isTeamEvent)
+        <div class="rounded-xl border border-indigo-500/30 bg-surface p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-primary">Team Assignment</h2>
+                    <p class="text-sm text-muted">Assign shooters to teams. Team size: {{ $match->team_size }}</p>
+                </div>
+                <flux:button wire:click="autoTeam" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700" size="sm"
+                             wire:confirm="Auto-assign all unassigned shooters to teams (round-robin)?">Auto-Team</flux:button>
+            </div>
+
+            @if($teams->isNotEmpty())
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach($teams as $team)
+                        <div class="rounded-xl border border-border bg-surface-2/40 p-4 space-y-3" wire:key="team-{{ $team->id }}">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-primary">{{ $team->name }}</h3>
+                                <span class="text-xs text-muted">{{ $team->shooters_count }}/{{ $team->effectiveMaxSize() }}</span>
+                            </div>
+                            @if($team->shooters->isNotEmpty())
+                                <ul class="space-y-1">
+                                    @foreach($team->shooters as $ts)
+                                        <li class="flex items-center justify-between text-sm text-secondary">
+                                            <span>{{ $ts->name }}</span>
+                                            <button wire:click="removeFromTeam({{ $ts->id }})" class="text-xs text-accent/60 hover:text-accent">&times;</button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <p class="text-xs text-muted">No members yet</p>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-sm text-muted">No teams set up yet. Add teams in match settings.</p>
+            @endif
+
+            @php
+                $unteamedShooters = $match->shooters()->whereNull('team_id')->active()->get();
+            @endphp
+            @if($unteamedShooters->isNotEmpty() && $teams->isNotEmpty())
+                <div class="border-t border-border pt-4 space-y-3">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">Unassigned to Teams ({{ $unteamedShooters->count() }})</h3>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($unteamedShooters as $us)
+                            <div class="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5" wire:key="ut-{{ $us->id }}" x-data="{ tOpen: false }" @click.away="tOpen = false">
+                                <span class="text-sm text-secondary">{{ $us->name }}</span>
+                                <div class="relative ml-1">
+                                    <button @click="tOpen = !tOpen" class="text-xs text-muted hover:text-secondary">&#8644;</button>
+                                    <div x-show="tOpen" x-transition class="absolute left-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
+                                        @foreach($teams as $tm)
+                                            @if(!$tm->isFull())
+                                                <button wire:click="assignToTeam({{ $us->id }}, {{ $tm->id }})" @click="tOpen = false"
+                                                        class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors">{{ $tm->name }}</button>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 

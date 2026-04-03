@@ -53,6 +53,9 @@ class ShootingMatch extends Model
         'individual_placement_price',
         'featured_status',
         'featured_until',
+        'self_squadding_enabled',
+        'team_event',
+        'team_size',
     ];
 
     protected $hidden = [
@@ -77,6 +80,9 @@ class ShootingMatch extends Model
             'md_package_price' => 'decimal:2',
             'individual_placement_price' => 'decimal:2',
             'featured_until' => 'date',
+            'self_squadding_enabled' => 'boolean',
+            'team_event' => 'boolean',
+            'team_size' => 'integer',
         ];
     }
 
@@ -185,6 +191,11 @@ class ShootingMatch extends Model
     public function fullPackageBrand(): BelongsTo
     {
         return $this->belongsTo(Sponsor::class, 'full_package_brand_id');
+    }
+
+    public function teams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'match_id')->orderBy('sort_order');
     }
 
     // ── Computed Attributes ──
@@ -394,5 +405,17 @@ class ShootingMatch extends Model
     public function scopeFeatured(Builder $query): Builder
     {
         return $query->where('featured_status', 'active');
+    }
+
+    // ── Team Helpers ──
+
+    public function isTeamEvent(): bool
+    {
+        return (bool) $this->team_event;
+    }
+
+    public function isSelfSquaddingEnabled(): bool
+    {
+        return (bool) $this->self_squadding_enabled;
     }
 }

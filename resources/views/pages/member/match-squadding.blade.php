@@ -31,6 +31,10 @@ new #[Layout('components.layouts.app')]
             abort(403, 'Squadding is not open for this match.');
         }
 
+        if (!$match->isSelfSquaddingEnabled()) {
+            abort(403, 'Self-squadding is not enabled for this match. The match director will assign squads.');
+        }
+
         $this->myShooter = Shooter::where('user_id', auth()->id())
             ->whereIn('squad_id', $match->squads()->pluck('id'))
             ->first();

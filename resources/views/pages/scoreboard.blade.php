@@ -370,6 +370,32 @@ new #[Layout('components.layouts.scoreboard')]
             }
         }
 
+        $isTeamEvent = $this->match->isTeamEvent();
+        $teamLeaderboard = collect();
+        if ($isTeamEvent) {
+            $teams = $this->match->teams()
+                ->with(['shooters' => fn ($q) => $q->with('squad')])
+                ->orderBy('sort_order')
+                ->get();
+
+            $teamLeaderboard = $teams->map(function ($team) use ($shooters, $isPrs) {
+                $memberScores = $team->shooters->map(function ($member) use ($shooters, $isPrs) {
+                    $scored = $shooters->firstWhere('id', $member->id);
+                    return (object) [
+                        'name' => $member->name,
+                        'score' => $scored?->display_score ?? 0,
+                    ];
+                })->sortByDesc('score')->values();
+
+                return (object) [
+                    'team' => $team,
+                    'members' => $memberScores,
+                    'total_score' => $memberScores->sum('score'),
+                    'member_count' => $memberScores->count(),
+                ];
+            })->sortByDesc('total_score')->values();
+        }
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
@@ -384,6 +410,8 @@ new #[Layout('components.layouts.scoreboard')]
             'prsTargetSets' => $prsTargetSets,
             'matchBadges' => $matchBadges,
             'customFieldMap' => $customFieldMap,
+            'isTeamEvent' => $isTeamEvent,
+            'teamLeaderboard' => $teamLeaderboard,
         ];
     }
 }; ?>
@@ -454,7 +482,7 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
-    @if($isStandard || $royalFlushEnabled)
+    @if($isStandard || $royalFlushEnabled || $isTeamEvent)
         <div class="mb-4 flex min-w-0 flex-wrap gap-2">
             <button type="button" wire:click="setTab('main')"
                     class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
@@ -464,6 +492,12 @@ new #[Layout('components.layouts.scoreboard')]
                 <button type="button" wire:click="setTab('detailed')"
                         class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'detailed' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                     Detailed Breakdown
+                </button>
+            @endif
+            @if($isTeamEvent)
+                <button type="button" wire:click="setTab('teams')"
+                        class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'teams' ? 'bg-indigo-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                    Teams
                 </button>
             @endif
             @if($royalFlushEnabled)
@@ -479,7 +513,51 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
-    @if($isStandard && $activeTab === 'detailed')
+    @if($isTeamEvent && $activeTab === 'teams')
+        <div class="space-y-4">
+            @forelse($teamLeaderboard as $index => $entry)
+                <div class="rounded-2xl border border-border bg-surface overflow-hidden" x-data="{ open: false }">
+                    <button @click="open = !open" class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface-2/50 transition-colors sm:px-6 sm:py-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            @php
+                                $medal = match($index) { 0 => 'text-amber-400', 1 => 'text-zinc-300', 2 => 'text-amber-700', default => 'text-muted' };
+                            @endphp
+                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-sm font-black {{ $medal }} sm:h-10 sm:w-10 sm:text-base">{{ $index + 1 }}</span>
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-bold text-primary sm:text-base">{{ $entry->team->name }}</p>
+                                <p class="text-xs text-muted">{{ $entry->member_count }} {{ Str::plural('member', $entry->member_count) }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ $isPrs ? $entry->total_score : number_format($entry->total_score, 1) }}</span>
+                            <svg class="h-5 w-5 text-muted transition-transform" :class="open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        </div>
+                    </button>
+                    <div x-show="open" x-collapse>
+                        <div class="border-t border-border px-4 py-3 sm:px-6">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-left text-muted"><th class="pb-1 font-medium">Shooter</th><th class="pb-1 font-medium text-right">Score</th></tr>
+                                </thead>
+                                <tbody class="divide-y divide-border/30">
+                                    @foreach($entry->members as $member)
+                                        <tr>
+                                            <td class="py-1.5 text-secondary">{{ $member->name }}</td>
+                                            <td class="py-1.5 text-right font-bold tabular-nums text-primary">{{ $isPrs ? $member->score : number_format($member->score, 1) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
+                    <p class="text-muted">No teams set up for this event.</p>
+                </div>
+            @endforelse
+        </div>
+    @elseif($isStandard && $activeTab === 'detailed')
         <div class="space-y-3">
             @forelse($detailedData as $index => $entry)
                 @php
@@ -800,6 +878,9 @@ new #[Layout('components.layouts.scoreboard')]
             <button type="button" @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Leaderboard</button>
             <button type="button" @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Score Sheet</button>
             <button type="button" @click="prsTab = 'badges'" :class="prsTab === 'badges' ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Badges Awarded</button>
+            @if($isTeamEvent)
+                <button type="button" @click="prsTab = 'teams'" :class="prsTab === 'teams' ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Teams</button>
+            @endif
         </div>
         <div x-show="prsTab === 'leaderboard'">
     @endif
@@ -1122,6 +1203,48 @@ new #[Layout('components.layouts.scoreboard')]
                 </div>
             @endif
         </div>
+
+        {{-- PRS Teams Tab --}}
+        @if($isTeamEvent)
+        <div x-show="prsTab === 'teams'" x-cloak class="min-w-0">
+            <div class="space-y-4">
+                @forelse($teamLeaderboard as $index => $entry)
+                    <div class="rounded-2xl border border-zinc-700 bg-zinc-800/50 overflow-hidden" x-data="{ tOpen: false }">
+                        <button @click="tOpen = !tOpen" class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-zinc-700/50 transition-colors sm:px-6 sm:py-4">
+                            <div class="flex items-center gap-3 min-w-0">
+                                @php $medal = match($index) { 0 => 'text-amber-400', 1 => 'text-zinc-300', 2 => 'text-amber-700', default => 'text-zinc-500' }; @endphp
+                                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700 text-sm font-black {{ $medal }} sm:h-10 sm:w-10 sm:text-base">{{ $index + 1 }}</span>
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-bold text-white sm:text-base">{{ $entry->team->name }}</p>
+                                    <p class="text-xs text-zinc-500">{{ $entry->member_count }} {{ Str::plural('member', $entry->member_count) }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ $entry->total_score }}</span>
+                                <svg class="h-5 w-5 text-zinc-500 transition-transform" :class="tOpen && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                            </div>
+                        </button>
+                        <div x-show="tOpen" x-collapse>
+                            <div class="border-t border-zinc-700 px-4 py-3 sm:px-6">
+                                <table class="w-full text-sm">
+                                    <thead><tr class="text-left text-zinc-500"><th class="pb-1 font-medium">Shooter</th><th class="pb-1 font-medium text-right">Score</th></tr></thead>
+                                    <tbody class="divide-y divide-zinc-700/50">
+                                        @foreach($entry->members as $member)
+                                            <tr><td class="py-1.5 text-zinc-300">{{ $member->name }}</td><td class="py-1.5 text-right font-bold tabular-nums text-white">{{ $member->score }}</td></tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="rounded-2xl border border-dashed border-zinc-700 bg-zinc-800/30 p-8 text-center">
+                        <p class="text-zinc-500">No teams set up for this event.</p>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+        @endif
 
     </div>
     @endif

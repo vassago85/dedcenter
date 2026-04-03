@@ -36,6 +36,9 @@ new #[Layout('components.layouts.app')]
     public bool $royal_flush_enabled = false;
     public bool $side_bet_enabled = false;
     public int $concurrent_relays = 2;
+    public bool $self_squadding_enabled = true;
+    public bool $team_event = false;
+    public int $team_size = 3;
     public string $corrections_pin = '';
 
     public string $staffEmail = '';
@@ -75,6 +78,9 @@ new #[Layout('components.layouts.app')]
     public bool $cfShowScoreboard = false;
     public bool $cfShowResults = false;
     public ?int $editingCustomFieldId = null;
+
+    // Team management
+    public string $newTeamName = '';
 
     // DQ
     public ?int $dqShooterId = null;
@@ -121,6 +127,9 @@ new #[Layout('components.layouts.app')]
             $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->corrections_pin = $match->corrections_pin ?? '';
+            $this->self_squadding_enabled = (bool) ($match->self_squadding_enabled ?? true);
+            $this->team_event = (bool) $match->team_event;
+            $this->team_size = $match->team_size ?? 3;
             $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
             $this->loadCustomFields();
         } else {
@@ -154,6 +163,9 @@ new #[Layout('components.layouts.app')]
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['corrections_pin'] = $this->corrections_pin !== '' ? $this->corrections_pin : null;
+        $validated['self_squadding_enabled'] = $this->self_squadding_enabled;
+        $validated['team_event'] = $this->team_event;
+        $validated['team_size'] = max(2, $this->team_size);
 
         if ($this->match) {
             $this->match->update($validated);
@@ -203,6 +215,29 @@ new #[Layout('components.layouts.app')]
         if (! $this->match) return;
         $this->match->update(['featured_status' => null]);
         Flux::toast('Featured request cancelled.', variant: 'success');
+    }
+
+    public function addTeam(): void
+    {
+        if (! $this->match) return;
+        $this->validate(['newTeamName' => 'required|string|max:255']);
+        $maxSort = $this->match->teams()->max('sort_order') ?? 0;
+        $this->match->teams()->create([
+            'name' => $this->newTeamName,
+            'max_size' => $this->team_size,
+            'sort_order' => $maxSort + 1,
+        ]);
+        $this->reset('newTeamName');
+        Flux::toast('Team added.', variant: 'success');
+    }
+
+    public function deleteTeam(int $id): void
+    {
+        if (! $this->match) return;
+        $team = $this->match->teams()->findOrFail($id);
+        \App\Models\Shooter::where('team_id', $team->id)->update(['team_id' => null]);
+        $team->delete();
+        Flux::toast('Team removed.', variant: 'success');
     }
 
     private function loadCustomFields(): void
@@ -1165,6 +1200,10 @@ new #[Layout('components.layouts.app')]
                             <p class="text-xs text-muted flex-1">How many relays shoot at the same time. Shared-rifle partners will be placed in different concurrent groups.</p>
                         </div>
                     </div>
+
+                    <div class="border-t border-border pt-4">
+                        <flux:switch wire:model.live="self_squadding_enabled" label="Self-Squadding" description="Allow shooters to pick their own squad when squadding opens" />
+                    </div>
                 </div>
             @endif
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1367,6 +1406,47 @@ new #[Layout('components.layouts.app')]
                     </ul>
                 </div>
                 <flux:button wire:click="requestFeatured" variant="primary" size="sm">Request Featured Listing</flux:button>
+            @endif
+        </div>
+
+        {{-- Team Event --}}
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Team Event</h2>
+            <flux:switch wire:model.live="team_event" label="This is a team event" description="Enable combined team scoring alongside individual results" />
+
+            @if($team_event)
+                <div class="space-y-4 border-t border-border pt-4">
+                    <div class="w-32">
+                        <flux:input wire:model.blur="team_size" label="Team Size" type="number" min="2" max="20" />
+                    </div>
+                    <p class="text-xs text-muted">Default number of shooters per team.</p>
+
+                    @if($match)
+                        @php $teams = $match->teams()->withCount('shooters')->orderBy('sort_order')->get(); @endphp
+                        @if($teams->isNotEmpty())
+                            <div class="space-y-2">
+                                <h3 class="text-sm font-medium text-secondary">Teams</h3>
+                                @foreach($teams as $team)
+                                    <div class="flex items-center justify-between rounded-lg border border-border bg-surface-2/40 px-4 py-2" wire:key="team-{{ $team->id }}">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-sm font-medium text-primary">{{ $team->name }}</span>
+                                            <span class="text-xs text-muted">{{ $team->shooters_count }}/{{ $team->effectiveMaxSize() }} members</span>
+                                        </div>
+                                        <button wire:click="deleteTeam({{ $team->id }})" wire:confirm="Delete team {{ $team->name }}?"
+                                                class="text-accent/60 hover:text-accent text-lg leading-none">&times;</button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <div class="flex gap-3 items-end">
+                            <div class="flex-1"><flux:input wire:model="newTeamName" placeholder="e.g. Team Alpha" /></div>
+                            <flux:button wire:click="addTeam" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Team</flux:button>
+                        </div>
+                    @else
+                        <p class="text-xs text-muted">Save the match first, then add teams.</p>
+                    @endif
+                </div>
             @endif
         </div>
 
