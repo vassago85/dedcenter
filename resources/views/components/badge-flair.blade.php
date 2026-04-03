@@ -61,8 +61,8 @@
             <div class="relative">
                 <button type="button"
                         @click.stop="activePopover = activePopover === {{ $popId }} ? null : {{ $popId }}"
-                        class="group relative inline-flex items-center justify-center rounded-md border {{ $crestClass }} transition-transform duration-150 hover:scale-110 cursor-pointer {{ $isDist ? 'h-5 min-w-[2rem] px-1' : 'h-6 w-6' }}">
-                    <x-badge-icon :name="$icon" class="{{ $isDist ? 'h-2.5 w-2.5' : 'h-3 w-3' }}" />
+                        class="group relative inline-flex items-center justify-center rounded-md border {{ $crestClass }} transition-transform duration-150 hover:scale-110 cursor-pointer h-6 w-6">
+                    <x-badge-icon :name="$icon" class="h-3 w-3" />
                 </button>
 
                 <div x-show="activePopover === {{ $popId }}" x-cloak

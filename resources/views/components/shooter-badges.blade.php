@@ -87,8 +87,8 @@
             @endphp
             <div class="relative">
                 <button type="button" @click.stop="activePopover = activePopover === {{ $bi }} ? null : {{ $bi }}"
-                        class="group relative inline-flex items-center justify-center rounded-md border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} {{ $isDist ? 'h-5 min-w-[2rem] px-1' : 'h-6 w-6' }}">
-                    <x-badge-icon :name="$icon" class="{{ $isDist ? 'h-2.5 w-2.5' : 'h-3 w-3' }}" />
+                        class="group relative inline-flex items-center justify-center rounded-md border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} h-6 w-6">
+                    <x-badge-icon :name="$icon" class="h-3 w-3" />
                     @if($a->is_repeatable && $count > 1)
                         <span class="absolute -top-1 -right-1 flex h-3 min-w-[0.75rem] items-center justify-center rounded-full bg-white/15 px-0.5 text-[7px] font-bold text-white/80 backdrop-blur-sm">{{ $count }}</span>
                     @endif
