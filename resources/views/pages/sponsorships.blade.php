@@ -290,25 +290,6 @@ new #[Layout('components.layouts.marketing', [
 </section>
 @endif
 
-{{-- Custom packages --}}
-<section class="py-16 lg:py-20" style="border-bottom: 1px solid var(--lp-border);">
-    <div class="mx-auto max-w-4xl px-6 text-center">
-        <h2 class="text-3xl font-bold tracking-tight" style="color: var(--lp-text);">Custom Arrangements</h2>
-        <p class="mx-auto mt-4 max-w-2xl leading-relaxed" style="color: var(--lp-text-soft);">
-            @if(filled($customPackages))
-                {{ $customPackages }}
-            @else
-                Need advertising across multiple events, a full season, or a specific region? We're happy to put together an arrangement that works for your brand.
-            @endif
-        </p>
-        <div class="mx-auto mt-8 flex max-w-lg flex-wrap justify-center gap-3">
-            @foreach(['Event size', 'Number of matches', 'Region coverage', 'Leaderboard placement', 'Results placement', 'Scoring placement', 'Full package'] as $factor)
-                <span class="rounded-full px-4 py-1.5 text-xs font-medium" style="border: 1px solid var(--lp-border); color: var(--lp-text-soft);">{{ $factor }}</span>
-            @endforeach
-        </div>
-    </div>
-</section>
-
 {{-- Contact Form --}}
 <section id="contact" class="py-20 lg:py-24">
     <div class="mx-auto max-w-2xl px-6">
