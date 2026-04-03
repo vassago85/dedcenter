@@ -243,12 +243,12 @@ new #[Layout('components.layouts.scoreboard')]
 
                         if ($isCompleted) {
                             $href = route('scoreboard', $match);
-                        } elseif ($canRegister && auth()->check()) {
+                        } elseif (auth()->check()) {
                             $href = route('matches.show', $match);
                         } elseif ($org) {
                             $href = route('portal.matches.show', [$org, $match]);
                         } else {
-                            $href = route('scoreboard', $match);
+                            $href = route('login');
                         }
                     @endphp
 
