@@ -48,14 +48,21 @@ new #[Layout('components.layouts.marketing', [
 
     public function with(): array
     {
+        $individualPrice = (int) Setting::get('advertising_individual_price', 500);
+        $packagePrice    = (int) Setting::get('advertising_package_price', 1500);
+
         return [
-            'overview'        => Setting::get('sponsor_info_overview', ''),
-            'visibility'      => Setting::get('sponsor_info_visibility', ''),
-            'matchbookSection'=> Setting::get('sponsor_info_matchbook_section', ''),
-            'reach'           => Setting::get('sponsor_info_reach', ''),
-            'tiers'           => Setting::get('sponsor_info_tiers', ''),
-            'customPackages'  => Setting::get('sponsor_info_custom_packages', ''),
-            'contact'         => Setting::get('sponsor_info_contact', ''),
+            'overview'         => Setting::get('sponsor_info_overview', ''),
+            'visibility'       => Setting::get('sponsor_info_visibility', ''),
+            'matchbookSection' => Setting::get('sponsor_info_matchbook_section', ''),
+            'reach'            => Setting::get('sponsor_info_reach', ''),
+            'tiers'            => Setting::get('sponsor_info_tiers', ''),
+            'customPackages'   => Setting::get('sponsor_info_custom_packages', ''),
+            'contact'          => Setting::get('sponsor_info_contact', ''),
+            'individualPrice'  => $individualPrice,
+            'packagePrice'     => $packagePrice,
+            'individualPriceFmt' => 'R' . number_format($individualPrice),
+            'packagePriceFmt'    => 'R' . number_format($packagePrice),
         ];
     }
 }; ?>
@@ -138,7 +145,7 @@ new #[Layout('components.layouts.marketing', [
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Leaderboard powered by [Your Brand]</h3>
-                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Your brand on match leaderboards &mdash; the page competitors check most. R500 per event.</p>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Your brand on match leaderboards &mdash; the page competitors check most. {{ $individualPriceFmt }} per event.</p>
                 </div>
             </div>
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
@@ -147,7 +154,7 @@ new #[Layout('components.layouts.marketing', [
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Results powered by [Your Brand]</h3>
-                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Brand presence on results pages shared post-match and live scoreboards. R500 per event.</p>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Brand presence on results pages shared post-match and live scoreboards. {{ $individualPriceFmt }} per event.</p>
                 </div>
             </div>
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
@@ -156,7 +163,7 @@ new #[Layout('components.layouts.marketing', [
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Scoring powered by [Your Brand]</h3>
-                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Your brand visible on the scoring screen used by every scorer during the match. R500 per event.</p>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">Your brand visible on the scoring screen used by every scorer during the match. {{ $individualPriceFmt }} per event.</p>
                 </div>
             </div>
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
@@ -165,7 +172,7 @@ new #[Layout('components.layouts.marketing', [
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Full Event Visibility Package</h3>
-                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">All three placements (Leaderboard + Results + Scoring) for one event. R1,500 &mdash; one brand across all surfaces.</p>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-soft);">All three placements (Leaderboard + Results + Scoring) for one event. {{ $packagePriceFmt }} &mdash; one brand across all surfaces.</p>
                 </div>
             </div>
         </div>
@@ -245,25 +252,25 @@ new #[Layout('components.layouts.marketing', [
             <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(148,163,184,0.1); color: #94a3b8;">Individual</div>
                 <h3 class="text-lg font-bold" style="color: var(--lp-text);">Leaderboard</h3>
-                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">R500</p>
+                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">{{ $individualPriceFmt }}</p>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">"Leaderboard powered by [Your Brand]" &mdash; the page competitors check most during and after the event.</p>
             </div>
             <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(251,191,36,0.1); color: #fbbf24;">Individual</div>
                 <h3 class="text-lg font-bold" style="color: var(--lp-text);">Results</h3>
-                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">R500</p>
+                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">{{ $individualPriceFmt }}</p>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">"Results powered by [Your Brand]" &mdash; visible on scoreboard, results page, and exported PDFs.</p>
             </div>
             <div class="rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider bg-blue-600/10 text-blue-400">Individual</div>
                 <h3 class="text-lg font-bold" style="color: var(--lp-text);">Scoring</h3>
-                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">R500</p>
+                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">{{ $individualPriceFmt }}</p>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">"Scoring powered by [Your Brand]" &mdash; on the scoring screen used by every scorer during the match.</p>
             </div>
             <div class="rounded-2xl p-6" style="border: 1px solid rgba(225,6,0,0.3); background: var(--lp-surface); box-shadow: 0 0 0 1px rgba(225,6,0,0.15);">
                 <div class="mb-3 inline-block rounded-lg px-3 py-1 text-xs font-bold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">Best Value</div>
                 <h3 class="text-lg font-bold" style="color: var(--lp-text);">Full Package</h3>
-                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">R1,500</p>
+                <p class="mt-1 text-2xl font-bold" style="color: var(--lp-red);">{{ $packagePriceFmt }}</p>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">All three placements for one event. One brand across Leaderboard, Results, and Scoring.</p>
             </div>
         </div>

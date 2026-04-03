@@ -24,6 +24,10 @@ new #[Layout('components.layouts.app')]
 
     public string $contact = '';
 
+    public string $individual_price = '500';
+
+    public string $package_price = '1500';
+
     public string $access_token = '';
 
     public function mount(): void
@@ -35,6 +39,8 @@ new #[Layout('components.layouts.app')]
         $this->tiers = (string) Setting::get('sponsor_info_tiers', '');
         $this->custom_packages = (string) Setting::get('sponsor_info_custom_packages', '');
         $this->contact = (string) Setting::get('sponsor_info_contact', '');
+        $this->individual_price = (string) Setting::get('advertising_individual_price', '500');
+        $this->package_price = (string) Setting::get('advertising_package_price', '1500');
         $this->access_token = (string) (Setting::get('sponsor_info_access_token') ?? '');
     }
 
@@ -48,6 +54,8 @@ new #[Layout('components.layouts.app')]
             'tiers' => 'nullable|string',
             'custom_packages' => 'nullable|string',
             'contact' => 'nullable|string',
+            'individual_price' => 'required|numeric|min:0',
+            'package_price' => 'required|numeric|min:0',
         ]);
 
         Setting::set('sponsor_info_overview', $this->overview);
@@ -57,6 +65,8 @@ new #[Layout('components.layouts.app')]
         Setting::set('sponsor_info_tiers', $this->tiers);
         Setting::set('sponsor_info_custom_packages', $this->custom_packages);
         Setting::set('sponsor_info_contact', $this->contact);
+        Setting::set('advertising_individual_price', $this->individual_price);
+        Setting::set('advertising_package_price', $this->package_price);
 
         Flux::toast('Brand info content saved.', variant: 'success');
     }
@@ -78,7 +88,7 @@ new #[Layout('components.layouts.app')]
 
     <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
         <flux:heading size="lg">Private Link</flux:heading>
-        <p class="text-sm text-muted">Share this URL with potential sponsors. Regenerating invalidates previous links.</p>
+        <p class="text-sm text-muted">Share this URL with potential advertisers. Regenerating invalidates previous links.</p>
 
         <flux:input wire:model="access_token" label="Access token" readonly />
 
@@ -97,20 +107,29 @@ new #[Layout('components.layouts.app')]
 
     <form wire:submit="save" class="space-y-8">
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <flux:heading size="lg">Advertising Pricing</flux:heading>
+            <p class="text-sm text-muted">These prices appear on the public advertising page and are used as defaults for new matches.</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input wire:model="individual_price" label="Individual placement (R)" type="number" min="0" step="1" />
+                <flux:input wire:model="package_price" label="Full package — all 3 placements (R)" type="number" min="0" step="1" />
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <flux:heading size="lg">Overview</flux:heading>
-            <p class="text-sm text-muted">What DeadCenter and MatchBook Pro is.</p>
+            <p class="text-sm text-muted">What DeadCenter is — shown at the top of the advertising page.</p>
             <flux:textarea wire:model="overview" rows="8" />
         </div>
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <flux:heading size="lg">Visibility Locations</flux:heading>
-            <p class="text-sm text-muted">Where sponsors appear across the platform.</p>
+            <p class="text-sm text-muted">Where brands appear across the platform.</p>
             <flux:textarea wire:model="visibility" rows="6" />
         </div>
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <flux:heading size="lg">Match Book Advertising</flux:heading>
-            <p class="text-sm text-muted">Match books as a brand visibility product.</p>
+            <flux:heading size="lg">How It Works</flux:heading>
+            <p class="text-sm text-muted">Explains the MD-first advertising workflow to potential brands.</p>
             <flux:textarea wire:model="matchbook_section" rows="6" />
         </div>
 
@@ -121,20 +140,20 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <flux:heading size="lg">Tiers</flux:heading>
-            <p class="text-sm text-muted">Placeholder tier descriptions.</p>
+            <flux:heading size="lg">Pricing Details</flux:heading>
+            <p class="text-sm text-muted">Additional tier or pricing description text.</p>
             <flux:textarea wire:model="tiers" rows="6" />
         </div>
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <flux:heading size="lg">Custom Packages</flux:heading>
-            <p class="text-sm text-muted">Variable pricing and bespoke options.</p>
+            <flux:heading size="lg">Custom Arrangements</flux:heading>
+            <p class="text-sm text-muted">Multi-event, season, or bespoke deals.</p>
             <flux:textarea wire:model="custom_packages" rows="6" />
         </div>
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <flux:heading size="lg">Contact Information</flux:heading>
-            <p class="text-sm text-muted">How sponsors can get in touch.</p>
+            <p class="text-sm text-muted">How brands can get in touch.</p>
             <flux:textarea wire:model="contact" rows="6" />
         </div>
 
