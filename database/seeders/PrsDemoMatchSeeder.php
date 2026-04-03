@@ -31,7 +31,7 @@ class PrsDemoMatchSeeder extends Seeder
         $match = ShootingMatch::updateOrCreate(
             ['name' => 'Royal Flush — PRS Match', 'organization_id' => $org?->id],
             [
-                'date' => now()->addDays(7)->toDateString(),
+                'date' => now()->toDateString(),
                 'location' => 'Dullstroom Range',
                 'status' => MatchStatus::Active,
                 'scoring_type' => 'prs',
