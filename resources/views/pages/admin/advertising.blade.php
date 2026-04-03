@@ -4,6 +4,7 @@ use App\Enums\AdvertisingMode;
 use App\Enums\MdPackageStatus;
 use App\Enums\PlacementKey;
 use App\Enums\SponsorScope;
+use App\Models\Setting;
 use App\Models\ShootingMatch;
 use App\Models\Sponsor;
 use App\Models\SponsorAssignment;
@@ -18,8 +19,22 @@ new #[Layout('components.layouts.app')]
     #[Title('Advertising')]
     class extends Component {
 
+    public bool $advertisingEnabled = false;
+
     #[Url(as: 'filter')]
     public string $statusFilter = '';
+
+    public function mount(): void
+    {
+        $this->advertisingEnabled = (bool) Setting::get('advertising_enabled', false);
+    }
+
+    public function toggleAdvertising(): void
+    {
+        $this->advertisingEnabled = !$this->advertisingEnabled;
+        Setting::set('advertising_enabled', $this->advertisingEnabled ? '1' : '0');
+        Flux::toast($this->advertisingEnabled ? 'Advertising enabled' : 'Advertising disabled', variant: 'success');
+    }
 
     public ?int $sellMatchId = null;
     public string $sellMode = 'package';
@@ -127,6 +142,12 @@ new #[Layout('components.layouts.app')]
         <div>
             <flux:heading size="xl">Advertising</flux:heading>
             <p class="mt-1 text-sm text-muted">Manage advertising placements across all events. Sell full packages or individual placements.</p>
+        </div>
+        <div class="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+            <span class="text-sm font-medium {{ $advertisingEnabled ? 'text-green-400' : 'text-zinc-500' }}">
+                {{ $advertisingEnabled ? 'Live' : 'Off' }}
+            </span>
+            <flux:switch wire:click="toggleAdvertising" :checked="$advertisingEnabled" />
         </div>
     </div>
 

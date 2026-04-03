@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\PlacementKey;
+use App\Models\Setting;
 use App\Services\SponsorPlacementResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -11,6 +12,10 @@ class MatchResource extends JsonResource
 {
     protected function resolveScoringsSponsor(): ?array
     {
+        if (! (bool) Setting::get('advertising_enabled', false)) {
+            return null;
+        }
+
         try {
             $resolver = app(SponsorPlacementResolver::class);
             $assignment = $resolver->resolve(PlacementKey::MatchScoring, $this->id);

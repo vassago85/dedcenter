@@ -1,4 +1,9 @@
 <div class="space-y-6">
+    @unless($advertisingEnabled)
+        <div class="rounded-lg border border-zinc-700/50 bg-zinc-800/30 p-5">
+            <p class="text-sm text-muted">Advertising is currently disabled. A site administrator can enable it from the Advertising dashboard.</p>
+        </div>
+    @else
     @if($match->md_package_status === \App\Enums\MdPackageStatus::Pending)
         {{-- MD hasn't decided yet --}}
         <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5 space-y-4">
@@ -94,4 +99,5 @@
             </div>
         </div>
     @endif
+    @endunless
 </div>

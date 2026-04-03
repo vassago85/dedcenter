@@ -5,6 +5,10 @@
 ])
 
 @php
+    if (! (bool) \App\Models\Setting::get('advertising_enabled', false)) {
+        return;
+    }
+
     $placementKeyMap = [
         'leaderboard' => \App\Enums\PlacementKey::MatchLeaderboard,
         'results' => \App\Enums\PlacementKey::MatchResults,

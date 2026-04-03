@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Enums\AdvertisingMode;
 use App\Enums\MdPackageStatus;
 use App\Enums\PlacementKey;
+use App\Models\Setting;
 use App\Models\ShootingMatch;
 use App\Models\Sponsor;
 use App\Services\AdvertisingService;
@@ -90,6 +91,7 @@ class MatchAdvertisingOptions extends Component
     public function render(): View
     {
         return view('livewire.match-advertising-options', [
+            'advertisingEnabled' => (bool) Setting::get('advertising_enabled', false),
             'brands' => Sponsor::active()->orderBy('name')->get(),
             'currentBrand' => $this->match->full_package_brand_id
                 ? Sponsor::find($this->match->full_package_brand_id)
