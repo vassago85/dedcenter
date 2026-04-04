@@ -50,6 +50,8 @@ Route::get('/score/{any?}', function () {
 })->where('any', '.*')->middleware(['auth', 'verified'])->name('score');
 
 Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
+Route::get('/scoreboard/{match}/export/standings', [MatchExportController::class, 'standings'])->name('scoreboard.export.standings');
+Route::get('/scoreboard/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('scoreboard.export.detailed');
 Volt::route('/live/{match}', 'live')->name('live');
 Route::get('/badges-preview', \App\Http\Controllers\BadgeGalleryController::class)->name('badges.preview');
 Volt::route('/events', 'events')->name('events');

@@ -448,6 +448,20 @@ new #[Layout('components.layouts.scoreboard')]
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
+            @if($match->status === \App\Enums\MatchStatus::Completed)
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <a href="{{ route('scoreboard.export.standings', $match) }}"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        Standings CSV
+                    </a>
+                    <a href="{{ route('scoreboard.export.detailed', $match) }}"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        Full Results CSV
+                    </a>
+                </div>
+            @endif
         </div>
         <x-app-logo
             size="lg"
