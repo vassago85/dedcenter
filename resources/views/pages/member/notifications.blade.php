@@ -1,8 +1,12 @@
 <?php
 
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new #[Layout('components.layouts.app')]
+    #[Title('Notifications — DeadCenter')]
+    class extends Component {
     public function markAllRead(): void
     {
         auth()->user()->unreadNotifications->markAsRead();
@@ -22,7 +26,7 @@ new class extends Component {
     }
 }; ?>
 
-<x-layouts.app title="Notifications">
+<div>
     <div class="mx-auto max-w-lg py-8 px-4">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold">Notifications</h1>
@@ -62,4 +66,4 @@ new class extends Component {
             </div>
         @endif
     </div>
-</x-layouts.app>
+</div>

@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Enums\MatchStatus;
+use App\Jobs\SendPostMatchNotifications;
 use App\Models\ShootingMatch;
 use App\Notifications\RegistrationOpenNotification;
-use App\Notifications\ScoresPublishedNotification;
 use App\Notifications\SquaddingOpenNotification;
 use App\Notifications\MatchUpdateNotification;
 use App\Services\PushNotificationService;
@@ -17,7 +17,7 @@ class NotificationService
         match ($newStatus) {
             MatchStatus::RegistrationOpen => $this->notifyRegistrationOpen($match),
             MatchStatus::SquaddingOpen => $this->notifySquaddingOpen($match),
-            MatchStatus::Completed => $this->notifyScoresPublished($match),
+            MatchStatus::Completed => $this->schedulePostMatchNotifications($match),
             default => null,
         };
     }
@@ -60,25 +60,15 @@ class NotificationService
         }
     }
 
-    protected function notifyScoresPublished(ShootingMatch $match): void
+    /**
+     * Delay results notifications and match reports by 1 hour
+     * to give the MD time for prize giving and final admin.
+     */
+    protected function schedulePostMatchNotifications(ShootingMatch $match): void
     {
         if (!$match->scores_published) return;
 
-        $shooters = $match->shooters()
-            ->with('user')
-            ->get()
-            ->pluck('user')
-            ->filter()
-            ->unique('id');
-
-        foreach ($shooters as $user) {
-            if ($user->wantsNotification('scores_published')) {
-                $notification = new ScoresPublishedNotification($match);
-                $user->notify($notification);
-                $data = $notification->toArray($user);
-                PushNotificationService::send($user, $data['title'], $data['body'], $data['url']);
-            }
-        }
+        SendPostMatchNotifications::dispatch($match)->delay(now()->addHour());
     }
 
     public function notifyMatchUpdate(ShootingMatch $match, string $change): void

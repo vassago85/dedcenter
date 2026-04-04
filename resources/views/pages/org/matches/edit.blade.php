@@ -1426,9 +1426,10 @@ new #[Layout('components.layouts.app')]
                 @endif
                 @if($match->status === MatchStatus::Completed)
                     <flux:button href="{{ route('org.matches.report.preview', [$organization, $match]) }}" target="_blank" variant="ghost">Preview Match Report</flux:button>
-                    <flux:button wire:click="sendMatchReports" wire:confirm="Send match reports to all shooters with email addresses?" variant="primary" class="!bg-emerald-600 hover:!bg-emerald-700">
-                        Send Match Reports
+                    <flux:button wire:click="sendMatchReports" wire:confirm="Results and reports are sent automatically 1 hour after marking complete. Send them now instead?" variant="primary" class="!bg-emerald-600 hover:!bg-emerald-700">
+                        Send Reports Now
                     </flux:button>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Results auto-sent 1 hr after completion</p>
                 @endif
             </div>
 

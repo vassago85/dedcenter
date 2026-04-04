@@ -22,7 +22,7 @@
     --color-border: #31486d;
     --color-primary: #f3f7ff;
     --color-secondary: #b8c6de;
-    --color-muted: #8ea0bf;
+    --color-muted: #a3b5ce;
     --color-accent: #ff2b2b;
     --color-accent-hover: #e32020;
     --color-accent-soft: rgba(255, 43, 43, 0.12);
@@ -165,7 +165,7 @@ html.dark :where([data-flux-input]) input[type='datetime-local'] {
 /* Ghost / outline / subtle / filled: Flux uses `text-zinc-800` + `dark:text-white`; when `dark:` does not
    match our `html.dark` tree the label is nearly black on navy. Keep primary / danger / explicit !text-* alone. */
 html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([class*='bg-red-']):not([class*='!text-']) {
-    color: var(--color-secondary) !important;
+    color: var(--color-primary) !important;
 }
 html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([class*='bg-red-']):not([class*='!text-']):is(:hover, :focus-visible) {
     color: #ffffff !important;
@@ -183,6 +183,22 @@ html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([clas
     border-color: var(--color-border) !important;
 }
 ui-toast:not(:popover-open) {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+ui-toast::backdrop {
+    display: none !important;
+    background: transparent !important;
+}
+
+[popover]::backdrop {
+    background: transparent !important;
+    pointer-events: none !important;
+}
+
+dialog:not([open])::backdrop,
+dialog:not([open]) {
     display: none !important;
     pointer-events: none !important;
 }

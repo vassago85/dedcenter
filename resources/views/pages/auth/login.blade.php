@@ -39,10 +39,8 @@ new #[Layout('components.layouts.auth')]
 
         if ($user->isOwner()) {
             $redirect = route('admin.dashboard');
-        } elseif ($user->canScore()) {
-            $redirect = route('dashboard');
         } else {
-            $redirect = route('score');
+            $redirect = route('dashboard');
         }
 
         $this->redirect($redirect, navigate: true);

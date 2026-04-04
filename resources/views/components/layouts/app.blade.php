@@ -57,11 +57,11 @@
             </div>
 
             {{-- Navigation --}}
-            <nav class="flex-1 space-y-2 px-3 py-4 overflow-y-auto">
+            <nav class="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
                 @auth
                     @if($currentOrg)
                         {{-- ═══════════════════════════════════════
-                             Organization Context
+                             ORGANIZATION CONTEXT
                              ═══════════════════════════════════════ --}}
                         <div class="pb-2 px-3">
                             <p class="text-xs font-semibold uppercase tracking-wider text-muted">{{ $currentOrg->name }}</p>
@@ -91,6 +91,12 @@
                             Team
                         </a>
 
+                        <a href="{{ route('leaderboard', $currentOrg) }}"
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent text-secondary hover:bg-surface-2/50 hover:text-primary">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                            Leaderboard
+                        </a>
+
                         @if($currentOrg->isLeague())
                         <a href="{{ route('org.clubs', $currentOrg) }}"
                            class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('org.clubs') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
@@ -105,7 +111,7 @@
                             Org Settings
                         </a>
 
-                        <div class="pt-4">
+                        <div class="pt-3 mt-3 border-t border-border">
                             <a href="{{ route('dashboard') }}"
                                class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium text-secondary transition-colors hover:bg-surface-2/50 hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent">
                                 <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>
@@ -115,9 +121,9 @@
 
                     @else
                         {{-- ═══════════════════════════════════════
-                             SHOOTER section (always first, all users)
+                             SHOOTER — every logged-in user sees this
                              ═══════════════════════════════════════ --}}
-                        <div class="pb-2 px-3">
+                        <div class="pb-1 px-3">
                             <p class="text-xs font-semibold uppercase tracking-wider text-muted">Shooter</p>
                         </div>
 
@@ -128,9 +134,15 @@
                         </a>
 
                         <a href="{{ route('events') }}"
-                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('events') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('events') || request()->routeIs('events.*') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
                             <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
                             Find a Match
+                        </a>
+
+                        <a href="{{ route('matches') }}"
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('matches') || request()->routeIs('matches.*') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                            My Matches
                         </a>
 
                         <a href="{{ route('notifications') }}"
@@ -142,17 +154,39 @@
                             @endif
                         </a>
 
+                        <a href="{{ route('equipment') }}"
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('equipment') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437" /></svg>
+                            My Rifles & Loads
+                        </a>
+
+                        <div class="pt-1 pb-1 px-3">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-muted">Account</p>
+                        </div>
+
                         <a href="{{ route('settings') }}"
-                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('settings') || request()->routeIs('equipment') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('settings') && !request()->routeIs('settings.notifications') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
                             <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
                             My Profile
                         </a>
 
+                        <a href="{{ route('settings.notifications') }}"
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('settings.notifications') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                            Notification Preferences
+                        </a>
+
+                        <a href="{{ route('home') }}"
+                           class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors text-secondary hover:bg-surface-2/50 hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+                            Homepage
+                        </a>
+
                         {{-- ═══════════════════════════════════════
-                             MY ORGANIZATIONS section
+                             MY ORGANIZATIONS
                              ═══════════════════════════════════════ --}}
                         @if($userOrgs->count() > 0)
-                            <div class="pt-4 pb-2 px-3">
+                            <div class="pt-3 mt-1 border-t border-border pb-1 px-3">
                                 <p class="text-xs font-semibold uppercase tracking-wider text-muted">My Organizations</p>
                             </div>
                             @foreach($userOrgs as $org)
@@ -160,11 +194,11 @@
                                    class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors text-secondary hover:bg-surface-2/50 hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent">
                                     <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-2 text-xs font-bold uppercase">{{ substr($org->name, 0, 1) }}</span>
                                     <span class="truncate">{{ $org->name }}</span>
-                                    <span class="ml-auto text-xs text-muted capitalize">{{ $org->pivot->role }}</span>
+                                    <span class="ml-auto text-[10px] text-muted capitalize">{{ $org->pivot->role }}</span>
                                 </a>
                             @endforeach
                         @else
-                            <div class="pt-4 pb-2 px-3">
+                            <div class="pt-3 mt-1 border-t border-border pb-1 px-3">
                                 <p class="text-xs font-semibold uppercase tracking-wider text-muted">Organizations</p>
                             </div>
                             <a href="{{ route('organizations.create') }}"
@@ -175,21 +209,21 @@
                         @endif
 
                         {{-- ═══════════════════════════════════════
-                             SITE ADMIN section (collapsible)
+                             SITE ADMIN (owner only, collapsible)
                              ═══════════════════════════════════════ --}}
-                        @if($authUser->isAdmin())
-                            <div class="pt-4 pb-2 px-3">
+                        @if($authUser->isOwner())
+                            <div class="pt-3 mt-1 border-t border-border pb-1 px-3">
                                 <button type="button" @click="adminOpen = !adminOpen" class="flex min-h-[44px] w-full items-center justify-between rounded-lg px-1 text-xs font-semibold uppercase tracking-wider text-muted transition-colors hover:text-secondary focus:outline-none focus:ring-2 focus:ring-accent">
                                     Site Admin
                                     <svg :class="adminOpen && 'rotate-180'" class="h-3.5 w-3.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                                 </button>
                             </div>
 
-                            <div x-show="adminOpen" x-collapse x-cloak class="space-y-2">
+                            <div x-show="adminOpen" x-collapse x-cloak class="space-y-1">
                                 <a href="{{ route('admin.dashboard') }}"
                                    class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.dashboard') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
                                     <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" /></svg>
-                                    Admin Dashboard
+                                    Overview
                                 </a>
 
                                 <a href="{{ route('admin.organizations') }}"
@@ -211,7 +245,19 @@
                                 <a href="{{ route('admin.matches.index') }}"
                                    class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.matches.*') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
                                     <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H16.5C17.3284 3.75 18 4.42157 18 5.25V18.75C18 19.5784 17.3284 20.25 16.5 20.25H7.5C6.67157 20.25 6 19.5784 6 18.75V5.25C6 4.42157 6.67157 3.75 7.5 3.75Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0" /></svg>
-                                    Matches
+                                    All Matches
+                                </a>
+
+                                <a href="{{ route('admin.registrations') }}"
+                                   class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.registrations') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                                    <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
+                                    All Registrations
+                                </a>
+
+                                <a href="{{ route('admin.seasons') }}"
+                                   class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.seasons') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                                    <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                                    Seasons
                                 </a>
 
                                 <a href="{{ route('admin.advertising') }}"
@@ -220,13 +266,26 @@
                                     Advertising
                                 </a>
 
+                                <a href="{{ route('admin.homepage') }}"
+                                   class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.homepage') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                                    <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+                                    Homepage Editor
+                                </a>
+
+                                <a href="{{ route('admin.contact-submissions') }}"
+                                   class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.contact-submissions') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                                    <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></svg>
+                                    Contact Submissions
+                                    @php $unreadContacts = \App\Models\ContactSubmission::unread()->count(); @endphp
+                                    @if($unreadContacts > 0)
+                                        <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $unreadContacts }}</span>
+                                    @endif
+                                </a>
+
                                 <a href="{{ route('admin.settings') }}"
-                                   class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.settings') || request()->routeIs('admin.homepage') || request()->routeIs('admin.contact-submissions') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+                                   class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent {{ request()->routeIs('admin.settings') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
                                     <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
                                     Platform Settings
-                                    @if(\App\Models\ContactSubmission::unread()->count() > 0)
-                                        <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ \App\Models\ContactSubmission::unread()->count() }}</span>
-                                    @endif
                                 </a>
                             </div>
                         @endif
