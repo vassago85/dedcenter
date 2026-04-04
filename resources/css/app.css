@@ -182,6 +182,10 @@ html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([clas
     background: var(--color-surface) !important;
     border-color: var(--color-border) !important;
 }
+ui-toast:not(:popover-open) {
+    display: none !important;
+    pointer-events: none !important;
+}
 
 /* ── Modal / dialog ──
    `data-flux-modal` sits on <ui-modal>; Flux uses bg-white + dark:bg-zinc-800 on <dialog>. When `dark:`
