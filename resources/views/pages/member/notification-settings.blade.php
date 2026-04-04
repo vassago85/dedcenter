@@ -1,9 +1,13 @@
 <?php
 
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 use Flux\Flux;
 
-new class extends Component {
+new #[Layout('components.layouts.app')]
+    #[Title('Notification Settings — DeadCenter')]
+    class extends Component {
     public array $preferences = [];
 
     public function mount(): void
@@ -39,7 +43,7 @@ new class extends Component {
     }
 }; ?>
 
-<x-layouts.app title="Notification Settings — DeadCenter">
+<div>
     <div class="mx-auto max-w-2xl py-8 px-4 space-y-8">
 
         <div>
@@ -258,4 +262,4 @@ new class extends Component {
         </div>
 
     </div>
-</x-layouts.app>
+</div>

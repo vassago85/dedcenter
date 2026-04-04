@@ -176,12 +176,19 @@ html.dark :where([data-flux-input]) input[type='datetime-local'] {
    Flux does not emit `data-variant` on the DOM; variants are class-only. Do not force one text color
    on all buttons — that made primary actions white-on-white when Flux used white `--color-accent`. */
 
-/* Ghost / outline / subtle / filled: Flux uses `text-zinc-800` + `dark:text-white`; when `dark:` does not
-   match our `html.dark` tree the label is nearly black on navy. Keep primary / danger / explicit !text-* alone. */
-html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([class*='bg-red-']):not([class*='!text-']) {
-    color: var(--color-primary) !important;
+/* Ghost / outline / subtle buttons: Flux uses `text-zinc-800 dark:text-white` but the custom `dark:`
+   variant doesn't match `html.dark`, so text stays near-black on dark navy backgrounds.
+   Use real specificity (not :where()) so this actually overrides Tailwind utility classes. */
+html.dark [data-flux-button] {
+    color: var(--color-secondary) !important;
 }
-html.dark :where([data-flux-button]):not([class*='accent-foreground']):not([class*='bg-red-']):not([class*='!text-']):is(:hover, :focus-visible) {
+html.dark [data-flux-button]:is(:hover, :focus-visible) {
+    color: #ffffff !important;
+}
+html.dark [data-flux-button][class*='!bg-accent'],
+html.dark [data-flux-button][class*='bg-accent'],
+html.dark [data-flux-button][class*='!bg-emerald'],
+html.dark [data-flux-button][class*='bg-emerald'] {
     color: #ffffff !important;
 }
 

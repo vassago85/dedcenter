@@ -2,9 +2,13 @@
 
 use App\Enums\MatchStatus;
 use App\Models\ShootingMatch;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new #[Layout('components.layouts.app')]
+    #[Title('My Matches — DeadCenter')]
+    class extends Component {
     public string $activeTab = 'upcoming';
 
     public function with(): array
@@ -53,7 +57,7 @@ new class extends Component {
     }
 }; ?>
 
-<x-layouts.app title="My Matches">
+<div>
     <div class="mx-auto max-w-3xl px-4 py-8">
         <div class="flex items-center justify-between mb-6">
             <h1 class="text-2xl font-bold">My Matches</h1>
@@ -159,4 +163,4 @@ new class extends Component {
             @endif
         @endif
     </div>
-</x-layouts.app>
+</div>
