@@ -93,6 +93,23 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-8">
+    @php
+        $pendingOrgs = auth()->user()->organizations()->wherePivot('role', 'owner')->get()->filter(fn($o) => $o->status === 'pending');
+    @endphp
+    @if($pendingOrgs->isNotEmpty())
+        <div class="mb-6 rounded-xl border border-amber-600/30 bg-amber-900/10 px-5 py-4">
+            <div class="flex items-start gap-3">
+                <svg class="h-5 w-5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                <div>
+                    <p class="text-sm font-semibold text-amber-400">Organization Pending Review</p>
+                    <p class="mt-1 text-sm text-muted">Your organization{{ $pendingOrgs->count() > 1 ? 's' : '' }}
+                        {{ $pendingOrgs->pluck('name')->map(fn($n) => '"'.$n.'"')->join(', ') }}
+                        {{ $pendingOrgs->count() > 1 ? 'are' : 'is' }} awaiting approval. You'll be notified when approved.</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Header --}}
     <div>
         <flux:heading size="xl">Shooter Dashboard</flux:heading>

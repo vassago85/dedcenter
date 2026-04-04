@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\PlacementKey;
 use App\Models\ElrShot;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
 use App\Models\Score;
+use App\Models\Setting;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\UserAchievement;
@@ -16,11 +18,42 @@ class MatchReportService
 {
     public function generateReport(ShootingMatch $match, Shooter $shooter): array
     {
-        return match ($match->scoring_type) {
+        $report = match ($match->scoring_type) {
             'prs' => $this->generatePrsReport($match, $shooter),
             'elr' => $this->generateElrReport($match, $shooter),
             default => $this->generateStandardReport($match, $shooter),
         };
+
+        $report['sponsor'] = $this->sponsorData($match);
+
+        return $report;
+    }
+
+    public function generatePdfBytes(ShootingMatch $match, Shooter $shooter): string
+    {
+        $report = $this->generateReport($match, $shooter);
+        $renderer = app(PdfDocumentRenderer::class);
+
+        return $renderer->generate('exports.pdf-match-report', ['report' => $report]);
+    }
+
+    private function sponsorData(ShootingMatch $match): ?array
+    {
+        if (! (bool) Setting::get('advertising_enabled', false)) {
+            return null;
+        }
+
+        $resolver = app(SponsorPlacementResolver::class);
+        $assignment = $resolver->resolve(PlacementKey::MatchResults, $match->id);
+
+        if (! $assignment?->sponsor) {
+            return null;
+        }
+
+        return [
+            'name' => $assignment->sponsor->name,
+            'logo_path' => $assignment->sponsor->logo_path,
+        ];
     }
 
     public function getEmailableShooters(ShootingMatch $match): Collection

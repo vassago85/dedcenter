@@ -6,6 +6,7 @@ use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
 use App\Models\Squad;
 use App\Models\Shooter;
+use App\Models\User;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -18,9 +19,13 @@ new #[Layout('components.layouts.app')]
     public string $walkinName = '';
     public string $walkinBib = '';
     public ?int $walkinRelayId = null;
+    public string $walkinSearch = '';
+    public ?int $walkinUserId = null;
 
     public string $newSquadName = '';
     public ?int $defaultCapacity = null;
+
+    public string $activeTab = 'squads';
 
     public function mount(Organization $organization, ShootingMatch $match): void
     {
@@ -257,6 +262,136 @@ new #[Layout('components.layouts.app')]
         Flux::toast("{$shooter->name} moved to unassigned.", variant: 'success');
     }
 
+    // ── Match-Day Management ──
+
+    public function markNoShow(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $shooter->update(['status' => 'no_show']);
+        Flux::toast("{$shooter->name} marked as no-show.", variant: 'warning');
+    }
+
+    public function markPresent(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $shooter->update(['status' => 'active']);
+        Flux::toast("{$shooter->name} marked as present.", variant: 'success');
+    }
+
+    public function markWithdrawn(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $shooter->update(['status' => 'withdrawn']);
+        Flux::toast("{$shooter->name} marked as withdrawn.", variant: 'warning');
+    }
+
+    public function deleteShooter(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        $name = $shooter->name;
+        $shooter->scores()->delete();
+        $shooter->stageTimes()->delete();
+        $shooter->prsStageResults()->delete();
+        $shooter->disqualifications()->delete();
+        $shooter->delete();
+        Flux::toast("{$name} removed from the match.", variant: 'success');
+    }
+
+    public function markAllPresent(): void
+    {
+        $this->match->shooters()->where('status', 'active')->update(['status' => 'active']);
+        $count = $this->match->shooters()->count();
+        Flux::toast("All {$count} shooters confirmed as present.", variant: 'success');
+    }
+
+    public function markAllNoShow(): void
+    {
+        $shooters = $this->match->shooters()->where('status', 'active')->get();
+        $hasScores = $shooters->filter(fn ($s) => $s->scores()->exists() || $s->prsStageResults()->exists());
+        $toMark = $shooters->diff($hasScores);
+        $toMark->each(fn ($s) => $s->update(['status' => 'no_show']));
+        Flux::toast("{$toMark->count()} shooter(s) without scores marked as no-show.", variant: 'warning');
+    }
+
+    // ── Walk-in with user search ──
+
+    public function searchUsers(): array
+    {
+        if (strlen($this->walkinSearch) < 2) return [];
+
+        $existingUserIds = $this->match->shooters()->whereNotNull('user_id')->pluck('user_id')->toArray();
+
+        return User::where('name', 'like', "%{$this->walkinSearch}%")
+            ->orWhere('email', 'like', "%{$this->walkinSearch}%")
+            ->whereNotIn('id', $existingUserIds)
+            ->limit(8)
+            ->get(['id', 'name', 'email'])
+            ->toArray();
+    }
+
+    public function selectWalkinUser(int $userId): void
+    {
+        $user = User::findOrFail($userId);
+        $this->walkinUserId = $user->id;
+        $this->walkinName = $user->name;
+        $this->walkinSearch = '';
+    }
+
+    public function clearWalkinUser(): void
+    {
+        $this->walkinUserId = null;
+        $this->walkinSearch = '';
+    }
+
+    public function addWalkin(): void
+    {
+        $this->validate([
+            'walkinName' => 'required|string|max:255',
+            'walkinBib' => 'nullable|string|max:50',
+            'walkinRelayId' => 'required|integer',
+        ]);
+
+        $squad = $this->match->squads()->findOrFail($this->walkinRelayId);
+        if ($squad->isFull()) {
+            Flux::toast("{$squad->name} is full.", variant: 'danger');
+            return;
+        }
+
+        if ($this->walkinUserId) {
+            $existing = $this->match->shooters()->where('user_id', $this->walkinUserId)->first();
+            if ($existing) {
+                Flux::toast("{$this->walkinName} is already in this match.", variant: 'danger');
+                return;
+            }
+        }
+
+        $maxSort = Shooter::where('squad_id', $squad->id)->max('sort_order') ?? 0;
+        $shooter = Shooter::create([
+            'squad_id' => $squad->id,
+            'name' => $this->walkinName,
+            'bib_number' => $this->walkinBib ?: null,
+            'user_id' => $this->walkinUserId,
+            'sort_order' => $maxSort + 1,
+            'status' => 'active',
+        ]);
+
+        if ($this->walkinUserId) {
+            MatchRegistration::firstOrCreate(
+                ['match_id' => $this->match->id, 'user_id' => $this->walkinUserId],
+                [
+                    'payment_status' => 'confirmed',
+                    'amount' => $this->match->entry_fee ?? 0,
+                    'admin_notes' => 'Walk-in added by MD on match day',
+                ]
+            );
+        }
+
+        $this->reset('walkinName', 'walkinBib', 'walkinRelayId', 'walkinUserId', 'walkinSearch');
+        Flux::toast("{$shooter->name} added to {$squad->name}.", variant: 'success');
+    }
+
+    // ── Team Management ──
+
     public function assignToTeam(int $shooterId, int $teamId): void
     {
         $shooter = Shooter::findOrFail($shooterId);
@@ -311,17 +446,6 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Shooters distributed into teams.', variant: 'success');
     }
 
-    public function addWalkin(): void
-    {
-        $this->validate(['walkinName' => 'required|string|max:255', 'walkinBib' => 'nullable|string|max:50', 'walkinRelayId' => 'required|integer']);
-        $squad = $this->match->squads()->findOrFail($this->walkinRelayId);
-        if ($squad->isFull()) { Flux::toast("{$squad->name} is full.", variant: 'danger'); return; }
-        $maxSort = Shooter::where('squad_id', $squad->id)->max('sort_order') ?? 0;
-        Shooter::create(['squad_id' => $squad->id, 'name' => $this->walkinName, 'bib_number' => $this->walkinBib ?: null, 'sort_order' => $maxSort + 1]);
-        $this->reset('walkinName', 'walkinBib', 'walkinRelayId');
-        Flux::toast('Walk-in shooter added.', variant: 'success');
-    }
-
     public function with(): array
     {
         $squads = $this->match->squads()->with(['shooters' => fn ($q) => $q->orderBy('sort_order')])->orderBy('sort_order')->get();
@@ -338,6 +462,26 @@ new #[Layout('components.layouts.app')]
             ? $this->match->teams()->with(['shooters' => fn ($q) => $q->orderBy('sort_order')])->withCount('shooters')->orderBy('sort_order')->get()
             : collect();
 
+        $allShooters = $this->match->shooters()->get();
+        $totalShooters = $allShooters->count();
+        $activeCount = $allShooters->where('status', 'active')->count();
+        $noShowCount = $allShooters->where('status', 'no_show')->count();
+        $withdrawnCount = $allShooters->where('status', 'withdrawn')->count();
+        $dqCount = $allShooters->where('status', 'dq')->count();
+
+        $userResults = [];
+        if (strlen($this->walkinSearch) >= 2) {
+            $existingUserIds = $this->match->shooters()->whereNotNull('user_id')->pluck('user_id')->toArray();
+            $userResults = User::where(function ($q) {
+                $q->where('name', 'like', "%{$this->walkinSearch}%")
+                  ->orWhere('email', 'like', "%{$this->walkinSearch}%");
+            })
+            ->whereNotIn('id', $existingUserIds)
+            ->limit(8)
+            ->get(['id', 'name', 'email'])
+            ->toArray();
+        }
+
         return [
             'squads' => $realSquads,
             'allSquads' => $squads,
@@ -347,265 +491,581 @@ new #[Layout('components.layouts.app')]
             'concurrentSize' => $concurrentSize,
             'teams' => $teams,
             'isTeamEvent' => $this->match->isTeamEvent(),
+            'totalShooters' => $totalShooters,
+            'activeCount' => $activeCount,
+            'noShowCount' => $noShowCount,
+            'withdrawnCount' => $withdrawnCount,
+            'dqCount' => $dqCount,
+            'userResults' => $userResults,
         ];
     }
 }; ?>
 
-<div class="space-y-6 max-w-6xl">
-    <div class="flex items-center justify-between gap-4">
+<div class="space-y-6 max-w-6xl" x-data="{ tab: @entangle('activeTab') }">
+
+    {{-- ═══════════════════════════════════════════════
+         Header
+         ═══════════════════════════════════════════════ --}}
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-4">
             <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" variant="ghost" size="sm">
                 <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 Back
             </flux:button>
             <div>
-                <flux:heading size="xl">Squadding</flux:heading>
+                <flux:heading size="xl">Squads &amp; Shooters</flux:heading>
                 <p class="mt-1 text-sm text-muted">{{ $match->name }} &mdash; {{ $confirmedCount }} confirmed registrations</p>
             </div>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
             @if($match->status->canTransitionTo(MatchStatus::SquaddingOpen))
-                <flux:button wire:click="openSquadding" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700" wire:confirm="Open squadding to shooters?">Open Squadding</flux:button>
+                <flux:button wire:click="openSquadding" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]" wire:confirm="Open squadding to shooters?">Open Squadding</flux:button>
             @elseif($match->status === MatchStatus::SquaddingOpen)
                 <flux:badge color="indigo" size="sm">Squadding Open</flux:badge>
-                <flux:button wire:click="closeSquadding" variant="ghost" wire:confirm="Close squadding and activate match?">Close &amp; Activate</flux:button>
+                <flux:button wire:click="closeSquadding" variant="ghost" class="min-h-[44px]" wire:confirm="Close squadding and activate match?">Close &amp; Activate</flux:button>
             @endif
-            <flux:button wire:click="autoSquad" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700"
+        </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════
+         Match-Day Status Summary
+         ═══════════════════════════════════════════════ --}}
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div class="rounded-xl border border-border bg-surface p-4 text-center">
+            <p class="text-2xl font-bold text-primary">{{ $totalShooters }}</p>
+            <p class="text-xs text-muted mt-1">Total Shooters</p>
+        </div>
+        <div class="rounded-xl border border-green-500/20 bg-green-500/5 p-4 text-center">
+            <p class="text-2xl font-bold text-green-400">{{ $activeCount }}</p>
+            <p class="text-xs text-muted mt-1">Active</p>
+        </div>
+        <div class="rounded-xl border border-zinc-500/20 bg-zinc-500/5 p-4 text-center">
+            <p class="text-2xl font-bold text-zinc-400">{{ $noShowCount }}</p>
+            <p class="text-xs text-muted mt-1">No-Shows</p>
+        </div>
+        <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-center">
+            <p class="text-2xl font-bold text-amber-400">{{ $withdrawnCount }}</p>
+            <p class="text-xs text-muted mt-1">Withdrawn</p>
+        </div>
+        <div class="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center">
+            <p class="text-2xl font-bold text-red-400">{{ $dqCount }}</p>
+            <p class="text-xs text-muted mt-1">DQ'd</p>
+        </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════
+         Tab Navigation
+         ═══════════════════════════════════════════════ --}}
+    <div class="flex gap-1 border-b border-border">
+        <button @click="tab = 'squads'"
+                :class="tab === 'squads' ? 'border-accent text-primary' : 'border-transparent text-muted hover:text-secondary'"
+                class="border-b-2 px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px]">
+            Squads
+        </button>
+        <button @click="tab = 'matchday'"
+                :class="tab === 'matchday' ? 'border-accent text-primary' : 'border-transparent text-muted hover:text-secondary'"
+                class="border-b-2 px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px]">
+            Match Day
+        </button>
+        <button @click="tab = 'walkin'"
+                :class="tab === 'walkin' ? 'border-accent text-primary' : 'border-transparent text-muted hover:text-secondary'"
+                class="border-b-2 px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px]">
+            Walk-ins &amp; Add
+        </button>
+        @if($isTeamEvent)
+            <button @click="tab = 'teams'"
+                    :class="tab === 'teams' ? 'border-accent text-primary' : 'border-transparent text-muted hover:text-secondary'"
+                    class="border-b-2 px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px]">
+                Teams
+            </button>
+        @endif
+    </div>
+
+    {{-- ═══════════════════════════════════════════════
+         TAB: Squads
+         ═══════════════════════════════════════════════ --}}
+    <div x-show="tab === 'squads'" x-cloak class="space-y-5">
+
+        {{-- Quick actions --}}
+        <div class="flex flex-wrap gap-2">
+            <flux:button wire:click="autoSquad" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]"
                          wire:confirm="Auto-assign all unassigned registrants across squads (round-robin)?">Auto-Squad</flux:button>
-            <flux:button wire:click="randomizeRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover"
+            <flux:button wire:click="randomizeRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]"
                          wire:confirm="Randomize all shooters into relays? Existing assignments will be reshuffled.">Randomize Relays</flux:button>
         </div>
-    </div>
 
-    {{-- Capacity settings --}}
-    <div class="rounded-xl border border-border bg-surface p-4 space-y-3">
-        <h3 class="text-sm font-semibold text-primary">Squad Capacity</h3>
-        <div class="flex items-end gap-4">
-            <div>
-                <label class="block text-xs text-muted mb-1">Default Max per Squad</label>
-                <input type="number" wire:model="defaultCapacity" min="1" placeholder="Unlimited"
-                       class="w-28 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-            </div>
-            <flux:button wire:click="updateDefaultCapacity" size="sm" variant="ghost">Save Default</flux:button>
-        </div>
-        <p class="text-[10px] text-muted">Individual squads can override this. Leave blank for unlimited.</p>
-    </div>
-
-    {{-- Concurrent group legend --}}
-    <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-        <span class="font-medium text-secondary">Concurrent groups:</span>
-        @php $colors = ['bg-blue-500/20 text-blue-400', 'bg-emerald-500/20 text-emerald-400', 'bg-amber-500/20 text-amber-400', 'bg-purple-500/20 text-purple-400', 'bg-pink-500/20 text-pink-400']; @endphp
-        @foreach($squads->chunk($concurrentSize) as $groupIndex => $group)
-            <span class="rounded px-2 py-0.5 {{ $colors[$groupIndex % count($colors)] }}">{{ $group->pluck('name')->join(' + ') }}</span>
-        @endforeach
-    </div>
-
-    @if($squads->isNotEmpty())
-        <div class="space-y-3">
-            @php $relayCounter = 0; @endphp
-            @foreach($squads as $squad)
-                @php
-                    $groupIndex = intdiv($relayCounter, $concurrentSize);
-                    $groupColor = $colors[$groupIndex % count($colors)];
-                    $relayCounter++;
-                    $cap = $squad->effectiveCapacity();
-                    $remaining = $squad->spotsRemaining();
-                @endphp
-                <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="sq-{{ $squad->id }}">
-                    <div class="flex items-center justify-between border-b border-border px-4 py-2">
-                        <div class="flex items-center gap-2">
-                            <span class="font-medium text-primary">{{ $squad->name }}</span>
-                            <span class="rounded px-1.5 py-0.5 text-[10px] {{ $groupColor }}">Group {{ $groupIndex + 1 }}</span>
-                            <span class="text-xs text-muted">
-                                {{ $squad->shooters->count() }}{{ $cap ? "/{$cap}" : '' }} shooters
-                                @if($remaining !== null && $remaining <= 0)
-                                    <span class="text-accent font-bold ml-1">FULL</span>
-                                @elseif($remaining !== null)
-                                    <span class="text-green-400 ml-1">({{ $remaining }} spots left)</span>
-                                @endif
-                            </span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="number" min="1" placeholder="Cap" value="{{ $squad->max_capacity }}"
-                                   wire:change="updateSquadCapacity({{ $squad->id }}, $event.target.value)"
-                                   class="w-16 rounded border border-border bg-surface-2 px-2 py-1 text-xs text-primary text-center focus:border-red-500" title="Max capacity override" />
-                            <button wire:click="deleteSquad({{ $squad->id }})" wire:confirm="Delete {{ $squad->name }} and all its shooters?"
-                                    class="text-xs text-accent/60 hover:text-accent transition-colors">&times;</button>
-                        </div>
-                    </div>
-                    <div class="p-3">
-                        @if($squad->shooters->isNotEmpty())
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead><tr class="text-left text-muted border-b border-border/50"><th class="px-2 py-1.5 font-medium w-10">#</th><th class="px-2 py-1.5 font-medium">Shooter</th><th class="px-2 py-1.5 font-medium w-32">Shares rifle</th><th class="px-2 py-1.5 font-medium w-24 text-right">Actions</th></tr></thead>
-                                    <tbody class="divide-y divide-border/30">
-                                        @foreach($squad->shooters as $shooter)
-                                            <tr wire:key="sh-{{ $shooter->id }}">
-                                                <td class="px-2 py-1.5 text-muted font-mono text-xs">{{ $shooter->sort_order }}</td>
-                                                <td class="px-2 py-1.5 text-secondary">{{ $shooter->name }}</td>
-                                                <td class="px-2 py-1.5">
-                                                    @if(isset($shareMap[$shooter->user_id]))
-                                                        <span class="rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] text-amber-400">{{ $shareMap[$shooter->user_id] }}</span>
-                                                    @else
-                                                        <span class="text-muted text-xs">&mdash;</span>
-                                                    @endif
-                                                </td>
-                                                <td class="px-2 py-1.5 text-right">
-                                                    <div class="flex items-center justify-end gap-1" x-data="{ open: false }">
-                                                        @if($squads->count() > 1)
-                                                            <div class="relative" @click.away="open = false">
-                                                                <button @click="open = !open" class="rounded px-1.5 py-0.5 text-xs text-muted hover:text-secondary transition-colors" title="Move to squad">&#8644;</button>
-                                                                <div x-show="open" x-transition class="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
-                                                                    @foreach($squads->where('id', '!=', $squad->id) as $otherSquad)
-                                                                        <button wire:click="moveShooter({{ $shooter->id }}, {{ $otherSquad->id }})" @click="open = false"
-                                                                                class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors">{{ $otherSquad->name }}</button>
-                                                                    @endforeach
-                                                                </div>
-                                                            </div>
-                                                        @endif
-                                                        <button wire:click="removeFromRelay({{ $shooter->id }})" class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors" title="Remove">&times;</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <p class="text-sm text-muted px-2">No shooters assigned.</p>
-                        @endif
-                    </div>
+        {{-- Capacity settings --}}
+        <div class="rounded-xl border border-border bg-surface p-4 space-y-3">
+            <h3 class="text-sm font-semibold text-primary">Squad Capacity</h3>
+            <div class="flex items-end gap-4">
+                <div>
+                    <label class="block text-xs text-muted mb-1">Default Max per Squad</label>
+                    <input type="number" wire:model="defaultCapacity" min="1" placeholder="Unlimited"
+                           class="w-28 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]" />
                 </div>
+                <flux:button wire:click="updateDefaultCapacity" size="sm" variant="ghost" class="min-h-[44px]">Save Default</flux:button>
+            </div>
+            <p class="text-[10px] text-muted">Individual squads can override this. Leave blank for unlimited.</p>
+        </div>
+
+        {{-- Concurrent group legend --}}
+        <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span class="font-medium text-secondary">Concurrent groups:</span>
+            @php $colors = ['bg-blue-500/20 text-blue-400', 'bg-emerald-500/20 text-emerald-400', 'bg-amber-500/20 text-amber-400', 'bg-purple-500/20 text-purple-400', 'bg-pink-500/20 text-pink-400']; @endphp
+            @foreach($squads->chunk($concurrentSize) as $groupIndex => $group)
+                <span class="rounded px-2 py-0.5 {{ $colors[$groupIndex % count($colors)] }}">{{ $group->pluck('name')->join(' + ') }}</span>
             @endforeach
         </div>
-    @else
-        <div class="rounded-xl border border-dashed border-border bg-surface/50 p-8 text-center">
-            <p class="text-muted">No squads set up yet. Add a squad below.</p>
-        </div>
-    @endif
 
-    @if($unassignedShooters->isNotEmpty())
-        <div class="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4 space-y-3">
-            <h3 class="text-sm font-semibold text-amber-400">Unassigned Shooters ({{ $unassignedShooters->count() }})</h3>
-            <div class="flex flex-wrap gap-2">
-                @foreach($unassignedShooters as $shooter)
-                    <div class="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5" wire:key="un-{{ $shooter->id }}">
-                        <span class="text-sm text-secondary">{{ $shooter->name }}</span>
-                        <div class="relative ml-1" x-data="{ open: false }" @click.away="open = false">
-                            <button @click="open = !open" class="text-xs text-muted hover:text-secondary">&#8644;</button>
-                            <div x-show="open" x-transition class="absolute left-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
-                                @foreach($squads as $sq)
-                                    <button wire:click="moveShooter({{ $shooter->id }}, {{ $sq->id }})" @click="open = false"
-                                            class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors">{{ $sq->name }}</button>
-                                @endforeach
+        @if($squads->isNotEmpty())
+            <div class="space-y-3">
+                @php $relayCounter = 0; @endphp
+                @foreach($squads as $squad)
+                    @php
+                        $groupIndex = intdiv($relayCounter, $concurrentSize);
+                        $groupColor = $colors[$groupIndex % count($colors)];
+                        $relayCounter++;
+                        $cap = $squad->effectiveCapacity();
+                        $remaining = $squad->spotsRemaining();
+                        $squadActive = $squad->shooters->where('status', 'active')->count();
+                        $squadNoShow = $squad->shooters->where('status', 'no_show')->count();
+                    @endphp
+                    <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="sq-{{ $squad->id }}">
+                        <div class="flex items-center justify-between border-b border-border px-4 py-2.5">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-medium text-primary">{{ $squad->name }}</span>
+                                <span class="rounded px-1.5 py-0.5 text-[10px] {{ $groupColor }}">Group {{ $groupIndex + 1 }}</span>
+                                <span class="text-xs text-muted">
+                                    {{ $squad->shooters->count() }}{{ $cap ? "/{$cap}" : '' }} shooters
+                                    @if($remaining !== null && $remaining <= 0)
+                                        <span class="text-accent font-bold ml-1">FULL</span>
+                                    @elseif($remaining !== null)
+                                        <span class="text-green-400 ml-1">({{ $remaining }} spots left)</span>
+                                    @endif
+                                </span>
+                                @if($squadNoShow > 0)
+                                    <span class="rounded px-1.5 py-0.5 text-[10px] bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">{{ $squadNoShow }} no-show</span>
+                                @endif
                             </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" min="1" placeholder="Cap" value="{{ $squad->max_capacity }}"
+                                       wire:change="updateSquadCapacity({{ $squad->id }}, $event.target.value)"
+                                       class="w-16 rounded border border-border bg-surface-2 px-2 py-1 text-xs text-primary text-center focus:border-accent min-h-[36px]" title="Max capacity override" />
+                                <button wire:click="deleteSquad({{ $squad->id }})" wire:confirm="Delete {{ $squad->name }} and all its shooters?"
+                                        class="text-xs text-accent/60 hover:text-accent transition-colors min-h-[36px] px-1">&times;</button>
+                            </div>
+                        </div>
+                        <div class="p-3">
+                            @if($squad->shooters->isNotEmpty())
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead><tr class="text-left text-muted border-b border-border/50">
+                                            <th class="px-2 py-1.5 font-medium w-10">#</th>
+                                            <th class="px-2 py-1.5 font-medium">Shooter</th>
+                                            <th class="px-2 py-1.5 font-medium w-20">Status</th>
+                                            <th class="px-2 py-1.5 font-medium w-32">Shares rifle</th>
+                                            <th class="px-2 py-1.5 font-medium w-40 text-right">Actions</th>
+                                        </tr></thead>
+                                        <tbody class="divide-y divide-border/30">
+                                            @foreach($squad->shooters as $shooter)
+                                                <tr wire:key="sh-{{ $shooter->id }}" class="{{ $shooter->isNoShow() ? 'opacity-50' : '' }} {{ $shooter->isDq() ? 'opacity-40 line-through' : '' }}">
+                                                    <td class="px-2 py-1.5 text-muted font-mono text-xs">{{ $shooter->sort_order }}</td>
+                                                    <td class="px-2 py-1.5 text-secondary">
+                                                        {{ $shooter->name }}
+                                                        @if(!$shooter->user_id)
+                                                            <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-amber-500/10 text-amber-400">walk-in</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-2 py-1.5">
+                                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium {{ $shooter->statusBadgeClasses() }}">
+                                                            {{ $shooter->statusLabel() }}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-2 py-1.5">
+                                                        @if(isset($shareMap[$shooter->user_id]))
+                                                            <span class="rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] text-amber-400">{{ $shareMap[$shooter->user_id] }}</span>
+                                                        @else
+                                                            <span class="text-muted text-xs">&mdash;</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-2 py-1.5 text-right">
+                                                        <div class="flex items-center justify-end gap-1" x-data="{ open: false, sOpen: false }">
+                                                            {{-- Status menu --}}
+                                                            <div class="relative" @click.away="sOpen = false">
+                                                                <button @click="sOpen = !sOpen" class="rounded px-2 py-1 text-[10px] font-medium text-muted hover:text-secondary hover:bg-surface-2 transition-colors min-h-[32px]" title="Change status">
+                                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                                                </button>
+                                                                <div x-show="sOpen" x-transition x-cloak class="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-border bg-surface-2 py-1 shadow-xl">
+                                                                    @if(!$shooter->isActive())
+                                                                        <button wire:click="markPresent({{ $shooter->id }})" @click="sOpen = false"
+                                                                                class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-green-400 hover:bg-surface transition-colors min-h-[36px]">
+                                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                                                            Mark Present
+                                                                        </button>
+                                                                    @endif
+                                                                    @if(!$shooter->isNoShow())
+                                                                        <button wire:click="markNoShow({{ $shooter->id }})" @click="sOpen = false"
+                                                                                class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-400 hover:bg-surface transition-colors min-h-[36px]">
+                                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                                            Mark No-Show
+                                                                        </button>
+                                                                    @endif
+                                                                    @if(!$shooter->isWithdrawn())
+                                                                        <button wire:click="markWithdrawn({{ $shooter->id }})" @click="sOpen = false"
+                                                                                class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-amber-400 hover:bg-surface transition-colors min-h-[36px]">
+                                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+                                                                            Mark Withdrawn
+                                                                        </button>
+                                                                    @endif
+                                                                    <div class="my-1 border-t border-border/50"></div>
+                                                                    <button wire:click="deleteShooter({{ $shooter->id }})" @click="sOpen = false"
+                                                                            wire:confirm="Permanently remove {{ $shooter->name }}? This deletes all their scores."
+                                                                            class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-[36px]">
+                                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                                                        Delete Shooter
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {{-- Move to squad --}}
+                                                            @if($squads->count() > 1)
+                                                                <div class="relative" @click.away="open = false">
+                                                                    <button @click="open = !open" class="rounded px-1.5 py-1 text-xs text-muted hover:text-secondary transition-colors min-h-[32px]" title="Move to squad">&#8644;</button>
+                                                                    <div x-show="open" x-transition x-cloak class="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
+                                                                        @foreach($squads->where('id', '!=', $squad->id) as $otherSquad)
+                                                                            <button wire:click="moveShooter({{ $shooter->id }}, {{ $otherSquad->id }})" @click="open = false"
+                                                                                    class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors min-h-[36px]">{{ $otherSquad->name }}</button>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                            <button wire:click="removeFromRelay({{ $shooter->id }})" class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors min-h-[32px]" title="Remove from squad">&times;</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <p class="text-sm text-muted px-2">No shooters assigned.</p>
+                            @endif
                         </div>
                     </div>
                 @endforeach
             </div>
-        </div>
-    @endif
-
-    {{-- Team Assignment --}}
-    @if($isTeamEvent)
-        <div class="rounded-xl border border-indigo-500/30 bg-surface p-6 space-y-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-lg font-semibold text-primary">Team Assignment</h2>
-                    <p class="text-sm text-muted">Assign shooters to teams. Team size: {{ $match->team_size }}</p>
-                </div>
-                <flux:button wire:click="autoTeam" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700" size="sm"
-                             wire:confirm="Auto-assign all unassigned shooters to teams (round-robin)?">Auto-Team</flux:button>
+        @else
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-8 text-center">
+                <p class="text-muted">No squads set up yet. Add a squad below.</p>
             </div>
+        @endif
 
-            @if($teams->isNotEmpty())
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach($teams as $team)
-                        <div class="rounded-xl border border-border bg-surface-2/40 p-4 space-y-3" wire:key="team-{{ $team->id }}">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-sm font-bold text-primary">{{ $team->name }}</h3>
-                                <span class="text-xs text-muted">{{ $team->shooters_count }}/{{ $team->effectiveMaxSize() }}</span>
-                            </div>
-                            @if($team->shooters->isNotEmpty())
-                                <ul class="space-y-1">
-                                    @foreach($team->shooters as $ts)
-                                        <li class="flex items-center justify-between text-sm text-secondary">
-                                            <span>{{ $ts->name }}</span>
-                                            <button wire:click="removeFromTeam({{ $ts->id }})" class="text-xs text-accent/60 hover:text-accent">&times;</button>
-                                        </li>
+        @if($unassignedShooters->isNotEmpty())
+            <div class="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4 space-y-3">
+                <h3 class="text-sm font-semibold text-amber-400">Unassigned Shooters ({{ $unassignedShooters->count() }})</h3>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($unassignedShooters as $shooter)
+                        <div class="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5" wire:key="un-{{ $shooter->id }}">
+                            <span class="text-sm text-secondary">{{ $shooter->name }}</span>
+                            <div class="relative ml-1" x-data="{ open: false }" @click.away="open = false">
+                                <button @click="open = !open" class="text-xs text-muted hover:text-secondary min-h-[32px]">&#8644;</button>
+                                <div x-show="open" x-transition x-cloak class="absolute left-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
+                                    @foreach($squads as $sq)
+                                        <button wire:click="moveShooter({{ $shooter->id }}, {{ $sq->id }})" @click="open = false"
+                                                class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors min-h-[36px]">{{ $sq->name }}</button>
                                     @endforeach
-                                </ul>
-                            @else
-                                <p class="text-xs text-muted">No members yet</p>
-                            @endif
+                                </div>
+                            </div>
                         </div>
                     @endforeach
                 </div>
-            @else
-                <p class="text-sm text-muted">No teams set up yet. Add teams in match settings.</p>
-            @endif
+            </div>
+        @endif
 
-            @php
-                $unteamedShooters = $match->shooters()->whereNull('team_id')->active()->get();
-            @endphp
-            @if($unteamedShooters->isNotEmpty() && $teams->isNotEmpty())
-                <div class="border-t border-border pt-4 space-y-3">
-                    <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">Unassigned to Teams ({{ $unteamedShooters->count() }})</h3>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach($unteamedShooters as $us)
-                            <div class="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5" wire:key="ut-{{ $us->id }}" x-data="{ tOpen: false }" @click.away="tOpen = false">
-                                <span class="text-sm text-secondary">{{ $us->name }}</span>
-                                <div class="relative ml-1">
-                                    <button @click="tOpen = !tOpen" class="text-xs text-muted hover:text-secondary">&#8644;</button>
-                                    <div x-show="tOpen" x-transition class="absolute left-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
-                                        @foreach($teams as $tm)
-                                            @if(!$tm->isFull())
-                                                <button wire:click="assignToTeam({{ $us->id }}, {{ $tm->id }})" @click="tOpen = false"
-                                                        class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors">{{ $tm->name }}</button>
+        {{-- Add Squad --}}
+        <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
+            <h3 class="text-sm font-medium text-secondary">Add Squad</h3>
+            <div class="flex gap-3 items-end">
+                <div class="flex-1"><flux:input wire:model="newSquadName" placeholder="e.g. Squad A" /></div>
+                <flux:button wire:click="addSquad" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]">Add Squad</flux:button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════
+         TAB: Match Day
+         ═══════════════════════════════════════════════ --}}
+    <div x-show="tab === 'matchday'" x-cloak class="space-y-5">
+
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <div>
+                <h2 class="text-lg font-semibold text-primary">Match Day Attendance</h2>
+                <p class="text-sm text-muted mt-1">Mark shooters as present or no-show. No-shows are excluded from scoring but kept on record. You can reinstate them at any time.</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <flux:button wire:click="markAllPresent" size="sm" variant="ghost" class="!text-green-400 hover:!bg-green-500/10 min-h-[44px]"
+                             wire:confirm="Confirm all shooters as present?">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    All Present
+                </flux:button>
+                <flux:button wire:click="markAllNoShow" size="sm" variant="ghost" class="!text-zinc-400 hover:!bg-zinc-500/10 min-h-[44px]"
+                             wire:confirm="Mark all shooters WITHOUT scores as no-show? Shooters who already have scores will not be affected.">
+                    <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    Flag No-Shows (no scores)
+                </flux:button>
+            </div>
+        </div>
+
+        {{-- Full shooter roster with status management --}}
+        @if($totalShooters > 0)
+            <div class="rounded-xl border border-border bg-surface overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-muted border-b border-border bg-surface-2/30">
+                                <th class="px-4 py-3 font-medium">Shooter</th>
+                                <th class="px-4 py-3 font-medium w-28">Squad</th>
+                                <th class="px-4 py-3 font-medium w-24">Status</th>
+                                <th class="px-4 py-3 font-medium w-36 text-right">Quick Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border/30">
+                            @foreach($allSquads as $squad)
+                                @foreach($squad->shooters->sortBy('name') as $shooter)
+                                    <tr wire:key="md-{{ $shooter->id }}" class="{{ $shooter->isNoShow() ? 'opacity-50 bg-zinc-900/20' : '' }} {{ $shooter->isDq() ? 'opacity-40 bg-red-900/10' : '' }}">
+                                        <td class="px-4 py-2.5">
+                                            <span class="text-secondary font-medium">{{ $shooter->name }}</span>
+                                            @if(!$shooter->user_id)
+                                                <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-amber-500/10 text-amber-400">walk-in</span>
                                             @endif
-                                        @endforeach
-                                    </div>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-xs text-muted">
+                                            @if(in_array($squad->name, ['Default', 'Unassigned']))
+                                                <span class="italic">Unassigned</span>
+                                            @else
+                                                {{ $squad->name }}
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-medium {{ $shooter->statusBadgeClasses() }}">
+                                                {{ $shooter->statusLabel() }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-right">
+                                            <div class="flex items-center justify-end gap-1">
+                                                @if($shooter->isActive())
+                                                    <button wire:click="markNoShow({{ $shooter->id }})"
+                                                            class="rounded px-2 py-1 text-[10px] font-medium text-zinc-400 hover:bg-zinc-500/10 transition-colors min-h-[32px]"
+                                                            title="Mark as no-show">No-Show</button>
+                                                    <button wire:click="markWithdrawn({{ $shooter->id }})"
+                                                            class="rounded px-2 py-1 text-[10px] font-medium text-amber-400 hover:bg-amber-500/10 transition-colors min-h-[32px]"
+                                                            title="Mark as withdrawn">Withdrawn</button>
+                                                @elseif($shooter->isNoShow() || $shooter->isWithdrawn())
+                                                    <button wire:click="markPresent({{ $shooter->id }})"
+                                                            class="rounded px-2 py-1 text-[10px] font-medium text-green-400 hover:bg-green-500/10 transition-colors min-h-[32px]"
+                                                            title="Reinstate as active">Reinstate</button>
+                                                @elseif($shooter->isDq())
+                                                    <span class="text-[10px] text-muted">DQ'd</span>
+                                                @endif
+                                                <button wire:click="deleteShooter({{ $shooter->id }})"
+                                                        wire:confirm="Permanently remove {{ $shooter->name }}? This deletes all their scores."
+                                                        class="rounded px-1.5 py-1 text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-colors min-h-[32px]"
+                                                        title="Delete shooter">
+                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @else
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-8 text-center">
+                <svg class="mx-auto h-10 w-10 text-muted/30 mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                <p class="text-muted">No shooters in this match yet. Add squads and assign registrants first.</p>
+            </div>
+        @endif
+    </div>
+
+    {{-- ═══════════════════════════════════════════════
+         TAB: Walk-ins & Add
+         ═══════════════════════════════════════════════ --}}
+    <div x-show="tab === 'walkin'" x-cloak class="space-y-5">
+
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
+            <div>
+                <h2 class="text-lg font-semibold text-primary">Add Walk-in Shooter</h2>
+                <p class="text-sm text-muted mt-1">Someone showed up on match day without pre-registering? Add them here. If they have a DeadCenter account, search for them to link their profile — their scores will then appear on their record.</p>
+            </div>
+
+            {{-- User search --}}
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-secondary">Link to existing account <span class="text-muted font-normal">(optional)</span></label>
+                @if($walkinUserId)
+                    <div class="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3">
+                        <svg class="h-5 w-5 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-primary">{{ $walkinName }}</p>
+                            <p class="text-xs text-muted">Linked — scores will appear on their profile</p>
+                        </div>
+                        <button wire:click="clearWalkinUser" class="rounded px-2 py-1 text-xs text-muted hover:text-accent transition-colors min-h-[36px]">Change</button>
+                    </div>
+                @else
+                    <div class="relative" x-data="{ focused: false }">
+                        <input type="text"
+                               wire:model.live.debounce.300ms="walkinSearch"
+                               @focus="focused = true"
+                               @click.away="focused = false"
+                               placeholder="Search by name or email..."
+                               class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary placeholder-muted focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]" />
+                        @if(count($userResults) > 0)
+                            <div x-show="focused" x-transition x-cloak class="absolute left-0 right-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-surface-2 shadow-xl">
+                                @foreach($userResults as $u)
+                                    <button wire:click="selectWalkinUser({{ $u['id'] }})" @click="focused = false"
+                                            class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-surface transition-colors min-h-[44px]">
+                                        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-surface text-xs font-bold text-primary shrink-0">
+                                            {{ strtoupper(substr($u['name'], 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium text-secondary">{{ $u['name'] }}</p>
+                                            <p class="text-xs text-muted">{{ $u['email'] }}</p>
+                                        </div>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @elseif(strlen($walkinSearch) >= 2)
+                            <div x-show="focused" x-cloak class="absolute left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-surface-2 px-4 py-3 shadow-xl">
+                                <p class="text-sm text-muted">No matching users found. You can still add them as an unlinked walk-in below.</p>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
+
+            {{-- Walk-in details --}}
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                    <label class="block text-sm font-medium text-secondary mb-1">Name <span class="text-accent">*</span></label>
+                    <input type="text" wire:model="walkinName" placeholder="Shooter name"
+                           class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary placeholder-muted focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]"
+                           {{ $walkinUserId ? 'readonly' : '' }} />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary mb-1">Bib # <span class="text-muted font-normal">(optional)</span></label>
+                    <input type="text" wire:model="walkinBib" placeholder="e.g. 42"
+                           class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary placeholder-muted focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary mb-1">Squad <span class="text-accent">*</span></label>
+                    <select wire:model="walkinRelayId"
+                            class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]">
+                        <option value="">Select squad</option>
+                        @foreach($allSquads as $sq)
+                            <option value="{{ $sq->id }}">{{ $sq->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <flux:button wire:click="addWalkin" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]">
+                <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" /></svg>
+                Add Walk-in
+            </flux:button>
+        </div>
+
+        {{-- Quick tips --}}
+        <div class="rounded-xl border border-blue-600/20 bg-blue-900/10 p-5 space-y-3">
+            <h3 class="text-sm font-semibold text-blue-300">Tips for Match Day</h3>
+            <ul class="text-sm text-muted space-y-2">
+                <li class="flex items-start gap-2">
+                    <svg class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <span><strong class="text-secondary">Link accounts when possible</strong> — walk-in scores count toward their season record, rankings, and badges.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <span><strong class="text-secondary">No-shows stay on record</strong> — they're hidden from the active roster but the registration is kept. You can reinstate them if they arrive late.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <svg class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <span><strong class="text-secondary">Delete is permanent</strong> — only delete a shooter if they were added by mistake. It removes all their scores too.</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    {{-- ═══════════════════════════════════════════════
+         TAB: Teams (only if team event)
+         ═══════════════════════════════════════════════ --}}
+    @if($isTeamEvent)
+        <div x-show="tab === 'teams'" x-cloak class="space-y-5">
+            <div class="rounded-xl border border-indigo-500/30 bg-surface p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-primary">Team Assignment</h2>
+                        <p class="text-sm text-muted">Assign shooters to teams. Team size: {{ $match->team_size }}</p>
+                    </div>
+                    <flux:button wire:click="autoTeam" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]" size="sm"
+                                 wire:confirm="Auto-assign all unassigned shooters to teams (round-robin)?">Auto-Team</flux:button>
+                </div>
+
+                @if($teams->isNotEmpty())
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach($teams as $team)
+                            <div class="rounded-xl border border-border bg-surface-2/40 p-4 space-y-3" wire:key="team-{{ $team->id }}">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-sm font-bold text-primary">{{ $team->name }}</h3>
+                                    <span class="text-xs text-muted">{{ $team->shooters_count }}/{{ $team->effectiveMaxSize() }}</span>
                                 </div>
+                                @if($team->shooters->isNotEmpty())
+                                    <ul class="space-y-1">
+                                        @foreach($team->shooters as $ts)
+                                            <li class="flex items-center justify-between text-sm text-secondary">
+                                                <span>{{ $ts->name }}</span>
+                                                <button wire:click="removeFromTeam({{ $ts->id }})" class="text-xs text-accent/60 hover:text-accent min-h-[32px]">&times;</button>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <p class="text-xs text-muted">No members yet</p>
+                                @endif
                             </div>
                         @endforeach
                     </div>
-                </div>
-            @endif
+                @else
+                    <p class="text-sm text-muted">No teams set up yet. Add teams in match settings.</p>
+                @endif
+
+                @php
+                    $unteamedShooters = $match->shooters()->whereNull('team_id')->active()->get();
+                @endphp
+                @if($unteamedShooters->isNotEmpty() && $teams->isNotEmpty())
+                    <div class="border-t border-border pt-4 space-y-3">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">Unassigned to Teams ({{ $unteamedShooters->count() }})</h3>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($unteamedShooters as $us)
+                                <div class="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5" wire:key="ut-{{ $us->id }}" x-data="{ tOpen: false }" @click.away="tOpen = false">
+                                    <span class="text-sm text-secondary">{{ $us->name }}</span>
+                                    <div class="relative ml-1">
+                                        <button @click="tOpen = !tOpen" class="text-xs text-muted hover:text-secondary min-h-[32px]">&#8644;</button>
+                                        <div x-show="tOpen" x-transition x-cloak class="absolute left-0 z-10 mt-1 w-40 rounded-lg border border-border bg-surface-2 py-1 shadow-lg">
+                                            @foreach($teams as $tm)
+                                                @if(!$tm->isFull())
+                                                    <button wire:click="assignToTeam({{ $us->id }}, {{ $tm->id }})" @click="tOpen = false"
+                                                            class="block w-full px-3 py-1.5 text-left text-xs text-secondary hover:bg-surface hover:text-white transition-colors min-h-[36px]">{{ $tm->name }}</button>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            </div>
         </div>
     @endif
-
-    <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
-        <h3 class="text-sm font-medium text-secondary">Add Squad</h3>
-        <div class="flex gap-3 items-end">
-            <div class="flex-1"><flux:input wire:model="newSquadName" placeholder="e.g. Squad A" /></div>
-            <flux:button wire:click="addSquad" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Squad</flux:button>
-        </div>
-    </div>
-
-    <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
-        <h3 class="text-sm font-medium text-secondary">Add Walk-in Shooter</h3>
-        <div class="flex flex-wrap gap-3 items-end">
-            <div class="flex-1 min-w-[150px]">
-                <label class="block text-xs text-muted mb-1">Name</label>
-                <input type="text" wire:model="walkinName" placeholder="Shooter name"
-                       class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-            </div>
-            <div class="w-24">
-                <label class="block text-xs text-muted mb-1">Bib #</label>
-                <input type="text" wire:model="walkinBib" placeholder="Opt."
-                       class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-            </div>
-            <div class="w-40">
-                <label class="block text-xs text-muted mb-1">Squad</label>
-                <select wire:model="walkinRelayId"
-                        class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
-                    <option value="">Select squad</option>
-                    @foreach($allSquads as $sq)
-                        <option value="{{ $sq->id }}">{{ $sq->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <flux:button wire:click="addWalkin" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add</flux:button>
-        </div>
-    </div>
 </div>

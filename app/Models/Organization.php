@@ -35,6 +35,7 @@ class Organization extends Model
         'bank_branch_code',
         'season_standings_enabled',
         'royal_flush_enabled',
+        'province',
     ];
 
     protected function casts(): array

@@ -114,6 +114,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-8 max-w-4xl">
+    <x-admin-tab-bar :tabs="[
+        ['href' => route('admin.settings'), 'label' => 'General', 'active' => false],
+        ['href' => route('admin.homepage'), 'label' => 'Homepage', 'active' => true],
+        ['href' => route('admin.contact-submissions'), 'label' => 'Contact Inbox', 'active' => false],
+    ]" />
+
     <div>
         <h1 class="text-2xl font-bold text-white">Homepage Curation</h1>
         <p class="mt-1 text-sm text-secondary">Control which matches and organizations appear on the shooter landing page.</p>

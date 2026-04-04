@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\ShootingMatch;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class RegistrationOpenNotification extends Notification
@@ -14,7 +15,11 @@ class RegistrationOpenNotification extends Notification
 
     public function via($notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+        if ($notifiable->wantsEmailNotification('registration_open')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toArray($notifiable): array
@@ -22,10 +27,30 @@ class RegistrationOpenNotification extends Notification
         return [
             'title' => 'Registration Open',
             'body' => "Registration is now open for {$this->match->name}.",
-            'url' => "/matches/{$this->match->id}",
+            'url' => "/events/{$this->match->id}",
             'match_id' => $this->match->id,
             'icon' => '/icons/icon-192.png',
             'tag' => "reg-open-{$this->match->id}",
         ];
+    }
+
+    public function toMail($notifiable): MailMessage
+    {
+        $mail = (new MailMessage)
+            ->subject("Registration Open — {$this->match->name}")
+            ->greeting("Hey {$notifiable->name}!")
+            ->line("Registration is now open for **{$this->match->name}**.");
+
+        if ($this->match->date) {
+            $mail->line("Date: {$this->match->date->format('j M Y')}");
+        }
+        if ($this->match->location) {
+            $mail->line("Location: {$this->match->location}");
+        }
+
+        return $mail
+            ->action('Register Now', url("/events/{$this->match->id}"))
+            ->line('You showed interest in this event — secure your spot before it fills up.')
+            ->salutation('— DeadCenter');
     }
 }

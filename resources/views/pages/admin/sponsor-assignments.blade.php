@@ -175,6 +175,13 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-8">
+    <x-admin-tab-bar :tabs="[
+        ['href' => route('admin.advertising'), 'label' => 'Match Placements', 'active' => false],
+        ['href' => route('admin.sponsors'), 'label' => 'Brands', 'active' => false],
+        ['href' => route('admin.sponsor-assignments'), 'label' => 'Platform Defaults', 'active' => true],
+        ['href' => route('admin.sponsor-info'), 'label' => 'Brand Info', 'active' => false],
+    ]" />
+
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <flux:heading size="xl">Platform Defaults</flux:heading>

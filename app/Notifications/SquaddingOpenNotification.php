@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\ShootingMatch;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class SquaddingOpenNotification extends Notification
@@ -14,7 +15,11 @@ class SquaddingOpenNotification extends Notification
 
     public function via($notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+        if ($notifiable->wantsEmailNotification('squadding_open')) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toArray($notifiable): array
@@ -22,10 +27,21 @@ class SquaddingOpenNotification extends Notification
         return [
             'title' => 'Choose Your Squad',
             'body' => "Squadding is now open for {$this->match->name}. Pick your squad!",
-            'url' => "/matches/{$this->match->id}/squadding",
+            'url' => "/events/{$this->match->id}",
             'match_id' => $this->match->id,
             'icon' => '/icons/icon-192.png',
             'tag' => "squad-open-{$this->match->id}",
         ];
+    }
+
+    public function toMail($notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("Squadding Open — {$this->match->name}")
+            ->greeting("Hey {$notifiable->name}!")
+            ->line("Squadding is now open for **{$this->match->name}**.")
+            ->line('Choose your squad before the slots fill up.')
+            ->action('Pick Your Squad', url("/events/{$this->match->id}"))
+            ->salutation('— DeadCenter');
     }
 }

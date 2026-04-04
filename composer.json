@@ -17,6 +17,7 @@
         "livewire/flux": "^2.13",
         "livewire/livewire": "^4.2",
         "livewire/volt": "^1.10",
+        "minishlink/web-push": "^9.0",
         "pestphp/pest": "^4.4",
         "spatie/laravel-pdf": "^2.4",
         "symfony/http-client": "^7.0",

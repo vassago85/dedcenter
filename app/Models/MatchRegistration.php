@@ -36,6 +36,12 @@ class MatchRegistration extends Model
         'is_free_entry',
         'pre_registered_at',
         'equipment_profile_id',
+        'rifle_id',
+        'ammo_load_id',
+        'division_id',
+        'category_id',
+        'emergency_contact_name',
+        'emergency_contact_number',
     ];
 
     protected function casts(): array
@@ -46,6 +52,7 @@ class MatchRegistration extends Model
             'pre_registered_at' => 'datetime',
             'sa_id_number' => 'encrypted',
             'contact_number' => 'encrypted',
+            'emergency_contact_number' => 'encrypted',
         ];
     }
 
@@ -64,6 +71,26 @@ class MatchRegistration extends Model
     public function equipmentProfile(): BelongsTo
     {
         return $this->belongsTo(UserEquipmentProfile::class, 'equipment_profile_id');
+    }
+
+    public function rifle(): BelongsTo
+    {
+        return $this->belongsTo(Rifle::class);
+    }
+
+    public function ammoLoad(): BelongsTo
+    {
+        return $this->belongsTo(AmmoLoad::class);
+    }
+
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(MatchDivision::class, 'division_id');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(MatchCategory::class, 'category_id');
     }
 
     public function customValues(): HasMany

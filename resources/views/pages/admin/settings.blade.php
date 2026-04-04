@@ -137,6 +137,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6 max-w-2xl">
+    <x-admin-tab-bar :tabs="[
+        ['href' => route('admin.settings'), 'label' => 'General', 'active' => true],
+        ['href' => route('admin.homepage'), 'label' => 'Homepage', 'active' => false],
+        ['href' => route('admin.contact-submissions'), 'label' => 'Contact Inbox', 'active' => false],
+    ]" />
+
     <div>
         <h1 class="text-2xl font-bold text-white">Platform Settings</h1>
         <p class="mt-1 text-sm text-secondary">Configure bank details, email delivery, and platform preferences.</p>

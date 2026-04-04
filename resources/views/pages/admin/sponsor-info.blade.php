@@ -81,6 +81,13 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="mx-auto max-w-3xl space-y-8">
+    <x-admin-tab-bar :tabs="[
+        ['href' => route('admin.advertising'), 'label' => 'Match Placements', 'active' => false],
+        ['href' => route('admin.sponsors'), 'label' => 'Brands', 'active' => false],
+        ['href' => route('admin.sponsor-assignments'), 'label' => 'Platform Defaults', 'active' => false],
+        ['href' => route('admin.sponsor-info'), 'label' => 'Brand Info', 'active' => true],
+    ]" />
+
     <div>
         <flux:heading size="xl">Brand Information Page</flux:heading>
         <p class="mt-2 text-sm text-muted">Edit the private brand-facing content. The page is only accessible via the secret URL below.</p>

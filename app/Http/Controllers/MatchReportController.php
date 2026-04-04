@@ -8,6 +8,7 @@ use App\Models\Shooter;
 use App\Services\MatchReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class MatchReportController extends Controller
 {
@@ -51,5 +52,29 @@ class MatchReportController extends Controller
         }
 
         return back()->with('success', "Match reports queued for {$sent} shooters.");
+    }
+
+    public function download(Request $request, ShootingMatch $match)
+    {
+        $user = $request->user();
+        abort_unless($user, 401);
+
+        $shooter = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->where('shooters.user_id', $user->id)
+            ->where('shooters.status', 'active')
+            ->select('shooters.*')
+            ->first();
+
+        abort_unless($shooter, 404, 'You did not participate in this match.');
+
+        $pdfBytes = $this->reportService->generatePdfBytes($match, $shooter);
+        $filename = Str::slug($match->name) . '-report.pdf';
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 }

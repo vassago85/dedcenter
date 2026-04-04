@@ -8,6 +8,7 @@ use App\Notifications\RegistrationOpenNotification;
 use App\Notifications\ScoresPublishedNotification;
 use App\Notifications\SquaddingOpenNotification;
 use App\Notifications\MatchUpdateNotification;
+use App\Services\PushNotificationService;
 
 class NotificationService
 {
@@ -32,7 +33,10 @@ class NotificationService
 
         foreach ($preRegistered as $user) {
             if ($user->wantsNotification('registration_open')) {
-                $user->notify(new RegistrationOpenNotification($match));
+                $notification = new RegistrationOpenNotification($match);
+                $user->notify($notification);
+                $data = $notification->toArray($user);
+                PushNotificationService::send($user, $data['title'], $data['body'], $data['url']);
             }
         }
     }
@@ -48,7 +52,10 @@ class NotificationService
 
         foreach ($registered as $user) {
             if ($user->wantsNotification('squadding_open')) {
-                $user->notify(new SquaddingOpenNotification($match));
+                $notification = new SquaddingOpenNotification($match);
+                $user->notify($notification);
+                $data = $notification->toArray($user);
+                PushNotificationService::send($user, $data['title'], $data['body'], $data['url']);
             }
         }
     }
@@ -66,7 +73,10 @@ class NotificationService
 
         foreach ($shooters as $user) {
             if ($user->wantsNotification('scores_published')) {
-                $user->notify(new ScoresPublishedNotification($match));
+                $notification = new ScoresPublishedNotification($match);
+                $user->notify($notification);
+                $data = $notification->toArray($user);
+                PushNotificationService::send($user, $data['title'], $data['body'], $data['url']);
             }
         }
     }
@@ -82,7 +92,10 @@ class NotificationService
 
         foreach ($shooters as $user) {
             if ($user->wantsNotification('match_updates')) {
-                $user->notify(new MatchUpdateNotification($match, $change));
+                $notification = new MatchUpdateNotification($match, $change);
+                $user->notify($notification);
+                $data = $notification->toArray($user);
+                PushNotificationService::send($user, $data['title'], $data['body'], $data['url']);
             }
         }
     }

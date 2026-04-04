@@ -56,6 +56,9 @@ class ShootingMatch extends Model
         'self_squadding_enabled',
         'team_event',
         'team_size',
+        'match_days',
+        'parent_match_id',
+        'registration_fields_config',
     ];
 
     protected $hidden = [
@@ -83,6 +86,8 @@ class ShootingMatch extends Model
             'self_squadding_enabled' => 'boolean',
             'team_event' => 'boolean',
             'team_size' => 'integer',
+            'match_days' => 'integer',
+            'registration_fields_config' => 'array',
         ];
     }
 
@@ -196,6 +201,21 @@ class ShootingMatch extends Model
     public function teams(): HasMany
     {
         return $this->hasMany(Team::class, 'match_id')->orderBy('sort_order');
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(MatchMessage::class, 'match_id');
+    }
+
+    public function parentMatch(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_match_id');
+    }
+
+    public function childMatches(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_match_id');
     }
 
     // ── Computed Attributes ──
@@ -417,5 +437,16 @@ class ShootingMatch extends Model
     public function isSelfSquaddingEnabled(): bool
     {
         return (bool) $this->self_squadding_enabled;
+    }
+
+    public function isMultiDay(): bool
+    {
+        return ($this->match_days ?? 1) > 1;
+    }
+
+    public function registrationFieldConfig(string $field): string
+    {
+        $config = $this->registration_fields_config ?? [];
+        return $config[$field] ?? 'hidden';
     }
 }

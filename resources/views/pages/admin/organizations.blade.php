@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Organization;
+use App\Notifications\OrganizationApprovedNotification;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,6 +20,11 @@ new #[Layout('components.layouts.app')]
         $org->admins()->syncWithoutDetaching([
             $org->created_by => ['role' => 'owner'],
         ]);
+
+        $owner = $org->admins()->wherePivot('role', 'owner')->first();
+        if ($owner) {
+            $owner->notify(new OrganizationApprovedNotification($org));
+        }
 
         Flux::toast("'{$org->name}' approved and active. Creator is now the owner.", variant: 'success');
     }

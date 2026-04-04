@@ -41,6 +41,16 @@ new #[Layout('components.layouts.app')]
     public int $team_size = 3;
     public string $corrections_pin = '';
 
+    public array $registrationFieldsConfig = [
+        'rifle' => 'hidden',
+        'ammo' => 'hidden',
+        'division' => 'optional',
+        'category' => 'optional',
+        'emergency_contact' => 'hidden',
+    ];
+
+    public int $matchDays = 1;
+
     public string $staffEmail = '';
 
     public string $staffRole = 'range_officer';
@@ -102,6 +112,11 @@ new #[Layout('components.layouts.app')]
 
     public string $elrProfileMultipliers = '1.00, 0.70, 0.50';
 
+    // Messaging
+    public string $msgSubject = '';
+    public string $msgBody = '';
+    public string $msgAudience = 'all';
+
     public function mount(Organization $organization, ?ShootingMatch $match = null): void
     {
         $this->organization = $organization;
@@ -131,6 +146,8 @@ new #[Layout('components.layouts.app')]
             $this->team_event = (bool) $match->team_event;
             $this->team_size = $match->team_size ?? 3;
             $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
+            $this->registrationFieldsConfig = $match->registration_fields_config ?? $this->registrationFieldsConfig;
+            $this->matchDays = $match->match_days ?? 1;
             $this->loadCustomFields();
         } else {
             $this->entry_fee = $organization->entry_fee_default ? (string) $organization->entry_fee_default : '';
@@ -166,6 +183,8 @@ new #[Layout('components.layouts.app')]
         $validated['self_squadding_enabled'] = $this->self_squadding_enabled;
         $validated['team_event'] = $this->team_event;
         $validated['team_size'] = max(2, $this->team_size);
+        $validated['registration_fields_config'] = $this->registrationFieldsConfig;
+        $validated['match_days'] = max(1, $this->matchDays);
 
         if ($this->match) {
             $this->match->update($validated);
@@ -420,6 +439,8 @@ new #[Layout('components.layouts.app')]
                 return;
             }
             $ts->update(['is_timed_stage' => (bool) $value]);
+        } elseif ($field === 'match_day') {
+            $ts->update(['match_day' => max(1, (int) $value)]);
         }
     }
 
@@ -624,6 +645,11 @@ new #[Layout('components.layouts.app')]
     {
         $this->match->elrStages()->where('id', $stageId)->delete();
         $this->match->refresh();
+    }
+
+    public function updateElrStageDay(int $stageId, string $value): void
+    {
+        $this->match->elrStages()->where('id', $stageId)->update(['match_day' => max(1, (int) $value)]);
     }
 
     public function addElrTarget(): void
@@ -1071,6 +1097,43 @@ new #[Layout('components.layouts.app')]
         }
     }
 
+    public function sendMessage(): void
+    {
+        $this->validate([
+            'msgSubject' => 'required|string|max:255',
+            'msgBody' => 'required|string|max:5000',
+            'msgAudience' => 'required|in:all,confirmed,squad',
+        ]);
+
+        $message = $this->match->messages()->create([
+            'sent_by' => auth()->id(),
+            'subject' => $this->msgSubject,
+            'body' => $this->msgBody,
+            'audience' => $this->msgAudience,
+            'sent_at' => now(),
+        ]);
+
+        $registrations = $this->match->registrations()->with('user');
+
+        if ($this->msgAudience === 'confirmed') {
+            $registrations->where('payment_status', 'confirmed');
+        }
+
+        $users = $registrations->get()->pluck('user')->filter()->unique('id');
+
+        foreach ($users as $user) {
+            if ($user->wantsNotification('match_updates')) {
+                $user->notify(new \App\Notifications\MatchAnnouncementNotification($message));
+            }
+        }
+
+        $this->msgSubject = '';
+        $this->msgBody = '';
+        $this->msgAudience = 'all';
+
+        \Flux\Flux::toast("Message sent to {$users->count()} shooters.", variant: 'success');
+    }
+
     public function with(): array
     {
         $data = ['divisions' => collect(), 'categories' => collect(), 'qrCodeSvg' => null];
@@ -1080,6 +1143,7 @@ new #[Layout('components.layouts.app')]
             $data['disqualifications'] = $this->match->disqualifications()->with(['shooter:id,name', 'targetSet:id,label,stage_number', 'issuedBy:id,name'])->latest()->get();
             $data['divisions'] = $this->match->divisions()->orderBy('sort_order')->get();
             $data['categories'] = $this->match->categories()->orderBy('sort_order')->get();
+            $data['messages'] = $this->match->messages()->with('sender')->latest()->take(20)->get();
 
             if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen])) {
                 $liveUrl = route('live', $this->match);
@@ -1110,6 +1174,11 @@ new #[Layout('components.layouts.app')]
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:input wire:model="name" label="Name" placeholder="e.g. Monthly Steel Challenge" required />
                 <flux:input wire:model="date" label="Date" type="date" required />
+            </div>
+            <div class="max-w-xs">
+                <label class="block text-sm font-medium text-secondary mb-1">Match Days</label>
+                <input type="number" wire:model="matchDays" min="1" max="5" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary" />
+                <p class="mt-1 text-xs text-muted">Set to 2+ for multi-day events. Stages can be assigned to specific days.</p>
             </div>
             <p class="text-xs text-muted">
                 Matches still <strong>Active</strong> or <strong>Squadding Open</strong> are automatically set to <strong>Completed</strong> the day after this date ({{ config('app.timezone') }}). Update the date if the event moves.
@@ -1308,6 +1377,26 @@ new #[Layout('components.layouts.app')]
                 @endforeach
             </div>
 
+            @if($match->status === MatchStatus::Active)
+            <div class="rounded-xl border border-red-600/30 bg-red-900/10 p-5 space-y-3">
+                <h3 class="text-lg font-semibold text-red-400">Finalise Match</h3>
+                <p class="text-sm text-muted">Mark this match as completed. This will trigger badge evaluation and enable result publishing.</p>
+                <div class="flex items-center gap-2 text-sm text-secondary">
+                    <input type="checkbox" id="confirm-scores" class="rounded border-border bg-surface-2 text-accent">
+                    <label for="confirm-scores">All stages have been scored</label>
+                </div>
+                <div class="flex items-center gap-2 text-sm text-secondary">
+                    <input type="checkbox" id="confirm-times" class="rounded border-border bg-surface-2 text-accent">
+                    <label for="confirm-times">All times have been recorded</label>
+                </div>
+                <button wire:click="transitionStatus('completed')"
+                        wire:confirm="Are you sure? This will finalise the match results."
+                        class="rounded-lg bg-red-600 hover:bg-red-700 px-6 min-h-[44px] text-sm font-semibold text-white transition-colors">
+                    Complete Match
+                </button>
+            </div>
+            @endif
+
             <div class="flex flex-wrap gap-3 border-t border-border pt-4">
                 @foreach($match->status->allowedTransitions() as $next)
                     <button wire:click="transitionStatus('{{ $next->value }}')"
@@ -1451,6 +1540,25 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <flux:separator />
+        <div class="space-y-4">
+            <h3 class="text-lg font-semibold text-primary">Registration Fields</h3>
+            <p class="text-sm text-muted">Choose which fields shooters must fill in when registering for this match.</p>
+
+            <div class="space-y-3">
+                @foreach(['rifle' => 'Rifle Selection', 'ammo' => 'Ammo Selection', 'division' => 'Division', 'category' => 'Category', 'emergency_contact' => 'Emergency Contact'] as $field => $label)
+                <div class="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-4 py-3">
+                    <span class="text-sm font-medium text-secondary">{{ $label }}</span>
+                    <select wire:model="registrationFieldsConfig.{{ $field }}" class="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-primary">
+                        <option value="required">Required</option>
+                        <option value="optional">Optional</option>
+                        <option value="hidden">Hidden</option>
+                    </select>
+                </div>
+                @endforeach
+            </div>
+        </div>
+
+        <flux:separator />
 
         {{-- Divisions --}}
         <div class="space-y-4">
@@ -1552,6 +1660,14 @@ new #[Layout('components.layouts.app')]
                                        wire:change="updateTargetSet({{ $ts->id }}, 'distance_multiplier', $event.target.value)" />
                             </div>
                             <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
+                            @if($matchDays > 1)
+                            <select wire:change="updateTargetSet({{ $ts->id }}, 'match_day', $event.target.value)"
+                                    class="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-primary">
+                                @for($d = 1; $d <= $matchDays; $d++)
+                                    <option value="{{ $d }}" {{ ($ts->match_day ?? 1) == $d ? 'selected' : '' }}>Day {{ $d }}</option>
+                                @endfor
+                            </select>
+                            @endif
                         </div>
                         <div class="flex items-center gap-2">
                             <flux:button size="sm" variant="ghost" wire:click="cloneTargetSet({{ $ts->id }})">Clone</flux:button>
@@ -1660,6 +1776,14 @@ new #[Layout('components.layouts.app')]
                             @if($ts->is_tiebreaker)
                                 <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">Tiebreaker</span>
                                 <span class="text-[10px] text-amber-400/80">Timed &mdash; most impacts wins, time separates equal scores</span>
+                            @endif
+                            @if($matchDays > 1)
+                            <select wire:change="updateTargetSet({{ $ts->id }}, 'match_day', $event.target.value)"
+                                    class="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-primary">
+                                @for($d = 1; $d <= $matchDays; $d++)
+                                    <option value="{{ $d }}" {{ ($ts->match_day ?? 1) == $d ? 'selected' : '' }}>Day {{ $d }}</option>
+                                @endfor
+                            </select>
                             @endif
                         </div>
                         <div class="flex items-center gap-2">
@@ -1818,6 +1942,14 @@ new #[Layout('components.layouts.app')]
                             {{ $stage->stage_type->value }}
                         </span>
                         <span class="text-xs text-muted">({{ $stage->targets->count() }} targets)</span>
+                        @if($matchDays > 1)
+                        <select wire:change="updateElrStageDay({{ $stage->id }}, $event.target.value)"
+                                class="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm text-primary">
+                            @for($d = 1; $d <= $matchDays; $d++)
+                                <option value="{{ $d }}" {{ ($stage->match_day ?? 1) == $d ? 'selected' : '' }}>Day {{ $d }}</option>
+                            @endfor
+                        </select>
+                        @endif
                     </div>
                     <flux:button wire:click="removeElrStage({{ $stage->id }})" wire:confirm="Delete this stage and all its targets?" size="xs" variant="ghost" class="!text-red-400">
                         Delete Stage
@@ -2209,5 +2341,46 @@ new #[Layout('components.layouts.app')]
                 @endif
             </div>
         @endif
+
+        <flux:separator />
+
+        {{-- Message Shooters --}}
+        <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-primary">Message Shooters</h2>
+            <p class="text-xs text-muted">Send an announcement to registered shooters. They'll receive a notification.</p>
+
+            <div class="space-y-3">
+                <flux:input wire:model="msgSubject" label="Subject" placeholder="e.g. Range update, schedule change…" />
+
+                <flux:textarea wire:model="msgBody" label="Body" rows="4" placeholder="Type your message…" />
+
+                <flux:select wire:model="msgAudience" label="Audience">
+                    <option value="all">All Registrants</option>
+                    <option value="confirmed">Confirmed Only</option>
+                </flux:select>
+
+                <div class="flex justify-end">
+                    <flux:button wire:click="sendMessage" variant="primary" size="sm">Send Message</flux:button>
+                </div>
+            </div>
+
+            @if($messages->isNotEmpty())
+                <div class="mt-4 space-y-2">
+                    <h3 class="text-sm font-medium text-secondary">Message History</h3>
+                    @foreach($messages as $msg)
+                        <div class="rounded-lg border border-border bg-surface-2/30 p-3 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-primary">{{ $msg->subject }}</span>
+                                <span class="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">{{ $msg->audience }}</span>
+                            </div>
+                            <p class="text-xs text-muted line-clamp-2">{{ $msg->body }}</p>
+                            <p class="text-[10px] text-muted">
+                                Sent {{ $msg->sent_at->diffForHumans() }} by {{ $msg->sender?->name ?? 'Unknown' }}
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     @endif
 </div>

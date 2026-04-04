@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email_verification_code',
         'email_verification_code_expires_at',
         'accepted_terms_at',
+        'onboarded_at',
     ];
 
     protected $hidden = [
@@ -40,6 +41,7 @@ class User extends Authenticatable
             'accepted_terms_at' => 'datetime',
             'password' => 'hashed',
             'notification_preferences' => 'array',
+            'onboarded_at' => 'datetime',
         ];
     }
 
@@ -65,6 +67,11 @@ class User extends Authenticatable
     public function equipmentProfiles(): HasMany
     {
         return $this->hasMany(UserEquipmentProfile::class);
+    }
+
+    public function rifles(): HasMany
+    {
+        return $this->hasMany(Rifle::class);
     }
 
     public function ownedOrganizations(): BelongsToMany
@@ -97,6 +104,11 @@ class User extends Authenticatable
     public function isShooter(): bool
     {
         return $this->role === 'shooter';
+    }
+
+    public function isOnboarded(): bool
+    {
+        return $this->onboarded_at !== null;
     }
 
     public function orgRole(Organization $organization): ?string
@@ -137,6 +149,12 @@ class User extends Authenticatable
     {
         $prefs = $this->notification_preferences ?? [];
         return ($prefs[$type] ?? true) !== false;
+    }
+
+    public function wantsEmailNotification(string $type): bool
+    {
+        $prefs = $this->notification_preferences ?? [];
+        return ($prefs["email_{$type}"] ?? false) !== false;
     }
 
     public function roleLabel(): string

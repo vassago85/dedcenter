@@ -53,8 +53,15 @@ Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
 Volt::route('/live/{match}', 'live')->name('live');
 Route::get('/badges-preview', \App\Http\Controllers\BadgeGalleryController::class)->name('badges.preview');
 Volt::route('/events', 'events')->name('events');
+Volt::route('/events/{match}', 'event-detail')->name('events.show');
 Volt::route('/shooters/{user}', 'shooter-profile')->name('shooter.profile');
 Volt::route('/leaderboard/{organization}', 'leaderboard')->name('leaderboard');
+
+// Portal redirects (permanent)
+Route::permanentRedirect('/p/{organization}', '/events');
+Route::get('/p/{organization}/matches', fn ($organization) => redirect("/events?org={$organization}", 301));
+Route::get('/p/{organization}/matches/{match}', fn ($organization, $match) => redirect("/events/{$match}", 301));
+Route::get('/p/{organization}/leaderboard', fn ($organization) => redirect("/leaderboard/{$organization}", 301));
 
 // ── Public Portal (white-label org pages) ──
 Route::prefix('p/{organization}')->name('portal.')->group(function () {
@@ -69,6 +76,7 @@ Route::prefix('p/{organization}')->name('portal.')->group(function () {
 // ══════════════════════════════════════════════════
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Volt::route('/welcome', 'member.welcome')->name('welcome');
     Volt::route('/dashboard', 'member.dashboard')->name('dashboard');
     Volt::route('/matches', 'member.matches')->name('matches');
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
@@ -79,6 +87,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/settings', 'member.settings')->name('settings');
     Volt::route('/notifications', 'member.notifications')->name('notifications');
     Volt::route('/settings/notifications', 'member.notification-settings')->name('settings.notifications');
+    Volt::route('/events/{match}/register', 'member.register-for-match')->name('events.register');
+    Route::get('/matches/{match}/report/download', [MatchReportController::class, 'download'])->name('matches.report.download');
 });
 
 // ══════════════════════════════════════════════════

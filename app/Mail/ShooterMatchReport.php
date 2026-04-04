@@ -2,11 +2,13 @@
 
 namespace App\Mail;
 
+use App\Services\PdfDocumentRenderer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Str;
 
 class ShooterMatchReport extends Mailable
 {
@@ -31,5 +33,23 @@ class ShooterMatchReport extends Mailable
             view: 'emails.shooter-match-report',
             with: ['report' => $this->report],
         );
+    }
+
+    public function attachments(): array
+    {
+        try {
+            $renderer = app(PdfDocumentRenderer::class);
+            $pdfBytes = $renderer->generate('exports.pdf-match-report', ['report' => $this->report]);
+            $filename = Str::slug($this->report['match']['name'] ?? 'match') . '-report.pdf';
+
+            return [
+                \Illuminate\Mail\Mailables\Attachment::fromData(fn () => $pdfBytes, $filename)
+                    ->withMime('application/pdf'),
+            ];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('PDF attachment generation failed', ['error' => $e->getMessage()]);
+
+            return [];
+        }
     }
 }

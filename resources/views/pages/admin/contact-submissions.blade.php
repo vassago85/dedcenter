@@ -31,6 +31,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
+    <x-admin-tab-bar :tabs="[
+        ['href' => route('admin.settings'), 'label' => 'General', 'active' => false],
+        ['href' => route('admin.homepage'), 'label' => 'Homepage', 'active' => false],
+        ['href' => route('admin.contact-submissions'), 'label' => 'Contact Inbox', 'active' => true],
+    ]" />
+
     <div class="flex items-center justify-between">
         <div>
             <flux:heading size="xl">Contact Submissions</flux:heading>

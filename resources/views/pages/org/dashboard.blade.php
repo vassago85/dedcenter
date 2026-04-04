@@ -103,6 +103,39 @@ new #[Layout('components.layouts.app')]
         </flux:button>
     </div>
 
+    {{-- Getting Started --}}
+    @if($organization->matches()->count() === 0)
+    <div class="mb-6 rounded-xl border border-border bg-surface p-6">
+        <h2 class="text-lg font-semibold text-primary">Getting Started</h2>
+        <p class="mt-1 text-sm text-muted">Follow these steps to set up your first event.</p>
+        <div class="mt-4 space-y-3">
+            @php
+                $hasMatch = $organization->matches()->exists();
+                $hasStages = $hasMatch && $organization->matches()->first()?->targetSets()->exists();
+            @endphp
+            <div class="flex items-center gap-3">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full {{ $hasMatch ? 'bg-green-600' : 'bg-surface-2' }} text-xs font-bold">{{ $hasMatch ? '✓' : '1' }}</span>
+                <span class="text-sm {{ $hasMatch ? 'text-muted line-through' : 'text-primary font-medium' }}">Create your first match</span>
+                @unless($hasMatch)
+                    <a href="{{ route('org.matches.create', $organization) }}" class="ml-auto text-xs font-medium text-accent hover:text-accent-hover">Create Match →</a>
+                @endunless
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-xs font-bold">2</span>
+                <span class="text-sm text-secondary">Set up stages and targets</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-xs font-bold">3</span>
+                <span class="text-sm text-secondary">Open registration</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-xs font-bold">4</span>
+                <span class="text-sm text-secondary">Invite your team (optional)</span>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Quick Actions --}}
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <a href="{{ route('org.matches.create', $org) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">

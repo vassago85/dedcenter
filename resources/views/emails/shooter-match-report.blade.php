@@ -601,6 +601,27 @@
     ============================================================= --}}
     <tr>
         <td bgcolor="#071327" style="padding:28px 30px;border-top:2px solid #1e293b;">
+            @php $sponsor = $report['sponsor'] ?? null; @endphp
+            @if($sponsor)
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-bottom:16px;">
+                    <tr>
+                        <td align="center">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    @if(!empty($sponsor['logo_path']))
+                                        <td style="padding-right:8px;" valign="middle">
+                                            <img src="{{ asset('storage/' . $sponsor['logo_path']) }}" alt="{{ $sponsor['name'] }}" style="height:20px;max-width:80px;object-fit:contain;">
+                                        </td>
+                                    @endif
+                                    <td valign="middle" style="font-size:11px;color:#64748b;font-family:Arial,Helvetica,sans-serif;">
+                                        Results powered by <span style="font-weight:600;color:#94a3b8;">{{ $sponsor['name'] }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            @endif
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td align="center" style="font-size:18px;font-weight:bold;letter-spacing:3px;color:{{ $accentColor }};font-family:Arial,Helvetica,sans-serif;padding-bottom:8px;">
@@ -614,7 +635,7 @@
                 </tr>
                 <tr>
                     <td align="center" style="font-size:11px;color:#334155;font-family:Arial,Helvetica,sans-serif;padding-top:12px;">
-                        This report was generated automatically after match scoring was finalized.
+                        This report was generated automatically after match scoring was finalized. A PDF copy is attached.
                     </td>
                 </tr>
             </table>

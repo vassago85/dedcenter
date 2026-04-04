@@ -39,8 +39,16 @@ new #[Layout('components.layouts.scoreboard')]
     public function with(): array
     {
         $isPrs = $this->match->isPrs();
-        $divisions = $this->match->divisions()->orderBy('sort_order')->get();
-        $categories = $this->match->categories()->orderBy('sort_order')->get();
+
+        $usedDivisionIds = $this->match->shooters()->whereNotNull('match_division_id')->distinct()->pluck('match_division_id')->toArray();
+        $divisions = $this->match->divisions()->whereIn('id', $usedDivisionIds)->orderBy('sort_order')->get();
+
+        $usedCategoryIds = DB::table('match_category_shooter')
+            ->whereIn('shooter_id', $this->match->shooters()->pluck('shooters.id'))
+            ->distinct()
+            ->pluck('match_category_id')
+            ->toArray();
+        $categories = $this->match->categories()->whereIn('id', $usedCategoryIds)->orderBy('sort_order')->get();
 
         $shooterTimes = [];
         $tbHits = [];

@@ -38,8 +38,15 @@ new #[Layout('components.layouts.app')]
         $matchIds = $matches->pluck('id');
         $prsMatchIds = $matches->where('scoring_type', 'prs')->pluck('id');
 
+        $usedDivisionIds = DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->whereIn('squads.match_id', $matchIds)
+            ->whereNotNull('shooters.match_division_id')
+            ->distinct()
+            ->pluck('shooters.match_division_id');
+
         $allDivisions = DB::table('match_divisions')
-            ->whereIn('match_id', $matchIds)
+            ->whereIn('id', $usedDivisionIds)
             ->select('id', 'name')
             ->distinct()
             ->orderBy('name')
@@ -47,8 +54,18 @@ new #[Layout('components.layouts.app')]
 
         $divisionNames = $allDivisions->pluck('name')->unique()->sort()->values();
 
+        $shooterIdsInMatches = DB::table('shooters')
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->whereIn('squads.match_id', $matchIds)
+            ->pluck('shooters.id');
+
+        $usedCategoryIds = DB::table('match_category_shooter')
+            ->whereIn('shooter_id', $shooterIdsInMatches)
+            ->distinct()
+            ->pluck('match_category_id');
+
         $allCategories = DB::table('match_categories')
-            ->whereIn('match_id', $matchIds)
+            ->whereIn('id', $usedCategoryIds)
             ->select('id', 'name')
             ->distinct()
             ->orderBy('name')
