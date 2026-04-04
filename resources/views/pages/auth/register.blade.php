@@ -43,7 +43,7 @@ new #[Layout('components.layouts.auth')]
 
         Auth::login($user);
 
-        $this->redirect(route('verification.notice'), navigate: true);
+        $this->redirect(route('verification.notice'));
     }
 }; ?>
 

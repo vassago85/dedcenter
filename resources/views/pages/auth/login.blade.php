@@ -33,7 +33,7 @@ new #[Layout('components.layouts.auth')]
                 $code = $user->generateVerificationCode();
                 $user->notify(new \App\Notifications\EmailVerificationPin($code));
             }
-            $this->redirect(route('verification.notice'), navigate: true);
+            $this->redirect(route('verification.notice'));
             return;
         }
 
@@ -43,7 +43,7 @@ new #[Layout('components.layouts.auth')]
             $redirect = route('dashboard');
         }
 
-        $this->redirect($redirect, navigate: true);
+        $this->redirect($redirect);
     }
 }; ?>
 

@@ -25,19 +25,17 @@ new #[Layout('components.layouts.auth')]
         }
 
         if (! $user->isOnboarded()) {
-            $this->redirect(route('welcome'), navigate: true);
+            $this->redirect(route('welcome'));
             return;
         }
 
         if ($user->isOwner()) {
             $redirect = route('admin.dashboard');
-        } elseif ($user->canScore()) {
-            $redirect = route('dashboard');
         } else {
-            $redirect = route('score');
+            $redirect = route('dashboard');
         }
 
-        $this->redirect($redirect, navigate: true);
+        $this->redirect($redirect);
     }
 
     public function resend(): void
