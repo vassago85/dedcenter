@@ -167,6 +167,13 @@ class User extends Authenticatable
         };
     }
 
+    // ── Password Reset ──
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
     // ── Email Verification ──
 
     public function hasVerifiedEmail(): bool

@@ -11,26 +11,26 @@ new #[Layout('components.layouts.app')]
     public function mount(): void
     {
         if (auth()->user()->isOnboarded()) {
-            $this->redirect(route('dashboard'), navigate: true);
+            $this->redirect(route('dashboard'));
         }
     }
 
     public function chooseShooter(): void
     {
         auth()->user()->update(['onboarded_at' => now()]);
-        $this->redirect(route('dashboard'), navigate: true);
+        $this->redirect(route('dashboard'));
     }
 
     public function chooseOrganizer(): void
     {
         auth()->user()->update(['onboarded_at' => now()]);
-        $this->redirect(route('organizations.create'), navigate: true);
+        $this->redirect(route('organizations.create'));
     }
 
     public function skip(): void
     {
         auth()->user()->update(['onboarded_at' => now()]);
-        $this->redirect(route('dashboard'), navigate: true);
+        $this->redirect(route('dashboard'));
     }
 }; ?>
 

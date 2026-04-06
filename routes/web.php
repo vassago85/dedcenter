@@ -14,6 +14,8 @@ use Livewire\Volt\Volt;
 Volt::route('/login', 'auth.login')->name('login');
 Volt::route('/register', 'auth.register')->name('register');
 Volt::route('/verify-email', 'auth.verify-email')->middleware('auth')->name('verification.notice');
+Volt::route('/forgot-password', 'auth.forgot-password')->middleware('guest')->name('password.request');
+Volt::route('/reset-password/{token}', 'auth.reset-password')->middleware('guest')->name('password.reset');
 
 // ══════════════════════════════════════════════════
 // Public landing — domain-aware

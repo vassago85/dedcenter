@@ -65,18 +65,10 @@ new #[Layout('components.layouts.auth')]
 
         <form wire:submit="verify" class="space-y-5">
             <div>
-                <flux:input
-                    wire:model="code"
-                    label="Verification Code"
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    maxlength="6"
-                    placeholder="000000"
-                    required
-                    autofocus
-                    class="text-center text-2xl tracking-[0.5em] font-mono"
-                />
+                <label class="block text-sm font-medium text-secondary mb-1">Verification Code</label>
+                <input type="text" wire:model="code" inputmode="numeric" maxlength="6"
+                       placeholder="000000" required autofocus autocomplete="one-time-code"
+                       class="w-full rounded-lg border border-border bg-surface-2 px-3 py-3 text-center text-2xl tracking-[0.5em] font-mono text-primary placeholder-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent" />
                 @error('code')
                     <p class="mt-1 text-sm text-accent">{{ $message }}</p>
                 @enderror

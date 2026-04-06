@@ -51,6 +51,12 @@ new #[Layout('components.layouts.auth')]
     <div class="rounded-xl border border-border bg-surface p-8">
         <h1 class="mb-6 text-center text-2xl font-bold text-primary">Sign In</h1>
 
+        @if(session('status'))
+            <div class="mb-4 rounded-lg bg-green-600/10 border border-green-600/20 px-4 py-3 text-center text-sm text-green-500">
+                {{ session('status') }}
+            </div>
+        @endif
+
         <form wire:submit="login" class="space-y-5">
             <div>
                 <flux:input
@@ -90,7 +96,13 @@ new #[Layout('components.layouts.auth')]
             </flux:button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-muted">
+        <p class="mt-4 text-center text-sm">
+            <a href="{{ route('password.request') }}" class="text-accent hover:text-accent-hover font-medium" wire:navigate>
+                Forgot your password?
+            </a>
+        </p>
+
+        <p class="mt-4 text-center text-sm text-muted">
             Don't have an account?
             <a href="{{ route('register') }}" class="text-accent hover:text-accent-hover font-medium" wire:navigate>
                 Register
