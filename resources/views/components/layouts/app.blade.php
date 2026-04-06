@@ -3,7 +3,7 @@
 <head>
     @include('partials.gtag')
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @if(config('services.webpush.public_key'))
         <meta name="vapid-public-key" content="{{ config('services.webpush.public_key') }}">
@@ -352,6 +352,7 @@
 
     <flux:toast />
     @fluxScripts
+    <x-pwa-nav />
     <x-install-prompt />
 </body>
 </html>

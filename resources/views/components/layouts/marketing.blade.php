@@ -16,7 +16,7 @@
 <head>
     @include('partials.gtag')
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <x-seo-meta
         :title="$title ?? ($ctx === 'md' ? 'DeadCenter — Shooting Match Scoring Software' : 'DeadCenter — Precision Shooting Scoring Platform')"
@@ -152,6 +152,7 @@
         </div>
     </footer>
 
+    <x-pwa-nav />
     <x-install-prompt />
 </body>
 </html>

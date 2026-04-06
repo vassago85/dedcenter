@@ -3,7 +3,7 @@
 <head>
     @include('partials.gtag')
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'DeadCenter Scoreboard' }}</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -18,5 +18,6 @@
 </head>
 <body class="bg-app text-primary antialiased overflow-x-hidden">
     {{ $slot }}
+    <x-pwa-nav />
 </body>
 </html>

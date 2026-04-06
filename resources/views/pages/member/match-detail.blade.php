@@ -196,6 +196,8 @@ new #[Layout('components.layouts.app')]
     public function createTeam(): void
     {
         if (! $this->match->isTeamEvent()) return;
+        if (! $this->registration || ! $this->registration->isConfirmed()) return;
+
         $this->validate(['newTeamName' => 'required|string|max:255']);
         $maxSort = $this->match->teams()->max('sort_order') ?? 0;
         $team = $this->match->teams()->create([
@@ -203,23 +205,25 @@ new #[Layout('components.layouts.app')]
             'max_size' => $this->match->team_size,
             'sort_order' => $maxSort + 1,
         ]);
-        $shooter = $this->getMyShooter();
+        $shooter = $this->getOrCreateMyShooter();
         if ($shooter) {
             $shooter->update(['team_id' => $team->id]);
         }
         $this->reset('newTeamName');
-        Flux::toast("Team '{$team->name}' created!", variant: 'success');
+        Flux::toast("Team '{$team->name}' created! Share the name so others can join.", variant: 'success');
     }
 
     public function joinTeam(int $teamId): void
     {
         if (! $this->match->isTeamEvent()) return;
+        if (! $this->registration || ! $this->registration->isConfirmed()) return;
+
         $team = $this->match->teams()->findOrFail($teamId);
         if ($team->isFull()) {
             Flux::toast("{$team->name} is full.", variant: 'danger');
             return;
         }
-        $shooter = $this->getMyShooter();
+        $shooter = $this->getOrCreateMyShooter();
         if ($shooter) {
             $shooter->update(['team_id' => $team->id]);
             Flux::toast("Joined {$team->name}!", variant: 'success');
@@ -240,6 +244,17 @@ new #[Layout('components.layouts.app')]
         return \App\Models\Shooter::where('user_id', auth()->id())
             ->whereIn('squad_id', $this->match->squads()->pluck('id'))
             ->first();
+    }
+
+    private function getOrCreateMyShooter(): ?\App\Models\Shooter
+    {
+        $existing = $this->getMyShooter();
+        if ($existing) return $existing;
+
+        if (! $this->registration || ! $this->registration->isConfirmed()) return null;
+
+        $this->createShooter();
+        return $this->getMyShooter();
     }
 
     private function createShooter(): void
@@ -296,8 +311,14 @@ new #[Layout('components.layouts.app')]
             'squads' => $squads,
             'showSquads' => $showSquads,
             'teams' => $this->match->isTeamEvent()
-                ? $this->match->teams()->withCount('shooters')->orderBy('sort_order')->get()
+                ? $this->match->teams()
+                    ->withCount('shooters')
+                    ->with(['shooters:id,team_id,name'])
+                    ->orderBy('sort_order')->get()
                 : collect(),
+            'unteamedCount' => $this->match->isTeamEvent()
+                ? $this->match->shooters()->active()->whereNull('team_id')->count()
+                : 0,
             'myShooter' => $this->getMyShooter(),
         ];
     }
@@ -637,7 +658,10 @@ new #[Layout('components.layouts.app')]
     {{-- Team Selection --}}
     @if($match->isTeamEvent() && ($teams->isNotEmpty() || ($registration && $registration->isConfirmed())))
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-primary">Teams</h2>
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-primary">Teams</h2>
+                <p class="text-xs text-muted">Register individually, then pick a team</p>
+            </div>
             @php $myTeamId = $myShooter?->team_id; @endphp
 
             @if($myTeamId)
@@ -651,6 +675,12 @@ new #[Layout('components.layouts.app')]
                 @endif
             @endif
 
+            @if($unteamedCount > 0 && $registration && $registration->isConfirmed())
+                <div class="rounded-lg border border-amber-800/40 bg-amber-900/10 px-4 py-3">
+                    <p class="text-sm text-amber-400">{{ $unteamedCount }} confirmed {{ Str::plural('shooter', $unteamedCount) }} still looking for a team</p>
+                </div>
+            @endif
+
             @if($teams->isNotEmpty())
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     @foreach($teams as $team)
@@ -660,7 +690,23 @@ new #[Layout('components.layouts.app')]
                                 <span class="text-sm font-bold text-primary">{{ $team->name }}</span>
                                 <span class="text-xs text-muted">{{ $team->shooters_count }}/{{ $team->effectiveMaxSize() }}</span>
                             </div>
-                            @if(!$isMyTeam && !$team->isFull() && $registration && $registration->isConfirmed() && $myShooter)
+                            @if($team->shooters->isNotEmpty())
+                                <ul class="space-y-0.5">
+                                    @foreach($team->shooters as $member)
+                                        <li class="flex items-center gap-1.5 text-xs {{ $member->user_id === auth()->id() ? 'text-green-400 font-medium' : 'text-secondary' }}">
+                                            @if($member->user_id === auth()->id())
+                                                <span class="h-1.5 w-1.5 rounded-full bg-green-400 shrink-0"></span>
+                                            @else
+                                                <span class="h-1.5 w-1.5 rounded-full bg-surface-2 shrink-0"></span>
+                                            @endif
+                                            {{ $member->name }}
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <p class="text-xs text-muted">No members yet — be the first!</p>
+                            @endif
+                            @if(!$isMyTeam && !$team->isFull() && $registration && $registration->isConfirmed())
                                 <flux:button wire:click="joinTeam({{ $team->id }})" variant="primary" size="xs" class="w-full">Join</flux:button>
                             @elseif($isMyTeam)
                                 <p class="text-center text-xs text-green-400/60">Your team</p>
@@ -672,9 +718,10 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endif
 
-            @if($registration && $registration->isConfirmed() && $myShooter && !$myTeamId)
+            @if($registration && $registration->isConfirmed() && !$myTeamId)
                 <div class="border-t border-border pt-4 space-y-3">
                     <h3 class="text-sm font-medium text-secondary">Create a New Team</h3>
+                    <p class="text-xs text-muted">Create a team and share the name with friends so they can join.</p>
                     <div class="flex gap-3 items-end">
                         <div class="flex-1"><flux:input wire:model="newTeamName" placeholder="e.g. Team Alpha" /></div>
                         <flux:button wire:click="createTeam" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Create</flux:button>
