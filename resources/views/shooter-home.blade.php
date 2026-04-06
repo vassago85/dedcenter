@@ -68,6 +68,10 @@
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
                         Three scoring disciplines
                     </div>
+                    <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
+                        <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
+                        Team events
+                    </div>
                 </div>
             </div>
         </div>
@@ -392,6 +396,80 @@
                     <p class="text-sm" style="color: var(--lp-text-muted);">Completed match results will appear here.</p>
                 </div>
             @endif
+        </div>
+    </section>
+
+    {{-- ══════════════════════════════════════════ --}}
+    {{-- SHOOTER FEATURES --}}
+    {{-- ══════════════════════════════════════════ --}}
+    <section style="border-top: 1px solid var(--lp-border);">
+        <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+            <div class="mb-12 text-center">
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Your Shooter Experience</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">More than just scores &mdash; DeadCenter gives you tools to track, improve, and showcase your shooting career.</p>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-600/10">
+                        <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                        </svg>
+                    </div>
+                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Achievements &amp; Badges</h3>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Earn badges for podium finishes, milestones, and season performance. View your achievements on your public shooter profile and compare with friends.</p>
+                </div>
+
+                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600/10">
+                        <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                        </svg>
+                    </div>
+                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Team Events</h3>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Register individually, pay your own entry, then team up with friends. Create a team or join an existing one &mdash; team scores are aggregated automatically on the leaderboard.</p>
+                </div>
+
+                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                        </svg>
+                    </div>
+                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Personal Match Reports</h3>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Download a detailed PDF report after every match with your scores, stage breakdown, and placement. Reports are also emailed to you automatically when results are published.</p>
+                </div>
+
+                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
+                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
+                        </svg>
+                    </div>
+                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Equipment Profiles</h3>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Save your rifle, ammo, scope, and accessory setup as reusable profiles. Load a profile during match registration to auto-fill your equipment details in seconds.</p>
+                </div>
+
+                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                        </svg>
+                    </div>
+                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Push Notifications</h3>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Get notified when registration opens, when squadding is live, and when your match results are published. Control exactly which notifications you receive from your settings.</p>
+                </div>
+
+                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
+                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                        </svg>
+                    </div>
+                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Install as App</h3>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Add DeadCenter to your home screen on any phone. Works as a standalone app with offline support and built-in navigation. Also available as a native Android app on the Play Store.</p>
+                </div>
+            </div>
         </div>
     </section>
 
