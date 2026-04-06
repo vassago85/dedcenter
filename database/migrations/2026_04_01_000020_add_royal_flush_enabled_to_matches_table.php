@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('matches', function (Blueprint $table) {
-            $table->boolean('royal_flush_enabled')->default(false)->after('side_bet_enabled');
+            $table->boolean('royal_flush_enabled')->default(false)->after('scoring_type');
         });
     }
 

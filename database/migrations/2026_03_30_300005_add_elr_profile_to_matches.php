@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('matches', function (Blueprint $table) {
             $table->foreignId('elr_scoring_profile_id')
                 ->nullable()
-                ->after('side_bet_enabled')
+                ->after('scoring_type')
                 ->constrained('elr_scoring_profiles')
                 ->nullOnDelete();
         });

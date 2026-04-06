@@ -183,7 +183,11 @@ class PrsDemoMatchSeeder extends Seeder
 
         MatchRegistration::firstOrCreate(
             ['match_id' => $match->id, 'user_id' => $owner->id],
-            ['payment_status' => 'confirmed', 'amount' => $match->entry_fee ?? 0]
+            [
+                'payment_status' => 'confirmed',
+                'amount' => $match->entry_fee ?? 0,
+                'payment_reference' => MatchRegistration::generatePaymentReference($owner),
+            ]
         );
 
         $this->command->info("PRS demo match seeded: \"{$match->name}\" — 6 stages, 16 shooters.");

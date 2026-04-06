@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('matches', function (Blueprint $table) {
-            $table->unsignedTinyInteger('concurrent_relays')->default(2)->after('side_bet_enabled');
+            $table->unsignedTinyInteger('concurrent_relays')->default(2)->after('scoring_type');
         });
     }
 
