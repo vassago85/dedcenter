@@ -400,6 +400,52 @@
     </section>
 
     {{-- ══════════════════════════════════════════ --}}
+    {{-- BADGE SHOWCASE --}}
+    {{-- ══════════════════════════════════════════ --}}
+    @if(($showcaseBadges ?? collect())->isNotEmpty())
+        @php
+            $badgeConfig = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG;
+        @endphp
+        <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+            <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+                <div class="mb-12 text-center">
+                    <div class="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px] font-medium" style="border: 1px solid rgba(56,189,248,0.15); background: rgba(56,189,248,0.06); color: rgba(56,189,248,0.8);">
+                        <x-badge-icon name="award" class="h-3.5 w-3.5" />
+                        PRS Achievements
+                    </div>
+                    <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Earn Badges. Build Your Legacy.</h2>
+                    <p class="mt-3 max-w-2xl mx-auto" style="color: var(--lp-text-muted);">Every podium finish, milestone, and signature moment earns you a badge. Track your achievements on your shooter profile and see how you compare.</p>
+                </div>
+
+                <div class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach($showcaseBadges as $badge)
+                        @php
+                            $cfg = $badgeConfig[$badge->slug] ?? [];
+                            $icon = $cfg['icon'] ?? 'target';
+                            $badgeTier = $cfg['tier'] ?? 'earned';
+                            $earnChip = $cfg['earnChip'] ?? null;
+                        @endphp
+                        <x-badge-card
+                            :badge="$badge"
+                            :icon="$icon"
+                            :tier="$badgeTier"
+                            family="prs"
+                            :earnChip="$earnChip"
+                        />
+                    @endforeach
+                </div>
+
+                <div class="mt-10 text-center">
+                    <a href="{{ route('badges.preview') }}" class="lp-cta-nav inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold">
+                        View All Badges
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                    </a>
+                </div>
+            </div>
+        </section>
+    @endif
+
+    {{-- ══════════════════════════════════════════ --}}
     {{-- SHOOTER FEATURES --}}
     {{-- ══════════════════════════════════════════ --}}
     <section style="border-top: 1px solid var(--lp-border);">
@@ -410,16 +456,6 @@
             </div>
 
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-600/10">
-                        <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-                        </svg>
-                    </div>
-                    <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Achievements &amp; Badges</h3>
-                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Earn badges for podium finishes, milestones, and season performance. View your achievements on your public shooter profile and compare with friends.</p>
-                </div>
-
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600/10">
                         <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -607,7 +643,7 @@
         <div class="mx-auto max-w-3xl px-6 py-20 lg:py-28">
             <h2 class="text-2xl font-bold tracking-tight text-center mb-12" style="color: var(--lp-text);">Frequently Asked Questions</h2>
 
-            <div class="space-y-4" x-data="{ open: null }">
+            <div class="space-y-4">
                 @foreach([
                     ['q' => 'Is DeadCenter free to use?', 'a' => 'Yes. DeadCenter is completely free for shooters, clubs, and match directors. We sustain the platform through advertising placements on event features.'],
                     ['q' => 'What types of shooting competitions does DeadCenter support?', 'a' => 'DeadCenter supports three scoring disciplines: Relay Scoring for traditional gong/field matches, PRS Scoring for precision rifle series competitions, and ELR Scoring for extreme long range events. More engines will be added over time.'],
@@ -616,15 +652,13 @@
                     ['q' => 'How are season standings calculated?', 'a' => 'DeadCenter uses relative scoring — your score is expressed as a percentage of the top shooter in each match. Season standings aggregate your average relative score across all matches, with optional best-of-N rules.'],
                     ['q' => 'Is DeadCenter only for South African competitions?', 'a' => 'DeadCenter was built for the South African shooting community, but the platform can be used for competitions anywhere.'],
                 ] as $i => $faq)
-                    <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                        <button @click="open = open === {{ $i }} ? null : {{ $i }}" class="flex w-full items-center justify-between px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white" style="color: var(--lp-text);">
+                    <details class="lp-faq-details group rounded-xl overflow-hidden" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                        <summary class="flex w-full cursor-pointer items-center justify-between px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white list-none" style="color: var(--lp-text);">
                             {{ $faq['q'] }}
-                            <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200" :class="open === {{ $i }} && 'rotate-180'" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
-                        <div x-show="open === {{ $i }}" x-cloak x-collapse>
-                            <p class="px-6 pb-4 text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $faq['a'] }}</p>
-                        </div>
-                    </div>
+                            <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-open:rotate-180" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        </summary>
+                        <p class="px-6 pb-4 text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $faq['a'] }}</p>
+                    </details>
                 @endforeach
             </div>
         </div>

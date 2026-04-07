@@ -411,3 +411,7 @@ html.dark :where([data-flux-description]) {
     }
 }
 
+/* ── FAQ accordion (native <details> on marketing pages) ── */
+.lp-faq-details summary::-webkit-details-marker { display: none; }
+.lp-faq-details summary::marker { display: none; content: ''; }
+

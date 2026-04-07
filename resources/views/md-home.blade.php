@@ -426,7 +426,7 @@
         <div class="mx-auto max-w-3xl px-6 py-20 lg:py-28">
             <h2 class="text-2xl font-bold tracking-tight text-center mb-12" style="color: var(--lp-text);">Frequently Asked Questions</h2>
 
-            <div class="space-y-4" x-data="{ open: null }">
+            <div class="space-y-4">
                 @foreach([
                     ['q' => 'How does offline scoring work?', 'a' => 'The Android app stores all match data in Room DB locally on the device. Scores are saved instantly as they are entered — no internet required. When connectivity returns, a background sync pushes all unsynced scores to the hub or cloud. The PWA uses IndexedDB for the same purpose in browsers.'],
                     ['q' => 'What devices can I use?', 'a' => 'DeadCenter has a native Android app available on the Play Store, optimised for tablets. You can also use the progressive web app (PWA) on any device with a modern browser — iPads, laptops, or phones. The Android app supports hub/client mode for local WiFi mesh scoring.'],
@@ -435,15 +435,13 @@
                     ['q' => 'Can shooters register themselves?', 'a' => 'Yes. Match directors open registration and shooters sign up online with their division, category, and equipment details. Entries can be auto-approved or require manual approval. When squadding opens, shooters choose their own squad from available slots.'],
                     ['q' => 'How do I set up hub mode?', 'a' => 'Open the Android app on your hub tablet, go to the match, and tap "Start Hub." The app displays the hub\'s IP address. On each client tablet, enter the hub IP to connect. Clients import the match from the hub and can start scoring immediately — no internet needed on any device.'],
                 ] as $i => $faq)
-                    <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                        <button @click="open = open === {{ $i }} ? null : {{ $i }}" class="flex w-full items-center justify-between px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white" style="color: var(--lp-text);">
+                    <details class="lp-faq-details group rounded-xl overflow-hidden" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                        <summary class="flex w-full cursor-pointer items-center justify-between px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white list-none" style="color: var(--lp-text);">
                             {{ $faq['q'] }}
-                            <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200" :class="open === {{ $i }} && 'rotate-180'" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                        </button>
-                        <div x-show="open === {{ $i }}" x-cloak x-collapse>
-                            <p class="px-6 pb-4 text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $faq['a'] }}</p>
-                        </div>
-                    </div>
+                            <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-open:rotate-180" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        </summary>
+                        <p class="px-6 pb-4 text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $faq['a'] }}</p>
+                    </details>
                 @endforeach
             </div>
         </div>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\MatchStatus;
+use App\Models\Achievement;
 use App\Models\FeaturedItem;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
@@ -93,6 +94,14 @@ class HomeController extends Controller
             ->take(6)
             ->get();
 
+        $showcaseBadges = Achievement::query()
+            ->where('is_active', true)
+            ->where('competition_type', 'prs')
+            ->orderByRaw("CASE category WHEN 'match_special' THEN 0 WHEN 'lifetime' THEN 1 WHEN 'repeatable' THEN 2 ELSE 3 END")
+            ->orderBy('sort_order')
+            ->take(6)
+            ->get();
+
         return compact(
             'featuredMatches',
             'featuredOrgs',
@@ -100,6 +109,7 @@ class HomeController extends Controller
             'recentResults',
             'popularMatches',
             'liveMatches',
+            'showcaseBadges',
         );
     }
 }
