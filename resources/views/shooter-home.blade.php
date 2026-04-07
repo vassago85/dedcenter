@@ -653,9 +653,12 @@
                     ['q' => 'Is DeadCenter only for South African competitions?', 'a' => 'DeadCenter was built for the South African shooting community, but the platform can be used for competitions anywhere.'],
                 ] as $i => $faq)
                     <details class="lp-faq-details group rounded-xl overflow-hidden" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                        <summary class="flex w-full cursor-pointer items-center justify-between px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white list-none" style="color: var(--lp-text);">
-                            {{ $faq['q'] }}
-                            <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-open:rotate-180" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        {{-- Flex must live inside <summary>: WebKit breaks native <details> toggle when summary is display:flex --}}
+                        <summary class="cursor-pointer list-none px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white" style="color: var(--lp-text);">
+                            <span class="flex w-full items-center justify-between gap-3">
+                                <span class="min-w-0">{{ $faq['q'] }}</span>
+                                <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-open:rotate-180" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                            </span>
                         </summary>
                         <p class="px-6 pb-4 text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $faq['a'] }}</p>
                     </details>
