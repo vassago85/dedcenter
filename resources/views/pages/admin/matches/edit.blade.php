@@ -8,6 +8,7 @@ use App\Models\TargetSet;
 use App\Models\Gong;
 use App\Models\Squad;
 use App\Models\Shooter;
+use App\Services\RoyalFlushEquipmentImportService;
 use App\Enums\MatchStatus;
 use chillerlan\QRCode\{QRCode, QROptions};
 use chillerlan\QRCode\Output\QRMarkupSVG;
@@ -63,6 +64,12 @@ new #[Layout('components.layouts.app')]
     public string $divisionName = '';
     public string $categoryName = '';
     public array $shooterCategories = [];
+
+    public string $equipmentImportPaste = '';
+
+    public bool $equipmentImportFreeEntry = true;
+
+    public bool $equipmentImportAddShooters = true;
 
     // ELR stage properties
     public string $elrStageLabel = '';
@@ -676,6 +683,41 @@ new #[Layout('components.layouts.app')]
         $this->shooterDivision = null;
         $this->shooterCategories = [];
         Flux::toast('Shooter added.', variant: 'success');
+    }
+
+    public function importEquipmentRegistrations(): void
+    {
+        if (! $this->match) {
+            Flux::toast('Save the match first.', variant: 'danger');
+
+            return;
+        }
+
+        $this->validate([
+            'equipmentImportPaste' => 'required|string|min:20',
+        ]);
+
+        try {
+            $svc = app(RoyalFlushEquipmentImportService::class);
+            $r = $svc->import(
+                $this->match->fresh(),
+                $this->equipmentImportPaste,
+                $this->equipmentImportFreeEntry,
+                $this->equipmentImportAddShooters,
+            );
+            $this->equipmentImportPaste = '';
+            $summary = "{$r['created_users']} new users, {$r['created_registrations']} new registrations, {$r['updated_registrations']} updated, {$r['shooters_added']} shooters added to Default.";
+            if ($r['skipped_rows'] > 0) {
+                $summary .= " {$r['skipped_rows']} rows skipped.";
+            }
+            Flux::toast($summary, variant: 'success');
+            if ($r['warnings'] !== []) {
+                $msg = implode(' ', $r['warnings']);
+                Flux::toast(strlen($msg) > 240 ? substr($msg, 0, 237).'…' : $msg, variant: 'warning');
+            }
+        } catch (\Throwable $e) {
+            Flux::toast('Import failed: '.$e->getMessage(), variant: 'danger');
+        }
     }
 
     public function toggleShooterStatus(int $id): void
@@ -1606,6 +1648,39 @@ new #[Layout('components.layouts.app')]
                     <p class="text-xs text-muted">Registrations</p>
                 </div>
             </div>
+
+            @if($scoring_type === 'standard')
+                <div class="rounded-lg border border-dashed border-amber-600/40 bg-amber-950/10 p-4 space-y-3">
+                    <div>
+                        <h3 class="text-sm font-semibold text-amber-200">Equipment sheet import (Royal Flush)</h3>
+                        <p class="mt-1 text-xs text-muted">
+                            Paste <strong>tab-separated</strong> rows from Excel or Google Sheets. Expected columns (16):
+                            timestamp, name, caliber, bullet, bullet weight, action, barrel, trigger, chassis, muzzle, scope, mount, bipod, phone, SA ID, notes/share rifle.
+                            Scientific notation on ID/phone cells is fixed automatically. Creates placeholder accounts
+                            (<code class="text-[10px]">@import.invalid</code>) with confirmed registrations; optionally adds shooters to the <strong>Default</strong> squad.
+                        </p>
+                    </div>
+                    <textarea wire:model="equipmentImportPaste" rows="6" placeholder="Paste rows from your sheet…"
+                              class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 font-mono text-xs text-primary placeholder:text-muted/50"></textarea>
+                    @error('equipmentImportPaste')
+                        <p class="text-xs text-accent">{{ $message }}</p>
+                    @enderror
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex cursor-pointer items-center gap-2 text-xs text-secondary">
+                            <input type="checkbox" wire:model="equipmentImportFreeEntry" class="rounded border-border bg-surface-2 text-amber-500" />
+                            Free entry (R0, confirmed)
+                        </label>
+                        <label class="flex cursor-pointer items-center gap-2 text-xs text-secondary">
+                            <input type="checkbox" wire:model="equipmentImportAddShooters" class="rounded border-border bg-surface-2 text-amber-500" />
+                            Add to Default squad if missing
+                        </label>
+                    </div>
+                    <flux:button type="button" wire:click="importEquipmentRegistrations" variant="primary" size="sm" class="!bg-amber-600 hover:!bg-amber-700"
+                                 wire:confirm="Import registrations from the pasted sheet? Rows with the same SA ID update the same person.">
+                        Run import
+                    </flux:button>
+                </div>
+            @endif
         </div>
 
         {{-- Custom Registration Fields --}}
