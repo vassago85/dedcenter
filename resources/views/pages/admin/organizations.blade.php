@@ -18,10 +18,10 @@ new #[Layout('components.layouts.app')]
         $org->update(['status' => 'active']);
 
         $org->admins()->syncWithoutDetaching([
-            $org->created_by => ['role' => 'owner'],
+            $org->created_by => ['is_owner' => true],
         ]);
 
-        $owner = $org->admins()->wherePivot('role', 'owner')->first();
+        $owner = $org->admins()->wherePivot('is_owner', true)->first();
         if ($owner) {
             $owner->notify(new OrganizationApprovedNotification($org));
         }

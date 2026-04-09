@@ -66,7 +66,25 @@ class MatchResource extends JsonResource
                     'multiplier' => $g->multiplier,
                     'distance_meters' => $g->distance_meters,
                     'target_size' => $g->target_size,
+                    'target_size_mm' => $g->target_size_mm ? (float) $g->target_size_mm : null,
+                    'target_size_mrad' => ($g->target_size_mm && $g->distance_meters)
+                        ? round((float) $g->target_size_mm / (float) $g->distance_meters, 2)
+                        : null,
                 ], fn ($v) => $v !== null)),
+                'positions' => $ts->relationLoaded('positions') ? $ts->positions->map(fn ($p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'sort_order' => $p->sort_order,
+                ]) : [],
+                'shot_sequence' => $ts->relationLoaded('shotSequence') ? $ts->shotSequence->map(fn ($s) => [
+                    'id' => $s->id,
+                    'shot_number' => $s->shot_number,
+                    'position_id' => $s->position_id,
+                    'position_name' => $s->position?->name,
+                    'gong_id' => $s->gong_id,
+                    'gong_label' => $s->gong?->label ?? 'T'.$s->gong?->number,
+                    'distance_meters' => $s->gong?->distance_meters,
+                ]) : [],
                 'stage_targets' => $ts->relationLoaded('stageTargets') ? $ts->stageTargets->map(fn ($st) => [
                     'id' => $st->id,
                     'sequence_number' => $st->sequence_number,

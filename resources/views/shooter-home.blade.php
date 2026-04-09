@@ -95,28 +95,46 @@
 
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($liveMatches as $match)
-                    <a href="{{ route('scoreboard', $match) }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid rgba(225,6,0,0.3); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.5)'" onmouseout="this.style.borderColor='rgba(225,6,0,0.3)'">
-                        <div class="flex items-center justify-between mb-3">
+                    @php $cardImg = $match->card_image_url; $hasImg = !empty($cardImg); @endphp
+                    <a href="{{ route('scoreboard', $match) }}" class="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:scale-[1.02] hover:shadow-xl" style="border: 1px solid rgba(225,6,0,0.3); background: var(--lp-surface);">
+                        <div class="relative aspect-[16/9] overflow-hidden">
+                            @if($hasImg)
+                                <img src="{{ $cardImg }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+                            @else
+                                <div class="absolute inset-0" style="background: linear-gradient(135deg, rgba(225,6,0,0.15), var(--lp-surface));"></div>
+                            @endif
+                            @if($match->organization?->logo_path)
+                                <div class="absolute top-3 left-3">
+                                    <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                </div>
+                            @endif
+                            <div class="absolute top-3 right-3 flex items-center gap-1.5">
+                                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(225,6,0,0.85); color: #fff;">
+                                    <span class="relative flex h-1.5 w-1.5">
+                                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
+                                        <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-white"></span>
+                                    </span>
+                                    Live
+                                </span>
+                            </div>
+                            <div class="absolute inset-x-0 bottom-0 p-4">
+                                <h3 class="text-base font-bold leading-tight {{ $hasImg ? 'text-white' : '' }}" @if(!$hasImg) style="color: var(--lp-text);" @endif>{{ $match->name }}</h3>
+                                <div class="mt-1 flex items-center gap-2 text-sm {{ $hasImg ? 'text-white/70' : '' }}" @if(!$hasImg) style="color: var(--lp-text-muted);" @endif>
+                                    @if($match->organization)<span>{{ $match->organization->name }}</span>@endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between p-4">
                             <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
                                   style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
                                 {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
                             </span>
-                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style="background: rgba(225,6,0,0.1); color: var(--lp-red);">
-                                <span class="relative flex h-1.5 w-1.5">
-                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style="background: var(--lp-red);"></span>
-                                    <span class="relative inline-flex h-1.5 w-1.5 rounded-full" style="background: var(--lp-red);"></span>
-                                </span>
-                                Live
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                Watch Live Scores
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
                             </span>
                         </div>
-                        <h3 class="text-lg font-semibold mb-1 group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
-                        @if($match->organization)
-                            <p class="text-sm" style="color: var(--lp-text-muted);">{{ $match->organization->name }}</p>
-                        @endif
-                        <span class="mt-3 inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                            Watch Live Scores
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                        </span>
                     </a>
                 @endforeach
             </div>
@@ -137,55 +155,79 @@
             @if($featuredMatches->count())
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach($featuredMatches as $match)
-                        <div class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center gap-2">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                                          style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
-                                        {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
-                                    </span>
+                        @php
+                            $cardImg = $match->card_image_url;
+                            $hasImg = !empty($cardImg);
+                            $scoringBg = $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)');
+                            $scoringColor = $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)');
+                            $scoringLabel = $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay');
+                            $gradientFallback = $match->scoring_type === 'prs' ? 'rgba(180,83,9,0.2)' : ($match->scoring_type === 'elr' ? 'rgba(91,33,182,0.2)' : 'rgba(225,6,0,0.12)');
+
+                            if ($match->status === \App\Enums\MatchStatus::Active) {
+                                $ctaHref = route('scoreboard', $match);
+                                $ctaLabel = 'Live Scores';
+                            } elseif ($match->status === \App\Enums\MatchStatus::Completed) {
+                                $ctaHref = route('scoreboard', $match);
+                                $ctaLabel = 'View Results';
+                            } elseif (in_array($match->status, [\App\Enums\MatchStatus::PreRegistration, \App\Enums\MatchStatus::RegistrationOpen])) {
+                                $ctaHref = app_url('/matches/' . $match->id);
+                                $ctaLabel = $match->status === \App\Enums\MatchStatus::PreRegistration ? 'Show Interest' : 'Register';
+                            } else {
+                                $ctaHref = route('scoreboard', $match);
+                                $ctaLabel = 'View Details';
+                            }
+                        @endphp
+                        <a href="{{ $ctaHref }}" class="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:scale-[1.02] hover:shadow-xl" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <div class="relative aspect-[16/9] overflow-hidden">
+                                @if($hasImg)
+                                    <img src="{{ $cardImg }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+                                @else
+                                    <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
+                                @endif
+                                @if($match->organization?->logo_path)
+                                    <div class="absolute top-3 left-3">
+                                        <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                    </div>
+                                @elseif($match->organization)
+                                    <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
+                                        {{ strtoupper(substr($match->organization->name, 0, 2)) }}
+                                    </div>
+                                @endif
+                                <div class="absolute top-3 right-3 flex items-center gap-1.5">
                                     @if($match->isFeatured())
-                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style="background: rgba(245,158,11,0.15); color: rgb(251,191,36);">
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(245,158,11,0.85); color: #fff;">
                                             <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
                                             Featured
                                         </span>
                                     @endif
+                                    @if($match->status === \App\Enums\MatchStatus::RegistrationOpen)
+                                        <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(22,163,74,0.85); color: #fff;">Registration Open</span>
+                                    @elseif($match->status === \App\Enums\MatchStatus::PreRegistration)
+                                        <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(124,58,237,0.85); color: #fff;">Pre-Registration</span>
+                                    @endif
                                 </div>
-                                @if($match->date)
-                                    <span class="text-xs" style="color: var(--lp-text-muted);">{{ $match->date->format('d M Y') }}</span>
-                                @endif
+                                <div class="absolute inset-x-0 bottom-0 p-4">
+                                    <h3 class="text-base font-bold leading-tight {{ $hasImg ? 'text-white' : '' }}" @if(!$hasImg) style="color: var(--lp-text);" @endif>{{ $match->name }}</h3>
+                                    <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm {{ $hasImg ? 'text-white/70' : '' }}" @if(!$hasImg) style="color: var(--lp-text-muted);" @endif>
+                                        @if($match->date)<span>{{ $match->date->format('d M Y') }}</span>@endif
+                                        @if($match->organization)<span>&bull; {{ $match->organization->name }}</span>@endif
+                                    </div>
+                                </div>
                             </div>
-                            <h3 class="text-lg font-semibold mb-1 group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
-                            @if($match->organization)
-                                <p class="text-sm" style="color: var(--lp-text-muted);">{{ $match->organization->name }}</p>
-                            @endif
-                            @if($match->location)
-                                <p class="text-xs mt-2" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->location }}</p>
-                            @endif
-                            <div class="mt-4">
-                                @if($match->status === \App\Enums\MatchStatus::PreRegistration)
-                                    <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                        Show Interest <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                    </a>
-                                @elseif($match->status === \App\Enums\MatchStatus::RegistrationOpen)
-                                    <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                        Register <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                    </a>
-                                @elseif($match->status === \App\Enums\MatchStatus::Active)
-                                    <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                        Live Scores <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                    </a>
-                                @elseif($match->status === \App\Enums\MatchStatus::Completed)
-                                    <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                        View Results <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                    </a>
-                                @else
-                                    <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                        View Details <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                    </a>
-                                @endif
+                            <div class="flex flex-1 items-center justify-between p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style="background: {{ $scoringBg }}; color: {{ $scoringColor }};">{{ $scoringLabel }}</span>
+                                    @if($match->location)
+                                        <span class="text-xs truncate max-w-[140px]" style="color: var(--lp-text-muted);">{{ $match->location }}</span>
+                                    @endif
+                                </div>
+                                <span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap" style="color: var(--lp-red);">
+                                    {{ $ctaLabel }}
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </span>
                             </div>
-                        </div>
+                        </a>
                     @endforeach
                 </div>
             @else
@@ -210,49 +252,59 @@
 
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($popularMatches as $match)
-                    <div class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
-                        <div class="flex items-center justify-between mb-3">
+                    @php
+                        $cardImg = $match->card_image_url;
+                        $hasImg = !empty($cardImg);
+                        $scoringBg = $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)');
+                        $scoringColor = $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)');
+                        $scoringLabel = $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay');
+                        $gradientFallback = $match->scoring_type === 'prs' ? 'rgba(180,83,9,0.2)' : ($match->scoring_type === 'elr' ? 'rgba(91,33,182,0.2)' : 'rgba(225,6,0,0.12)');
+                        $ctaHref = in_array($match->status, [\App\Enums\MatchStatus::PreRegistration, \App\Enums\MatchStatus::RegistrationOpen])
+                            ? app_url('/matches/' . $match->id)
+                            : route('scoreboard', $match);
+                        $ctaLabel = $match->status === \App\Enums\MatchStatus::PreRegistration ? 'Show Interest' : ($match->status === \App\Enums\MatchStatus::RegistrationOpen ? 'Register' : ($match->status === \App\Enums\MatchStatus::Active ? 'Live Scores' : 'View Details'));
+                    @endphp
+                    <a href="{{ $ctaHref }}" class="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:scale-[1.02] hover:shadow-xl" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                        <div class="relative aspect-[16/9] overflow-hidden">
+                            @if($hasImg)
+                                <img src="{{ $cardImg }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+                            @else
+                                <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
+                            @endif
+                            @if($match->organization?->logo_path)
+                                <div class="absolute top-3 left-3">
+                                    <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                </div>
+                            @elseif($match->organization)
+                                <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
+                                    {{ strtoupper(substr($match->organization->name, 0, 2)) }}
+                                </div>
+                            @endif
+                            <div class="absolute top-3 right-3">
+                                <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(34,197,94,0.85); color: #fff;">{{ $match->registrations_count }} registered</span>
+                            </div>
+                            <div class="absolute inset-x-0 bottom-0 p-4">
+                                <h3 class="text-base font-bold leading-tight {{ $hasImg ? 'text-white' : '' }}" @if(!$hasImg) style="color: var(--lp-text);" @endif>{{ $match->name }}</h3>
+                                <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm {{ $hasImg ? 'text-white/70' : '' }}" @if(!$hasImg) style="color: var(--lp-text-muted);" @endif>
+                                    @if($match->date)<span>{{ $match->date->format('d M Y') }}</span>@endif
+                                    @if($match->organization)<span>&bull; {{ $match->organization->name }}</span>@endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-1 items-center justify-between p-4">
                             <div class="flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                                      style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
-                                    {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
-                                </span>
-                                @if($match->isFeatured())
-                                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style="background: rgba(245,158,11,0.15); color: rgb(251,191,36);">
-                                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
-                                        Featured
-                                    </span>
+                                <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style="background: {{ $scoringBg }}; color: {{ $scoringColor }};">{{ $scoringLabel }}</span>
+                                @if($match->location)
+                                    <span class="text-xs truncate max-w-[140px]" style="color: var(--lp-text-muted);">{{ $match->location }}</span>
                                 @endif
                             </div>
-                            <span class="text-xs font-medium" style="color: var(--lp-text-muted);">{{ $match->registrations_count }} registered</span>
+                            <span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap" style="color: var(--lp-red);">
+                                {{ $ctaLabel }}
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                            </span>
                         </div>
-                        <h3 class="text-lg font-semibold mb-1 group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
-                        @if($match->organization)
-                            <p class="text-sm" style="color: var(--lp-text-muted);">{{ $match->organization->name }}</p>
-                        @endif
-                        @if($match->date)
-                            <p class="text-xs mt-2" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->date->format('d M Y') }}</p>
-                        @endif
-                        <div class="mt-4">
-                            @if($match->status === \App\Enums\MatchStatus::PreRegistration)
-                                <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                    Show Interest <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                </a>
-                            @elseif($match->status === \App\Enums\MatchStatus::RegistrationOpen)
-                                <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                    Register <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                </a>
-                            @elseif($match->status === \App\Enums\MatchStatus::Active)
-                                <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                    Live Scores <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                </a>
-                            @else
-                                <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
-                                    View Details <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                </a>
-                            @endif
-                        </div>
-                    </div>
+                    </a>
                 @endforeach
             </div>
         </div>
@@ -294,54 +346,76 @@
             </div>
 
             @if($upcomingMatches->count())
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach($upcomingMatches as $match)
-                        <div class="group flex items-start gap-4 rounded-xl p-5 transition-all duration-200" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
-                            <div class="flex-shrink-0 w-14 rounded-lg p-2 text-center" style="background: var(--lp-surface-2);">
-                                <span class="block text-lg font-bold" style="color: var(--lp-text);">{{ $match->date?->format('d') }}</span>
-                                <span class="block text-[10px] font-semibold uppercase" style="color: var(--lp-text-muted);">{{ $match->date?->format('M') }}</span>
-                            </div>
-                            <div class="min-w-0">
-                                <h3 class="text-sm font-semibold truncate group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
-                                @if($match->organization)
-                                    <p class="text-xs mt-0.5" style="color: var(--lp-text-muted);">{{ $match->organization->name }}</p>
+                        @php
+                            $cardImg = $match->card_image_url;
+                            $hasImg = !empty($cardImg);
+                            $scoringBg = $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)');
+                            $scoringColor = $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)');
+                            $scoringLabel = $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay');
+                            $gradientFallback = $match->scoring_type === 'prs' ? 'rgba(180,83,9,0.2)' : ($match->scoring_type === 'elr' ? 'rgba(91,33,182,0.2)' : 'rgba(225,6,0,0.12)');
+                            $ctaHref = in_array($match->status, [\App\Enums\MatchStatus::PreRegistration, \App\Enums\MatchStatus::RegistrationOpen])
+                                ? app_url('/matches/' . $match->id)
+                                : route('scoreboard', $match);
+                            $ctaLabel = $match->status === \App\Enums\MatchStatus::PreRegistration ? 'Show Interest' : ($match->status === \App\Enums\MatchStatus::RegistrationOpen ? 'Register' : ($match->status === \App\Enums\MatchStatus::Active ? 'Live Scores' : 'View Details'));
+                        @endphp
+                        <a href="{{ $ctaHref }}" class="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:scale-[1.02] hover:shadow-xl" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <div class="relative aspect-[16/9] overflow-hidden">
+                                @if($hasImg)
+                                    <img src="{{ $cardImg }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+                                @else
+                                    <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
                                 @endif
-                                <div class="flex items-center gap-2 mt-1.5">
-                                    <span class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                                          style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
-                                        {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
-                                    </span>
+                                @if($match->organization?->logo_path)
+                                    <div class="absolute top-3 left-3">
+                                        <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                    </div>
+                                @elseif($match->organization)
+                                    <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
+                                        {{ strtoupper(substr($match->organization->name, 0, 2)) }}
+                                    </div>
+                                @endif
+                                <div class="absolute top-3 right-3 flex items-center gap-1.5">
                                     @if($match->isFeatured())
-                                        <span class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" style="background: rgba(245,158,11,0.15); color: rgb(251,191,36);">
-                                            <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(245,158,11,0.85); color: #fff;">
+                                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
                                             Featured
                                         </span>
                                     @endif
-                                    @if($match->location)
-                                        <span class="text-[10px]" style="color: var(--lp-text-muted);">{{ $match->location }}</span>
+                                    @if($match->status === \App\Enums\MatchStatus::RegistrationOpen)
+                                        <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(22,163,74,0.85); color: #fff;">Open</span>
+                                    @elseif($match->status === \App\Enums\MatchStatus::PreRegistration)
+                                        <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(124,58,237,0.85); color: #fff;">Pre-Reg</span>
+                                    @elseif($match->status === \App\Enums\MatchStatus::Active)
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(225,6,0,0.85); color: #fff;">
+                                            <span class="relative flex h-1.5 w-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span><span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-white"></span></span>
+                                            Live
+                                        </span>
                                     @endif
                                 </div>
-                                <div class="mt-2">
-                                    @if($match->status === \App\Enums\MatchStatus::PreRegistration)
-                                        <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
-                                            Show Interest <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                        </a>
-                                    @elseif($match->status === \App\Enums\MatchStatus::RegistrationOpen)
-                                        <a href="{{ app_url('/matches/' . $match->id) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
-                                            Register <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                        </a>
-                                    @elseif($match->status === \App\Enums\MatchStatus::Active)
-                                        <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
-                                            Live Scores <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                        </a>
-                                    @else
-                                        <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-1 text-[11px] font-semibold" style="color: var(--lp-red);">
-                                            View Details <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-                                        </a>
-                                    @endif
+                                <div class="absolute inset-x-0 bottom-0 p-4">
+                                    <h3 class="text-base font-bold leading-tight {{ $hasImg ? 'text-white' : '' }}" @if(!$hasImg) style="color: var(--lp-text);" @endif>{{ $match->name }}</h3>
+                                    <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm {{ $hasImg ? 'text-white/70' : '' }}" @if(!$hasImg) style="color: var(--lp-text-muted);" @endif>
+                                        @if($match->date)<span>{{ $match->date->format('d M Y') }}</span>@endif
+                                        @if($match->organization)<span>&bull; {{ $match->organization->name }}</span>@endif
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                            <div class="flex flex-1 items-center justify-between p-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style="background: {{ $scoringBg }}; color: {{ $scoringColor }};">{{ $scoringLabel }}</span>
+                                    @if($match->location)
+                                        <span class="text-xs truncate max-w-[140px]" style="color: var(--lp-text-muted);">{{ $match->location }}</span>
+                                    @endif
+                                </div>
+                                <span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap" style="color: var(--lp-red);">
+                                    {{ $ctaLabel }}
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </span>
+                            </div>
+                        </a>
                     @endforeach
                 </div>
             @else
@@ -370,24 +444,51 @@
             </div>
 
             @if($recentResults->count())
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach($recentResults as $match)
-                        <a href="{{ route('scoreboard', $match) }}" class="group rounded-xl p-5 transition-all duration-200" style="border: 1px solid var(--lp-border); background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='var(--lp-border)'">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                                      style="background: {{ $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)') }}; color: {{ $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)') }};">
-                                    {{ $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay') }}
-                                </span>
-                                <span class="rounded-full px-2 py-0.5 text-[10px] font-medium" style="background: rgba(34,197,94,0.1); color: rgb(134,239,172);">Completed</span>
+                        @php
+                            $cardImg = $match->card_image_url;
+                            $hasImg = !empty($cardImg);
+                            $scoringBg = $match->scoring_type === 'prs' ? 'rgba(245,158,11,0.1)' : ($match->scoring_type === 'elr' ? 'rgba(139,92,246,0.1)' : 'rgba(225,6,0,0.08)');
+                            $scoringColor = $match->scoring_type === 'prs' ? 'rgb(251,191,36)' : ($match->scoring_type === 'elr' ? 'rgb(167,139,250)' : 'var(--lp-red)');
+                            $scoringLabel = $match->scoring_type === 'prs' ? 'PRS' : ($match->scoring_type === 'elr' ? 'ELR' : 'Relay');
+                            $gradientFallback = $match->scoring_type === 'prs' ? 'rgba(180,83,9,0.15)' : ($match->scoring_type === 'elr' ? 'rgba(91,33,182,0.15)' : 'rgba(225,6,0,0.08)');
+                        @endphp
+                        <a href="{{ route('scoreboard', $match) }}" class="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-200 hover:scale-[1.02] hover:shadow-xl" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                            <div class="relative aspect-[16/9] overflow-hidden">
+                                @if($hasImg)
+                                    <img src="{{ $cardImg }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10"></div>
+                                @else
+                                    <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
+                                @endif
+                                @if($match->organization?->logo_path)
+                                    <div class="absolute top-3 left-3">
+                                        <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                    </div>
+                                @elseif($match->organization)
+                                    <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
+                                        {{ strtoupper(substr($match->organization->name, 0, 2)) }}
+                                    </div>
+                                @endif
+                                <div class="absolute top-3 right-3">
+                                    <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" style="background: rgba(14,165,233,0.85); color: #fff;">Results</span>
+                                </div>
+                                <div class="absolute inset-x-0 bottom-0 p-4">
+                                    <h3 class="text-base font-bold leading-tight {{ $hasImg ? 'text-white' : '' }}" @if(!$hasImg) style="color: var(--lp-text);" @endif>{{ $match->name }}</h3>
+                                    <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm {{ $hasImg ? 'text-white/70' : '' }}" @if(!$hasImg) style="color: var(--lp-text-muted);" @endif>
+                                        @if($match->date)<span>{{ $match->date->format('d M Y') }}</span>@endif
+                                        @if($match->organization)<span>&bull; {{ $match->organization->name }}</span>@endif
+                                    </div>
+                                </div>
                             </div>
-                            <h3 class="text-sm font-semibold group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $match->name }}</h3>
-                            @if($match->organization)
-                                <p class="text-xs mt-0.5" style="color: var(--lp-text-muted);">{{ $match->organization->name }}</p>
-                            @endif
-                            @if($match->date)
-                                <p class="text-xs mt-1.5" style="color: var(--lp-text-muted); opacity: 0.7;">{{ $match->date->format('d M Y') }}</p>
-                            @endif
-                            <span class="mt-3 inline-flex text-xs font-medium" style="color: var(--lp-red);">View Results &rarr;</span>
+                            <div class="flex flex-1 items-center justify-between p-4">
+                                <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style="background: {{ $scoringBg }}; color: {{ $scoringColor }};">{{ $scoringLabel }}</span>
+                                <span class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
+                                    View Results
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                </span>
+                            </div>
                         </a>
                     @endforeach
                 </div>

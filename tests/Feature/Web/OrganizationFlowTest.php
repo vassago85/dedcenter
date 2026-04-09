@@ -57,7 +57,7 @@ it('denies members from admin organizations page', function () {
 it('allows org admin to access org dashboard', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
-    $org->admins()->attach($user->id, ['role' => 'admin']);
+    $org->admins()->attach($user->id, ['is_match_director' => true]);
 
     $this->actingAs($user)
         ->get("/org/{$org->slug}/dashboard")
@@ -85,7 +85,7 @@ it('denies non-org-admin members from org dashboard', function () {
 it('allows org admin to access org matches page', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
-    $org->admins()->attach($user->id, ['role' => 'owner']);
+    $org->admins()->attach($user->id, ['is_owner' => true]);
 
     $this->actingAs($user)
         ->get("/org/{$org->slug}/matches")
@@ -95,7 +95,7 @@ it('allows org admin to access org matches page', function () {
 it('allows org admin to access org registrations page', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
-    $org->admins()->attach($user->id, ['role' => 'admin']);
+    $org->admins()->attach($user->id, ['is_match_director' => true]);
 
     $this->actingAs($user)
         ->get("/org/{$org->slug}/registrations")
@@ -105,7 +105,7 @@ it('allows org admin to access org registrations page', function () {
 it('allows org admin to access org admins page', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
-    $org->admins()->attach($user->id, ['role' => 'owner']);
+    $org->admins()->attach($user->id, ['is_owner' => true]);
 
     $this->actingAs($user)
         ->get("/org/{$org->slug}/admins")
@@ -115,7 +115,7 @@ it('allows org admin to access org admins page', function () {
 it('allows org admin to access org settings page', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
-    $org->admins()->attach($user->id, ['role' => 'owner']);
+    $org->admins()->attach($user->id, ['is_owner' => true]);
 
     $this->actingAs($user)
         ->get("/org/{$org->slug}/settings")
@@ -125,7 +125,7 @@ it('allows org admin to access org settings page', function () {
 it('allows league admin to access clubs page', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->league()->create();
-    $org->admins()->attach($user->id, ['role' => 'owner']);
+    $org->admins()->attach($user->id, ['is_owner' => true]);
 
     $this->actingAs($user)
         ->get("/org/{$org->slug}/clubs")
@@ -138,7 +138,7 @@ it('approves organization and makes creator owner', function () {
 
     $org->update(['status' => 'active']);
     $org->admins()->syncWithoutDetaching([
-        $creator->id => ['role' => 'owner'],
+        $creator->id => ['is_owner' => true],
     ]);
 
     expect($org->fresh()->isActive())->toBeTrue();

@@ -7,7 +7,8 @@
     $statusColor = method_exists($statusEnum, 'color') ? $statusEnum->color() : 'zinc';
     $isLive = $statusValue === 'active';
     $shooterCount = $match->shooters_count ?? $match->shooters()->count();
-    $hasImage = ! empty($match->image_url);
+    $cardImage = $match->card_image_url;
+    $hasImage = ! empty($cardImage);
 
     $scoringColors = [
         'prs' => 'from-amber-900/40 to-surface',
@@ -34,7 +35,7 @@
     {{-- Image / Header Section (16:9) --}}
     <div class="relative aspect-video overflow-hidden">
         @if($hasImage)
-            <img src="{{ $match->image_url }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+            <img src="{{ $cardImage }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10"></div>
         @else
             <div class="absolute inset-0 bg-gradient-to-br {{ $fallbackGradient }}"></div>
@@ -82,7 +83,7 @@
                 </span>
             @endif
             <span class="inline-flex items-center rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                {{ strtoupper($match->scoring_type ?? 'standard') }}
+                {{ ($match->scoring_type ?? 'standard') === 'standard' ? 'RELAY' : strtoupper($match->scoring_type) }}
             </span>
             <span class="text-[10px] text-muted">{{ $shooterCount }} {{ Str::plural('shooter', $shooterCount) }}</span>
         </div>

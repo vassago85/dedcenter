@@ -63,7 +63,7 @@ it('detects ownership', function () {
     $other = User::factory()->create();
 
     $org = Organization::factory()->create(['created_by' => $owner->id]);
-    $org->admins()->attach($owner->id, ['role' => 'owner']);
+    $org->admins()->attach($owner->id, ['is_owner' => true]);
 
     expect($org->isOwnedBy($owner))->toBeTrue();
     expect($org->isOwnedBy($other))->toBeFalse();
@@ -75,7 +75,7 @@ it('checks if user can manage', function () {
     $member = User::factory()->create();
 
     $org = Organization::factory()->create();
-    $org->admins()->attach($orgAdmin->id, ['role' => 'admin']);
+    $org->admins()->attach($orgAdmin->id, ['is_range_officer' => true]);
 
     expect($org->userCanManage($admin))->toBeTrue();
     expect($org->userCanManage($orgAdmin))->toBeTrue();

@@ -29,7 +29,7 @@ new #[Layout('components.layouts.app')]
             'created_by' => auth()->id(),
         ]);
 
-        $club->admins()->attach(auth()->id(), ['role' => 'owner']);
+        $club->admins()->attach(auth()->id(), ['is_owner' => true]);
 
         $this->reset('clubName', 'clubDescription');
         Flux::toast("Club '{$club->name}' created.", variant: 'success');

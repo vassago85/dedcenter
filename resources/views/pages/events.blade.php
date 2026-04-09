@@ -11,7 +11,7 @@ use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-new #[Layout('components.layouts.app')]
+new #[Layout('components.layouts.marketing')]
     #[Title('Events — DeadCenter')]
     class extends Component {
     use WithPagination;
@@ -123,21 +123,12 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div x-data="{ tab: @entangle('tab') }">
+<div class="mx-auto max-w-6xl px-6 py-8" x-data="{ tab: @entangle('tab') }">
 
     {{-- Page header --}}
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">Find a Match</h1>
-            <p class="mt-1 text-base text-muted">Browse competitions, register for events, and view results.</p>
-        </div>
-        @guest
-            <a href="{{ route('login') }}"
-               class="inline-flex items-center gap-2 rounded-xl bg-accent px-5 min-h-[44px] text-base font-semibold text-white transition-colors hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
-                Sign in to register
-            </a>
-        @endguest
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl" style="color: var(--lp-text);">Find a Match</h1>
+        <p class="mt-1 text-base" style="color: var(--lp-text-muted);">Browse competitions, register for events, and view results.</p>
     </div>
 
     {{-- Tabs --}}
@@ -243,7 +234,8 @@ new #[Layout('components.layouts.app')]
                     $isPreReg    = $statusValue === 'pre_registration';
                     $isRegOpen   = $statusValue === 'registration_open';
                     $canRegister = $isPreReg || $isRegOpen;
-                    $hasImage    = ! empty($match->image_url);
+                    $cardImage   = $match->card_image_url;
+                    $hasImage    = ! empty($cardImage);
                     $org         = $match->organization;
 
                     $scoringColors = [
@@ -282,7 +274,7 @@ new #[Layout('components.layouts.app')]
                     {{-- Image / gradient header --}}
                     <div class="relative aspect-video overflow-hidden">
                         @if($hasImage)
-                            <img src="{{ $match->image_url }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                            <img src="{{ $cardImage }}" alt="{{ $match->name }}" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
                             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10"></div>
                         @else
                             <div class="absolute inset-0 bg-gradient-to-br {{ $fallbackGradient }}"></div>
@@ -290,7 +282,7 @@ new #[Layout('components.layouts.app')]
 
                         @if($org && $org->logo_path)
                             <div class="absolute top-3 left-3">
-                                <img src="{{ Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                <img src="{{ Storage::disk('public')->url($org->logo_path) }}" alt="{{ $org->name }}" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
                             </div>
                         @elseif($org)
                             <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-surface/80 text-[10px] font-bold text-muted shadow-lg">
@@ -348,7 +340,7 @@ new #[Layout('components.layouts.app')]
                             @endif
                             <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide
                                 {{ $match->scoring_type === 'prs' ? 'bg-amber-500/10 text-amber-400' : ($match->scoring_type === 'elr' ? 'bg-violet-500/10 text-violet-400' : 'bg-red-500/10 text-red-400') }}">
-                                {{ $match->royal_flush_enabled ? 'Royal Flush' : strtoupper($match->scoring_type ?? 'relay') }}
+                                {{ $match->royal_flush_enabled ? 'Royal Flush' : (($match->scoring_type ?? 'standard') === 'standard' ? 'RELAY' : strtoupper($match->scoring_type)) }}
                             </span>
                         </div>
 

@@ -94,7 +94,7 @@ new #[Layout('components.layouts.app')]
 
 <div class="space-y-8">
     @php
-        $pendingOrgs = auth()->user()->organizations()->wherePivot('role', 'owner')->get()->filter(fn($o) => $o->status === 'pending');
+        $pendingOrgs = auth()->user()->organizations()->wherePivot('is_owner', true)->get()->filter(fn($o) => $o->status === 'pending');
     @endphp
     @if($pendingOrgs->isNotEmpty())
         <div class="mb-6 rounded-xl border border-amber-600/30 bg-amber-900/10 px-5 py-4">
@@ -307,7 +307,11 @@ new #[Layout('components.layouts.app')]
                         <span class="text-sm font-medium text-primary">{{ $org->name }}</span>
                         <span class="ml-2 text-xs text-muted capitalize">{{ $org->type }}</span>
                     </div>
-                    <flux:badge size="sm" color="{{ $org->pivot->role === 'owner' ? 'amber' : 'blue' }}">{{ $org->pivot->role }}</flux:badge>
+                    @php
+                        $primaryRole = $org->pivot->is_owner ? 'Owner' : ($org->pivot->is_match_director ? 'MD' : ($org->pivot->is_range_officer ? 'RO' : 'Shooter'));
+                        $primaryColor = $org->pivot->is_owner ? 'amber' : ($org->pivot->is_match_director ? 'blue' : ($org->pivot->is_range_officer ? 'green' : 'zinc'));
+                    @endphp
+                    <flux:badge size="sm" color="{{ $primaryColor }}">{{ $primaryRole }}</flux:badge>
                 </a>
             @endforeach
         </div>

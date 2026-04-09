@@ -17,6 +17,7 @@
     @include('partials.gtag')
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <x-seo-meta
         :title="$title ?? ($ctx === 'md' ? 'DeadCenter — Shooting Match Scoring Software' : 'DeadCenter — Precision Shooting Scoring Platform')"
@@ -39,6 +40,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700,900" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @fluxAppearance
 </head>
 <body class="min-h-screen antialiased" style="background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-2) 100%); color: var(--lp-text);">
 
@@ -152,6 +154,8 @@
         </div>
     </footer>
 
+    <flux:toast />
+    @fluxScripts
     <x-pwa-nav />
     <x-install-prompt />
 </body>

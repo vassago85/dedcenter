@@ -15,6 +15,7 @@ class Gong extends Model
         'label',
         'distance_meters',
         'target_size',
+        'target_size_mm',
         'multiplier',
     ];
 
@@ -24,6 +25,7 @@ class Gong extends Model
             'number' => 'integer',
             'distance_meters' => 'integer',
             'multiplier' => 'decimal:2',
+            'target_size_mm' => 'decimal:2',
         ];
     }
 

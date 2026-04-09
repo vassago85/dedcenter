@@ -14,8 +14,8 @@ beforeEach(function () {
     $this->otherAdmin = User::factory()->create();
     $this->siteAdmin = User::factory()->create(['role' => 'owner']);
 
-    $this->org->admins()->attach($this->creator->id, ['role' => 'owner']);
-    $this->org->admins()->attach($this->otherAdmin->id, ['role' => 'range_officer']);
+    $this->org->admins()->attach($this->creator->id, ['is_owner' => true]);
+    $this->org->admins()->attach($this->otherAdmin->id, ['is_range_officer' => true]);
 
     $this->match = ShootingMatch::factory()->create([
         'organization_id' => $this->org->id,
@@ -42,7 +42,7 @@ it('denies a different org range officer from editing the match', function () {
 
 it('allows an org match director to edit a match they did not create', function () {
     $md = User::factory()->create();
-    $this->org->admins()->attach($md->id, ['role' => 'match_director']);
+    $this->org->admins()->attach($md->id, ['is_match_director' => true]);
 
     $this->actingAs($md)
         ->get("/org/{$this->org->slug}/matches/{$this->match->id}")

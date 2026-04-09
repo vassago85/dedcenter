@@ -14,7 +14,7 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     $this->org = Organization::factory()->create();
     $this->creator = User::factory()->create();
-    $this->org->admins()->attach($this->creator, ['role' => 'owner']);
+    $this->org->admins()->attach($this->creator, ['is_owner' => true]);
 
     $this->match = ShootingMatch::factory()->active()->create([
         'created_by' => $this->creator->id,
@@ -68,7 +68,7 @@ test('match creator can POST scores', function () {
 
 test('org admin of match organization can POST scores', function () {
     $orgAdmin = User::factory()->create();
-    $this->org->admins()->attach($orgAdmin, ['role' => 'admin']);
+    $this->org->admins()->attach($orgAdmin, ['is_range_officer' => true]);
 
     $this->actingAs($orgAdmin)
         ->postJson("/api/matches/{$this->match->id}/scores", scorePayload($this->shooter->id, $this->gong->id))
@@ -94,7 +94,7 @@ test('unrelated user cannot POST scores', function () {
 test('admin of different org cannot POST scores', function () {
     $otherOrg = Organization::factory()->create();
     $otherAdmin = User::factory()->create();
-    $otherOrg->admins()->attach($otherAdmin, ['role' => 'owner']);
+    $otherOrg->admins()->attach($otherAdmin, ['is_owner' => true]);
 
     $this->actingAs($otherAdmin)
         ->postJson("/api/matches/{$this->match->id}/scores", scorePayload($this->shooter->id, $this->gong->id))

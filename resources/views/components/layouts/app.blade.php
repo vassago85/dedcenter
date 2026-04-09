@@ -194,7 +194,10 @@
                                    class="flex items-center gap-3 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors text-secondary hover:bg-surface-2/50 hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent">
                                     <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-2 text-xs font-bold uppercase">{{ substr($org->name, 0, 1) }}</span>
                                     <span class="truncate">{{ $org->name }}</span>
-                                    <span class="ml-auto text-[10px] text-muted capitalize">{{ $org->pivot->role }}</span>
+                                    @php
+                                        $sidebarRole = $org->pivot->is_owner ? 'owner' : ($org->pivot->is_match_director ? 'match director' : ($org->pivot->is_range_officer ? 'range officer' : 'shooter'));
+                                    @endphp
+                                    <span class="ml-auto text-[10px] text-muted capitalize">{{ $sidebarRole }}</span>
                                 </a>
                             @endforeach
                         @else

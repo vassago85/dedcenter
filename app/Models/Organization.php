@@ -82,7 +82,7 @@ class Organization extends Model
     public function admins(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'organization_admins')
-            ->withPivot('role')
+            ->withPivot(['is_owner', 'is_match_director', 'is_range_officer', 'is_shooter'])
             ->withTimestamps();
     }
 
@@ -167,7 +167,7 @@ class Organization extends Model
 
     public function isOwnedBy(User $user): bool
     {
-        return $this->admins()->wherePivot('role', 'owner')->where('user_id', $user->id)->exists();
+        return $this->admins()->wherePivot('is_owner', true)->where('user_id', $user->id)->exists();
     }
 
     public function userCanManage(User $user): bool

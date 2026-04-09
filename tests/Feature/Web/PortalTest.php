@@ -75,7 +75,7 @@ test('portal leaderboard shows empty state when no completed matches', function 
 });
 
 test('org settings page shows branding fields', function () {
-    $this->org->admins()->attach($this->admin->id, ['role' => 'owner']);
+    $this->org->admins()->attach($this->admin->id, ['is_owner' => true]);
 
     $this->actingAs($this->admin)
         ->get(route('org.settings', $this->org))

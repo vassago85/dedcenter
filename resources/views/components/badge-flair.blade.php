@@ -54,8 +54,14 @@
                 $tier = $cfg['tier'] ?? 'earned';
                 $family = $a->competition_type ?? 'prs';
                 $isDist = str_starts_with($icon, 'dist-');
+                $medalFlairStyles = [
+                    'medal-1' => 'border-amber-400/40 bg-gradient-to-b from-amber-400/22 to-yellow-600/10 text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.12)]',
+                    'medal-2' => 'border-slate-300/35 bg-gradient-to-b from-slate-300/18 to-slate-400/8 text-slate-300 shadow-[0_0_10px_rgba(203,213,225,0.08)]',
+                    'medal-3' => 'border-orange-400/35 bg-gradient-to-b from-orange-400/18 to-amber-700/8 text-orange-300 shadow-[0_0_10px_rgba(251,146,60,0.1)]',
+                ];
                 $styles = $familyStyles[$family] ?? $familyStyles['prs'];
-                $crestClass = ($isDist && isset($distFlairStyles[$icon])) ? $distFlairStyles[$icon] : ($styles[$tier] ?? $styles['earned']);
+                $isMedal = isset($medalFlairStyles[$icon]);
+                $crestClass = $isMedal ? $medalFlairStyles[$icon] : (($isDist && isset($distFlairStyles[$icon])) ? $distFlairStyles[$icon] : ($styles[$tier] ?? $styles['earned']));
                 $popId = $bi;
             @endphp
             <div class="relative">

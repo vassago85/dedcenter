@@ -6,6 +6,8 @@ use App\Models\MatchDivision;
 use App\Models\MatchCategory;
 use App\Models\TargetSet;
 use App\Models\Gong;
+use App\Models\StagePosition;
+use App\Models\StageShotSequence;
 use App\Models\Squad;
 use App\Models\Shooter;
 use App\Services\RoyalFlushEquipmentImportService;
@@ -13,12 +15,17 @@ use App\Enums\MatchStatus;
 use chillerlan\QRCode\{QRCode, QROptions};
 use chillerlan\QRCode\Output\QRMarkupSVG;
 use Flux\Flux;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('components.layouts.app')]
     class extends Component {
+    use WithFileUploads;
+
     public ?ShootingMatch $match = null;
+    public $coverImage = null;
 
     public string $name = '';
     public string $date = '';
@@ -52,6 +59,7 @@ new #[Layout('components.layouts.app')]
     public string $gongMultiplier = '1.00';
     public string $gongDistance = '';
     public string $gongSize = '';
+    public string $gongSizeMm = '';
     public ?int $addingGongToTargetSetId = null;
 
     public string $squadName = '';
@@ -116,6 +124,7 @@ new #[Layout('components.layouts.app')]
             'public_bio' => 'nullable|string|max:2000',
             'entry_fee' => 'nullable|numeric|min:0',
             'scoring_type' => 'required|in:standard,prs,elr',
+            'coverImage' => 'nullable|image|max:4096',
         ]);
 
         $validated['entry_fee'] = $this->entry_fee !== '' ? (float) $this->entry_fee : null;
@@ -132,6 +141,15 @@ new #[Layout('components.layouts.app')]
             $validated['season_id'] = $this->season_id ?: null;
         }
 
+        if ($this->coverImage) {
+            $matchId = $this->match?->id ?? 'new';
+            if ($this->match?->image_url) {
+                Storage::disk('public')->delete($this->match->image_url);
+            }
+            $validated['image_url'] = $this->coverImage->store("match-covers/{$matchId}", 'public');
+            $this->coverImage = null;
+        }
+
         if ($this->match) {
             $this->match->update($validated);
             Flux::toast('Match updated.', variant: 'success');
@@ -141,6 +159,13 @@ new #[Layout('components.layouts.app')]
                 'created_by' => auth()->id(),
                 'status' => MatchStatus::Draft,
             ]);
+
+            if ($this->match->image_url && str_contains($this->match->image_url, 'match-covers/new/')) {
+                $newPath = str_replace('match-covers/new/', "match-covers/{$this->match->id}/", $this->match->image_url);
+                Storage::disk('public')->move($this->match->image_url, $newPath);
+                $this->match->update(['image_url' => $newPath]);
+            }
+
             Flux::toast('Match created.', variant: 'success');
             $this->redirect(route('admin.matches.edit', $this->match), navigate: true);
         }
@@ -148,6 +173,15 @@ new #[Layout('components.layouts.app')]
         if (!$validated['side_bet_enabled']) {
             $this->match->sideBetShooters()->detach();
             $this->sideBetShooterIds = [];
+        }
+    }
+
+    public function removeCoverImage(): void
+    {
+        if ($this->match?->image_url) {
+            Storage::disk('public')->delete($this->match->image_url);
+            $this->match->update(['image_url' => null]);
+            Flux::toast('Cover image removed.', variant: 'success');
         }
     }
 
@@ -313,6 +347,8 @@ new #[Layout('components.layouts.app')]
                 return;
             }
             $ts->update(['is_timed_stage' => (bool) $value]);
+        } elseif ($field === 'total_shots') {
+            $ts->update(['total_shots' => max(0, (int) $value)]);
         }
     }
 
@@ -352,14 +388,23 @@ new #[Layout('components.layouts.app')]
             'par_time_seconds' => $source->par_time_seconds,
         ]);
 
+        $gongMap = [];
         foreach ($source->gongs as $gong) {
-            $clone->gongs()->create([
-                'number' => $gong->number,
-                'label' => $gong->label,
-                'multiplier' => $gong->multiplier,
-                'distance_meters' => $gong->distance_meters,
-                'target_size' => $gong->target_size,
+            $newGong = $clone->gongs()->create([
+                'number' => $gong->number, 'label' => $gong->label, 'multiplier' => $gong->multiplier,
+                'distance_meters' => $gong->distance_meters, 'target_size' => $gong->target_size, 'target_size_mm' => $gong->target_size_mm,
             ]);
+            $gongMap[$gong->id] = $newGong->id;
+        }
+        $posMap = [];
+        foreach ($source->positions as $pos) {
+            $newPos = $clone->positions()->create(['name' => $pos->name, 'sort_order' => $pos->sort_order]);
+            $posMap[$pos->id] = $newPos->id;
+        }
+        foreach ($source->shotSequence as $seq) {
+            if (isset($posMap[$seq->position_id]) && isset($gongMap[$seq->gong_id])) {
+                $clone->shotSequence()->create(['shot_number' => $seq->shot_number, 'position_id' => $posMap[$seq->position_id], 'gong_id' => $gongMap[$seq->gong_id]]);
+            }
         }
 
         Flux::toast('Stage cloned.', variant: 'success');
@@ -415,14 +460,19 @@ new #[Layout('components.layouts.app')]
 
     private function syncPrsTargetCount(int $targetSetId): void
     {
-        $count = Gong::where('target_set_id', $targetSetId)->count();
-        TargetSet::where('id', $targetSetId)->update(['total_shots' => $count]);
+        $seqCount = StageShotSequence::where('stage_id', $targetSetId)->count();
+        $gongCount = Gong::where('target_set_id', $targetSetId)->count();
+
+        if ($seqCount > 0 || $gongCount > 0) {
+            $count = $seqCount > 0 ? $seqCount : $gongCount;
+            TargetSet::where('id', $targetSetId)->update(['total_shots' => $count]);
+        }
     }
 
     public function startAddGong(int $targetSetId): void
     {
         $this->addingGongToTargetSetId = $targetSetId;
-        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier', 'gongDistance', 'gongSize');
+        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier', 'gongDistance', 'gongSize', 'gongSizeMm');
         $this->gongMultiplier = '1.00';
 
         $maxNumber = Gong::where('target_set_id', $targetSetId)->max('number') ?? 0;
@@ -454,6 +504,7 @@ new #[Layout('components.layouts.app')]
             'multiplier' => $isPrs ? 1.00 : $this->gongMultiplier,
             'distance_meters' => $isPrs && $this->gongDistance ? (int) $this->gongDistance : null,
             'target_size' => $isPrs && $this->gongSize ? $this->gongSize : null,
+            'target_size_mm' => $isPrs && $this->gongSizeMm ? (float) $this->gongSizeMm : null,
         ]);
 
         if ($isPrs) {
@@ -461,7 +512,7 @@ new #[Layout('components.layouts.app')]
         }
 
         $this->addingGongToTargetSetId = null;
-        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier', 'gongDistance', 'gongSize');
+        $this->reset('gongNumber', 'gongLabel', 'gongMultiplier', 'gongDistance', 'gongSize', 'gongSizeMm');
         Flux::toast('Target added.', variant: 'success');
     }
 
@@ -477,6 +528,8 @@ new #[Layout('components.layouts.app')]
             $gong->update(['distance_meters' => $value !== '' ? max(1, (int) $value) : null]);
         } elseif ($field === 'target_size') {
             $gong->update(['target_size' => $value ?: null]);
+        } elseif ($field === 'target_size_mm') {
+            $gong->update(['target_size_mm' => $value !== '' ? max(0.01, (float) $value) : null]);
         }
     }
 
@@ -491,6 +544,90 @@ new #[Layout('components.layouts.app')]
         }
 
         Flux::toast('Target deleted.', variant: 'success');
+    }
+
+    // ── PRS Positions & Shot Sequence ──
+
+    public function addPosition(int $stageId): void
+    {
+        $ts = TargetSet::where('id', $stageId)->where('match_id', $this->match->id)->firstOrFail();
+        $maxSort = $ts->positions()->max('sort_order') ?? 0;
+        $ts->positions()->create(['name' => 'Position ' . ($maxSort + 1), 'sort_order' => $maxSort + 1]);
+        Flux::toast('Position added.', variant: 'success');
+    }
+
+    public function updatePosition(int $positionId, string $name): void
+    {
+        StagePosition::findOrFail($positionId)->update(['name' => $name]);
+    }
+
+    public function deletePosition(int $positionId): void
+    {
+        $pos = StagePosition::findOrFail($positionId);
+        $stageId = $pos->stage_id;
+        $pos->delete();
+        $this->resequenceShotNumbers($stageId);
+        $this->syncPrsTargetCount($stageId);
+        Flux::toast('Position removed.', variant: 'success');
+    }
+
+    public function toggleShotSequence(int $stageId, int $positionId, int $gongId): void
+    {
+        $existing = StageShotSequence::where('stage_id', $stageId)->where('position_id', $positionId)->where('gong_id', $gongId)->first();
+        if ($existing) {
+            $existing->delete();
+            $this->resequenceShotNumbers($stageId);
+        } else {
+            $maxShot = StageShotSequence::where('stage_id', $stageId)->max('shot_number') ?? 0;
+            StageShotSequence::create(['stage_id' => $stageId, 'shot_number' => $maxShot + 1, 'position_id' => $positionId, 'gong_id' => $gongId]);
+        }
+        $this->syncPrsTargetCount($stageId);
+    }
+
+    public function reorderShotSequence(int $stageId, array $orderedIds): void
+    {
+        foreach ($orderedIds as $index => $id) {
+            StageShotSequence::where('id', $id)->where('stage_id', $stageId)->update(['shot_number' => $index + 1]);
+        }
+    }
+
+    public function moveShotUp(int $seqId): void
+    {
+        $seq = StageShotSequence::findOrFail($seqId);
+        $prev = StageShotSequence::where('stage_id', $seq->stage_id)->where('shot_number', '<', $seq->shot_number)->orderByDesc('shot_number')->first();
+        if ($prev) { $tmp = $seq->shot_number; $seq->update(['shot_number' => $prev->shot_number]); $prev->update(['shot_number' => $tmp]); }
+    }
+
+    public function moveShotDown(int $seqId): void
+    {
+        $seq = StageShotSequence::findOrFail($seqId);
+        $next = StageShotSequence::where('stage_id', $seq->stage_id)->where('shot_number', '>', $seq->shot_number)->orderBy('shot_number')->first();
+        if ($next) { $tmp = $seq->shot_number; $seq->update(['shot_number' => $next->shot_number]); $next->update(['shot_number' => $tmp]); }
+    }
+
+    public function autoFillSequence(int $stageId): void
+    {
+        $ts = TargetSet::where('id', $stageId)->where('match_id', $this->match->id)->firstOrFail();
+        StageShotSequence::where('stage_id', $stageId)->delete();
+        $positions = $ts->positions()->orderBy('sort_order')->get();
+        $gongs = $ts->gongs()->orderBy('number')->get();
+        $n = 1;
+        foreach ($positions as $pos) { foreach ($gongs as $gong) { StageShotSequence::create(['stage_id' => $stageId, 'shot_number' => $n++, 'position_id' => $pos->id, 'gong_id' => $gong->id]); } }
+        $this->syncPrsTargetCount($stageId);
+        Flux::toast('Shot sequence generated.', variant: 'success');
+    }
+
+    public function clearSequence(int $stageId): void
+    {
+        StageShotSequence::where('stage_id', $stageId)->delete();
+        $this->syncPrsTargetCount($stageId);
+        Flux::toast('Shot sequence cleared.', variant: 'success');
+    }
+
+    private function resequenceShotNumbers(int $stageId): void
+    {
+        $rows = StageShotSequence::where('stage_id', $stageId)->orderBy('shot_number')->get();
+        foreach ($rows->values() as $i => $row) { if ($row->shot_number !== $i + 1) { $row->update(['shot_number' => $i + 1]); } }
     }
 
     // ── ELR Stages ──
@@ -912,7 +1049,7 @@ new #[Layout('components.layouts.app')]
 
         if ($this->match) {
             $data['targetSets'] = $this->match->targetSets()
-                ->with('gongs')
+                ->with(['gongs', 'positions', 'shotSequence'])
                 ->orderBy('sort_order')
                 ->get();
 
@@ -936,7 +1073,7 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-8 max-w-4xl">
+<div class="space-y-8 max-w-4xl" x-data="{ tab: 'info' }">
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('admin.matches.index') }}" variant="ghost" size="sm">
             <svg class="mr-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -954,6 +1091,15 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    @if($match)
+    <div class="flex gap-2 border-b border-border pb-3">
+        <button type="button" @click="tab = 'info'" :class="tab === 'info' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary'" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">Match Info</button>
+        <button type="button" @click="tab = 'stages'" :class="tab === 'stages' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary'" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">Stages</button>
+        <button type="button" @click="tab = 'config'" :class="tab === 'config' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary'" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">Configuration</button>
+    </div>
+    @endif
+
+    <div x-show="tab === 'info'">
     {{-- Match form --}}
     <form wire:submit="save" class="space-y-6">
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
@@ -1067,6 +1213,30 @@ new #[Layout('components.layouts.app')]
             <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes..." rows="3" />
             <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Shown on public match pages..." rows="3" />
 
+            <div>
+                <label class="block text-sm font-medium text-primary mb-2">Cover image</label>
+                <div class="flex items-start gap-4">
+                    @if($match?->cover_image_url)
+                        <div class="flex-shrink-0">
+                            <img src="{{ $match->cover_image_url }}" alt="Cover" class="h-20 w-32 rounded-lg border border-border object-cover" />
+                        </div>
+                    @elseif($coverImage)
+                        <div class="flex-shrink-0">
+                            <img src="{{ $coverImage->temporaryUrl() }}" alt="Preview" class="h-20 w-32 rounded-lg border border-border object-cover" />
+                        </div>
+                    @endif
+                    <div class="flex-1 space-y-2">
+                        <input type="file" wire:model="coverImage" accept="image/*"
+                               class="block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-surface-2 file:px-4 file:py-2 file:text-sm file:font-medium file:text-secondary hover:file:bg-surface-2/80" />
+                        @error('coverImage') <p class="text-xs text-red-400">{{ $message }}</p> @enderror
+                        @if($match?->image_url)
+                            <button type="button" wire:click="removeCoverImage" wire:confirm="Remove the cover image?" class="text-xs text-red-400 hover:underline">Remove image</button>
+                        @endif
+                        <p class="text-xs text-muted">Max 4 MB. Displayed on event cards and listings. Falls back to organization logo if not set.</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex justify-end pt-2">
                 <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                     {{ $match ? 'Save Changes' : 'Create Match' }}
@@ -1074,8 +1244,10 @@ new #[Layout('components.layouts.app')]
             </div>
         </div>
     </form>
+    </div>{{-- /tab:info --}}
 
     @if($match)
+        <div x-show="tab === 'config'" x-cloak class="space-y-6">
         {{-- Status stepper --}}
         <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
             <h2 class="text-lg font-semibold text-primary">Match Lifecycle</h2>
@@ -1241,7 +1413,9 @@ new #[Layout('components.layouts.app')]
         </div>
         @endif
 
-        <flux:separator />
+        </div>{{-- /tab:config group 1 --}}
+
+        <div x-show="tab === 'stages'" x-cloak class="space-y-6">
 
         {{-- Target Sets — Standard scoring --}}
         @if($scoring_type === 'standard')
@@ -1359,7 +1533,7 @@ new #[Layout('components.layouts.app')]
         @if($scoring_type === 'prs' && $match)
         <div class="space-y-4">
             <h2 class="text-lg font-semibold text-primary">PRS Stages</h2>
-            <p class="text-xs text-muted">Each stage has its own targets. 1 impact = 1 point. Targets can be at different distances.</p>
+            <p class="text-xs text-muted">Set shots and par time per stage. Expand "Detailed Setup" to define individual targets, positions and shot sequences.</p>
 
             @foreach($targetSets as $ts)
                 <div class="rounded-xl border {{ $ts->is_tiebreaker ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-border' }} bg-surface overflow-hidden" wire:key="ts-{{ $ts->id }}">
@@ -1369,7 +1543,11 @@ new #[Layout('components.layouts.app')]
                             <input type="text" value="{{ $ts->label }}" placeholder="Stage name"
                                    class="w-64 rounded-md border border-slate-600 bg-surface-2 px-3 py-1 text-sm font-semibold text-primary focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                                    wire:change="updateTargetSet({{ $ts->id }}, 'label', $event.target.value)" />
-                            <span class="text-xs text-muted">({{ $ts->gongs->count() }} targets)</span>
+                            <span class="text-xs text-muted">
+                                {{ $ts->total_shots ?? 0 }} shots
+                                @if($ts->par_time_seconds) / {{ rtrim(rtrim(number_format($ts->par_time_seconds, 2), '0'), '.') }}s @endif
+                                @if($ts->gongs->isNotEmpty()) &middot; {{ $ts->gongs->count() }} targets @endif
+                            </span>
                             @if($ts->is_tiebreaker)
                                 <span class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">Tiebreaker</span>
                                 <span class="text-[10px] text-amber-400/80">Timed &mdash; most impacts wins, time separates equal scores</span>
@@ -1386,8 +1564,20 @@ new #[Layout('components.layouts.app')]
                         </div>
                     </div>
 
-                    {{-- Par time & timed toggle --}}
-                    <div class="flex items-center gap-4 border-b border-border/50 bg-surface/50 px-6 py-2">
+                    {{-- Quick setup bar: shots, par time, timed --}}
+                    <div class="flex flex-wrap items-center gap-4 border-b border-border/50 bg-surface/50 px-6 py-2">
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-medium text-muted whitespace-nowrap">Shots:</label>
+                            <input type="number" value="{{ $ts->total_shots }}" min="0" placeholder="e.g. 8"
+                                   class="w-20 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                   wire:change="updateTargetSet({{ $ts->id }}, 'total_shots', $event.target.value)" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-medium text-muted whitespace-nowrap">Par Time (s):</label>
+                            <input type="number" value="{{ $ts->par_time_seconds }}" step="0.01" min="0" placeholder="e.g. 105"
+                                   class="w-24 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                   wire:change="updateParTime({{ $ts->id }}, $event.target.value)" />
+                        </div>
                         <label class="flex items-center gap-2 text-xs">
                             <input type="checkbox" {{ $ts->is_timed_stage ? 'checked' : '' }}
                                    @if($this->match->scoring_type === 'prs') disabled title="PRS: timed is set automatically on the tiebreaker stage" @endif
@@ -1398,16 +1588,23 @@ new #[Layout('components.layouts.app')]
                                 <span class="text-[10px] text-slate-500">(auto: tiebreaker only)</span>
                             @endif
                         </label>
-                        <div class="flex items-center gap-2">
-                            <label class="text-xs font-medium text-muted whitespace-nowrap">Par Time (s):</label>
-                            <input type="number" value="{{ $ts->par_time_seconds }}" step="0.01" min="0" placeholder="Optional"
-                                   class="w-28 rounded-md border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-                                   wire:change="updateParTime({{ $ts->id }}, $event.target.value)" />
-                        </div>
                     </div>
 
-                    {{-- PRS target table --}}
+                    {{-- Collapsible detailed stage setup --}}
+                    <div x-data="{ detailOpen: {{ ($ts->gongs->isNotEmpty() || $ts->positions->isNotEmpty()) ? 'true' : 'false' }} }">
+                    <button type="button" @click="detailOpen = !detailOpen"
+                            class="flex w-full items-center gap-2 px-6 py-2 text-xs font-medium text-secondary hover:text-primary transition-colors border-b border-border/50">
+                        <svg :class="detailOpen && 'rotate-90'" class="h-3 w-3 text-muted transition-transform" fill="currentColor" viewBox="0 0 20 20"><path d="M6.293 4.293a1 1 0 011.414 0L13 9.586a1 1 0 010 1.414l-5.293 5.293a1 1 0 01-1.414-1.414L10.586 10 6.293 5.707a1 1 0 010-1.414z"/></svg>
+                        Detailed Setup (Targets, Positions &amp; Shot Sequence)
+                        @if($ts->gongs->isNotEmpty())
+                            <span class="text-[10px] text-muted ml-1">{{ $ts->gongs->count() }} targets{{ $ts->positions->isNotEmpty() ? ', '.$ts->positions->count().' positions' : '' }}{{ $ts->shotSequence->isNotEmpty() ? ', '.$ts->shotSequence->count().' shots defined' : '' }}</span>
+                        @endif
+                    </button>
+
+                    <div x-show="detailOpen" x-collapse>
+                    {{-- Section A: Targets --}}
                     <div class="p-4 space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-muted">Targets</h4>
                         @if($ts->gongs->isNotEmpty())
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm">
@@ -1416,7 +1613,9 @@ new #[Layout('components.layouts.app')]
                                             <th class="px-3 py-2 font-medium w-12">#</th>
                                             <th class="px-3 py-2 font-medium">Name</th>
                                             <th class="px-3 py-2 font-medium w-28">Distance (m)</th>
-                                            <th class="px-3 py-2 font-medium w-28">Size</th>
+                                            <th class="px-3 py-2 font-medium w-28">Size (mm)</th>
+                                            <th class="px-3 py-2 font-medium w-24">Size (mrad)</th>
+                                            <th class="px-3 py-2 font-medium w-28">Size (text)</th>
                                             <th class="px-3 py-2 font-medium w-10"></th>
                                         </tr>
                                     </thead>
@@ -1433,6 +1632,18 @@ new #[Layout('components.layouts.app')]
                                                     <input type="number" value="{{ $gong->distance_meters }}" min="1" placeholder="m"
                                                            class="w-24 rounded border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                                                            wire:change="updateGong({{ $gong->id }}, 'distance_meters', $event.target.value)" />
+                                                </td>
+                                                <td class="px-3 py-1.5">
+                                                    <input type="number" value="{{ $gong->target_size_mm }}" step="0.01" min="0.01" placeholder="mm"
+                                                           class="w-24 rounded border border-slate-600 bg-surface-2 px-2 py-1 text-sm text-primary text-center focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                                           wire:change="updateGong({{ $gong->id }}, 'target_size_mm', $event.target.value)" />
+                                                </td>
+                                                <td class="px-3 py-1.5 text-center">
+                                                    @if($gong->target_size_mm && $gong->distance_meters)
+                                                        <span class="text-sm font-mono text-amber-400">{{ number_format($gong->target_size_mm / $gong->distance_meters, 2) }}</span>
+                                                    @else
+                                                        <span class="text-xs text-muted">—</span>
+                                                    @endif
                                                 </td>
                                                 <td class="px-3 py-1.5">
                                                     <input type="text" value="{{ $gong->target_size }}" placeholder="e.g. 2 MOA"
@@ -1454,11 +1665,12 @@ new #[Layout('components.layouts.app')]
 
                         @if($addingGongToTargetSetId === $ts->id)
                             <div class="rounded-lg border border-slate-600 bg-surface-2/50 p-4 space-y-3">
-                                <div class="grid grid-cols-4 gap-3">
+                                <div class="grid grid-cols-5 gap-3">
                                     <flux:input wire:model="gongNumber" label="#" type="number" min="1" required />
                                     <flux:input wire:model="gongLabel" label="Name" placeholder="e.g. T1" />
                                     <flux:input wire:model="gongDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 400" />
-                                    <flux:input wire:model="gongSize" label="Size" placeholder="e.g. 2 MOA" />
+                                    <flux:input wire:model="gongSize" label="Size (text)" placeholder="e.g. 2 MOA" />
+                                    <flux:input wire:model="gongSizeMm" label="Size (mm)" type="number" step="0.01" min="0.01" placeholder="e.g. 200" />
                                 </div>
                                 <div class="flex gap-2">
                                     <flux:button wire:click="addGong" size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700">Add Target</flux:button>
@@ -1476,6 +1688,98 @@ new #[Layout('components.layouts.app')]
                             </div>
                         @endif
                     </div>
+
+                    {{-- Section B: Positions --}}
+                    <div class="border-t border-border p-4 space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-muted">Positions</h4>
+                        @if($ts->positions->isNotEmpty())
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($ts->positions as $pos)
+                                    <div class="flex items-center gap-1 rounded-lg border border-border bg-surface-2/40 px-3 py-1.5" wire:key="pos-{{ $pos->id }}">
+                                        <input type="text" value="{{ $pos->name }}" placeholder="Position name"
+                                               class="w-32 bg-transparent border-0 px-0 py-0 text-sm text-primary placeholder-muted focus:ring-0"
+                                               wire:change="updatePosition({{ $pos->id }}, $event.target.value)" />
+                                        <button class="text-accent/60 hover:text-accent text-lg leading-none ml-1"
+                                                wire:click="deletePosition({{ $pos->id }})"
+                                                wire:confirm="Remove this position and its sequence entries?">&times;</button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-muted">No positions defined yet.</p>
+                        @endif
+                        <flux:button size="sm" variant="ghost" wire:click="addPosition({{ $ts->id }})">+ Add Position</flux:button>
+                    </div>
+
+                    {{-- Section C: Shot Sequence --}}
+                    @if($ts->positions->isNotEmpty() && $ts->gongs->isNotEmpty())
+                    <div class="border-t border-border p-4 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-muted">
+                                Shot Sequence <span class="ml-2 text-amber-400 font-mono normal-case">({{ $ts->shotSequence->count() }} shots)</span>
+                            </h4>
+                            <div class="flex gap-2">
+                                <flux:button size="xs" variant="ghost" wire:click="autoFillSequence({{ $ts->id }})" wire:confirm="Generate all position × target combos? This replaces the current sequence.">Auto-fill</flux:button>
+                                @if($ts->shotSequence->isNotEmpty())
+                                    <flux:button size="xs" variant="ghost" class="!text-accent" wire:click="clearSequence({{ $ts->id }})" wire:confirm="Clear the entire shot sequence?">Clear</flux:button>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="text-sm">
+                                <thead>
+                                    <tr class="text-left text-muted">
+                                        <th class="px-3 py-2 font-medium text-xs"></th>
+                                        @foreach($ts->gongs->sortBy('number') as $gong)
+                                            <th class="px-3 py-2 font-medium text-xs text-center">{{ $gong->label ?: 'T'.$gong->number }}</th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($ts->positions as $pos)
+                                        <tr wire:key="matrix-{{ $pos->id }}">
+                                            <td class="px-3 py-1.5 text-xs font-medium text-secondary whitespace-nowrap">{{ $pos->name }}</td>
+                                            @foreach($ts->gongs->sortBy('number') as $gong)
+                                                @php $isChecked = $ts->shotSequence->contains(fn ($s) => $s->position_id === $pos->id && $s->gong_id === $gong->id); @endphp
+                                                <td class="px-3 py-1.5 text-center">
+                                                    <input type="checkbox" {{ $isChecked ? 'checked' : '' }}
+                                                           wire:click="toggleShotSequence({{ $ts->id }}, {{ $pos->id }}, {{ $gong->id }})"
+                                                           class="rounded border-border bg-surface-2 text-amber-500 focus:ring-amber-500 h-4 w-4 cursor-pointer" />
+                                                </td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @if($ts->shotSequence->isNotEmpty())
+                            <div class="rounded-lg border border-border bg-surface-2/20 p-3 space-y-1">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-muted mb-2">Firing Order</p>
+                                @foreach($ts->shotSequence->sortBy('shot_number') as $seq)
+                                    <div class="flex items-center gap-3 rounded px-2 py-1 text-sm {{ $loop->even ? 'bg-surface-2/30' : '' }}" wire:key="seq-{{ $seq->id }}">
+                                        <span class="w-6 text-right font-mono text-muted text-xs">{{ $seq->shot_number }}</span>
+                                        <span class="font-medium text-primary">{{ $seq->position?->name ?? '?' }}</span>
+                                        <span class="text-muted">&rarr;</span>
+                                        <span class="text-secondary">{{ $seq->gong?->label ?? 'T'.$seq->gong?->number }}</span>
+                                        @if($seq->gong?->distance_meters)
+                                            <span class="text-xs text-muted">({{ $seq->gong->distance_meters }}m)</span>
+                                        @endif
+                                        <div class="ml-auto flex gap-1">
+                                            @if(!$loop->first)
+                                                <button wire:click="moveShotUp({{ $seq->id }})" class="text-muted hover:text-primary text-xs" title="Move up">&uarr;</button>
+                                            @endif
+                                            @if(!$loop->last)
+                                                <button wire:click="moveShotDown({{ $seq->id }})" class="text-muted hover:text-primary text-xs" title="Move down">&darr;</button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    @endif
+                    </div>{{-- /x-show detailOpen --}}
+                    </div>{{-- /x-data detailOpen --}}
                 </div>
             @endforeach
 
@@ -1620,7 +1924,9 @@ new #[Layout('components.layouts.app')]
         </div>
         @endif
 
-        <flux:separator />
+        </div>{{-- /tab:stages --}}
+
+        <div x-show="tab === 'config'" x-cloak class="space-y-6">
 
         {{-- Squads summary --}}
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
@@ -1839,5 +2145,6 @@ new #[Layout('components.layouts.app')]
                 @endif
             </div>
         @endif
+        </div>{{-- /tab:config group 2 --}}
     @endif
 </div>

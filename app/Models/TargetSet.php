@@ -68,6 +68,16 @@ class TargetSet extends Model
         return $this->hasMany(StageTarget::class, 'stage_id');
     }
 
+    public function positions(): HasMany
+    {
+        return $this->hasMany(StagePosition::class, 'stage_id')->orderBy('sort_order');
+    }
+
+    public function shotSequence(): HasMany
+    {
+        return $this->hasMany(StageShotSequence::class, 'stage_id')->orderBy('shot_number');
+    }
+
     public function getDisplayNameAttribute(): string
     {
         return $this->label ?: "Stage {$this->stage_number}";

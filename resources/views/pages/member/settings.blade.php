@@ -81,16 +81,18 @@ new #[Layout('components.layouts.app')]
                     <div class="mt-2 flex flex-wrap gap-2">
                         @foreach(auth()->user()->organizations as $org)
                             @php
-                                $badgeColor = match($org->pivot->role) {
-                                    'owner' => 'text-amber-300 bg-amber-400/15',
-                                    'match_director' => 'text-blue-300 bg-blue-400/15',
-                                    'range_officer' => 'text-green-300 bg-green-400/15',
-                                    default => 'text-zinc-300 bg-zinc-400/15',
-                                };
+                                $orgRoleLabels = collect([
+                                    'is_owner' => ['label' => 'Owner', 'color' => 'text-amber-300 bg-amber-400/15'],
+                                    'is_match_director' => ['label' => 'Match Director', 'color' => 'text-blue-300 bg-blue-400/15'],
+                                    'is_range_officer' => ['label' => 'Range Officer', 'color' => 'text-green-300 bg-green-400/15'],
+                                    'is_shooter' => ['label' => 'Shooter', 'color' => 'text-zinc-300 bg-zinc-400/15'],
+                                ])->filter(fn ($v, $k) => $org->pivot->{$k});
                             @endphp
-                            <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium {{ $badgeColor }}">
-                                {{ $org->name }}: {{ ucfirst(str_replace('_', ' ', $org->pivot->role)) }}
-                            </span>
+                            @foreach($orgRoleLabels as $roleInfo)
+                                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium {{ $roleInfo['color'] }}">
+                                    {{ $org->name }}: {{ $roleInfo['label'] }}
+                                </span>
+                            @endforeach
                         @endforeach
                     </div>
                 @endif

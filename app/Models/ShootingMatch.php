@@ -9,6 +9,7 @@ use App\Enums\PlacementKey;
 use App\Enums\Province;
 use App\Enums\SponsorScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -233,6 +234,39 @@ class ShootingMatch extends Model
     public function getIsCompletedAttribute(): bool
     {
         return $this->status === MatchStatus::Completed;
+    }
+
+    /**
+     * Resolve the match cover image to a full URL.
+     * Handles both legacy full URLs and storage paths.
+     */
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        if (empty($this->image_url)) {
+            return null;
+        }
+
+        if (str_starts_with($this->image_url, 'http')) {
+            return $this->image_url;
+        }
+
+        return Storage::disk('public')->url($this->image_url);
+    }
+
+    /**
+     * Card-level image: match cover → org logo → null (gradient fallback).
+     */
+    public function getCardImageUrlAttribute(): ?string
+    {
+        if ($this->cover_image_url) {
+            return $this->cover_image_url;
+        }
+
+        if ($this->organization?->logo_path) {
+            return Storage::disk('public')->url($this->organization->logo_path);
+        }
+
+        return null;
     }
 
     public function isPreRegistration(): bool

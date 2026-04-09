@@ -116,8 +116,36 @@
         ],
     ];
 
+    $medalStyles = [
+        'medal-1' => [
+            'outer'   => 'border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.18)]',
+            'ring'    => 'ring-1 ring-amber-300/25',
+            'inner'   => 'bg-gradient-to-b from-amber-400/22 to-yellow-600/10 border-amber-400/30',
+            'core'    => 'bg-gradient-to-b from-white/12 to-white/4',
+            'icon'    => 'text-amber-300',
+            'glow'    => 'bg-amber-400/15',
+        ],
+        'medal-2' => [
+            'outer'   => 'border-slate-300/35 shadow-[0_0_25px_rgba(203,213,225,0.12)]',
+            'ring'    => 'ring-1 ring-slate-300/20',
+            'inner'   => 'bg-gradient-to-b from-slate-300/20 to-slate-400/8 border-slate-300/25',
+            'core'    => 'bg-gradient-to-b from-white/10 to-white/4',
+            'icon'    => 'text-slate-300',
+            'glow'    => 'bg-slate-300/10',
+        ],
+        'medal-3' => [
+            'outer'   => 'border-orange-400/35 shadow-[0_0_25px_rgba(251,146,60,0.14)]',
+            'ring'    => 'ring-1 ring-orange-300/20',
+            'inner'   => 'bg-gradient-to-b from-orange-400/20 to-amber-700/10 border-orange-400/28',
+            'core'    => 'bg-gradient-to-b from-white/10 to-white/4',
+            'icon'    => 'text-orange-300',
+            'glow'    => 'bg-orange-400/12',
+        ],
+    ];
+
     $styles = $isPrs ? $prsStyles : $rfStyles;
-    $s = ($isDist && isset($distanceStyles[$icon])) ? $distanceStyles[$icon] : ($styles[$tier] ?? $styles['earned']);
+    $isMedal = isset($medalStyles[$icon]);
+    $s = $isMedal ? $medalStyles[$icon] : (($isDist && isset($distanceStyles[$icon])) ? $distanceStyles[$icon] : ($styles[$tier] ?? $styles['earned']));
     $sz = $sizes[$tier] ?? $sizes['earned'];
     $isFeatured = $tier === 'featured';
     $isElite = $tier === 'elite';

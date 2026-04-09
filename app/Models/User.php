@@ -55,7 +55,7 @@ class User extends Authenticatable
     public function organizations(): BelongsToMany
     {
         return $this->belongsToMany(Organization::class, 'organization_admins')
-            ->withPivot('role')
+            ->withPivot(['is_owner', 'is_match_director', 'is_range_officer', 'is_shooter'])
             ->withTimestamps();
     }
 
@@ -76,7 +76,7 @@ class User extends Authenticatable
 
     public function ownedOrganizations(): BelongsToMany
     {
-        return $this->organizations()->wherePivot('role', 'owner');
+        return $this->organizations()->wherePivot('is_owner', true);
     }
 
     public function pushSubscriptions(): HasMany
@@ -111,28 +111,70 @@ class User extends Authenticatable
         return $this->onboarded_at !== null;
     }
 
-    public function orgRole(Organization $organization): ?string
+    /**
+     * All active role keys for this user in the given organization.
+     */
+    public function orgRoles(Organization $organization): array
     {
+        $pivot = $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->first()?->pivot;
+
+        if (! $pivot) {
+            return [];
+        }
+
+        $roles = [];
+        if ($pivot->is_owner) {
+            $roles[] = 'owner';
+        }
+        if ($pivot->is_match_director) {
+            $roles[] = 'match_director';
+        }
+        if ($pivot->is_range_officer) {
+            $roles[] = 'range_officer';
+        }
+        if ($pivot->is_shooter) {
+            $roles[] = 'shooter';
+        }
+
+        return $roles;
+    }
+
+    public function hasOrgRole(Organization $organization, string $role): bool
+    {
+        $key = "is_{$role}";
+
         return $this->organizations()
             ->where('organization_id', $organization->id)
-            ->first()?->pivot->role;
+            ->wherePivot($key, true)
+            ->exists();
     }
 
     public function isOrgOwner(Organization $organization): bool
     {
-        return $this->isOwner() || $this->orgRole($organization) === 'owner';
+        return $this->isOwner() || $this->hasOrgRole($organization, 'owner');
     }
 
     public function isOrgMatchDirector(Organization $organization): bool
     {
         return $this->isOwner() || $this->isMatchDirector()
-            || in_array($this->orgRole($organization), ['owner', 'match_director']);
+            || $this->organizations()
+                ->where('organization_id', $organization->id)
+                ->where(fn ($q) => $q->wherePivot('is_owner', true)->orWherePivot('is_match_director', true))
+                ->exists();
     }
 
     public function isOrgRangeOfficer(Organization $organization): bool
     {
         return $this->isOwner() || $this->isMatchDirector()
-            || in_array($this->orgRole($organization), ['owner', 'match_director', 'range_officer']);
+            || $this->organizations()
+                ->where('organization_id', $organization->id)
+                ->where(fn ($q) => $q
+                    ->wherePivot('is_owner', true)
+                    ->orWherePivot('is_match_director', true)
+                    ->orWherePivot('is_range_officer', true))
+                ->exists();
     }
 
     public function isOrgAdmin(Organization $organization): bool
@@ -142,7 +184,13 @@ class User extends Authenticatable
 
     public function canScore(): bool
     {
-        return $this->isOwner() || $this->isMatchDirector() || $this->organizations()->exists();
+        return $this->isOwner() || $this->isMatchDirector()
+            || $this->organizations()
+                ->where(fn ($q) => $q
+                    ->wherePivot('is_owner', true)
+                    ->orWherePivot('is_match_director', true)
+                    ->orWherePivot('is_range_officer', true))
+                ->exists();
     }
 
     public function wantsNotification(string $type): bool

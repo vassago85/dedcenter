@@ -49,6 +49,8 @@ class MatchController extends Controller
             $eagerLoads['targetSets.gongs'] = fn ($q) => $q->orderBy('number');
             if ($match->isPrs()) {
                 $eagerLoads['targetSets.stageTargets'] = fn ($q) => $q->orderBy('sequence_number');
+                $eagerLoads['targetSets.positions'] = fn ($q) => $q->orderBy('sort_order');
+                $eagerLoads['targetSets.shotSequence'] = fn ($q) => $q->with(['position', 'gong'])->orderBy('shot_number');
             }
         }
 
