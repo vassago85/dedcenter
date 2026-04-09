@@ -75,7 +75,7 @@ new #[Layout('components.layouts.app')]
             ->take(4)
             ->get();
 
-        $myOrgs = $user->organizations()->withPivot('role')->get();
+        $myOrgs = $user->organizations()->withPivot('is_owner', 'is_match_director', 'is_range_officer', 'is_shooter')->get();
         $primaryOrg = $myOrgs->first();
 
         return compact(
