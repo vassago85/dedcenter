@@ -85,6 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/matches', 'member.matches')->name('matches');
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
     Volt::route('/matches/{match}/squadding', 'member.match-squadding')->name('matches.squadding');
+    Volt::route('/browse-events', 'member.browse-events')->name('browse-events');
     Volt::route('/equipment', 'member.equipment')->name('equipment');
     Volt::route('/organizations', 'member.organizations')->name('organizations');
     Volt::route('/organizations/create', 'member.organization-create')->name('organizations.create');

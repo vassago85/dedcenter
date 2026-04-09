@@ -237,7 +237,7 @@ new #[Layout('components.layouts.app')]
             </div>
         @endif
         <div class="px-6 pb-4 text-center">
-            <a href="{{ route('events') }}" class="text-xs font-medium text-accent hover:underline">Browse All Events &rarr;</a>
+            <a href="{{ route('browse-events') }}" class="text-xs font-medium text-accent hover:underline">Browse All Events &rarr;</a>
         </div>
     </div>
 
@@ -256,7 +256,7 @@ new #[Layout('components.layouts.app')]
                 <svg class="mx-auto h-10 w-10 text-muted/50" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.996.178-1.768.65-2.08 1.293" /></svg>
                 <p class="mt-3 text-sm font-medium text-muted">No results yet</p>
                 <p class="mt-1 text-xs text-muted">Your completed match results will appear here.</p>
-                <p class="mt-2 text-xs text-secondary">Looking for all past results? Go to <a href="{{ route('events') }}" class="font-semibold text-accent hover:underline">Find a Match</a> and select the <span class="font-semibold">Past Results</span> tab.</p>
+                <p class="mt-2 text-xs text-secondary">Looking for all past results? Go to <a href="{{ route('browse-events') }}" class="font-semibold text-accent hover:underline">Find a Match</a> and select the <span class="font-semibold">Past Results</span> tab.</p>
             </div>
         @else
             <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
@@ -281,7 +281,7 @@ new #[Layout('components.layouts.app')]
                 @endforeach
             </div>
             <div class="px-6 pb-4 text-center">
-                <p class="text-xs text-secondary">Browse all completed events and scoreboards on the <a href="{{ route('events') }}" class="font-semibold text-accent hover:underline">Find a Match</a> page under <span class="font-semibold">Past Results</span>.</p>
+                <p class="text-xs text-secondary">Browse all completed events and scoreboards on the <a href="{{ route('browse-events') }}" class="font-semibold text-accent hover:underline">Find a Match</a> page under <span class="font-semibold">Past Results</span>.</p>
             </div>
         @endif
     </div>
