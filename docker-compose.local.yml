@@ -1,0 +1,179 @@
+# DeadCenter — local stack for Docker Desktop (Windows / macOS / Linux)
+#
+# Usage:
+#   cp .env.docker.example .env
+#   # set APP_KEY, DB_PASSWORD in .env (see DOCKER_DESKTOP.md)
+#   docker compose -f docker-compose.local.yml up --build -d
+#   open http://localhost:8091
+#
+# Code on your machine is bind-mounted; vendor/ and node_modules/ use named volumes
+# so the container stays fast and Composer/NPM run inside Linux (no Windows path issues).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: deadcenter-app:dev
+    container_name: deadcenter-app-local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: ${APP_URL:-http://localhost:8091}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-deadcenter}
+      DB_USERNAME: ${DB_USERNAME:-deadcenter}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-localhost,localhost:8091,127.0.0.1,127.0.0.1:8091}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+    volumes:
+      - .:/var/www/html
+      - deadcenter-local-vendor:/var/www/html/vendor
+      - deadcenter-local-node:/var/www/html/node_modules
+    ports:
+      - "${APP_PORT:-8091}:80"
+    networks:
+      - deadcenter-local
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 80 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 25
+      start_period: 360s
+
+  db:
+    image: mysql:8.0
+    container_name: deadcenter-db-local
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD}}
+      MYSQL_DATABASE: ${DB_DATABASE:-deadcenter}
+      MYSQL_USER: ${DB_USERNAME:-deadcenter}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - deadcenter-local-db:/var/lib/mysql
+    ports:
+      - "${DB_HOST_PORT:-3307}:3306"
+    networks:
+      - deadcenter-local
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-${DB_PASSWORD}}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: deadcenter-redis-local
+    restart: unless-stopped
+    volumes:
+      - deadcenter-local-redis:/data
+    networks:
+      - deadcenter-local
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: deadcenter-app:dev
+    container_name: deadcenter-scheduler-local
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/var/www/html/docker/entrypoint-scheduler-local.sh"]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-deadcenter}
+      DB_USERNAME: ${DB_USERNAME:-deadcenter}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      QUEUE_CONNECTION: redis
+    volumes:
+      - .:/var/www/html
+      - deadcenter-local-vendor:/var/www/html/vendor
+      - deadcenter-local-node:/var/www/html/node_modules
+    networks:
+      - deadcenter-local
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: deadcenter-app:dev
+    container_name: deadcenter-queue-local
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/var/www/html/docker/entrypoint-queue-local.sh"]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-deadcenter}
+      DB_USERNAME: ${DB_USERNAME:-deadcenter}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      QUEUE_CONNECTION: redis
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+    volumes:
+      - .:/var/www/html
+      - deadcenter-local-vendor:/var/www/html/vendor
+      - deadcenter-local-node:/var/www/html/node_modules
+    networks:
+      - deadcenter-local
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+networks:
+  deadcenter-local:
+    driver: bridge
+
+volumes:
+  deadcenter-local-vendor:
+  deadcenter-local-node:
+  deadcenter-local-db:
+  deadcenter-local-redis:

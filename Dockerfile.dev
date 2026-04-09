@@ -1,0 +1,70 @@
+# Local development image (Docker Desktop) — includes dev Composer deps, same runtime as production.
+FROM php:8.3-fpm-alpine
+
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    git \
+    curl \
+    netcat-openbsd \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    oniguruma-dev \
+    icu-dev \
+    nodejs \
+    npm \
+    ca-certificates \
+    tzdata
+
+ENV TZ=Africa/Johannesburg
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    pdo_mysql \
+    mbstring \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    intl \
+    opcache
+
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+COPY . .
+
+# Dev: keep require-dev (Pest, Pint, etc.); do not mutate composer.lock
+RUN composer install --optimize-autoloader --no-interaction
+
+RUN php generate-icons.php 2>/dev/null || true
+
+RUN npm install --legacy-peer-deps && npm run build && rm -rf node_modules
+
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/supervisord.conf /etc/supervisord.conf
+COPY docker/php.ini /usr/local/etc/php/conf.d/custom.ini
+
+RUN mkdir -p /var/log/supervisor /run/nginx /var/log/php
+
+COPY docker/entrypoint.local.sh /entrypoint.local.sh
+RUN chmod +x /entrypoint.local.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/entrypoint.local.sh"]

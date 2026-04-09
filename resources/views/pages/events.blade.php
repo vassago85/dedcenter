@@ -280,16 +280,6 @@ new #[Layout('components.layouts.marketing')]
                             <div class="absolute inset-0 bg-gradient-to-br {{ $fallbackGradient }}"></div>
                         @endif
 
-                        @if($org && $org->logo_path)
-                            <div class="absolute top-3 left-3">
-                                <img src="{{ Storage::disk('public')->url($org->logo_path) }}" alt="{{ $org->name }}" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
-                            </div>
-                        @elseif($org)
-                            <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-surface/80 text-[10px] font-bold text-muted shadow-lg">
-                                {{ strtoupper(substr($org->name, 0, 2)) }}
-                            </div>
-                        @endif
-
                         <div class="absolute top-3 right-3 flex items-center gap-1.5">
                             @if($match->isFeatured())
                                 <span class="rounded-full bg-amber-500/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">Featured</span>

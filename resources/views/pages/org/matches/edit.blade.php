@@ -1475,7 +1475,7 @@ new #[Layout('components.layouts.app')]
                         @elseif($scoring_type === 'elr')
                             ELR: Extreme Long Range — shot-by-shot scoring with distance-based point values and optional ladder progression.
                         @else
-                            Standard: Gong multipliers, relay-style scoring.
+                            Relay: Gong multipliers, relay-style scoring.
                         @endif
                     </p>
                 </div>
@@ -1919,7 +1919,7 @@ new #[Layout('components.layouts.app')]
 
         <div x-show="tab === 'stages'" x-cloak class="space-y-6">
 
-        {{-- Target Sets — Standard scoring --}}
+        {{-- Target Sets — Relay scoring --}}
         @if($scoring_type === 'standard')
         <div class="space-y-4">
             <h2 class="text-lg font-semibold text-primary">Target Sets</h2>
