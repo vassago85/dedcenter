@@ -738,33 +738,10 @@ new #[Layout('components.layouts.app')]
         }
     }
 
-    public function moveShotUp(int $seqId): void
+    public function reorderShots(array $orderedIds): void
     {
-        $seq = StageShotSequence::findOrFail($seqId);
-        $prev = StageShotSequence::where('stage_id', $seq->stage_id)
-            ->where('shot_number', '<', $seq->shot_number)
-            ->orderByDesc('shot_number')
-            ->first();
-
-        if ($prev) {
-            $tmpNum = $seq->shot_number;
-            $seq->update(['shot_number' => $prev->shot_number]);
-            $prev->update(['shot_number' => $tmpNum]);
-        }
-    }
-
-    public function moveShotDown(int $seqId): void
-    {
-        $seq = StageShotSequence::findOrFail($seqId);
-        $next = StageShotSequence::where('stage_id', $seq->stage_id)
-            ->where('shot_number', '>', $seq->shot_number)
-            ->orderBy('shot_number')
-            ->first();
-
-        if ($next) {
-            $tmpNum = $seq->shot_number;
-            $seq->update(['shot_number' => $next->shot_number]);
-            $next->update(['shot_number' => $tmpNum]);
+        foreach ($orderedIds as $index => $id) {
+            StageShotSequence::where('id', (int) $id)->update(['shot_number' => $index + 1]);
         }
     }
 
@@ -2133,7 +2110,7 @@ new #[Layout('components.layouts.app')]
                                             <th class="px-3 py-2 font-medium w-28">Distance (m)</th>
                                             <th class="px-3 py-2 font-medium w-28">Size (mm)</th>
                                             <th class="px-3 py-2 font-medium w-24">Size (mrad)</th>
-                                            <th class="px-3 py-2 font-medium w-28">Size (text)</th>
+                                            <th class="px-3 py-2 font-medium w-28">Target Ref</th>
                                             <th class="px-3 py-2 font-medium w-10"></th>
                                         </tr>
                                     </thead>
@@ -2187,7 +2164,7 @@ new #[Layout('components.layouts.app')]
                                     <flux:input wire:model="gongNumber" label="#" type="number" min="1" required />
                                     <flux:input wire:model="gongLabel" label="Name" placeholder="e.g. T1" />
                                     <flux:input wire:model="gongDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 400" />
-                                    <flux:input wire:model="gongSize" label="Size (text)" placeholder="e.g. 2 MOA" />
+                                    <flux:input wire:model="gongSize" label="Target Ref" placeholder="e.g. 2 MOA" />
                                     <flux:input wire:model="gongSizeMm" label="Size (mm)" type="number" step="0.01" min="0.01" placeholder="e.g. 200" />
                                 </div>
                                 <div class="flex gap-2">
@@ -2276,29 +2253,42 @@ new #[Layout('components.layouts.app')]
                             </table>
                         </div>
 
-                        {{-- Ordered shot list --}}
+                        {{-- Ordered shot list (drag-and-drop) --}}
                         @if($ts->shotSequence->isNotEmpty())
-                            <div class="rounded-lg border border-border bg-surface-2/20 p-3 space-y-1">
+                            <div class="rounded-lg border border-border bg-surface-2/20 p-3"
+                                 x-data="{
+                                     initSortable() {
+                                         if (typeof Sortable === 'undefined') return;
+                                         Sortable.create(this.$refs.list, {
+                                             animation: 150,
+                                             handle: '.drag-handle',
+                                             ghostClass: 'opacity-30',
+                                             onEnd: (evt) => {
+                                                 const ids = [...this.$refs.list.children].map(el => el.dataset.id);
+                                                 $wire.reorderShots(ids);
+                                             }
+                                         });
+                                     }
+                                 }"
+                                 x-init="$nextTick(() => initSortable())"
+                                 wire:ignore.self>
                                 <p class="text-[10px] font-bold uppercase tracking-wider text-muted mb-2">Firing Order</p>
-                                @foreach($ts->shotSequence->sortBy('shot_number') as $seq)
-                                    <div class="flex items-center gap-3 rounded px-2 py-1 text-sm {{ $loop->even ? 'bg-surface-2/30' : '' }}" wire:key="seq-{{ $seq->id }}">
-                                        <span class="w-6 text-right font-mono text-muted text-xs">{{ $seq->shot_number }}</span>
-                                        <span class="font-medium text-primary">{{ $seq->position?->name ?? '?' }}</span>
-                                        <span class="text-muted">&rarr;</span>
-                                        <span class="text-secondary">{{ $seq->gong?->label ?? 'T'.$seq->gong?->number }}</span>
-                                        @if($seq->gong?->distance_meters)
-                                            <span class="text-xs text-muted">({{ $seq->gong->distance_meters }}m)</span>
-                                        @endif
-                                        <div class="ml-auto flex gap-1">
-                                            @if(!$loop->first)
-                                                <button wire:click="moveShotUp({{ $seq->id }})" class="text-muted hover:text-primary text-xs" title="Move up">&uarr;</button>
-                                            @endif
-                                            @if(!$loop->last)
-                                                <button wire:click="moveShotDown({{ $seq->id }})" class="text-muted hover:text-primary text-xs" title="Move down">&darr;</button>
+                                <div x-ref="list" class="space-y-1">
+                                    @foreach($ts->shotSequence->sortBy('shot_number') as $seq)
+                                        <div class="flex items-center gap-3 rounded px-2 py-1 text-sm {{ $loop->even ? 'bg-surface-2/30' : '' }}" data-id="{{ $seq->id }}">
+                                            <span class="drag-handle cursor-grab active:cursor-grabbing text-muted hover:text-primary">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                                            </span>
+                                            <span class="w-6 text-right font-mono text-muted text-xs">{{ $seq->shot_number }}</span>
+                                            <span class="font-medium text-primary">{{ $seq->position?->name ?? '?' }}</span>
+                                            <span class="text-muted">&rarr;</span>
+                                            <span class="text-secondary">{{ $seq->gong?->label ?? 'T'.$seq->gong?->number }}</span>
+                                            @if($seq->gong?->distance_meters)
+                                                <span class="text-xs text-muted">({{ $seq->gong->distance_meters }}m)</span>
                                             @endif
                                         </div>
-                                    </div>
-                                @endforeach
+                                    @endforeach
+                                </div>
                             </div>
                         @endif
                     </div>
@@ -2838,3 +2828,7 @@ new #[Layout('components.layouts.app')]
         </div>{{-- /tab:config group 3 --}}
     @endif
 </div>
+
+@once
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+@endonce
