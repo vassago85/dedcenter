@@ -1,4 +1,4 @@
-<div x-data="{ tab: @entangle('tab') }">
+<div x-data="{ tab: $wire.entangle('tab').live }">
 
     {{-- Page header --}}
     <div class="mb-6">

@@ -243,6 +243,10 @@ class User extends Authenticatable
 
     public function verifyWithCode(string $code): bool
     {
+        $this->refresh();
+
+        $code = trim($code);
+
         if ($this->email_verification_code !== $code) {
             return false;
         }
