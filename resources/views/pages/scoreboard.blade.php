@@ -424,7 +424,7 @@ new #[Layout('components.layouts.scoreboard')]
     }
 }; ?>
 
-<div wire:poll.15s class="scoreboard-page min-h-screen min-w-0 max-w-full overflow-x-hidden bg-app text-primary px-3 py-4 sm:px-6 lg:p-10">
+<div wire:poll.5s class="scoreboard-page min-h-screen min-w-0 max-w-full overflow-x-hidden bg-app text-primary px-3 py-4 sm:px-6 lg:p-10">
     <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -1275,7 +1275,7 @@ new #[Layout('components.layouts.scoreboard')]
 
     <div class="mt-6 flex flex-col gap-2 text-xs text-muted/60 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
         <span class="min-w-0 leading-snug">
-            Auto-refreshes every 15 seconds
+            Auto-refreshes every 5 seconds
             @if($isPrs) &bull; Ranked by total hits, then tiebreaker stage hits, then tiebreaker stage time @endif
         </span>
         <span class="shrink-0">&copy; {{ date('Y') }} DeadCenter</span>
