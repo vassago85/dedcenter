@@ -196,7 +196,7 @@ new #[Layout('components.layouts.app')]
 
         DB::table('organization_admins')->whereIn('user_id', $ids)->delete();
         DB::table('match_registrations')->whereIn('user_id', $ids)->delete();
-        DB::table('achievements')->whereIn('user_id', $ids)->delete();
+        DB::table('user_achievements')->whereIn('user_id', $ids)->delete();
         DB::table('user_equipment_profiles')->whereIn('user_id', $ids)->delete();
         DB::table('push_subscriptions')->whereIn('user_id', $ids)->delete();
         DB::table('notifications')->whereIn('notifiable_id', $ids)
