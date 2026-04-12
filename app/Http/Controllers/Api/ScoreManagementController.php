@@ -172,6 +172,10 @@ class ScoreManagementController extends Controller
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
             }
+
+            if ($match->status === \App\Enums\MatchStatus::Completed) {
+                \App\Jobs\SendPostMatchNotifications::dispatch($match)->delay(now()->addHour());
+            }
         }
 
         return response()->json([
@@ -288,6 +292,54 @@ class ScoreManagementController extends Controller
         return response()->json([
             'message' => "{$created} correction log(s) created.",
             'count' => $created,
+        ]);
+    }
+
+    public function completeMatch(Request $request, ShootingMatch $match)
+    {
+        $this->authorizeMatchDirector($request, $match);
+
+        if ($match->status !== \App\Enums\MatchStatus::Active) {
+            return response()->json(['message' => 'Match is not active.'], 422);
+        }
+
+        $shooterIds = $match->shooters()->pluck('shooters.id');
+        $scoredIds = Score::whereIn('shooter_id', $shooterIds)->distinct()->pluck('shooter_id');
+        $unscoredCount = $shooterIds->diff($scoredIds)->count();
+
+        if ($request->boolean('dry_run', false)) {
+            return response()->json([
+                'warnings' => $unscoredCount > 0
+                    ? ["{$unscoredCount} shooter(s) have no scores recorded."]
+                    : [],
+                'total_shooters' => $shooterIds->count(),
+                'scored_shooters' => $scoredIds->count(),
+            ]);
+        }
+
+        $oldStatus = $match->status;
+        $match->update(['status' => \App\Enums\MatchStatus::Completed]);
+
+        try {
+            app(\App\Services\NotificationService::class)->onStatusChange($match, $oldStatus, \App\Enums\MatchStatus::Completed);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            if ($match->isPrs()) {
+                \App\Services\AchievementService::evaluateMatchCompletion($match);
+            }
+            if ($match->royal_flush_enabled) {
+                \App\Services\AchievementService::evaluateRoyalFlushCompletion($match);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'message' => 'Match completed.',
+            'status' => 'completed',
         ]);
     }
 

@@ -1017,7 +1017,28 @@ new #[Layout('components.layouts.app')]
             Flux::toast('Invalid status transition.', variant: 'danger');
             return;
         }
+        $oldStatus = $this->match->status;
         $this->match->update(['status' => $targetStatus]);
+
+        try {
+            app(\App\Services\NotificationService::class)->onStatusChange($this->match, $oldStatus, $targetStatus);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
+        }
+
+        if ($targetStatus === MatchStatus::Completed) {
+            try {
+                if ($this->match->isPrs()) {
+                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                }
+                if ($this->match->royal_flush_enabled) {
+                    \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+            }
+        }
+
         Flux::toast("Match status changed to {$targetStatus->label()}.", variant: 'success');
     }
 
@@ -1032,6 +1053,9 @@ new #[Layout('components.layouts.app')]
         $this->scores_published = ! $this->scores_published;
         if ($this->match) {
             $this->match->update(['scores_published' => $this->scores_published]);
+            if ($this->scores_published && $this->match->status === \App\Enums\MatchStatus::Completed) {
+                \App\Jobs\SendPostMatchNotifications::dispatch($this->match)->delay(now()->addHour());
+            }
             Flux::toast($this->scores_published ? 'Scores are now live.' : 'Scores hidden from public.', variant: 'success');
         }
     }

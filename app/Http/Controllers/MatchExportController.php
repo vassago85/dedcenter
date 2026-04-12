@@ -19,6 +19,7 @@ class MatchExportController extends Controller
 {
     public function standings(ShootingMatch $match): StreamedResponse
     {
+        $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
         if ($match->isElr()) {
@@ -34,6 +35,7 @@ class MatchExportController extends Controller
 
     public function detailed(ShootingMatch $match): StreamedResponse
     {
+        $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
         if ($match->isElr()) {
@@ -390,6 +392,7 @@ class MatchExportController extends Controller
 
     public function pdfStandings(ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        $this->authorizeExport($match);
         $slug = Str::slug($match->name);
         $data = $this->buildPdfStandingsData($match);
 
@@ -398,6 +401,7 @@ class MatchExportController extends Controller
 
     public function pdfDetailed(ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        $this->authorizeExport($match);
         $slug = Str::slug($match->name);
         $data = $this->buildPdfDetailedData($match);
 
@@ -511,6 +515,23 @@ class MatchExportController extends Controller
     }
 
     // ── Helpers ──────────────────────────────────────────────────
+
+    private function authorizeExport(ShootingMatch $match): void
+    {
+        $user = auth()->user();
+
+        abort_unless($user, 403);
+
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        if ($match->organization_id && $user->isOrgMatchDirector($match->organization)) {
+            return;
+        }
+
+        abort(403, 'Only match directors and organization owners can download results.');
+    }
 
     private function divisionLookup(ShootingMatch $match): array
     {

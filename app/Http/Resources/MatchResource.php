@@ -131,6 +131,11 @@ class MatchResource extends JsonResource
             'royal_flush_enabled' => (bool) $this->royal_flush_enabled,
             'concurrent_relays' => (int) ($this->concurrent_relays ?? 2),
             'device_lock_mode' => $this->device_lock_mode ?? 'open',
+            'can_manage' => $request->user() && (
+                $request->user()->isOwner()
+                || $this->created_by === $request->user()->id
+                || ($this->organization && $request->user()->isOrgAdmin($this->organization))
+            ),
             'corrections_pin' => $this->when(
                 $request->user() && ($request->user()->isOwner() || $this->created_by === $request->user()->id || ($this->organization && $request->user()->isOrgRangeOfficer($this->organization))),
                 $this->corrections_pin

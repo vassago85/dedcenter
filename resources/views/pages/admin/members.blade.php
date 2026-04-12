@@ -163,6 +163,7 @@ new #[Layout('components.layouts.app')]
         $user = User::findOrFail($userId);
         $name = $user->name;
 
+        Organization::where('created_by', $userId)->update(['created_by' => null]);
         $user->organizations()->detach();
         $user->registrations()->delete();
         $user->achievements()->delete();
@@ -173,6 +174,40 @@ new #[Layout('components.layouts.app')]
 
         $this->expandedUserId = null;
         Flux::toast("{$name} has been deleted.", variant: 'success');
+    }
+
+    public function bulkDeleteMembers(): void
+    {
+        if (empty($this->selectedUserIds)) {
+            Flux::toast('No members selected.', variant: 'warning');
+            return;
+        }
+
+        $ids = collect($this->selectedUserIds)->map(fn ($id) => (int) $id)->reject(fn ($id) => $id === auth()->id());
+
+        if ($ids->isEmpty()) {
+            Flux::toast('You cannot delete your own account.', variant: 'danger');
+            return;
+        }
+
+        $users = User::whereIn('id', $ids)->get();
+
+        Organization::whereIn('created_by', $ids)->update(['created_by' => null]);
+
+        DB::table('organization_admins')->whereIn('user_id', $ids)->delete();
+        DB::table('match_registrations')->whereIn('user_id', $ids)->delete();
+        DB::table('achievements')->whereIn('user_id', $ids)->delete();
+        DB::table('user_equipment_profiles')->whereIn('user_id', $ids)->delete();
+        DB::table('push_subscriptions')->whereIn('user_id', $ids)->delete();
+        DB::table('notifications')->whereIn('notifiable_id', $ids)
+            ->where('notifiable_type', User::class)->delete();
+
+        User::whereIn('id', $ids)->delete();
+
+        $this->selectedUserIds = [];
+        $this->selectAllOnPage = false;
+        $this->expandedUserId = null;
+        Flux::toast("{$users->count()} member(s) deleted.", variant: 'success');
     }
 
     public function bulkAssignRoles(): void
@@ -331,6 +366,11 @@ new #[Layout('components.layouts.app')]
                 </div>
                 <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover" wire:click="bulkAssignRoles">
                     Apply Roles
+                </flux:button>
+                <flux:button size="sm" variant="danger"
+                             wire:click="bulkDeleteMembers"
+                             wire:confirm="Permanently delete {{ count($selectedUserIds) }} selected member(s)? This removes all their data and cannot be undone.">
+                    Delete Selected
                 </flux:button>
             </div>
         </div>

@@ -318,6 +318,47 @@
                         >
                             View Scoreboard
                         </router-link>
+
+                        <!-- Complete Match (MD only) -->
+                        <template v-if="matchStore.canManage">
+                            <button
+                                v-if="!showCompleteConfirm"
+                                @click="prepareCompleteMatch"
+                                :disabled="completeLoading"
+                                class="flex items-center justify-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 py-3 font-semibold text-amber-300 transition-colors hover:bg-amber-900/40"
+                            >
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                                {{ completeLoading ? 'Checking...' : 'Complete Match' }}
+                            </button>
+
+                            <div v-if="showCompleteConfirm" class="rounded-xl border border-amber-600/40 bg-slate-800 p-4 space-y-3">
+                                <p class="text-sm font-semibold text-amber-400">Complete this match?</p>
+                                <p class="text-xs text-slate-400">
+                                    {{ completeInfo.scored_shooters }} of {{ completeInfo.total_shooters }} shooters scored.
+                                </p>
+                                <p v-if="completeInfo.warnings?.length" class="text-xs text-amber-400">
+                                    ⚠ {{ completeInfo.warnings.join(' ') }}
+                                </p>
+                                <p class="text-xs text-slate-500">This will finalize scores, award badges, and notify shooters.</p>
+                                <div class="flex gap-2">
+                                    <button
+                                        @click="confirmCompleteMatch"
+                                        :disabled="completeLoading"
+                                        class="flex-1 rounded-lg bg-amber-600 py-2 text-sm font-bold text-white transition-colors hover:bg-amber-700"
+                                    >
+                                        {{ completeLoading ? 'Completing...' : 'Yes, Complete' }}
+                                    </button>
+                                    <button
+                                        @click="showCompleteConfirm = false"
+                                        class="flex-1 rounded-lg border border-slate-600 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-700"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </template>
@@ -327,6 +368,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -337,9 +379,13 @@ const props = defineProps({
     matchId: { type: Number, required: true },
 });
 
+const router = useRouter();
 const matchStore = useMatchStore();
 
 const showDeviceSettings = ref(false);
+const showCompleteConfirm = ref(false);
+const completeLoading = ref(false);
+const completeInfo = ref({ warnings: [], total_shooters: 0, scored_shooters: 0 });
 const pinVerified = ref(false);
 const pinInput = ref('');
 const pinError = ref('');
@@ -433,6 +479,32 @@ function clearStageLock() {
 
 function clearAllLocks() {
     matchStore.clearAllLocks(props.matchId);
+}
+
+async function prepareCompleteMatch() {
+    completeLoading.value = true;
+    try {
+        const data = await matchStore.completeMatch(props.matchId, true);
+        completeInfo.value = data;
+        showCompleteConfirm.value = true;
+    } catch (e) {
+        alert(e.response?.data?.message || 'Failed to check match status.');
+    } finally {
+        completeLoading.value = false;
+    }
+}
+
+async function confirmCompleteMatch() {
+    completeLoading.value = true;
+    try {
+        await matchStore.completeMatch(props.matchId, false);
+        showCompleteConfirm.value = false;
+        router.push({ name: 'scoreboard', params: { matchId: props.matchId } });
+    } catch (e) {
+        alert(e.response?.data?.message || 'Failed to complete match.');
+    } finally {
+        completeLoading.value = false;
+    }
 }
 
 function formatDate(d) {

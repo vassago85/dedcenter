@@ -448,7 +448,7 @@ new #[Layout('components.layouts.scoreboard')]
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
-            @if($match->status === \App\Enums\MatchStatus::Completed)
+            @if($match->status === \App\Enums\MatchStatus::Completed && (auth()->user()?->isAdmin() || ($match->organization_id && auth()->user()?->isOrgMatchDirector($match->organization))))
                 <div class="mt-3 flex flex-wrap gap-2">
                     <a href="{{ route('scoreboard.export.standings', $match) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
@@ -625,7 +625,10 @@ new #[Layout('components.layouts.scoreboard')]
                                 @if($dist)
                                     <div class="border-b border-border/50 last:border-b-0">
                                         <div class="flex items-center justify-between bg-surface/40 px-6 py-3">
-                                            <span class="text-base font-semibold text-primary">{{ $ts->label }} ({{ $ts->distance_meters }}m)</span>
+                                            <span class="text-base font-semibold text-primary">
+                                                {{ $ts->label }} ({{ $ts->distance_meters }}m)
+                                                <span class="ml-2 text-xs font-normal text-muted">&times;{{ number_format($ts->distance_multiplier ?? 1, 1) }} stage value</span>
+                                            </span>
                                             <div class="flex items-center gap-4 text-sm">
                                                 <span class="text-green-400 font-medium">{{ $dist->hits }} hits</span>
                                                 <span class="text-accent font-medium">{{ $dist->misses }} miss</span>
@@ -638,6 +641,7 @@ new #[Layout('components.layouts.scoreboard')]
                                                     <span class="text-muted">
                                                         #{{ $gong->number }}
                                                         @if($gong->label) <span class="text-secondary">({{ $gong->label }})</span> @endif
+                                                        <span class="text-muted/60 text-xs">&times;{{ number_format($gong->multiplier, 1) }}</span>
                                                     </span>
                                                     @if($gong->is_hit === true)
                                                         <span class="font-bold text-green-400">HIT +{{ number_format($gong->points, 1) }}</span>

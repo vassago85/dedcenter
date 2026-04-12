@@ -1311,6 +1311,10 @@ new #[Layout('components.layouts.app')]
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
                 }
+
+                if ($this->match->status === \App\Enums\MatchStatus::Completed) {
+                    \App\Jobs\SendPostMatchNotifications::dispatch($this->match)->delay(now()->addHour());
+                }
             }
             Flux::toast($this->scores_published ? 'Scores are now live.' : 'Scores hidden from public.', variant: 'success');
         }

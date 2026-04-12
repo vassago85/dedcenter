@@ -4,7 +4,10 @@ namespace App\Console\Commands;
 
 use App\Enums\MatchStatus;
 use App\Models\ShootingMatch;
+use App\Services\AchievementService;
+use App\Services\NotificationService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class AutoCloseMatchesPastScheduledDate extends Command
 {
@@ -23,10 +26,27 @@ class AutoCloseMatchesPastScheduledDate extends Command
 
         $closed = 0;
         foreach ($matches as $match) {
-            $was = $match->status->value;
+            $oldStatus = $match->status;
             $match->update(['status' => MatchStatus::Completed]);
             $closed++;
-            $this->line("Completed: {$match->name} (ID {$match->id}, was {$was})");
+            $this->line("Completed: {$match->name} (ID {$match->id}, was {$oldStatus->value})");
+
+            try {
+                app(NotificationService::class)->onStatusChange($match, $oldStatus, MatchStatus::Completed);
+            } catch (\Throwable $e) {
+                Log::warning('Auto-close notification failed', ['match_id' => $match->id, 'error' => $e->getMessage()]);
+            }
+
+            try {
+                if ($match->isPrs()) {
+                    AchievementService::evaluateMatchCompletion($match);
+                }
+                if ($match->royal_flush_enabled) {
+                    AchievementService::evaluateRoyalFlushCompletion($match);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Auto-close achievement evaluation failed', ['match_id' => $match->id, 'error' => $e->getMessage()]);
+            }
         }
 
         if ($closed === 0) {

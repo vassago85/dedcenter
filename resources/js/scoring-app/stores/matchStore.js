@@ -73,6 +73,7 @@ export const useMatchStore = defineStore('match', {
                 ts.gongs.map((g) => ({ ...g, targetSetLabel: ts.label, distance: ts.distance_meters }))
             );
         },
+        canManage: (state) => state.currentMatch?.can_manage ?? false,
         hasSquadLock: (state) => !!state.lockedSquadId,
         hasStageLock: (state) => !!state.lockedStageId,
         hasAnyLock: (state) => !!state.lockedSquadId || !!state.lockedStageId,
@@ -289,6 +290,11 @@ export const useMatchStore = defineStore('match', {
                 this.currentMatch.disqualifications.push(data.disqualification);
             }
 
+            return data;
+        },
+
+        async completeMatch(matchId, dryRun = false) {
+            const { data } = await axios.post(`/api/matches/${matchId}/complete`, { dry_run: dryRun });
             return data;
         },
 

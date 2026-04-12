@@ -32,6 +32,7 @@ new #[Layout('components.layouts.app')]
         $this->organization = $organization;
         $this->match = $match;
         $this->defaultCapacity = $match->max_squad_size;
+        $this->autoRelayMax = $match->max_squad_size ?? 10;
 
         if (! $match->userCanManageSquadding(auth()->user())) {
             abort(403, 'You are not authorized to manage squadding for this match.');
@@ -92,6 +93,72 @@ new #[Layout('components.layouts.app')]
             $this->match->update(['status' => MatchStatus::Active]);
             Flux::toast('Squadding closed. Match is now active.', variant: 'success');
         }
+    }
+
+    public int $autoRelayMax = 10;
+
+    public function autoSetupRelays(): void
+    {
+        $match = $this->match;
+        $max = max(1, $this->autoRelayMax);
+
+        $confirmedRegs = $match->registrations()->where('payment_status', 'confirmed')->with('user')->get();
+        $existingShooterUserIds = $match->shooters()->whereNotNull('user_id')->pluck('user_id')->toArray();
+
+        foreach ($confirmedRegs as $reg) {
+            if (in_array($reg->user_id, $existingShooterUserIds)) continue;
+            $holder = $match->squads()->firstOrCreate(['name' => 'Unassigned'], ['sort_order' => 999]);
+            Shooter::create([
+                'squad_id' => $holder->id,
+                'name' => $reg->user->name,
+                'user_id' => $reg->user_id,
+                'sort_order' => Shooter::where('squad_id', $holder->id)->max('sort_order') + 1,
+            ]);
+        }
+
+        $allShooters = $match->shooters()->get();
+        $shooterCount = $allShooters->count();
+
+        if ($shooterCount === 0) {
+            Flux::toast('No shooters to assign.', variant: 'warning');
+            return;
+        }
+
+        $match->update(['max_squad_size' => $max]);
+        $this->defaultCapacity = $max;
+
+        $relayCount = (int) ceil($shooterCount / $max);
+
+        $match->squads()->whereDoesntHave('shooters')->delete();
+
+        $existingSquads = $match->squads()->orderBy('sort_order')->get()
+            ->reject(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
+        $maxSort = $match->squads()->max('sort_order') ?? 0;
+
+        $relays = collect();
+        for ($i = 1; $i <= $relayCount; $i++) {
+            $existing = $existingSquads->firstWhere('name', "Relay {$i}");
+            if ($existing) {
+                $relays->push($existing);
+            } else {
+                $maxSort++;
+                $relays->push($match->squads()->create(['name' => "Relay {$i}", 'sort_order' => $maxSort, 'max_capacity' => $max]));
+            }
+        }
+
+        $shuffled = $allShooters->shuffle()->values();
+        $relayCounts = $relays->mapWithKeys(fn ($r) => [$r->id => 0])->toArray();
+
+        foreach ($shuffled as $shooter) {
+            $targetId = array_keys($relayCounts, min($relayCounts))[0];
+            $relayCounts[$targetId]++;
+            $shooter->update(['squad_id' => $targetId, 'sort_order' => $relayCounts[$targetId]]);
+        }
+
+        $match->squads()->whereIn('name', ['Default', 'Unassigned'])->whereDoesntHave('shooters')->delete();
+
+        $this->match->refresh();
+        Flux::toast("Created {$relayCount} relays for {$shooterCount} shooters (max {$max} per relay).", variant: 'success');
     }
 
     public function randomizeRelays(): void
@@ -585,6 +652,23 @@ new #[Layout('components.layouts.app')]
          TAB: Squads
          ═══════════════════════════════════════════════ --}}
     <div x-show="tab === 'squads'" x-cloak class="space-y-5">
+
+        {{-- Auto Setup Relays --}}
+        <div class="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
+            <h3 class="text-sm font-semibold text-primary">Auto Setup Relays</h3>
+            <div class="flex flex-wrap items-end gap-3">
+                <div>
+                    <label class="block text-xs text-muted mb-1">Max per relay</label>
+                    <input type="number" wire:model="autoRelayMax" min="1" max="50"
+                           class="w-24 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]" />
+                </div>
+                <flux:button wire:click="autoSetupRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]"
+                             wire:confirm="This will create relays and randomly assign ALL shooters. Continue?">
+                    Auto Setup Relays
+                </flux:button>
+            </div>
+            <p class="text-[10px] text-muted">Creates the right number of relays for all registered shooters and randomly distributes them.</p>
+        </div>
 
         {{-- Quick actions --}}
         <div class="flex flex-wrap gap-2">

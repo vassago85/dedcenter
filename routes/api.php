@@ -120,6 +120,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
     Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
     Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
+    Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
 
     // Disqualifications (MD only)
     Route::get('matches/{match}/disqualifications', [DisqualificationController::class, 'index']);
