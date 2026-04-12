@@ -1,5 +1,8 @@
 FROM php:8.3-fpm-alpine
 
+# Avoid dl-cdn TLS/transient failures during apk (common when install-php-extensions runs apk update)
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirror.leaseweb.com|g' /etc/apk/repositories
+
 # Install system dependencies
 RUN apk add --no-cache \
     nginx \
