@@ -42,6 +42,7 @@ services:
       - SESSION_DOMAIN=.deadcenter.co.za
     volumes:
       - app-logs:/var/www/html/storage/logs
+      - app-storage:/var/www/html/storage/app/public
     ports:
       - "${APP_PORT:-8091}:80"
     networks:
@@ -165,5 +166,6 @@ networks:
 
 volumes:
   app-logs:
+  app-storage:
   db-data:
   redis-data:

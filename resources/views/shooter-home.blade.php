@@ -364,7 +364,7 @@
                         <a href="{{ $href }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid {{ $isFeatured ? 'rgba(225,6,0,0.3)' : 'var(--lp-border)' }}; background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='{{ $isFeatured ? 'rgba(225,6,0,0.3)' : 'var(--lp-border)' }}'">
                             <div class="flex items-center gap-4 mb-3">
                                 @if($hasLogo)
-                                    <img src="{{ Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-10 w-10 rounded-lg object-contain" style="background: var(--lp-surface-2);">
+                                    <img src="{{ Illuminate\Support\Facades\Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-10 w-10 rounded-lg object-contain" style="background: var(--lp-surface-2);">
                                 @else
                                     <div class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold" style="background: rgba(225,6,0,0.08); color: var(--lp-red);">
                                         {{ strtoupper(substr($org->name, 0, 2)) }}

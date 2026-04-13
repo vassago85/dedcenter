@@ -59,6 +59,24 @@ new #[Layout('components.layouts.app')]
         }
     }
 
+    public function deleteOrganization(int $id): void
+    {
+        $org = Organization::withCount('matches')->findOrFail($id);
+
+        if ($org->matches_count > 0) {
+            Flux::toast("Cannot delete '{$org->name}' — it still has {$org->matches_count} match(es). Delete or reassign them first.", variant: 'danger');
+            return;
+        }
+
+        $org->admins()->detach();
+        $org->children()->update(['parent_id' => null]);
+
+        $name = $org->name;
+        $org->delete();
+
+        Flux::toast("'{$name}' has been permanently deleted.", variant: 'warning');
+    }
+
     public function togglePortalEntitlement(int $id): void
     {
         $org = Organization::findOrFail($id);
@@ -204,6 +222,13 @@ new #[Layout('components.layouts.app')]
                                                          wire:click="reactivate({{ $org->id }})"
                                                          wire:confirm="Reactivate '{{ $org->name }}'?">
                                                 Reactivate
+                                            </flux:button>
+                                        @endif
+                                        @if($org->matches_count === 0 && ! $org->isActive())
+                                            <flux:button size="sm" variant="ghost" class="!text-red-400 hover:!text-red-300"
+                                                         wire:click="deleteOrganization({{ $org->id }})"
+                                                         wire:confirm="Permanently delete '{{ $org->name }}'? This cannot be undone.">
+                                                Delete
                                             </flux:button>
                                         @endif
                                     </div>
