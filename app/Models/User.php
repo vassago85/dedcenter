@@ -255,11 +255,12 @@ class User extends Authenticatable
             return false;
         }
 
-        $this->update([
+        // email_verified_at is not mass-assignable; plain update() would strip it and only clear the PIN.
+        $this->forceFill([
             'email_verified_at' => now(),
             'email_verification_code' => null,
             'email_verification_code_expires_at' => null,
-        ]);
+        ])->save();
 
         return true;
     }
