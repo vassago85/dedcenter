@@ -6,20 +6,20 @@ it('shows the landing page to guests', function () {
     $this->get('/')->assertOk();
 });
 
-it('redirects member from landing to member dashboard', function () {
-    $user = User::factory()->create(['role' => 'member']);
+it('shows the landing page to logged-in members', function () {
+    $user = User::factory()->create();
 
     $this->actingAs($user)
         ->get('/')
-        ->assertRedirect(route('dashboard'));
+        ->assertOk();
 });
 
-it('redirects admin from landing to admin dashboard', function () {
+it('shows the landing page to logged-in admins', function () {
     $user = User::factory()->admin()->create();
 
     $this->actingAs($user)
         ->get('/')
-        ->assertRedirect(route('admin.dashboard'));
+        ->assertOk();
 });
 
 it('shows login page', function () {
