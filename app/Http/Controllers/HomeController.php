@@ -8,6 +8,8 @@ use App\Models\FeaturedItem;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class HomeController extends Controller
 {
@@ -15,7 +17,7 @@ class HomeController extends Controller
     {
         $context = domain_context();
 
-        if ($context === 'app' && ! auth()->check()) {
+        if ($context === 'app' && ! Auth::check()) {
             return redirect()->route('login');
         }
 
@@ -102,6 +104,20 @@ class HomeController extends Controller
             ->take(6)
             ->get();
 
+        $activityStats = [
+            'registrationsOpen' => ShootingMatch::where('status', MatchStatus::RegistrationOpen)->count(),
+            'matchesCompletedSeason' => ShootingMatch::where('status', MatchStatus::Completed)
+                ->whereYear('date', now()->year)
+                ->count(),
+            'activeShootersMonth' => DB::table('shooters')
+                ->join('squads', 'squads.id', '=', 'shooters.squad_id')
+                ->join('matches', 'matches.id', '=', 'squads.match_id')
+                ->whereDate('matches.date', '>=', now()->subDays(30)->startOfDay())
+                ->distinct('shooters.user_id')
+                ->count('shooters.user_id'),
+            'scoresUpdatedAt' => DB::table('scores')->max('updated_at'),
+        ];
+
         return compact(
             'featuredMatches',
             'featuredOrgs',
@@ -110,6 +126,7 @@ class HomeController extends Controller
             'popularMatches',
             'liveMatches',
             'showcaseBadges',
+            'activityStats',
         );
     }
 }

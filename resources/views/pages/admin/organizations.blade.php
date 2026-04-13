@@ -59,6 +59,22 @@ new #[Layout('components.layouts.app')]
         }
     }
 
+    public function togglePortalEntitlement(int $id): void
+    {
+        $org = Organization::findOrFail($id);
+
+        if ($org->portal_entitled) {
+            $org->update([
+                'portal_entitled' => false,
+                'portal_enabled' => false,
+            ]);
+            Flux::toast("Public portal add-on removed from '{$org->name}'. Their portal URL is now disabled.", variant: 'warning');
+        } else {
+            $org->update(['portal_entitled' => true]);
+            Flux::toast("'{$org->name}' may now enable the public portal under Organization → Settings.", variant: 'success');
+        }
+    }
+
     public function with(): array
     {
         $organizations = Organization::with(['creator', 'parent'])
@@ -152,6 +168,19 @@ new #[Layout('components.layouts.app')]
                                                          href="{{ route('org.dashboard', $org) }}">
                                                 Manage
                                             </flux:button>
+                                            @if($org->portal_entitled)
+                                                <flux:button size="sm" variant="ghost" class="!text-sky-400 hover:!text-sky-300"
+                                                             wire:click="togglePortalEntitlement({{ $org->id }})"
+                                                             wire:confirm="Remove paid public portal access for '{{ $org->name }}'? Their portal will go offline.">
+                                                    Remove portal
+                                                </flux:button>
+                                            @else
+                                                <flux:button size="sm" variant="ghost" class="!text-sky-400 hover:!text-sky-300"
+                                                             wire:click="togglePortalEntitlement({{ $org->id }})"
+                                                             wire:confirm="Grant paid public portal access for '{{ $org->name }}'? They can then enable it in org settings.">
+                                                    Grant portal
+                                                </flux:button>
+                                            @endif
                                             @if($org->royal_flush_enabled)
                                                 <flux:button size="sm" variant="ghost" class="!text-amber-400 hover:!text-amber-300"
                                                              wire:click="toggleRoyalFlush({{ $org->id }})"

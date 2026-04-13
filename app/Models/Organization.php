@@ -27,6 +27,7 @@ class Organization extends Model
         'hero_text',
         'hero_description',
         'portal_enabled',
+        'portal_entitled',
         'best_of',
         'entry_fee_default',
         'bank_name',
@@ -44,6 +45,7 @@ class Organization extends Model
             'best_of' => 'integer',
             'entry_fee_default' => 'decimal:2',
             'portal_enabled' => 'boolean',
+            'portal_entitled' => 'boolean',
             'season_standings_enabled' => 'boolean',
             'royal_flush_enabled' => 'boolean',
         ];
@@ -162,7 +164,7 @@ class Organization extends Model
 
     public function hasPortal(): bool
     {
-        return $this->portal_enabled && $this->isActive();
+        return $this->portal_enabled && $this->portal_entitled && $this->isActive();
     }
 
     public function isOwnedBy(User $user): bool

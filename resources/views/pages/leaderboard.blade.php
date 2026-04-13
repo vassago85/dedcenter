@@ -146,15 +146,14 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <flux:heading size="xl">{{ $organization->name }} — Leaderboard</flux:heading>
-            <p class="mt-1 text-sm text-muted">
-                Ranking based on completed matches.
-                @if($bestOf)
-                    Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
-                @else
-                    All scores counted.
-                @endif
-            </p>
+            <x-app-page-header
+                :title="$organization->name . ' Standings'"
+                :subtitle="$bestOf ? 'Ranking based on completed matches. Best ' . $bestOf . ' scores counted.' : 'Ranking based on completed matches. All scores counted.'"
+                :crumbs="[
+                    ['label' => 'Shooter Mode', 'href' => route('dashboard')],
+                    ['label' => 'Standings'],
+                ]"
+            />
         </div>
         <x-powered-by-block feature="leaderboard" variant="block" />
     </div>

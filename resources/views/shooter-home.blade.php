@@ -54,29 +54,60 @@
                 <div class="mt-14 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Live results &amp; scoreboards
+                        Watch scores update from the range
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Self-service squadding
+                        Choose your squad before match day
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Android app
+                        Register and compete from your phone
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Three scoring disciplines
+                        Track your season progress in one place
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Team events
+                        Follow your squad and your club
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px" style="background: linear-gradient(to right, transparent, var(--lp-border), transparent);"></div>
+    </section>
+
+    {{-- ══════════════════════════════════════════ --}}
+    {{-- PLATFORM ACTIVITY --}}
+    {{-- ══════════════════════════════════════════ --}}
+    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+        <div class="mx-auto max-w-6xl px-6 py-10">
+            <div class="mb-6 flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-tight" style="color: var(--lp-text);">Platform Activity</h2>
+                    <p class="mt-1 text-sm" style="color: var(--lp-text-muted);">Live snapshot of match activity across South Africa.</p>
+                </div>
+                @if(!empty($activityStats['scoresUpdatedAt']))
+                    <p class="text-xs" style="color: var(--lp-text-muted);">Last score update: {{ \Illuminate\Support\Carbon::parse($activityStats['scoresUpdatedAt'])->diffForHumans() }}</p>
+                @endif
+            </div>
+            <div class="grid gap-4 sm:grid-cols-3">
+                <div class="rounded-xl border p-5" style="border-color: var(--lp-border); background: var(--lp-surface);">
+                    <p class="text-xs font-semibold uppercase tracking-wider" style="color: var(--lp-text-muted);">Registrations Open</p>
+                    <p class="mt-2 text-3xl font-bold" style="color: var(--lp-text);">{{ $activityStats['registrationsOpen'] ?? 0 }}</p>
+                </div>
+                <div class="rounded-xl border p-5" style="border-color: var(--lp-border); background: var(--lp-surface);">
+                    <p class="text-xs font-semibold uppercase tracking-wider" style="color: var(--lp-text-muted);">Matches Completed {{ now()->year }}</p>
+                    <p class="mt-2 text-3xl font-bold" style="color: var(--lp-text);">{{ $activityStats['matchesCompletedSeason'] ?? 0 }}</p>
+                </div>
+                <div class="rounded-xl border p-5" style="border-color: var(--lp-border); background: var(--lp-surface);">
+                    <p class="text-xs font-semibold uppercase tracking-wider" style="color: var(--lp-text-muted);">Shooters Active (30 days)</p>
+                    <p class="mt-2 text-3xl font-bold" style="color: var(--lp-text);">{{ $activityStats['activeShootersMonth'] ?? 0 }}</p>
+                </div>
+            </div>
+        </div>
     </section>
 
     {{-- ══════════════════════════════════════════ --}}

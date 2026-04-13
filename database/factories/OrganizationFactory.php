@@ -32,6 +32,7 @@ class OrganizationFactory extends Factory
             'hero_text' => null,
             'hero_description' => null,
             'portal_enabled' => false,
+            'portal_entitled' => false,
             'best_of' => null,
             'entry_fee_default' => null,
         ];
@@ -75,6 +76,7 @@ class OrganizationFactory extends Factory
     public function withPortal(): static
     {
         return $this->state(fn () => [
+            'portal_entitled' => true,
             'portal_enabled' => true,
             'hero_text' => fake()->catchPhrase(),
             'hero_description' => fake()->sentence(),

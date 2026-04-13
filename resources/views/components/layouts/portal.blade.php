@@ -91,19 +91,22 @@
             </div>
 
             {{-- Mobile nav --}}
-            <div class="flex sm:hidden gap-1 pb-2 -mx-1 overflow-x-auto">
+            <div class="sm:hidden border-t border-white/10 pt-2">
+                <p class="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">Browse</p>
+            <div class="-mx-1 flex gap-1 overflow-x-auto pb-2">
                 <a href="{{ route('portal.home', $org) }}"
-                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.home') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
+                   class="min-h-[40px] rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.home') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
                     Home
                 </a>
                 <a href="{{ route('portal.matches', $org) }}"
-                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.matches*') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
+                   class="min-h-[40px] rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.matches*') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
                     Matches
                 </a>
                 <a href="{{ route('portal.leaderboard', $org) }}"
-                   class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.leaderboard') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
+                   class="min-h-[40px] rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {{ request()->routeIs('portal.leaderboard') ? 'portal-bg-primary text-primary' : 'text-secondary hover:bg-white/10' }}">
                     Leaderboard
                 </a>
+            </div>
             </div>
         </div>
     </nav>

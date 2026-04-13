@@ -34,8 +34,14 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-8">
     <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
-            <h1 class="text-2xl font-bold text-white">Dashboard</h1>
-            <p class="mt-1 text-sm text-secondary">Logged in as <span class="font-medium text-amber-400">{{ auth()->user()->roleLabel() }}</span></p>
+            <x-app-page-header
+                title="Platform Admin Dashboard"
+                subtitle="Logged in as {{ auth()->user()->roleLabel() }}. Manage organizations, matches, and platform operations."
+                :crumbs="[
+                    ['label' => 'Platform Admin'],
+                    ['label' => 'Dashboard'],
+                ]"
+            />
         </div>
         <a href="{{ route('admin.matches.create') }}" class="shrink-0 inline-flex items-center gap-2 rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-white transition-colors" style="background:#ff2b2b;">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

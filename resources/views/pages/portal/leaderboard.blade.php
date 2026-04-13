@@ -119,7 +119,7 @@ new #[Layout('components.layouts.portal')]
 <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <h1 class="text-3xl font-bold text-primary">Leaderboard</h1>
+            <h1 class="text-3xl font-bold text-primary">Season Leaderboard</h1>
             <p class="mt-1 text-sm text-muted">
                 {{ $organization->name }} —
                 @if($bestOf)
@@ -169,7 +169,7 @@ new #[Layout('components.layouts.portal')]
 
     @if($leaderboard->isEmpty())
         <div class="rounded-xl border border-white/10 bg-app px-6 py-12 text-center">
-            <p class="text-muted">No completed matches with scores yet.</p>
+            <p class="text-muted">No scored results yet. Standings will appear after completed matches are published.</p>
         </div>
     @else
         <div class="rounded-xl border border-white/10 bg-app overflow-hidden">

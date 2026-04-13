@@ -69,8 +69,8 @@ Route::get('/p/{organization}/matches', fn ($organization) => redirect("/events?
 Route::get('/p/{organization}/matches/{match}', fn ($organization, $match) => redirect("/events/{$match}", 301));
 Route::get('/p/{organization}/leaderboard', fn ($organization) => redirect("/leaderboard/{$organization}", 301));
 
-// ── Public Portal (white-label org pages) ──
-Route::prefix('p/{organization}')->name('portal.')->group(function () {
+// ── Public Portal (white-label org pages; requires paid entitlement + org toggle) ──
+Route::middleware('org.portal')->prefix('p/{organization}')->name('portal.')->group(function () {
     Volt::route('/', 'portal.landing')->name('home');
     Volt::route('/matches', 'portal.matches')->name('matches');
     Volt::route('/matches/{match}', 'portal.match-detail')->name('matches.show');

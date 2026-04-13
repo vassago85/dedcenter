@@ -38,6 +38,16 @@ new #[Layout('components.layouts.portal')]
             ->where('status', MatchStatus::Completed)
             ->count();
 
+        $recentResults = ShootingMatch::whereIn('organization_id', $orgIds)
+            ->where('status', MatchStatus::Completed)
+            ->orderByDesc('date')
+            ->take(4)
+            ->get();
+
+        $registrationsOpen = ShootingMatch::whereIn('organization_id', $orgIds)
+            ->where('status', MatchStatus::RegistrationOpen)
+            ->count();
+
         // Top 5 for leaderboard preview
         $matchIds = ShootingMatch::whereIn('organization_id', $orgIds)
             ->where('status', MatchStatus::Completed)
@@ -68,6 +78,8 @@ new #[Layout('components.layouts.portal')]
             'completedCount' => $completedCount,
             'topShooters' => $topShooters,
             'totalMatches' => ShootingMatch::whereIn('organization_id', $orgIds)->count(),
+            'recentResults' => $recentResults,
+            'registrationsOpen' => $registrationsOpen,
         ];
     }
 }; ?>
@@ -104,7 +116,7 @@ new #[Layout('components.layouts.portal')]
 
     {{-- Stats --}}
     <div class="mx-auto max-w-6xl px-4 -mt-8 sm:px-6 lg:px-8 relative z-10">
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div class="rounded-xl border border-white/10 bg-app p-6 text-center">
                 <p class="text-3xl font-bold text-primary">{{ $totalMatches }}</p>
                 <p class="mt-1 text-sm text-muted">Total Matches</p>
@@ -116,6 +128,10 @@ new #[Layout('components.layouts.portal')]
             <div class="rounded-xl border border-white/10 bg-app p-6 text-center hidden sm:block">
                 <p class="text-3xl font-bold text-primary">{{ $completedCount }}</p>
                 <p class="mt-1 text-sm text-muted">Completed</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-app p-6 text-center hidden sm:block">
+                <p class="text-3xl font-bold portal-primary">{{ $registrationsOpen }}</p>
+                <p class="mt-1 text-sm text-muted">Open for Registration</p>
             </div>
         </div>
     </div>
@@ -202,5 +218,27 @@ new #[Layout('components.layouts.portal')]
             @endif
         </section>
         @endif
+
+        <section>
+            <div class="mb-6 flex items-center justify-between">
+                <h2 class="text-2xl font-bold text-primary">Latest Results</h2>
+                <a href="{{ route('portal.matches', $organization) }}" class="text-sm font-medium portal-primary hover:underline">View all match results &rarr;</a>
+            </div>
+            @if($recentResults->isEmpty())
+                <div class="rounded-xl border border-white/10 bg-app px-6 py-10 text-center">
+                    <p class="text-muted">No completed matches yet. Upcoming events will appear here once scoring closes.</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    @foreach($recentResults as $result)
+                        <a href="{{ route('portal.matches.show', [$organization, $result]) }}" class="rounded-xl border border-white/10 bg-app p-5 transition-colors hover:portal-border-primary">
+                            <p class="text-sm font-semibold text-primary">{{ $result->name }}</p>
+                            <p class="mt-1 text-xs text-muted">{{ $result->date?->format('d M Y') }}{{ $result->location ? ' • ' . $result->location : '' }}</p>
+                            <p class="mt-3 text-sm portal-primary">View result details &rarr;</p>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+        </section>
     </div>
 </div>

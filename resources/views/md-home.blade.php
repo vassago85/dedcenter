@@ -35,26 +35,26 @@
                     <a href="#features"
                        class="lp-btn-primary group relative inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold transition-all duration-200"
                        style="box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(225, 6, 0, 0.25);">
-                        Explore Features
+                        Explore Match-Day Workflow
                     </a>
                     <a href="#how-it-works"
                        class="lp-btn-secondary inline-flex items-center justify-center rounded-xl px-8 py-3.5 text-[15px] font-semibold backdrop-blur-sm transition-all duration-200">
-                        Learn How It Works
+                        See Director Workflow
                     </a>
                 </div>
 
                 <div class="mt-14 flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-10">
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Three scoring engines
+                        Run PRS, Relay, and ELR in one platform
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Multi-device sync
+                        Keep range staff in sync across devices
                     </div>
                     <div class="flex items-center gap-2.5 text-[13px]" style="color: var(--lp-text-muted);">
                         <span class="flex h-5 w-5 items-center justify-center rounded-full" style="background: var(--lp-surface-2);"><span class="h-1.5 w-1.5 rounded-full" style="background: rgba(225, 6, 0, 0.7);"></span></span>
-                        Android app + PWA
+                        Score from tablets with Android app and PWA
                     </div>
                 </div>
             </div>

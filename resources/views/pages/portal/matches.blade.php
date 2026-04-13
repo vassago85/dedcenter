@@ -39,13 +39,13 @@ new #[Layout('components.layouts.portal')]
 <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
     <div class="space-y-6">
         <div>
-            <h1 class="text-3xl font-bold text-primary">Matches</h1>
-            <p class="mt-1 text-sm text-muted">{{ $organization->name }}</p>
+            <h1 class="text-3xl font-bold text-primary">Club Matches</h1>
+            <p class="mt-1 text-sm text-muted">{{ $organization->name }} &mdash; upcoming fixtures and completed results.</p>
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div class="max-w-sm flex-1">
-                <flux:input wire:model.live.debounce.300ms="search" placeholder="Search matches..." icon="magnifying-glass" />
+                <flux:input wire:model.live.debounce.300ms="search" placeholder="Search by match name..." icon="magnifying-glass" />
             </div>
             <div class="flex gap-2">
                 @foreach(['active' => 'Upcoming', 'completed' => 'Completed', 'all' => 'All'] as $value => $label)
@@ -58,8 +58,8 @@ new #[Layout('components.layouts.portal')]
         </div>
 
         @if($matches->isEmpty())
-            <div class="rounded-xl border border-white/10 bg-app px-6 py-12 text-center">
-                <p class="text-muted">{{ $search ? "No matches found for \"{$search}\"." : 'No matches to show.' }}</p>
+                <div class="rounded-xl border border-white/10 bg-app px-6 py-12 text-center">
+                <p class="text-muted">{{ $search ? "No matches found for \"{$search}\"." : 'No matches to show yet. Check back soon for the next event.' }}</p>
             </div>
         @else
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

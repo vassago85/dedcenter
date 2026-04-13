@@ -48,7 +48,7 @@ new #[Layout('components.layouts.app')]
         $this->secondary_color = $organization->secondary_color ?? '#1e293b';
         $this->hero_text = $organization->hero_text ?? '';
         $this->hero_description = $organization->hero_description ?? '';
-        $this->portal_enabled = $organization->portal_enabled;
+        $this->portal_enabled = $organization->portal_entitled && $organization->portal_enabled;
         $this->season_standings_enabled = (bool) ($organization->season_standings_enabled ?? true);
 
         if (auth()->user()->isOrgOwner($organization)) {
@@ -88,6 +88,14 @@ new #[Layout('components.layouts.app')]
 
         $canEditBank = auth()->user()->isOrgOwner($this->organization);
 
+        $this->organization->refresh();
+
+        $portalOk = (bool) $this->portal_enabled && $this->organization->portal_entitled;
+        if ($this->portal_enabled && ! $this->organization->portal_entitled) {
+            $this->portal_enabled = false;
+            Flux::toast('Public portal is a paid add-on. Contact DeadCenter to enable it for your organization.', variant: 'warning');
+        }
+
         $payload = [
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
@@ -97,7 +105,7 @@ new #[Layout('components.layouts.app')]
             'secondary_color' => $validated['secondary_color'],
             'hero_text' => $validated['hero_text'] ?: null,
             'hero_description' => $validated['hero_description'] ?: null,
-            'portal_enabled' => $this->portal_enabled,
+            'portal_enabled' => $portalOk,
             'season_standings_enabled' => $this->season_standings_enabled,
         ];
 
@@ -190,12 +198,19 @@ new #[Layout('components.layouts.app')]
 
             <h2 class="text-lg font-semibold text-primary">Public Portal / White Label</h2>
 
-            <div class="flex items-center gap-3">
+            @if(! $organization->portal_entitled)
+                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-secondary">
+                    The public portal is a <strong class="text-primary">paid add-on</strong>. Contact DeadCenter to purchase access; we will enable it on your organization account.
+                </div>
+            @endif
+
+            <div class="flex items-center gap-3 {{ ! $organization->portal_entitled ? 'opacity-60' : '' }}">
                 <input type="checkbox" wire:model="portal_enabled" id="portal_enabled"
-                       class="rounded border-border bg-surface-2 text-accent focus:ring-red-500">
+                       @disabled(! $organization->portal_entitled)
+                       class="rounded border-border bg-surface-2 text-accent focus:ring-red-500 disabled:cursor-not-allowed">
                 <label for="portal_enabled" class="text-sm text-secondary">Enable public portal</label>
             </div>
-            @if($organization->portal_enabled)
+            @if($organization->hasPortal())
                 <p class="text-xs text-muted">
                     Portal URL: <a href="{{ route('portal.home', $organization) }}" target="_blank" class="text-accent hover:text-accent font-mono">{{ route('portal.home', $organization) }}</a>
                 </p>

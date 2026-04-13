@@ -71,7 +71,16 @@ test('portal shows upcoming matches on landing page', function () {
 test('portal leaderboard shows empty state when no completed matches', function () {
     $this->get(route('portal.leaderboard', $this->org))
         ->assertOk()
-        ->assertSee('No completed matches');
+        ->assertSee('No scored results yet');
+});
+
+test('portal routes return 404 when org is not entitled to the add-on', function () {
+    $this->org->update([
+        'portal_entitled' => false,
+        'portal_enabled' => true,
+    ]);
+
+    $this->get(route('portal.home', $this->org))->assertNotFound();
 });
 
 test('org settings page shows branding fields', function () {

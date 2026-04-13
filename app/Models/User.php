@@ -159,22 +159,16 @@ class User extends Authenticatable
     public function isOrgMatchDirector(Organization $organization): bool
     {
         return $this->isOwner() || $this->isMatchDirector()
-            || $this->organizations()
-                ->where('organization_id', $organization->id)
-                ->where(fn ($q) => $q->wherePivot('is_owner', true)->orWherePivot('is_match_director', true))
-                ->exists();
+            || $this->hasOrgRole($organization, 'owner')
+            || $this->hasOrgRole($organization, 'match_director');
     }
 
     public function isOrgRangeOfficer(Organization $organization): bool
     {
         return $this->isOwner() || $this->isMatchDirector()
-            || $this->organizations()
-                ->where('organization_id', $organization->id)
-                ->where(fn ($q) => $q
-                    ->wherePivot('is_owner', true)
-                    ->orWherePivot('is_match_director', true)
-                    ->orWherePivot('is_range_officer', true))
-                ->exists();
+            || $this->hasOrgRole($organization, 'owner')
+            || $this->hasOrgRole($organization, 'match_director')
+            || $this->hasOrgRole($organization, 'range_officer');
     }
 
     public function isOrgAdmin(Organization $organization): bool
@@ -186,10 +180,11 @@ class User extends Authenticatable
     {
         return $this->isOwner() || $this->isMatchDirector()
             || $this->organizations()
-                ->where(fn ($q) => $q
-                    ->wherePivot('is_owner', true)
-                    ->orWherePivot('is_match_director', true)
-                    ->orWherePivot('is_range_officer', true))
+                ->where(function ($q) {
+                    $q->where('organization_admins.is_owner', true)
+                        ->orWhere('organization_admins.is_match_director', true)
+                        ->orWhere('organization_admins.is_range_officer', true);
+                })
                 ->exists();
     }
 

@@ -1,0 +1,43 @@
+<div class="space-y-1">
+    <div class="px-3 pb-1">
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted">Platform Admin</p>
+    </div>
+
+    <div class="px-3 pt-1">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted/70">Directory</p>
+    </div>
+    <a href="{{ route('admin.dashboard') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.dashboard') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Overview</a>
+    <a href="{{ route('admin.organizations') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.organizations') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+        Organizations
+        @php $pendingOrgs = \App\Models\Organization::pending()->count(); @endphp
+        @if($pendingOrgs > 0)
+            <span class="ml-auto inline-flex items-center justify-center rounded-full bg-amber-600 px-2 py-0.5 text-xs font-bold text-primary">{{ $pendingOrgs }}</span>
+        @endif
+    </a>
+    <a href="{{ route('admin.members') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.members') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Members</a>
+
+    <div class="px-3 pt-2">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted/70">Matches</p>
+    </div>
+    <a href="{{ route('admin.matches.index') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.matches.*') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">All Matches</a>
+    <a href="{{ route('admin.registrations') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.registrations') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">All Registrations</a>
+    <a href="{{ route('admin.seasons') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.seasons') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Seasons</a>
+
+    <div class="px-3 pt-2">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted/70">Revenue & Brand</p>
+    </div>
+    <a href="{{ route('admin.advertising') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.advertising') || request()->routeIs('admin.sponsors') || request()->routeIs('admin.sponsor-assignments') || request()->routeIs('admin.sponsor-info') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Advertising</a>
+
+    <div class="px-3 pt-2">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-muted/70">Site</p>
+    </div>
+    <a href="{{ route('admin.homepage') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.homepage') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Homepage Editor</a>
+    <a href="{{ route('admin.contact-submissions') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.contact-submissions') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+        Contact Submissions
+        @php $unreadContacts = \App\Models\ContactSubmission::unread()->count(); @endphp
+        @if($unreadContacts > 0)
+            <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $unreadContacts }}</span>
+        @endif
+    </a>
+    <a href="{{ route('admin.settings') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.settings') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Platform Settings</a>
+</div>

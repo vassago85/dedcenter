@@ -92,8 +92,15 @@ new #[Layout('components.layouts.app')]
     {{-- Header --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <flux:heading size="xl">{{ $organization->name }}</flux:heading>
-            <p class="mt-1 text-sm text-muted">Match Director Dashboard &mdash; Create matches, manage squads, run scoring, and publish results.</p>
+            <x-app-page-header
+                :title="$organization->name . ' Admin Dashboard'"
+                subtitle="Create matches, manage squads, run scoring, and publish results."
+                :crumbs="[
+                    ['label' => 'Organization'],
+                    ['label' => $organization->name],
+                    ['label' => 'Dashboard'],
+                ]"
+            />
         </div>
         <flux:button href="{{ route('org.matches.create', $org) }}" variant="primary" class="!bg-accent hover:!bg-accent-hover">
             <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

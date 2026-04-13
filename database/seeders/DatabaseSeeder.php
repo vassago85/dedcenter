@@ -57,6 +57,7 @@ class DatabaseSeeder extends Seeder
                 'hero_text' => 'Royal Flush 2026',
                 'hero_description' => 'The ultimate year-long precision shooting competition. Register for matches, submit your scores, and climb the leaderboard.',
                 'portal_enabled' => true,
+                'portal_entitled' => true,
                 'best_of' => 5,
             ]
         );
