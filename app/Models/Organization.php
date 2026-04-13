@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Organization extends Model
@@ -58,7 +59,7 @@ class Organization extends Model
                 $org->slug = Str::slug($org->name);
                 $i = 1;
                 while (static::where('slug', $org->slug)->exists()) {
-                    $org->slug = Str::slug($org->name) . '-' . $i++;
+                    $org->slug = Str::slug($org->name).'-'.$i++;
                 }
             }
         });
@@ -165,6 +166,33 @@ class Organization extends Model
     public function hasPortal(): bool
     {
         return $this->portal_enabled && $this->portal_entitled && $this->isActive();
+    }
+
+    /**
+     * Public URL for the organization logo (files are stored on the public disk).
+     */
+    public function logoUrl(): ?string
+    {
+        if (! $this->logo_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->logo_path);
+    }
+
+    /**
+     * Where public marketing should send visitors: portal if entitled, else filtered events.
+     */
+    public function publicMarketingHref(): string
+    {
+        if ($this->hasPortal()) {
+            return route('portal.home', $this);
+        }
+
+        return route('events', [
+            'tab' => 'upcoming',
+            'organizationId' => (string) $this->id,
+        ]);
     }
 
     public function isOwnedBy(User $user): bool

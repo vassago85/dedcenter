@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\BadgeGalleryController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MatchBookController;
 use App\Http\Controllers\MatchExportController;
 use App\Http\Controllers\MatchReportController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SponsorInfoController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
@@ -21,7 +25,7 @@ Volt::route('/reset-password/{token}', 'auth.reset-password')->middleware('guest
 // Public landing — domain-aware
 // ══════════════════════════════════════════════════
 
-Route::get('/', [\App\Http\Controllers\HomeController::class, '__invoke'])->name('home');
+Route::get('/', [HomeController::class, '__invoke'])->name('home');
 
 // ══════════════════════════════════════════════════
 // Public marketing pages
@@ -36,12 +40,12 @@ Volt::route('/setup', 'setup')->name('setup');
 Volt::route('/privacy', 'privacy')->name('privacy');
 Volt::route('/terms', 'terms')->name('terms');
 
-Route::get('/sitemap.xml', \App\Http\Controllers\SitemapController::class)->name('sitemap');
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 
 // ── Private Sponsor Info (token-protected, not in navigation) ──
 Route::get('/sponsor-info/{token}', [SponsorInfoController::class, 'show'])->name('sponsor-info.show');
 
-Route::get('/app-login', [\App\Http\Controllers\Api\AuthController::class, 'tokenLogin'])->name('app.login');
+Route::get('/app-login', [AuthController::class, 'tokenLogin'])->name('app.login');
 
 Route::get('/score/{any?}', function () {
     $user = auth()->user();
@@ -57,17 +61,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/scoreboard/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('scoreboard.export.detailed');
 });
 Volt::route('/live/{match}', 'live')->name('live');
-Route::get('/badges-preview', \App\Http\Controllers\BadgeGalleryController::class)->name('badges.preview');
+Route::get('/badges-preview', BadgeGalleryController::class)->name('badges.preview');
 Volt::route('/events', 'events')->name('events');
 Volt::route('/events/{match}', 'event-detail')->name('events.show');
 Volt::route('/shooters/{user}', 'shooter-profile')->name('shooter.profile');
 Volt::route('/leaderboard/{organization}', 'leaderboard')->name('leaderboard');
-
-// Portal redirects (permanent)
-Route::permanentRedirect('/p/{organization}', '/events');
-Route::get('/p/{organization}/matches', fn ($organization) => redirect("/events?org={$organization}", 301));
-Route::get('/p/{organization}/matches/{match}', fn ($organization, $match) => redirect("/events/{$match}", 301));
-Route::get('/p/{organization}/leaderboard', fn ($organization) => redirect("/leaderboard/{$organization}", 301));
 
 // ── Public Portal (white-label org pages; requires paid entitlement + org toggle) ──
 Route::middleware('org.portal')->prefix('p/{organization}')->name('portal.')->group(function () {
@@ -179,5 +177,6 @@ Route::post('/logout', function () {
     auth()->logout();
     request()->session()->invalidate();
     request()->session()->regenerateToken();
+
     return redirect('/');
 })->name('logout')->middleware('auth');

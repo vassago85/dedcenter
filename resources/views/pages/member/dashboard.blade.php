@@ -336,8 +336,8 @@ new #[Layout('components.layouts.app')]
             @foreach($myOrgs as $org)
                 <a href="{{ route('org.dashboard', $org) }}" class="flex items-center gap-4 px-6 py-3.5 hover:bg-surface-2/30 transition-colors">
                     <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-xs font-bold uppercase text-muted">
-                        @if($org->logo_path)
-                            <img src="{{ $org->logo_path }}" alt="{{ $org->name }}" class="h-9 w-9 rounded-lg object-cover" />
+                        @if($org->logoUrl())
+                            <img src="{{ $org->logoUrl() }}" alt="{{ $org->name }}" class="h-9 w-9 rounded-lg object-cover" />
                         @else
                             {{ substr($org->name, 0, 2) }}
                         @endif

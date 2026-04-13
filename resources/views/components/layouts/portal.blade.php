@@ -48,8 +48,8 @@
             <div class="flex h-16 items-center justify-between">
                 <div class="flex items-center gap-6">
                     <a href="{{ route('portal.home', $org) }}" class="flex items-center gap-3">
-                        @if($org?->logo_path)
-                            <img src="{{ Storage::url($org->logo_path) }}" alt="{{ $orgName }}" class="h-8 w-auto">
+                        @if($org?->logoUrl())
+                            <img src="{{ $org->logoUrl() }}" alt="{{ $orgName }}" class="h-8 w-auto">
                         @endif
                         <span class="text-lg font-bold tracking-tight">{{ $orgName }}</span>
                     </a>

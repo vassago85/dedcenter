@@ -135,9 +135,9 @@
                             @else
                                 <div class="absolute inset-0" style="background: linear-gradient(135deg, rgba(225,6,0,0.15), var(--lp-surface));"></div>
                             @endif
-                            @if($match->organization?->logo_path)
+                            @if($match->organization?->logoUrl())
                                 <div class="absolute top-3 left-3">
-                                    <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                    <img src="{{ $match->organization->logoUrl() }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
                                 </div>
                             @endif
                             <div class="absolute top-3 right-3 flex items-center gap-1.5">
@@ -216,9 +216,9 @@
                                 @else
                                     <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
                                 @endif
-                                @if($match->organization?->logo_path)
+                                @if($match->organization?->logoUrl())
                                     <div class="absolute top-3 left-3">
-                                        <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                        <img src="{{ $match->organization->logoUrl() }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
                                     </div>
                                 @elseif($match->organization)
                                     <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
@@ -303,9 +303,9 @@
                             @else
                                 <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
                             @endif
-                            @if($match->organization?->logo_path)
+                            @if($match->organization?->logoUrl())
                                 <div class="absolute top-3 left-3">
-                                    <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                    <img src="{{ $match->organization->logoUrl() }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
                                 </div>
                             @elseif($match->organization)
                                 <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
@@ -357,14 +357,14 @@
                     @foreach($allOrganizations as $org)
                         @php
                             $isFeatured = $featuredOrgs->contains('id', $org->id);
-                            $hasLogo = ! empty($org->logo_path);
-                            $hasPortal = method_exists($org, 'hasPortal') && $org->hasPortal();
-                            $href = $hasPortal ? route('portal.home', $org) : route('events');
+                            $orgLogoUrl = $org->logoUrl();
+                            $hasLogo = (bool) $orgLogoUrl;
+                            $href = $org->publicMarketingHref();
                         @endphp
                         <a href="{{ $href }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid {{ $isFeatured ? 'rgba(225,6,0,0.3)' : 'var(--lp-border)' }}; background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='{{ $isFeatured ? 'rgba(225,6,0,0.3)' : 'var(--lp-border)' }}'">
                             <div class="flex items-center gap-4 mb-3">
                                 @if($hasLogo)
-                                    <img src="{{ Illuminate\Support\Facades\Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-10 w-10 rounded-lg object-contain" style="background: var(--lp-surface-2);">
+                                    <img src="{{ $orgLogoUrl }}" alt="{{ $org->name }}" class="h-10 w-10 rounded-lg object-contain" style="background: var(--lp-surface-2);">
                                 @else
                                     <div class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold" style="background: rgba(225,6,0,0.08); color: var(--lp-red);">
                                         {{ strtoupper(substr($org->name, 0, 2)) }}
@@ -434,9 +434,9 @@
                                 @else
                                     <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
                                 @endif
-                                @if($match->organization?->logo_path)
+                                @if($match->organization?->logoUrl())
                                     <div class="absolute top-3 left-3">
-                                        <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                        <img src="{{ $match->organization->logoUrl() }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
                                     </div>
                                 @elseif($match->organization)
                                     <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">
@@ -528,9 +528,9 @@
                                 @else
                                     <div class="absolute inset-0" style="background: linear-gradient(135deg, {{ $gradientFallback }}, var(--lp-surface));"></div>
                                 @endif
-                                @if($match->organization?->logo_path)
+                                @if($match->organization?->logoUrl())
                                     <div class="absolute top-3 left-3">
-                                        <img src="{{ Illuminate\Support\Facades\Storage::url($match->organization->logo_path) }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
+                                        <img src="{{ $match->organization->logoUrl() }}" alt="" class="h-8 w-8 rounded-lg border border-white/20 object-cover shadow-lg" loading="lazy" />
                                     </div>
                                 @elseif($match->organization)
                                     <div class="absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 shadow-lg text-[10px] font-bold" style="background: var(--lp-surface); color: var(--lp-text-muted);">

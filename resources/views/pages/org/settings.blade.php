@@ -155,7 +155,7 @@ new #[Layout('components.layouts.app')]
             <div class="flex items-start gap-4">
                 @if($organization->logo_path)
                     <div class="flex-shrink-0">
-                        <img src="{{ Storage::url($organization->logo_path) }}" alt="Logo" class="h-16 w-16 rounded-lg border border-border object-cover" />
+                        <img src="{{ $organization->logoUrl() }}" alt="Logo" class="h-16 w-16 rounded-lg border border-border object-cover" />
                     </div>
                 @endif
                 <div class="flex-1 space-y-2">
