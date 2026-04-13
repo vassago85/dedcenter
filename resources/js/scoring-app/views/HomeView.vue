@@ -113,9 +113,9 @@ import { db } from '../db/index';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceRoleChip from '../components/DeviceRoleChip.vue';
 
-const LAST_MATCH_KEY = 'dc_last_match_id';
 const SQUAD_LOCK_KEY = 'dc_locked_squad';
 const STAGE_LOCK_KEY = 'dc_locked_stage';
+const LAST_MATCH_KEY = 'dc_last_match_id';
 
 const router = useRouter();
 const matchStore = useMatchStore();
@@ -163,10 +163,5 @@ onMounted(async () => {
             .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
             .slice(0, 5);
     } catch { /* no cache */ }
-
-    const hasLock = !!localStorage.getItem(SQUAD_LOCK_KEY) || !!localStorage.getItem(STAGE_LOCK_KEY);
-    if (hasLock && continueMatchId.value) {
-        router.replace({ name: 'match-overview', params: { matchId: continueMatchId.value } });
-    }
 });
 </script>

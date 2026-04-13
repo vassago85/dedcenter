@@ -2,19 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 
 const LAST_MATCH_KEY = 'dc_last_match_id';
-const SQUAD_LOCK_KEY = 'dc_locked_squad';
-const STAGE_LOCK_KEY = 'dc_locked_stage';
 const MODE_KEY = 'dc_pwa_mode';
-
-function getLockedMatchId() {
-    try {
-        const squad = localStorage.getItem(SQUAD_LOCK_KEY);
-        if (squad) return JSON.parse(squad).matchId;
-        const stage = localStorage.getItem(STAGE_LOCK_KEY);
-        if (stage) return JSON.parse(stage).matchId;
-    } catch { /* ignore */ }
-    return null;
-}
 
 const routes = [
     {
@@ -124,23 +112,10 @@ router.beforeEach(async (to, from, next) => {
             if (!userStore.canScore || mode === 'member') {
                 return next({ name: 'member-home' });
             }
-            if (!from.name) {
-                const lockedMatchId = getLockedMatchId();
-                if (lockedMatchId) {
-                    return next({ name: 'match-overview', params: { matchId: lockedMatchId } });
-                }
-            }
         }
 
         if (to.name === 'member-home' && userStore.canScore && mode === 'score') {
             return next({ name: 'home' });
-        }
-    }
-
-    if (to.name === 'match-select' && !from.name) {
-        const lockedMatchId = getLockedMatchId();
-        if (lockedMatchId) {
-            return next({ name: 'match-overview', params: { matchId: lockedMatchId } });
         }
     }
 

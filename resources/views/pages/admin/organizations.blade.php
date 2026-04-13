@@ -156,7 +156,7 @@ new #[Layout('components.layouts.app')]
                                 </td>
                                 <td class="px-6 py-3 capitalize text-secondary">{{ $org->type }}</td>
                                 <td class="px-6 py-3 text-muted text-xs">{{ $org->parent?->name ?? '—' }}</td>
-                                <td class="px-6 py-3 text-secondary">{{ $org->creator->name }}</td>
+                                <td class="px-6 py-3 text-secondary">{{ $org->creator?->name ?? '—' }}</td>
                                 <td class="px-6 py-3">
                                     @switch($org->status)
                                         @case('pending')
