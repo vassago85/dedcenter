@@ -256,7 +256,7 @@ new #[Layout('components.layouts.app')]
                 <h2 class="text-lg font-semibold text-primary">Upcoming Matches</h2>
                 <p class="mt-0.5 text-xs text-muted">Matches you've registered for</p>
             </div>
-            <flux:button href="{{ route('matches') }}" size="sm" variant="ghost">View All</flux:button>
+            <flux:button href="{{ route('matches') }}" size="sm" variant="ghost" class="!text-accent hover:!text-accent-hover">View All</flux:button>
         </div>
 
         @if($upcomingMatches->isEmpty())
@@ -287,7 +287,7 @@ new #[Layout('components.layouts.app')]
                 <h2 class="text-lg font-semibold text-primary">Recent Results</h2>
                 <p class="mt-0.5 text-xs text-muted">Your completed matches</p>
             </div>
-            <flux:button href="{{ route('matches') }}" size="sm" variant="ghost">View All</flux:button>
+            <flux:button href="{{ route('matches') }}" size="sm" variant="ghost" class="!text-accent hover:!text-accent-hover">View All</flux:button>
         </div>
 
         @if($recentResults->isEmpty())

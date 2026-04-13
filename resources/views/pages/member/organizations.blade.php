@@ -87,7 +87,7 @@ new #[Layout('components.layouts.app')]
 
                     <div class="mt-4 flex gap-2">
                         @if($org->best_of || $org->matches_count > 0)
-                            <flux:button href="{{ route('leaderboard', $org) }}" size="sm" variant="ghost">Leaderboard</flux:button>
+                            <flux:button href="{{ route('leaderboard', $org) }}" size="sm" variant="ghost" class="!text-accent hover:!text-accent-hover">Leaderboard</flux:button>
                         @endif
                     </div>
                 </div>
