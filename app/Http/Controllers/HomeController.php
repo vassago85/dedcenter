@@ -60,6 +60,11 @@ class HomeController extends Controller
             ->pluck('item')
             ->filter();
 
+        $allOrganizations = Organization::active()
+            ->withCount('matches')
+            ->orderBy('name')
+            ->get();
+
         $upcomingStatuses = [
             MatchStatus::PreRegistration->value,
             MatchStatus::RegistrationOpen->value,
@@ -121,6 +126,7 @@ class HomeController extends Controller
         return compact(
             'featuredMatches',
             'featuredOrgs',
+            'allOrganizations',
             'upcomingMatches',
             'recentResults',
             'popularMatches',

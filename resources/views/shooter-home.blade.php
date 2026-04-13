@@ -343,24 +343,59 @@
     @endif
 
     {{-- ══════════════════════════════════════════ --}}
-    {{-- FEATURED CLUBS --}}
+    {{-- CLUBS & ORGANIZATIONS --}}
     {{-- ══════════════════════════════════════════ --}}
-    <section style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
+    <section id="organizations" style="border-top: 1px solid var(--lp-border); background: var(--lp-bg-2);">
         <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
             <div class="mb-12 text-center">
-                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Featured Clubs &amp; Organizations</h2>
-                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Clubs, leagues, and competition organizations using DeadCenter to run precision shooting events.</p>
+                <h2 class="text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Clubs &amp; Organizations</h2>
+                <p class="mt-3 max-w-xl mx-auto" style="color: var(--lp-text-muted);">Leagues, clubs, and competition organizations running precision shooting events on DeadCenter.</p>
             </div>
 
-            @if($featuredOrgs->count())
+            @if($allOrganizations->count())
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach($featuredOrgs as $org)
-                        <x-club-card :organization="$org" context="marketing" />
+                    @foreach($allOrganizations as $org)
+                        @php
+                            $isFeatured = $featuredOrgs->contains('id', $org->id);
+                            $hasLogo = ! empty($org->logo_path);
+                            $hasPortal = method_exists($org, 'hasPortal') && $org->hasPortal();
+                            $href = $hasPortal ? route('portal.home', $org) : route('events');
+                        @endphp
+                        <a href="{{ $href }}" class="group rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]" style="border: 1px solid {{ $isFeatured ? 'rgba(225,6,0,0.3)' : 'var(--lp-border)' }}; background: var(--lp-surface);" onmouseover="this.style.borderColor='rgba(225,6,0,0.3)'" onmouseout="this.style.borderColor='{{ $isFeatured ? 'rgba(225,6,0,0.3)' : 'var(--lp-border)' }}'">
+                            <div class="flex items-center gap-4 mb-3">
+                                @if($hasLogo)
+                                    <img src="{{ Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-10 w-10 rounded-lg object-contain" style="background: var(--lp-surface-2);">
+                                @else
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold" style="background: rgba(225,6,0,0.08); color: var(--lp-red);">
+                                        {{ strtoupper(substr($org->name, 0, 2)) }}
+                                    </div>
+                                @endif
+                                <div>
+                                    <h3 class="text-base font-semibold group-hover:!text-white transition-colors" style="color: var(--lp-text);">{{ $org->name }}</h3>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[11px] font-medium uppercase tracking-wider" style="color: var(--lp-text-muted);">{{ $org->type }}</span>
+                                        @if($isFeatured)
+                                            <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--lp-red);">Featured</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            @if($org->description)
+                                <p class="text-sm leading-relaxed line-clamp-2" style="color: var(--lp-text-soft);">{{ $org->description }}</p>
+                            @endif
+                            <div class="mt-3 flex items-center gap-3 text-xs" style="color: var(--lp-text-muted);">
+                                <span>{{ $org->matches_count }} {{ Str::plural('match', $org->matches_count) }}</span>
+                                @if($org->province)
+                                    <span>&middot;</span>
+                                    <span>{{ $org->province }}</span>
+                                @endif
+                            </div>
+                        </a>
                     @endforeach
                 </div>
             @else
                 <div class="rounded-2xl p-12 text-center" style="border: 1px dashed var(--lp-border); background: var(--lp-surface);">
-                    <p class="text-sm" style="color: var(--lp-text-muted);">Featured clubs and organizations will be highlighted here.</p>
+                    <p class="text-sm" style="color: var(--lp-text-muted);">Organizations will appear here as they join DeadCenter.</p>
                 </div>
             @endif
         </div>
