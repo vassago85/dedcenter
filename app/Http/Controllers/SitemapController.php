@@ -15,6 +15,7 @@ class SitemapController extends Controller
 
         $staticPages = [
             ['loc' => url('/'), 'priority' => '1.0', 'changefreq' => 'weekly'],
+            ['loc' => url('/advertise'), 'priority' => '0.75', 'changefreq' => 'monthly'],
             ['loc' => url('/features'), 'priority' => '0.8', 'changefreq' => 'monthly'],
             ['loc' => url('/scoring'), 'priority' => '0.8', 'changefreq' => 'monthly'],
             ['loc' => url('/offline'), 'priority' => '0.7', 'changefreq' => 'monthly'],
@@ -70,13 +71,13 @@ class SitemapController extends Controller
             ]);
         }
 
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
 
         foreach ($urls as $url) {
             $xml .= "  <url>\n";
-            $xml .= "    <loc>" . htmlspecialchars($url['loc']) . "</loc>\n";
-            if (!empty($url['lastmod'])) {
+            $xml .= '    <loc>'.htmlspecialchars($url['loc'])."</loc>\n";
+            if (! empty($url['lastmod'])) {
                 $xml .= "    <lastmod>{$url['lastmod']}</lastmod>\n";
             }
             $xml .= "    <changefreq>{$url['changefreq']}</changefreq>\n";

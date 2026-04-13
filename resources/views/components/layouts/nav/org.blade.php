@@ -31,6 +31,12 @@
             Clubs
         </a>
     @endif
+    @if($currentOrg->hasPortalAdRights())
+        <a href="{{ route('org.portal-sponsors', $currentOrg) }}"
+           class="flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('org.portal-sponsors') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+            Portal sponsors
+        </a>
+    @endif
     <a href="{{ route('org.settings', $currentOrg) }}"
        class="flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('org.settings') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
         Organization Settings

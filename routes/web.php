@@ -34,6 +34,7 @@ Route::get('/', [HomeController::class, '__invoke'])->name('home');
 Volt::route('/features', 'features')->name('features');
 Volt::route('/scoring', 'scoring-info')->name('scoring');
 Volt::route('/sponsorships', 'sponsorships')->name('sponsorships');
+Volt::route('/advertise', 'advertise')->name('advertise');
 Volt::route('/sponsor-marketplace', 'sponsor-marketplace')->name('sponsor-marketplace');
 Volt::route('/offline', 'offline')->name('offline');
 Volt::route('/setup', 'setup')->name('setup');
@@ -116,16 +117,19 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Route::get('/matches/{match}/report/preview', [MatchReportController::class, 'preview'])->name('matches.report.preview');
     Route::post('/matches/{match}/report/send', [MatchReportController::class, 'send'])->name('matches.report.send');
 
-    // ── Match Book ──
-    Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
-    Volt::route('/matches/{match}/matchbook/edit', 'org.matches.matchbook')->name('matches.matchbook.edit');
-    Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
-    Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
+    // ── Match Book (gated — see config/deadcenter.php) ──
+    Route::middleware('matchbook.enabled')->group(function () {
+        Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
+        Volt::route('/matches/{match}/matchbook/edit', 'org.matches.matchbook')->name('matches.matchbook.edit');
+        Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
+        Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
+    });
 
     Volt::route('/registrations', 'org.registrations')->name('registrations');
     Volt::route('/admins', 'org.admins')->name('admins');
     Volt::route('/clubs', 'org.clubs')->name('clubs');
     Volt::route('/settings', 'org.settings')->name('settings');
+    Volt::route('/portal-sponsors', 'org.portal-sponsors')->name('portal-sponsors');
 });
 
 // ══════════════════════════════════════════════════
@@ -150,11 +154,13 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::get('/matches/{match}/report/preview', [MatchReportController::class, 'preview'])->name('matches.report.preview');
     Route::post('/matches/{match}/report/send', [MatchReportController::class, 'send'])->name('matches.report.send');
 
-    // ── Match Book ──
-    Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
-    Volt::route('/matches/{match}/matchbook/edit', 'admin.matches.matchbook')->name('matches.matchbook.edit');
-    Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
-    Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
+    // ── Match Book (gated — see config/deadcenter.php) ──
+    Route::middleware('matchbook.enabled')->group(function () {
+        Route::get('/matches/{match}/matchbook', [MatchBookController::class, 'show'])->name('matches.matchbook.show');
+        Volt::route('/matches/{match}/matchbook/edit', 'admin.matches.matchbook')->name('matches.matchbook.edit');
+        Route::get('/matches/{match}/matchbook/preview', [MatchBookController::class, 'preview'])->name('matches.matchbook.preview');
+        Route::get('/matches/{match}/matchbook/download', [MatchBookController::class, 'download'])->name('matches.matchbook.download');
+    });
 
     // ── Brands & Advertising ──
     Volt::route('/sponsors', 'admin.sponsors')->name('sponsors');

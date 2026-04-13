@@ -64,9 +64,7 @@
                     <a href="{{ route('home') }}#results" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Results</a>
                     <a href="{{ route('home') }}#standings" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
                     <a href="{{ route('features') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('features') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">About</a>
-                    @if((bool) \App\Models\Setting::get('advertising_enabled', false))
-                        <a href="{{ route('sponsorships') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('sponsorships') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Advertise</a>
-                    @endif
+                    <a href="{{ route('advertise') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('advertise') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Advertise</a>
                 @endif
             </div>
 
@@ -107,9 +105,7 @@
                                 <a href="{{ route('home') }}#results" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Results</a>
                                 <a href="{{ route('home') }}#standings" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Standings</a>
                                 <a href="{{ route('features') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">About</a>
-                                @if((bool) \App\Models\Setting::get('advertising_enabled', false))
-                                    <a href="{{ route('sponsorships') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Advertise</a>
-                                @endif
+                                <a href="{{ route('advertise') }}" class="marketing-mobile-link block rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-white/10" onclick="this.closest('details')?.removeAttribute('open')">Advertise</a>
                             @endif
 
                             <div class="mt-3 border-t pt-3 space-y-1" style="border-color: var(--lp-border);">
@@ -141,11 +137,10 @@
                 <div class="flex items-center gap-6 text-xs" style="color: var(--lp-text-muted);">
                     @if($ctx === 'md')
                         <a href="{{ shooter_url('/') }}" class="hover:!text-white transition-colors">Shooter Portal</a>
+                        <a href="{{ shooter_url('/advertise') }}" class="hover:!text-white transition-colors">Advertise</a>
                     @else
                         <a href="{{ md_url('/') }}" class="hover:!text-white transition-colors">For Match Directors</a>
-                    @endif
-                    @if((bool) \App\Models\Setting::get('advertising_enabled', false))
-                        <a href="{{ route('sponsorships') }}" class="hover:!text-white transition-colors">Advertise</a>
+                        <a href="{{ route('advertise') }}" class="hover:!text-white transition-colors">Advertise</a>
                     @endif
                     <a href="{{ app_url('/login') }}" class="hover:!text-white transition-colors">Sign In</a>
                     <span style="opacity: 0.5;">deadcenter.co.za</span>

@@ -2,6 +2,7 @@
 
 use App\Enums\PlacementKey;
 use App\Enums\SponsorScope;
+use App\Models\Organization;
 use App\Models\Sponsor;
 use App\Models\SponsorAssignment;
 use Flux\Flux;
@@ -22,6 +23,8 @@ new #[Layout('components.layouts.app')]
     public string $label_override = '';
 
     public int $display_order = 0;
+
+    public string $target_organization_id = '';
 
     public function mount(): void
     {
@@ -46,6 +49,8 @@ new #[Layout('components.layouts.app')]
         $this->placement_key = $assignment->placement_key->value;
         $this->label_override = $assignment->label_override ?? '';
         $this->display_order = $assignment->display_order;
+        $tid = $assignment->metadata['target_organization_id'] ?? null;
+        $this->target_organization_id = $tid !== null && $tid !== '' ? (string) $tid : '';
 
         Flux::modal('assignment-form')->show();
     }
@@ -74,6 +79,19 @@ new #[Layout('components.layouts.app')]
         ];
 
         if ($this->editingId) {
+            $existing = SponsorAssignment::query()
+                ->platform()
+                ->whereNull('scope_id')
+                ->whereKey($this->editingId)
+                ->value('metadata') ?? [];
+            $existing = is_array($existing) ? $existing : [];
+            if ($this->target_organization_id !== '') {
+                $existing['target_organization_id'] = (int) $this->target_organization_id;
+            } else {
+                unset($existing['target_organization_id']);
+            }
+            $payload['metadata'] = $existing === [] ? null : $existing;
+
             SponsorAssignment::query()
                 ->platform()
                 ->whereNull('scope_id')
@@ -82,7 +100,10 @@ new #[Layout('components.layouts.app')]
                 ->update($payload);
             Flux::toast('Assignment updated.', variant: 'success');
         } else {
-            SponsorAssignment::create($payload + ['active' => true]);
+            $meta = $this->target_organization_id !== ''
+                ? ['target_organization_id' => (int) $this->target_organization_id]
+                : null;
+            SponsorAssignment::create($payload + ['active' => true, 'metadata' => $meta]);
             Flux::toast('Assignment created.', variant: 'success');
         }
 
@@ -131,6 +152,7 @@ new #[Layout('components.layouts.app')]
         $this->placement_key = $defaults[0]->value;
         $this->label_override = '';
         $this->display_order = 0;
+        $this->target_organization_id = '';
     }
 
     protected function surfaceTitle(string $surface): string
@@ -142,6 +164,8 @@ new #[Layout('components.layouts.app')]
             'exports' => 'Exports',
             'matchbook' => 'Match Book',
             'brand_info' => 'Brand Info',
+            'portal' => 'Club portals',
+            'landing' => 'Marketing site',
             default => ucfirst(str_replace('_', ' ', $surface)),
         };
     }
@@ -156,7 +180,10 @@ new #[Layout('components.layouts.app')]
             ->orderBy('id')
             ->get();
 
-        $surfaceOrder = ['leaderboard', 'results', 'scoring', 'exports', 'matchbook', 'sponsor_info'];
+        $surfaceOrder = ['leaderboard', 'results', 'scoring', 'exports', 'matchbook', 'brand_info', 'portal', 'landing'];
+        if (! config('deadcenter.matchbook_enabled')) {
+            $surfaceOrder = array_values(array_filter($surfaceOrder, fn (string $s) => $s !== 'matchbook'));
+        }
 
         $assignmentsBySurface = [];
         foreach ($surfaceOrder as $surface) {
@@ -170,6 +197,7 @@ new #[Layout('components.layouts.app')]
             'surfaceOrder' => $surfaceOrder,
             'platformPlacements' => PlacementKey::platformPlacements(),
             'sponsors' => Sponsor::query()->active()->orderBy('name')->get(),
+            'organizations' => Organization::query()->active()->orderBy('name')->get(),
         ];
     }
 }; ?>
@@ -273,6 +301,14 @@ new #[Layout('components.layouts.app')]
             <flux:input wire:model="label_override" label="Label override" placeholder='e.g. "Powered by"' description="Optional. Overrides the default &quot;Powered by&quot; text." />
 
             <flux:input wire:model.number="display_order" label="Display order" type="number" min="0" />
+
+            <flux:select wire:model="target_organization_id" label="Limit to one organization’s portal (optional)">
+                <option value="">All organization portals (default)</option>
+                @foreach($organizations as $o)
+                    <option value="{{ $o->id }}">{{ $o->name }}</option>
+                @endforeach
+            </flux:select>
+            <p class="text-xs text-muted -mt-2">For <strong>club portal</strong> placements, you can reserve inventory for a single org. Leave empty for network-wide rotation on every portal. Match-level defaults ignore this field.</p>
 
             <div class="flex flex-wrap gap-2 pt-2">
                 <flux:button type="submit" variant="primary">{{ $editingId ? 'Save changes' : 'Create assignment' }}</flux:button>

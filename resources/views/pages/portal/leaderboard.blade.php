@@ -132,6 +132,8 @@ new #[Layout('components.layouts.portal')]
         <x-powered-by-block feature="leaderboard" variant="block" />
     </div>
 
+    <x-portal-ad-slot :organization="$organization" placement="portal_leaderboard_strip" variant="block" />
+
     @if($divisionNames->isNotEmpty() || $categoryNames->isNotEmpty())
         <div class="space-y-2">
             @if($divisionNames->isNotEmpty())

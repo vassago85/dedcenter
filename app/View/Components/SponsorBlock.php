@@ -35,6 +35,9 @@ class SponsorBlock extends Component
 
     public function render(): View
     {
-        return view('components.sponsor-block');
+        return view('components.sponsor-assignment', [
+            'assignment' => $this->assignment,
+            'variant' => $this->variant,
+        ]);
     }
 }

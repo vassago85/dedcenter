@@ -77,19 +77,16 @@ new #[Layout('components.layouts.app')]
         Flux::toast("'{$name}' has been permanently deleted.", variant: 'warning');
     }
 
-    public function togglePortalEntitlement(int $id): void
+    public function togglePortalAdRights(int $id): void
     {
         $org = Organization::findOrFail($id);
 
-        if ($org->portal_entitled) {
-            $org->update([
-                'portal_entitled' => false,
-                'portal_enabled' => false,
-            ]);
-            Flux::toast("Public portal add-on removed from '{$org->name}'. Their portal URL is now disabled.", variant: 'warning');
+        if ($org->portal_ad_rights) {
+            $org->update(['portal_ad_rights' => false]);
+            Flux::toast("Portal advertising rights removed from '{$org->name}'. Platform-controlled sponsors will show on their portal.", variant: 'warning');
         } else {
-            $org->update(['portal_entitled' => true]);
-            Flux::toast("'{$org->name}' may now enable the public portal under Organization → Settings.", variant: 'success');
+            $org->update(['portal_ad_rights' => true]);
+            Flux::toast("'{$org->name}' may now assign sponsors to portal placements (Organization → Portal sponsors).", variant: 'success');
         }
     }
 
@@ -186,17 +183,17 @@ new #[Layout('components.layouts.app')]
                                                          href="{{ route('org.dashboard', $org) }}">
                                                 Manage
                                             </flux:button>
-                                            @if($org->portal_entitled)
+                                            @if($org->portal_ad_rights)
                                                 <flux:button size="sm" variant="ghost" class="!text-sky-400 hover:!text-sky-300"
-                                                             wire:click="togglePortalEntitlement({{ $org->id }})"
-                                                             wire:confirm="Remove paid public portal access for '{{ $org->name }}'? Their portal will go offline.">
-                                                    Remove portal
+                                                             wire:click="togglePortalAdRights({{ $org->id }})"
+                                                             wire:confirm="Revoke portal advertising rights for '{{ $org->name }}'? They will no longer control sponsor slots on their public portal.">
+                                                    Revoke ad rights
                                                 </flux:button>
                                             @else
                                                 <flux:button size="sm" variant="ghost" class="!text-sky-400 hover:!text-sky-300"
-                                                             wire:click="togglePortalEntitlement({{ $org->id }})"
-                                                             wire:confirm="Grant paid public portal access for '{{ $org->name }}'? They can then enable it in org settings.">
-                                                    Grant portal
+                                                             wire:click="togglePortalAdRights({{ $org->id }})"
+                                                             wire:confirm="Grant advertising rights for '{{ $org->name }}'? They can assign sponsors to approved portal placements.">
+                                                    Grant ad rights
                                                 </flux:button>
                                             @endif
                                             @if($org->royal_flush_enabled)

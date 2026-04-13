@@ -58,6 +58,7 @@ class DatabaseSeeder extends Seeder
                 'hero_description' => 'The ultimate year-long precision shooting competition. Register for matches, submit your scores, and climb the leaderboard.',
                 'portal_enabled' => true,
                 'portal_entitled' => true,
+                'portal_ad_rights' => true,
                 'best_of' => 5,
             ]
         );

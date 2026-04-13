@@ -16,11 +16,11 @@ class OrganizationFactory extends Factory
 
     public function definition(): array
     {
-        $name = fake()->company() . ' ' . fake()->randomElement(['League', 'Club', 'Competition']);
+        $name = fake()->company().' '.fake()->randomElement(['League', 'Club', 'Competition']);
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . fake()->unique()->numberBetween(100, 9999),
+            'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(100, 9999),
             'description' => fake()->optional()->sentence(),
             'type' => fake()->randomElement(['league', 'club', 'competition', 'challenge']),
             'parent_id' => null,
@@ -33,6 +33,7 @@ class OrganizationFactory extends Factory
             'hero_description' => null,
             'portal_enabled' => false,
             'portal_entitled' => false,
+            'portal_ad_rights' => false,
             'best_of' => null,
             'entry_fee_default' => null,
         ];
@@ -76,10 +77,14 @@ class OrganizationFactory extends Factory
     public function withPortal(): static
     {
         return $this->state(fn () => [
-            'portal_entitled' => true,
             'portal_enabled' => true,
             'hero_text' => fake()->catchPhrase(),
             'hero_description' => fake()->sentence(),
         ]);
+    }
+
+    public function withPortalAdRights(): static
+    {
+        return $this->state(fn () => ['portal_ad_rights' => true]);
     }
 }

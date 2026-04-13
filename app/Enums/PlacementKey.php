@@ -27,6 +27,17 @@ enum PlacementKey: string
     // Brand info page (legacy)
     case SponsorInfoFeature = 'sponsor_info_feature';
 
+    // Organization public portal (platform or org-controlled when entitled)
+    case PortalHomeHero = 'portal_home_hero';
+    case PortalHomeStrip = 'portal_home_strip';
+    case PortalMatchesSidebar = 'portal_matches_sidebar';
+    case PortalLeaderboardStrip = 'portal_leaderboard_strip';
+    case PortalMatchDetailBanner = 'portal_match_detail_banner';
+
+    // Site-wide marketing landing (monthly flagship — manual renewal)
+    case LandingHeroMonthly = 'landing_hero_monthly';
+    case LandingStripMonthly = 'landing_strip_monthly';
+
     /**
      * Get a business-friendly label for the placement.
      */
@@ -48,6 +59,13 @@ enum PlacementKey: string
             self::MatchbookInsideCover => 'Match Book Inside Cover',
             self::MatchbookResultsSection => 'Match Book Results Section',
             self::SponsorInfoFeature => 'Brand Info Page Feature',
+            self::PortalHomeHero => 'Portal — Home hero',
+            self::PortalHomeStrip => 'Portal — Home strip',
+            self::PortalMatchesSidebar => 'Portal — Matches sidebar',
+            self::PortalLeaderboardStrip => 'Portal — Leaderboard strip',
+            self::PortalMatchDetailBanner => 'Portal — Match detail banner',
+            self::LandingHeroMonthly => 'Landing — Hero (monthly flagship)',
+            self::LandingStripMonthly => 'Landing — Strip (monthly flagship)',
         };
     }
 
@@ -65,6 +83,9 @@ enum PlacementKey: string
             self::MatchbookCover, self::MatchbookFooter,
             self::MatchbookInsideCover, self::MatchbookResultsSection => 'matchbook',
             self::SponsorInfoFeature => 'brand_info',
+            self::PortalHomeHero, self::PortalHomeStrip, self::PortalMatchesSidebar,
+            self::PortalLeaderboardStrip, self::PortalMatchDetailBanner => 'portal',
+            self::LandingHeroMonthly, self::LandingStripMonthly => 'landing',
         };
     }
 
@@ -107,6 +128,16 @@ enum PlacementKey: string
         return str_starts_with($this->value, 'matchbook_');
     }
 
+    public function isPortalPlacement(): bool
+    {
+        return str_starts_with($this->value, 'portal_');
+    }
+
+    public function isLandingPlacement(): bool
+    {
+        return str_starts_with($this->value, 'landing_');
+    }
+
     /**
      * The 3 active advertising placements for the current version.
      */
@@ -133,17 +164,66 @@ enum PlacementKey: string
     }
 
     /**
+     * Public-facing attribution line before the sponsor name (no trailing punctuation).
+     * Keeps platform / portal ads distinct from official event or club sponsors.
+     */
+    public function publicPoweredByPrefix(): string
+    {
+        return match ($this) {
+            self::PortalHomeHero,
+            self::PortalHomeStrip,
+            self::PortalMatchesSidebar,
+            self::PortalMatchDetailBanner,
+            self::LandingHeroMonthly,
+            self::LandingStripMonthly => 'This page is powered by',
+
+            self::PortalLeaderboardStrip => 'Leaderboard powered by',
+
+            self::MatchLeaderboard,
+            self::GlobalLeaderboard => 'Leaderboard powered by',
+
+            self::MatchResults,
+            self::GlobalResults => 'Results powered by',
+
+            self::MatchScoring,
+            self::GlobalScoring => 'Scoring powered by',
+
+            self::MatchExports,
+            self::GlobalExports => 'Exports powered by',
+
+            self::MatchMatchbook,
+            self::GlobalMatchbook => 'Match book powered by',
+
+            self::MatchbookCover => 'Cover presentation powered by',
+            self::MatchbookFooter,
+            self::MatchbookInsideCover => 'This publication is powered by',
+            self::MatchbookResultsSection => 'Results section powered by',
+
+            self::SponsorInfoFeature => 'Presented by',
+        };
+    }
+
+    /**
      * Get placements available for match director assignment.
      */
     public static function matchDirectorPlacements(): array
     {
-        return [
+        $placements = [
             self::MatchLeaderboard,
             self::MatchResults,
             self::MatchScoring,
             self::MatchExports,
             self::MatchMatchbook,
         ];
+
+        if (! config('deadcenter.matchbook_enabled')) {
+            return array_values(array_filter(
+                $placements,
+                fn (self $p) => $p !== self::MatchMatchbook
+            ));
+        }
+
+        return $placements;
     }
 
     /**
@@ -151,13 +231,58 @@ enum PlacementKey: string
      */
     public static function platformPlacements(): array
     {
-        return [
+        $placements = [
             self::GlobalLeaderboard,
             self::GlobalResults,
             self::GlobalScoring,
             self::GlobalExports,
             self::GlobalMatchbook,
             self::SponsorInfoFeature,
+            self::PortalHomeHero,
+            self::PortalHomeStrip,
+            self::PortalMatchesSidebar,
+            self::PortalLeaderboardStrip,
+            self::PortalMatchDetailBanner,
+            self::LandingHeroMonthly,
+            self::LandingStripMonthly,
+        ];
+
+        if (! config('deadcenter.matchbook_enabled')) {
+            return array_values(array_filter(
+                $placements,
+                fn (self $p) => $p !== self::GlobalMatchbook
+            ));
+        }
+
+        return $placements;
+    }
+
+    /**
+     * Portal placements an organization may assign when it has portal advertising rights.
+     *
+     * @return list<self>
+     */
+    public static function organizationPortalPlacements(): array
+    {
+        return [
+            self::PortalHomeHero,
+            self::PortalHomeStrip,
+            self::PortalMatchesSidebar,
+            self::PortalLeaderboardStrip,
+            self::PortalMatchDetailBanner,
+        ];
+    }
+
+    /**
+     * Site-wide landing placements (platform admin only).
+     *
+     * @return list<self>
+     */
+    public static function landingPlacements(): array
+    {
+        return [
+            self::LandingHeroMonthly,
+            self::LandingStripMonthly,
         ];
     }
 

@@ -90,28 +90,53 @@ new #[Layout('components.layouts.portal')]
         <div class="absolute inset-0 opacity-10">
             <div class="absolute inset-0" style="background: radial-gradient(ellipse at 30% 50%, var(--portal-primary), transparent 70%);"></div>
         </div>
+        @php($portalHeroLogoUrl = $organization->logoUrl())
         <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-36">
-            <div class="max-w-2xl">
-                <h1 class="text-4xl font-bold tracking-tight text-primary sm:text-5xl lg:text-6xl">
-                    {{ $organization->hero_text ?? $organization->name }}
-                </h1>
-                @if($organization->hero_description ?? $organization->description)
-                    <p class="mt-6 text-lg text-secondary leading-relaxed">
-                        {{ $organization->hero_description ?? $organization->description }}
-                    </p>
-                @endif
-                <div class="mt-10 flex flex-wrap gap-4">
-                    <a href="{{ route('portal.matches', $organization) }}"
-                       class="portal-bg-primary portal-bg-primary-hover inline-flex items-center rounded-xl px-6 py-3 text-sm font-semibold text-primary shadow-lg transition-colors">
-                        View Matches
-                    </a>
-                    <a href="{{ route('portal.leaderboard', $organization) }}"
-                       class="inline-flex items-center rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-primary hover:bg-white/10 transition-colors">
-                        Leaderboard
-                    </a>
+            <div @class([
+                'grid gap-10 lg:items-center',
+                'lg:grid-cols-2 lg:gap-12 xl:gap-16' => (bool) $portalHeroLogoUrl,
+            ])>
+                <div>
+                    <x-portal-ad-slot class="mb-8 max-w-2xl" :organization="$organization" placement="portal_home_hero" variant="cover" />
+                    <div class="max-w-2xl">
+                        <h1 class="text-4xl font-bold tracking-tight text-primary sm:text-5xl lg:text-6xl">
+                            {{ $organization->hero_text ?? $organization->name }}
+                        </h1>
+                        @if($organization->hero_description ?? $organization->description)
+                            <p class="mt-6 text-lg text-secondary leading-relaxed">
+                                {{ $organization->hero_description ?? $organization->description }}
+                            </p>
+                        @endif
+                        <div class="mt-10 flex flex-wrap gap-4">
+                            <a href="{{ route('portal.matches', $organization) }}"
+                               class="portal-bg-primary portal-bg-primary-hover inline-flex items-center rounded-xl px-6 py-3 text-sm font-semibold text-primary shadow-lg transition-colors">
+                                View Matches
+                            </a>
+                            <a href="{{ route('portal.leaderboard', $organization) }}"
+                               class="inline-flex items-center rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-primary hover:bg-white/10 transition-colors">
+                                Leaderboard
+                            </a>
+                        </div>
+                    </div>
                 </div>
+                @if($portalHeroLogoUrl)
+                    <div class="flex justify-center lg:justify-end lg:self-center">
+                        <div class="flex w-full max-w-xs items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-8 py-10 sm:max-w-sm sm:px-10 sm:py-12 lg:max-w-md">
+                            <img
+                                src="{{ $portalHeroLogoUrl }}"
+                                alt="{{ $organization->name }} logo"
+                                class="max-h-36 w-auto max-w-full object-contain object-center sm:max-h-44 lg:max-h-56"
+                                decoding="async"
+                            />
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
+    </div>
+
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-6">
+        <x-portal-ad-slot :organization="$organization" placement="portal_home_strip" variant="block" />
     </div>
 
     {{-- Stats --}}

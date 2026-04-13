@@ -17,7 +17,7 @@ class EnsureOrganizationPortalAccessible
             $organization = Organization::where('slug', $organization)->firstOrFail();
         }
 
-        if (! $organization->hasPortal()) {
+        if (! $organization->canAccessPortal()) {
             abort(404);
         }
 

@@ -37,7 +37,8 @@ new #[Layout('components.layouts.portal')]
 }; ?>
 
 <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-    <div class="space-y-6">
+    <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
+        <div class="min-w-0 flex-1 space-y-6">
         <div>
             <h1 class="text-3xl font-bold text-primary">Club Matches</h1>
             <p class="mt-1 text-sm text-muted">{{ $organization->name }} &mdash; upcoming fixtures and completed results.</p>
@@ -98,5 +99,10 @@ new #[Layout('components.layouts.portal')]
                 @endforeach
             </div>
         @endif
+        </div>
+
+        <aside class="w-full shrink-0 lg:w-72 lg:pt-2">
+            <x-portal-ad-slot :organization="$organization" placement="portal_matches_sidebar" variant="block" />
+        </aside>
     </div>
 </div>

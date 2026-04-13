@@ -48,7 +48,7 @@ new #[Layout('components.layouts.app')]
         $this->secondary_color = $organization->secondary_color ?? '#1e293b';
         $this->hero_text = $organization->hero_text ?? '';
         $this->hero_description = $organization->hero_description ?? '';
-        $this->portal_enabled = $organization->portal_entitled && $organization->portal_enabled;
+        $this->portal_enabled = (bool) $organization->portal_enabled;
         $this->season_standings_enabled = (bool) ($organization->season_standings_enabled ?? true);
 
         if (auth()->user()->isOrgOwner($organization)) {
@@ -90,12 +90,6 @@ new #[Layout('components.layouts.app')]
 
         $this->organization->refresh();
 
-        $portalOk = (bool) $this->portal_enabled && $this->organization->portal_entitled;
-        if ($this->portal_enabled && ! $this->organization->portal_entitled) {
-            $this->portal_enabled = false;
-            Flux::toast('Public portal is a paid add-on. Contact DeadCenter to enable it for your organization.', variant: 'warning');
-        }
-
         $payload = [
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
@@ -105,7 +99,7 @@ new #[Layout('components.layouts.app')]
             'secondary_color' => $validated['secondary_color'],
             'hero_text' => $validated['hero_text'] ?: null,
             'hero_description' => $validated['hero_description'] ?: null,
-            'portal_enabled' => $portalOk,
+            'portal_enabled' => (bool) $this->portal_enabled,
             'season_standings_enabled' => $this->season_standings_enabled,
         ];
 
@@ -196,23 +190,28 @@ new #[Layout('components.layouts.app')]
 
             <flux:separator />
 
-            <h2 class="text-lg font-semibold text-primary">Public Portal / White Label</h2>
+            <h2 class="text-lg font-semibold text-primary">Public portal</h2>
+            <p class="text-sm text-muted">Your organization’s public portal is included at no charge. Turn it on when you are ready to share matches and results on a branded page.</p>
 
-            @if(! $organization->portal_entitled)
-                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-secondary">
-                    The public portal is a <strong class="text-primary">paid add-on</strong>. Contact DeadCenter to purchase access; we will enable it on your organization account.
-                </div>
-            @endif
-
-            <div class="flex items-center gap-3 {{ ! $organization->portal_entitled ? 'opacity-60' : '' }}">
+            <div class="flex items-center gap-3">
                 <input type="checkbox" wire:model="portal_enabled" id="portal_enabled"
-                       @disabled(! $organization->portal_entitled)
-                       class="rounded border-border bg-surface-2 text-accent focus:ring-red-500 disabled:cursor-not-allowed">
+                       class="rounded border-border bg-surface-2 text-accent focus:ring-red-500">
                 <label for="portal_enabled" class="text-sm text-secondary">Enable public portal</label>
             </div>
-            @if($organization->hasPortal())
+            @if($organization->canAccessPortal())
                 <p class="text-xs text-muted">
                     Portal URL: <a href="{{ route('portal.home', $organization) }}" target="_blank" class="text-accent hover:text-accent font-mono">{{ route('portal.home', $organization) }}</a>
+                </p>
+            @endif
+
+            @if(! $organization->hasPortalAdRights())
+                <div class="rounded-lg border border-border bg-surface-2/40 px-4 py-3 text-sm text-secondary">
+                    <strong class="text-primary">Portal sponsor slots</strong> are controlled by DeadCenter on your portal unless you purchase <span class="text-primary">advertising rights</span>. Contact us to discuss branded placements on your public portal.
+                </div>
+            @else
+                <p class="text-sm text-muted">
+                    You control approved sponsor placements on your portal.
+                    <a href="{{ route('org.portal-sponsors', $organization) }}" class="text-accent hover:underline font-medium">Manage portal sponsors</a>
                 </p>
             @endif
 

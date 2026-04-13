@@ -7,4 +7,5 @@ enum SponsorScope: string
     case Platform = 'platform';
     case Match = 'match';
     case Matchbook = 'matchbook';
+    case Organization = 'organization';
 }

@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\Organization;
-use App\Models\User;
 use App\Models\ShootingMatch;
+use App\Models\User;
 
 it('generates a unique slug on creation', function () {
     $user = User::factory()->create();
@@ -86,6 +86,34 @@ it('resolves by slug in routes', function () {
     $org = Organization::factory()->create();
 
     expect($org->getRouteKeyName())->toBe('slug');
+});
+
+it('exposes portal access separately from portal advertising rights', function () {
+    $freePortal = Organization::factory()->create([
+        'status' => 'active',
+        'portal_enabled' => true,
+        'portal_ad_rights' => false,
+    ]);
+
+    expect($freePortal->canAccessPortal())->toBeTrue();
+    expect($freePortal->hasPortalAdRights())->toBeFalse();
+
+    $withAds = Organization::factory()->create([
+        'status' => 'active',
+        'portal_enabled' => true,
+        'portal_ad_rights' => true,
+    ]);
+
+    expect($withAds->canAccessPortal())->toBeTrue();
+    expect($withAds->hasPortalAdRights())->toBeTrue();
+
+    $disabled = Organization::factory()->create([
+        'status' => 'active',
+        'portal_enabled' => false,
+        'portal_ad_rights' => true,
+    ]);
+
+    expect($disabled->canAccessPortal())->toBeFalse();
 });
 
 it('collects all match IDs for league including children', function () {

@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Middleware\DomainContext;
+use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\EnsureMatchbookEnabled;
+use App\Http\Middleware\EnsureOrgAdmin;
+use App\Http\Middleware\EnsureOrganizationPortalAccessible;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,13 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         $middleware->statefulApi();
 
-        $middleware->append(\App\Http\Middleware\DomainContext::class);
+        $middleware->append(DomainContext::class);
 
         $middleware->alias([
-            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
-            'org.admin' => \App\Http\Middleware\EnsureOrgAdmin::class,
-            'org.portal' => \App\Http\Middleware\EnsureOrganizationPortalAccessible::class,
-            'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
+            'admin' => EnsureUserIsAdmin::class,
+            'org.admin' => EnsureOrgAdmin::class,
+            'org.portal' => EnsureOrganizationPortalAccessible::class,
+            'matchbook.enabled' => EnsureMatchbookEnabled::class,
+            'verified' => EnsureEmailIsVerified::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

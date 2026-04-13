@@ -82,6 +82,12 @@ class SponsorAssignment extends Model
             ->where('scope_id', $matchBookId);
     }
 
+    public function scopeForOrganization($query, int $organizationId)
+    {
+        return $query->where('scope_type', SponsorScope::Organization)
+            ->where('scope_id', $organizationId);
+    }
+
     public function scopeOpen($query)
     {
         return $query->where('reservation_status', 'open');
@@ -116,10 +122,10 @@ class SponsorAssignment extends Model
     }
 
     /**
-     * Get the display label for this assignment (override or default).
+     * Get the display label for this assignment (override or placement default).
      */
     public function displayLabel(): string
     {
-        return $this->label_override ?? 'Powered by';
+        return $this->label_override ?? $this->placement_key->publicPoweredByPrefix();
     }
 }

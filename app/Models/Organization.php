@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Organization extends Model
@@ -29,6 +28,7 @@ class Organization extends Model
         'hero_description',
         'portal_enabled',
         'portal_entitled',
+        'portal_ad_rights',
         'best_of',
         'entry_fee_default',
         'bank_name',
@@ -47,6 +47,7 @@ class Organization extends Model
             'entry_fee_default' => 'decimal:2',
             'portal_enabled' => 'boolean',
             'portal_entitled' => 'boolean',
+            'portal_ad_rights' => 'boolean',
             'season_standings_enabled' => 'boolean',
             'royal_flush_enabled' => 'boolean',
         ];
@@ -163,9 +164,28 @@ class Organization extends Model
         return (bool) $this->royal_flush_enabled;
     }
 
+    /**
+     * Whether the organization’s public portal is available (free: active + org chose to enable).
+     */
+    public function canAccessPortal(): bool
+    {
+        return $this->portal_enabled && $this->isActive();
+    }
+
+    /**
+     * Whether the org may control sponsor slots on its portal (paid / manual entitlement).
+     */
+    public function hasPortalAdRights(): bool
+    {
+        return (bool) $this->portal_ad_rights;
+    }
+
+    /**
+     * @deprecated Use {@see canAccessPortal()}. Kept for call sites that mean “portal is live”.
+     */
     public function hasPortal(): bool
     {
-        return $this->portal_enabled && $this->portal_entitled && $this->isActive();
+        return $this->canAccessPortal();
     }
 
     /**
@@ -177,15 +197,15 @@ class Organization extends Model
             return null;
         }
 
-        return Storage::disk('public')->url($this->logo_path);
+        return asset('storage/'.$this->logo_path);
     }
 
     /**
-     * Where public marketing should send visitors: portal if entitled, else filtered events.
+     * Where public marketing should send visitors: portal if enabled, else filtered events.
      */
     public function publicMarketingHref(): string
     {
-        if ($this->hasPortal()) {
+        if ($this->canAccessPortal()) {
             return route('portal.home', $this);
         }
 

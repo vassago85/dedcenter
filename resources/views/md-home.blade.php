@@ -23,6 +23,10 @@
                     For Match Directors &amp; Organizers
                 </div>
 
+                <div class="mb-8 flex justify-center">
+                    <x-landing-ad-slot placement="landing_hero_monthly" variant="cover" />
+                </div>
+
                 <h1 class="text-[2.5rem] font-black leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl" style="color: var(--lp-text);">
                     Run Better Shooting Matches With <span style="color: var(--lp-red);">Less Admin</span>
                 </h1>
@@ -57,6 +61,10 @@
                         Score from tablets with Android app and PWA
                     </div>
                 </div>
+            </div>
+
+            <div class="mx-auto max-w-4xl px-2 pb-6">
+                <x-landing-ad-slot placement="landing_strip_monthly" variant="block" />
             </div>
         </div>
 

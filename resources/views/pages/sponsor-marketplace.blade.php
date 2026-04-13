@@ -133,7 +133,7 @@ new #[Layout('components.layouts.marketing', [
 
         @if($grouped->isEmpty())
             <div class="mt-12 rounded-2xl p-10 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
-                <p class="text-lg" style="color: var(--lp-text-muted);">No advertising placements are available right now. Check back soon or <a href="{{ route('sponsorships') }}" class="underline" style="color: var(--lp-red);">contact us directly</a>.</p>
+                <p class="text-lg" style="color: var(--lp-text-muted);">No advertising placements are available right now. Check back soon or <a href="{{ route('advertise') }}" class="underline" style="color: var(--lp-red);">tell us you’re interested</a>.</p>
             </div>
         @else
             <div class="mt-12 space-y-8">

@@ -335,6 +335,8 @@ new #[Layout('components.layouts.portal')]
             </span>
         </div>
 
+        <x-portal-ad-slot class="mt-4" :organization="$organization" placement="portal_match_detail_banner" variant="block" />
+
         @php
             $eventBlurb = $match->public_bio ?: $match->notes;
         @endphp
