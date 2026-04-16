@@ -25,7 +25,7 @@ class SeasonStandingsService
 
         foreach ($matches as $match) {
             $matchStandings = $this->matchStandings($match);
-            $maxScore = collect($matchStandings)->max('total_score') ?: 1;
+            $maxScore = max((float) collect($matchStandings)->max('total_score'), 1.0);
 
             foreach ($matchStandings as $entry) {
                 $userId = $entry['user_id'];

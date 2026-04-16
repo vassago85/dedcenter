@@ -165,7 +165,7 @@ class ScoreboardController extends Controller
         ->sortByDesc('total_score')
         ->values();
 
-        $maxScore = $standings->max('total_score') ?: 1;
+        $maxScore = max((float) $standings->max('total_score'), 1.0);
         $standings = $standings->map(function ($entry) use ($maxScore, $totalGongCount) {
             $entry['relative_score'] = round($entry['total_score'] / $maxScore * 100, 2);
             $entry['hit_rate'] = $totalGongCount > 0 ? round($entry['total_hits'] / $totalGongCount * 100, 2) : 0;
@@ -344,7 +344,7 @@ class ScoreboardController extends Controller
 
         $active = $shooters->where('status', '!=', 'dq');
         $dqd = $shooters->where('status', 'dq');
-        $maxScore = (float) ($active->max('agg_total') ?: 1);
+        $maxScore = max((float) $active->max('agg_total'), 1.0);
 
         $leaderboard = $active->values()->map(fn ($shooter, $index) => [
             'rank' => $index + 1,
