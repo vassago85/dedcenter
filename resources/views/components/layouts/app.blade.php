@@ -9,6 +9,10 @@
         <meta name="vapid-public-key" content="{{ config('services.webpush.public_key') }}">
     @endif
     <title>{{ $title ?? 'DeadCenter' }}</title>
+    {{-- Block Grammarly and similar browser extensions from injecting DOM nodes.
+         Their hidden elements break Livewire's morph engine with
+         "Cannot read properties of null (reading 'before')". --}}
+    <meta name="grammarly" content="false">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#08142b">
@@ -21,7 +25,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @fluxAppearance
 </head>
-<body class="min-h-screen bg-app text-base text-primary antialiased">
+<body class="min-h-screen bg-app text-base text-primary antialiased" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false">
     @php
         $currentOrg = request()->route('organization');
         if ($currentOrg && ! $currentOrg instanceof \App\Models\Organization) {
