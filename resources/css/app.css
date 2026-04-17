@@ -34,9 +34,9 @@
     --color-surface: #1d2d4a;
     --color-surface-2: #243757;
     --color-border: #31486d;
-    --color-primary: #f3f7ff;
-    --color-secondary: #eef3fc;
-    --color-muted: #e2eaf7;
+    --color-primary: #ffffff;
+    --color-secondary: #f4f8ff;
+    --color-muted: #eef3ff;
     --color-accent: #ff2b2b;
     --color-accent-hover: #e32020;
     --color-accent-soft: rgba(255, 43, 43, 0.12);
@@ -51,9 +51,9 @@
     --lp-surface: rgba(255, 255, 255, 0.04);
     --lp-surface-2: rgba(255, 255, 255, 0.06);
     --lp-border: rgba(255, 255, 255, 0.10);
-    --lp-text: #f5f7fb;
-    --lp-text-soft: #b9c5d9;
-    --lp-text-muted: #8ea0bf;
+    --lp-text: #ffffff;
+    --lp-text-soft: #e0e7f3;
+    --lp-text-muted: #c8d3e6;
     --lp-red: #e10600;
     --lp-red-hover: #c90404;
     --logo-black: #16181d;
@@ -418,56 +418,57 @@ html.dark :where([data-flux-description]) {
 .lp-faq-details summary::marker { display: none; content: ''; }
 
 /* =============================================================
-   READABILITY OVERRIDES — 2026-04-18 (rev C)
+   READABILITY OVERRIDES — 2026-04-18 (rev D)
    Many Blade templates use Tailwind `text-muted` / `text-secondary`
    (which map to our tokens) OR raw zinc/slate utilities. Against
-   our #08142b navy app background, anything darker than ~#cfd9ec
-   is hard to read.
+   our #08142b navy app background, anything darker than ~#e8eef8
+   reads as muddy grey on tablet screens with glare.
 
-   Rev C: drop the `html.dark` prefix and use a literal hex to
-   neutralise any stale CSS-variable values in cached bundles.
-   The whole app is dark anyway; there's no light-mode variant
-   shipped, so unconditional is safe.
+   Rev D: push the baseline to near-white (#f4f8ff for muted/secondary,
+   pure white for primary) and extend the remap to cover the VERY dark
+   700/800/900 zinc/slate/gray/neutral utilities that templates sometimes
+   use directly, which the previous rev did not catch.
    ============================================================= */
 
 .text-muted,
 .text-secondary {
-    color: #e6edf8 !important;
+    color: #f4f8ff !important;
 }
 
 .text-primary {
-    color: #f3f7ff !important;
+    color: #ffffff !important;
 }
 
-/* Tailwind zinc/slate/gray greys used directly in older templates —
-   remap the darker variants onto our readable palette. */
-.text-zinc-300,
-.text-zinc-400,
-.text-zinc-500,
-.text-zinc-600,
-.text-slate-300,
-.text-slate-400,
-.text-slate-500,
-.text-slate-600,
-.text-gray-300,
-.text-gray-400,
-.text-gray-500,
-.text-gray-600 {
-    color: #e6edf8 !important;
+/* Tailwind zinc/slate/gray/neutral greys used directly in older templates —
+   remap EVERY darker variant (300 through 900) onto the readable palette.
+   Anything dimmer than ~#e8eef8 is unreadable on the navy background. */
+.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600,
+.text-zinc-700, .text-zinc-800, .text-zinc-900,
+.text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600,
+.text-slate-700, .text-slate-800, .text-slate-900,
+.text-gray-300, .text-gray-400, .text-gray-500, .text-gray-600,
+.text-gray-700, .text-gray-800, .text-gray-900,
+.text-neutral-300, .text-neutral-400, .text-neutral-500, .text-neutral-600,
+.text-neutral-700, .text-neutral-800, .text-neutral-900,
+.text-stone-300, .text-stone-400, .text-stone-500, .text-stone-600,
+.text-stone-700, .text-stone-800, .text-stone-900 {
+    color: #f4f8ff !important;
 }
 
 /* Flux 'subtle' button variant (text-zinc-500 hover:text-zinc-800
-   dark:text-zinc-400 dark:hover:text-white) — normalise. */
-[data-flux-button].text-zinc-500,
-[data-flux-button].text-zinc-400 {
-    color: #e6edf8 !important;
+   dark:text-zinc-400 dark:hover:text-white) — normalise across all greys. */
+[data-flux-button][class*='text-zinc-'],
+[data-flux-button][class*='text-slate-'],
+[data-flux-button][class*='text-gray-'],
+[data-flux-button][class*='text-neutral-'] {
+    color: #f4f8ff !important;
 }
 
 /* Opacity-suffixed variants Tailwind emits like `text-muted/50`,
    `text-muted/70` etc. (used for the "tag" icon and subtitles). */
 [class*='text-muted\\/'],
 [class*='text-secondary\\/'] {
-    color: #e6edf8 !important;
+    color: #f4f8ff !important;
 }
 
 /* Empty-state and subtitle paragraphs across the app frequently use
@@ -478,7 +479,7 @@ html.dark :where([data-flux-description]) {
 .bg-sidebar p.text-muted,
 main p.text-muted,
 main p.text-secondary {
-    color: #e6edf8 !important;
+    color: #f4f8ff !important;
 }
 
 /* Table head/body cells in admin/org dashboards use `text-muted` or
@@ -489,7 +490,16 @@ th, thead th, tbody td {
 th.text-muted, th.text-secondary,
 td.text-muted, td.text-secondary,
 thead tr, tbody tr.text-muted {
-    color: #e6edf8 !important;
+    color: #f4f8ff !important;
+}
+
+/* Flux subheading / label components read var(--color-muted) via inline
+   style — the variable itself is now #eef3ff but double-enforce here so
+   a cached Flux CSS bundle can't drop back to #b8c6de. */
+:where([data-flux-subheading]),
+:where([data-flux-label]),
+:where([data-flux-description]) {
+    color: #eef3ff !important;
 }
 
 /* Context bar (mode switch banner) — the red/blue mode bar had
