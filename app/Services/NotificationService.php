@@ -14,10 +14,18 @@ class NotificationService
 {
     public function onStatusChange(ShootingMatch $match, MatchStatus $oldStatus, MatchStatus $newStatus): void
     {
+        // Only send "X is now open" notifications when moving forward in the
+        // lifecycle. MDs often walk the status back and forth on match day
+        // (e.g. SquaddingOpen -> SquaddingClosed -> SquaddingOpen to let a
+        // late arrival pick a squad), and shooters shouldn't be spammed every
+        // time. Post-match notifications are also only scheduled on the
+        // first entry into Completed.
+        $isForward = $newStatus->ordinal() > $oldStatus->ordinal();
+
         match ($newStatus) {
-            MatchStatus::RegistrationOpen => $this->notifyRegistrationOpen($match),
-            MatchStatus::SquaddingOpen => $this->notifySquaddingOpen($match),
-            MatchStatus::Completed => $this->schedulePostMatchNotifications($match),
+            MatchStatus::RegistrationOpen => $isForward ? $this->notifyRegistrationOpen($match) : null,
+            MatchStatus::SquaddingOpen => $isForward ? $this->notifySquaddingOpen($match) : null,
+            MatchStatus::Completed => $isForward ? $this->schedulePostMatchNotifications($match) : null,
             default => null,
         };
     }

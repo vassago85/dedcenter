@@ -1082,6 +1082,7 @@ new #[Layout('components.layouts.app')]
             return;
         }
         $oldStatus = $this->match->status;
+        $isUncomplete = $oldStatus === MatchStatus::Completed && $targetStatus === MatchStatus::Active;
         $this->match->update(['status' => $targetStatus]);
 
         try {
@@ -1090,7 +1091,11 @@ new #[Layout('components.layouts.app')]
             \Illuminate\Support\Facades\Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
         }
 
-        if ($targetStatus === MatchStatus::Completed) {
+        // Only evaluate achievements on a fresh entry into Completed. Re-
+        // completing after an un-complete would otherwise re-run the
+        // evaluator pointlessly (it is idempotent, so no duplicate
+        // achievements are created either way — but skip the work).
+        if ($targetStatus === MatchStatus::Completed && $oldStatus !== MatchStatus::Completed) {
             try {
                 if ($this->match->isPrs()) {
                     \App\Services\AchievementService::evaluateMatchCompletion($this->match);
@@ -1103,7 +1108,11 @@ new #[Layout('components.layouts.app')]
             }
         }
 
-        Flux::toast("Match status changed to {$targetStatus->label()}.", variant: 'success');
+        if ($isUncomplete) {
+            Flux::toast('Match reopened. Achievements already awarded stay in place.', variant: 'success');
+        } else {
+            Flux::toast("Match status changed to {$targetStatus->label()}.", variant: 'success');
+        }
     }
 
     public function reopenMatch(): void
@@ -1142,7 +1151,7 @@ new #[Layout('components.layouts.app')]
             $data['divisions'] = $this->match->divisions()->orderBy('sort_order')->get();
             $data['categories'] = $this->match->categories()->orderBy('sort_order')->get();
 
-            if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen])) {
+            if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed])) {
                 $liveUrl = route('live', $this->match);
                 $options = new QROptions(['outputInterface' => QRMarkupSVG::class, 'svgUseCssProperties' => false, 'scale' => 5]);
                 $data['qrCodeSvg'] = (new QRCode($options))->render($liveUrl);
@@ -1390,54 +1399,92 @@ new #[Layout('components.layouts.app')]
         <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
             <h2 class="text-lg font-semibold text-primary">Match Lifecycle</h2>
 
-            {{-- Stepper bar --}}
             @php
                 $steps = \App\Enums\MatchStatus::cases();
-                $currentOrd = $match->status->ordinal();
+                $currentStatus = $match->status;
+                $currentOrd = $currentStatus->ordinal();
+                $allowed = $currentStatus->allowedTransitions();
             @endphp
-            <div class="flex items-center gap-1 overflow-x-auto pb-2">
+
+            <p class="text-sm text-muted">Tap any stage to jump there. The current stage is ringed. Every jump asks for confirmation and tells you what will fire.</p>
+
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach($steps as $step)
                     @php
                         $ord = $step->ordinal();
-                        $isCurrent = $match->status === $step;
-                        $isPast = $ord < $currentOrd;
-                    @endphp
-                    <div class="flex items-center gap-1 {{ $loop->last ? '' : 'flex-1' }}">
-                        <div class="flex flex-col items-center min-w-[4.5rem]">
-                            <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold
-                                {{ $isCurrent ? 'bg-'.$step->color().'-600 text-white ring-2 ring-'.$step->color().'-400' : ($isPast ? 'bg-green-600/30 text-green-400' : 'bg-surface-2 text-muted') }}">
-                                @if($isPast) &#10003; @else {{ $ord + 1 }} @endif
-                            </div>
-                            <span class="mt-1 text-[10px] text-center leading-tight {{ $isCurrent ? 'font-bold text-primary' : 'text-muted' }}">{{ $step->label() }}</span>
-                        </div>
-                        @unless($loop->last)
-                            <div class="flex-1 h-0.5 mt-[-0.75rem] {{ $isPast ? 'bg-green-600/40' : 'bg-surface-2' }}"></div>
-                        @endunless
-                    </div>
-                @endforeach
-            </div>
+                        $isCurrent = $currentStatus === $step;
+                        $isPast = $ord < $currentOrd && ! $isCurrent;
+                        $isAllowed = in_array($step, $allowed, true);
+                        $color = $step->color();
 
-            {{-- Transition buttons --}}
-            <div class="flex flex-wrap gap-3 border-t border-border pt-4">
-                @foreach($match->status->allowedTransitions() as $next)
-                    <button wire:click="transitionStatus('{{ $next->value }}')"
-                            wire:confirm="Change match status to {{ $next->label() }}?"
-                            class="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors"
-                            style="background: var(--color-{{ $next->color() }}-600, #6366f1);">
-                        {{ $next->label() }}
+                        $warning = $step->transitionWarning($currentStatus);
+                        $confirmText = $isCurrent
+                            ? null
+                            : "Move match to '{$step->label()}'?\n\n".($warning ?? 'No side effects.');
+                    @endphp
+
+                    <button
+                        @if(! $isCurrent && $isAllowed)
+                            wire:click="transitionStatus('{{ $step->value }}')"
+                            wire:confirm="{{ $confirmText }}"
+                        @else
+                            type="button"
+                            disabled
+                        @endif
+                        class="group relative flex items-start gap-3 rounded-xl border p-3 text-left transition-colors
+                            {{ $isCurrent
+                                ? 'border-'.$color.'-500 bg-'.$color.'-600/15 ring-2 ring-'.$color.'-500/40 cursor-default'
+                                : ($isAllowed
+                                    ? ($isPast
+                                        ? 'border-green-600/40 bg-green-600/5 hover:bg-green-600/15 hover:border-green-500/60'
+                                        : 'border-border bg-surface-2/40 hover:bg-surface-2 hover:border-'.$color.'-500/50')
+                                    : 'border-border/40 bg-surface-2/10 opacity-40 cursor-not-allowed')
+                            }}"
+                    >
+                        <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold
+                            {{ $isCurrent
+                                ? 'bg-'.$color.'-600 text-white'
+                                : ($isPast ? 'bg-green-600/30 text-green-400' : 'bg-surface-2 text-muted') }}">
+                            @if($isPast)
+                                &#10003;
+                            @else
+                                {{ $ord + 1 }}
+                            @endif
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold {{ $isCurrent ? 'text-primary' : 'text-secondary' }}">{{ $step->label() }}</span>
+                                @if($isCurrent)
+                                    <span class="rounded-full bg-{{ $color }}-600/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-{{ $color }}-300">Current</span>
+                                @elseif($isPast)
+                                    <span class="text-[10px] text-green-400">Done</span>
+                                @elseif(! $isAllowed)
+                                    <span class="text-[10px] text-muted">Not reachable</span>
+                                @endif
+                            </div>
+                            <p class="mt-1 text-xs leading-snug text-muted">{{ $step->shortDescription() }}</p>
+                        </div>
                     </button>
                 @endforeach
-
-                @if($match->status === MatchStatus::Completed)
-                    <flux:button wire:click="reopenMatch" variant="ghost" wire:confirm="Reopen this match?">Reopen Match</flux:button>
-                @endif
             </div>
+
+            @if($currentStatus === MatchStatus::Active)
+                <div class="rounded-xl border border-red-600/30 bg-red-900/10 p-5 space-y-3">
+                    <h3 class="text-base font-semibold text-red-400">Finalise Match</h3>
+                    <p class="text-sm text-muted">When every stage is scored and every time recorded, mark the match Completed above. This will trigger badge evaluation and post-match notifications. You can un-complete it later if needed — achievements already awarded will stay in place.</p>
+                </div>
+            @elseif($currentStatus === MatchStatus::Completed)
+                <div class="rounded-xl border border-amber-600/30 bg-amber-900/10 p-5 space-y-2">
+                    <h3 class="text-base font-semibold text-amber-400">Match Completed</h3>
+                    <p class="text-sm text-muted">Accidentally finished the match? Tap <span class="font-semibold text-primary">Active</span> above to reopen it. Achievements already awarded and post-match emails already sent will stay in place — re-completing later does not re-award or re-send.</p>
+                </div>
+            @endif
 
             {{-- Quick links --}}
             <div class="flex flex-wrap gap-3 border-t border-border pt-4">
                 <flux:button href="{{ route('admin.matches.squadding', $match) }}" variant="ghost">Manage Squadding</flux:button>
 
-                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen]))
+                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed]))
                     <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">Open Scoring</flux:button>
                     <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">View Scoreboard</flux:button>
                 @endif

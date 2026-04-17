@@ -61,6 +61,7 @@ new #[Layout('components.layouts.app')]
                 MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed,
                 MatchStatus::SquaddingOpen,
+                MatchStatus::SquaddingClosed,
                 MatchStatus::Active,
             ])
             ->where('date', '>=', now()->startOfDay())

@@ -33,6 +33,7 @@ class MemberMatchController extends Controller
                 MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed,
                 MatchStatus::SquaddingOpen,
+                MatchStatus::SquaddingClosed,
             ])
             ->select($fields)
             ->withCount('shooters')

@@ -35,6 +35,7 @@ new #[Layout('components.layouts.app')]
             ->whereIn('status', [
                 MatchStatus::Active,
                 MatchStatus::SquaddingOpen,
+                MatchStatus::SquaddingClosed,
                 MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed,
             ])
@@ -59,7 +60,7 @@ new #[Layout('components.layouts.app')]
             $workflowStep = match ($latestActiveMatch->status) {
                 MatchStatus::Draft => 0,
                 MatchStatus::PreRegistration, MatchStatus::RegistrationOpen, MatchStatus::RegistrationClosed => 1,
-                MatchStatus::SquaddingOpen => 2,
+                MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed => 2,
                 MatchStatus::Active => 3,
                 MatchStatus::Completed => $latestActiveMatch->scores_published ? 5 : 4,
                 default => null,

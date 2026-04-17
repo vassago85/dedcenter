@@ -57,6 +57,7 @@ class EventsListing extends Component
                 MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed,
                 MatchStatus::SquaddingOpen,
+                MatchStatus::SquaddingClosed,
             ])->orderByRaw("CASE WHEN featured_status = 'active' THEN 0 ELSE 1 END")->orderBy('date'),
 
             'live' => $query->where('status', MatchStatus::Active)
@@ -71,6 +72,7 @@ class EventsListing extends Component
             default => $query->whereIn('status', [
                 MatchStatus::PreRegistration, MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed, MatchStatus::SquaddingOpen,
+                MatchStatus::SquaddingClosed,
             ])->orderBy('date'),
         };
 
@@ -102,6 +104,7 @@ class EventsListing extends Component
         $upcomingCount = (clone $baseCounts)->whereIn('status', [
             MatchStatus::PreRegistration, MatchStatus::RegistrationOpen,
             MatchStatus::RegistrationClosed, MatchStatus::SquaddingOpen,
+            MatchStatus::SquaddingClosed,
         ])->count();
         $liveCount = (clone $baseCounts)->where('status', MatchStatus::Active)->count();
         $completedCount = (clone $baseCounts)->where('status', MatchStatus::Completed)->count();

@@ -13,7 +13,7 @@ class AutoCloseMatchesPastScheduledDate extends Command
 {
     protected $signature = 'matches:auto-close-past-date';
 
-    protected $description = 'Mark Active or Squadding Open matches as Completed once their scheduled date is before today (app timezone)';
+    protected $description = 'Mark Active, Squadding Open, or Squadding Closed matches as Completed once their scheduled date is before today (app timezone)';
 
     public function handle(): int
     {
@@ -21,7 +21,7 @@ class AutoCloseMatchesPastScheduledDate extends Command
 
         $matches = ShootingMatch::query()
             ->whereDate('date', '<', $today)
-            ->whereIn('status', [MatchStatus::Active, MatchStatus::SquaddingOpen])
+            ->whereIn('status', [MatchStatus::Active, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed])
             ->get();
 
         $closed = 0;

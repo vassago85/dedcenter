@@ -30,6 +30,7 @@ new #[Layout('components.layouts.app')]
                 MatchStatus::RegistrationOpen,
                 MatchStatus::RegistrationClosed,
                 MatchStatus::SquaddingOpen,
+                MatchStatus::SquaddingClosed,
             ])
             ->withCount('shooters')
             ->orderBy('date')

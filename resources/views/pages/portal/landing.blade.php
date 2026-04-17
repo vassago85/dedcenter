@@ -200,6 +200,7 @@ new #[Layout('components.layouts.portal')]
                                         $canRegisterNow => 'Register →',
                                         $match->status === MatchStatus::Active => 'Live Now →',
                                         $match->status === MatchStatus::SquaddingOpen => 'Squadding →',
+                                        $match->status === MatchStatus::SquaddingClosed => 'Squads Locked',
                                         $match->status === MatchStatus::RegistrationClosed => 'Registration Closed',
                                         $match->isRegistrationPastDeadline() => 'Registration Closed',
                                         default => 'View Details →',

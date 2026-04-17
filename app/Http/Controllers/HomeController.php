@@ -70,6 +70,7 @@ class HomeController extends Controller
             MatchStatus::RegistrationOpen->value,
             MatchStatus::RegistrationClosed->value,
             MatchStatus::SquaddingOpen->value,
+            MatchStatus::SquaddingClosed->value,
             MatchStatus::Active->value,
         ];
 

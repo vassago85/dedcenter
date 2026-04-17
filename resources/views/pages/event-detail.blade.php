@@ -236,7 +236,7 @@ new #[Layout('components.layouts.app')]
 
         $squads = collect();
         $showSquads = in_array($this->match->status, [
-            MatchStatus::SquaddingOpen, MatchStatus::Active, MatchStatus::Completed,
+            MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Active, MatchStatus::Completed,
         ]);
         if ($showSquads) {
             $squads = $this->match->squads()
