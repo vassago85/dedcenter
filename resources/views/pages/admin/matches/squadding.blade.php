@@ -414,9 +414,16 @@ new #[Layout('components.layouts.app')]
         ]);
 
         if ($this->walkinUserId) {
+            $walkinUser = User::find($this->walkinUserId);
             MatchRegistration::firstOrCreate(
                 ['match_id' => $this->match->id, 'user_id' => $this->walkinUserId],
-                ['payment_status' => 'confirmed', 'amount' => $this->match->entry_fee ?? 0, 'admin_notes' => 'Walk-in added by admin on match day']
+                [
+                    'payment_status' => 'confirmed',
+                    'payment_reference' => $walkinUser ? MatchRegistration::generatePaymentReference($walkinUser) : 'WALKIN-'.strtoupper(\Illuminate\Support\Str::random(8)),
+                    'amount' => $this->match->entry_fee ?? 0,
+                    'is_free_entry' => ($this->match->entry_fee ?? 0) == 0,
+                    'admin_notes' => 'Walk-in added by admin on match day',
+                ]
             );
         }
 
