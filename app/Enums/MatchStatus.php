@@ -40,13 +40,19 @@ enum MatchStatus: string
 
     public function allowedTransitions(): array
     {
+        // Match directors sometimes need to walk backwards through the lifecycle
+        // (e.g. re-open squadding after a late arrival, go back to
+        // RegistrationOpen because a scheduled match got postponed, etc.).
+        // The only hard stop is Completed — that state awards achievements,
+        // notifies shooters, and finalises scores, so it must not be undone
+        // from the UI. If it genuinely needs to be undone, do it via tinker.
         return match ($this) {
-            self::Draft => [self::PreRegistration, self::RegistrationOpen, self::Active],
-            self::PreRegistration => [self::RegistrationOpen, self::RegistrationClosed],
-            self::RegistrationOpen => [self::RegistrationClosed],
-            self::RegistrationClosed => [self::SquaddingOpen, self::Active],
-            self::SquaddingOpen => [self::Active],
-            self::Active => [self::Completed],
+            self::Draft => [self::PreRegistration, self::RegistrationOpen, self::RegistrationClosed, self::SquaddingOpen, self::Active],
+            self::PreRegistration => [self::Draft, self::RegistrationOpen, self::RegistrationClosed],
+            self::RegistrationOpen => [self::Draft, self::PreRegistration, self::RegistrationClosed],
+            self::RegistrationClosed => [self::Draft, self::PreRegistration, self::RegistrationOpen, self::SquaddingOpen, self::Active],
+            self::SquaddingOpen => [self::RegistrationClosed, self::RegistrationOpen, self::Active],
+            self::Active => [self::SquaddingOpen, self::RegistrationClosed, self::Completed],
             self::Completed => [],
         };
     }
