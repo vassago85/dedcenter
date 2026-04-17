@@ -163,6 +163,11 @@ new #[Layout('components.layouts.app')]
         $user = User::findOrFail($userId);
         $name = $user->name;
 
+        // Remove shooter rows so the user disappears from any match squadding
+        // (shooters.user_id is nullOnDelete in the schema; deleting the rows
+        // is cleaner than leaving orphan "anonymous" shooters on the match).
+        DB::table('shooters')->where('user_id', $userId)->delete();
+
         Organization::where('created_by', $userId)->update(['created_by' => null]);
         $user->organizations()->detach();
         $user->registrations()->delete();
@@ -194,6 +199,7 @@ new #[Layout('components.layouts.app')]
 
         Organization::whereIn('created_by', $ids)->update(['created_by' => null]);
 
+        DB::table('shooters')->whereIn('user_id', $ids)->delete();
         DB::table('organization_admins')->whereIn('user_id', $ids)->delete();
         DB::table('match_registrations')->whereIn('user_id', $ids)->delete();
         DB::table('user_achievements')->whereIn('user_id', $ids)->delete();

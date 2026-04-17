@@ -128,6 +128,7 @@ class RoyalFlush18April2026Seeder extends Seeder
                 ['Reinier Kuschke', '308 Win'],
                 ['Jeane Van Der Merwe', '6.5 Creedmoor'],
                 ['AJ Snyman', '6 Dasher'],
+                ['Paul Charsley', '6.5 Creedmoor'],
                 ['Morton Mynhardt', '6.5 PRC'],
                 ['Rudolph Louw', '300 WSM'],
                 ['Andre Combrink', '308 Win'],
