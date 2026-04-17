@@ -17,15 +17,14 @@ class MatchController extends Controller
         $user = $request->user();
         $orgIds = $user->organizations()->pluck('organizations.id');
 
-        // Include SquaddingOpen and SquaddingClosed so the scoring app can
-        // pre-download the match the night before or on match morning (common
-        // MD workflow — squads are locked the night before, tablets load from
-        // cloud, match goes Active at the start). Completed is included too so
-        // RO can review/fix scores after the match. Draft/registration states
-        // are intentionally excluded — nothing to score yet.
+        // Include Ready so the scoring app can pre-download the match the
+        // night before or on match morning. Ready is the "tablets-can-pull"
+        // checkpoint — SquaddingOpen / SquaddingClosed are still admin-only
+        // prep phases and are intentionally excluded. Active is obviously
+        // included (match is live). Completed is included too so RO can
+        // review/fix scores after the match.
         $importableStatuses = [
-            MatchStatus::SquaddingOpen,
-            MatchStatus::SquaddingClosed,
+            MatchStatus::Ready,
             MatchStatus::Active,
             MatchStatus::Completed,
         ];

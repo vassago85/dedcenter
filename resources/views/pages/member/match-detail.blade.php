@@ -289,6 +289,7 @@ new #[Layout('components.layouts.app')]
         $showSquads = in_array($this->match->status, [
             \App\Enums\MatchStatus::SquaddingOpen,
             \App\Enums\MatchStatus::SquaddingClosed,
+            \App\Enums\MatchStatus::Ready,
             \App\Enums\MatchStatus::Active,
             \App\Enums\MatchStatus::Completed,
         ]);

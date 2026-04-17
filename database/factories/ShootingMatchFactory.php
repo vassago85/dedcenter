@@ -27,6 +27,11 @@ class ShootingMatchFactory extends Factory
         return $this->state(['status' => MatchStatus::Active]);
     }
 
+    public function ready(): static
+    {
+        return $this->state(['status' => MatchStatus::Ready]);
+    }
+
     public function completed(): static
     {
         return $this->state(['status' => MatchStatus::Completed]);

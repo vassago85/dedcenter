@@ -34,6 +34,7 @@ new #[Layout('components.layouts.app')]
         $latestActiveMatch = $org->matches()
             ->whereIn('status', [
                 MatchStatus::Active,
+                MatchStatus::Ready,
                 MatchStatus::SquaddingOpen,
                 MatchStatus::SquaddingClosed,
                 MatchStatus::RegistrationOpen,
@@ -61,8 +62,9 @@ new #[Layout('components.layouts.app')]
                 MatchStatus::Draft => 0,
                 MatchStatus::PreRegistration, MatchStatus::RegistrationOpen, MatchStatus::RegistrationClosed => 1,
                 MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed => 2,
-                MatchStatus::Active => 3,
-                MatchStatus::Completed => $latestActiveMatch->scores_published ? 5 : 4,
+                MatchStatus::Ready => 3,
+                MatchStatus::Active => 4,
+                MatchStatus::Completed => $latestActiveMatch->scores_published ? 6 : 5,
                 default => null,
             };
         }
@@ -254,6 +256,7 @@ new #[Layout('components.layouts.app')]
             ['label' => 'Create', 'desc' => 'New match'],
             ['label' => 'Stages', 'desc' => 'Configure targets'],
             ['label' => 'Squads', 'desc' => 'Assign shooters'],
+            ['label' => 'Ready', 'desc' => 'Tablets can sync'],
             ['label' => 'Scoring', 'desc' => 'Capture scores'],
             ['label' => 'Results', 'desc' => 'Review data'],
             ['label' => 'Publish', 'desc' => 'Share publicly'],

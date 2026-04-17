@@ -1451,7 +1451,7 @@ new #[Layout('components.layouts.app')]
             $data['categories'] = $this->match->categories()->orderBy('sort_order')->get();
             $data['messages'] = $this->match->messages()->with('sender')->latest()->take(20)->get();
 
-            if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed])) {
+            if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready])) {
                 $liveUrl = route('live', $this->match);
                 $options = new QROptions(['outputInterface' => QRMarkupSVG::class, 'svgUseCssProperties' => false, 'scale' => 5]);
                 $data['qrCodeSvg'] = (new QRCode($options))->render($liveUrl);
@@ -1492,6 +1492,8 @@ new #[Layout('components.layouts.app')]
                 \App\Enums\MatchStatus::Active => 'border-green-500/40 bg-green-950/20',
                 \App\Enums\MatchStatus::Completed => 'border-zinc-500/30 bg-zinc-900/30',
                 \App\Enums\MatchStatus::SquaddingOpen => 'border-indigo-500/40 bg-indigo-950/20',
+                \App\Enums\MatchStatus::SquaddingClosed => 'border-cyan-500/40 bg-cyan-950/20',
+                \App\Enums\MatchStatus::Ready => 'border-emerald-500/40 bg-emerald-950/20',
                 default => 'border-amber-500/30 bg-amber-950/15',
             };
         @endphp
@@ -1517,7 +1519,13 @@ new #[Layout('components.layouts.app')]
                                 Registration closed. Open squadding or start the match.
                                 @break
                             @case(\App\Enums\MatchStatus::SquaddingOpen)
-                                Squadding is open. Click <strong class="text-primary">Start Match</strong> on match day to make it visible in the scoring app.
+                                Squadding is open. Close squadding to lock shooter self-squadding.
+                                @break
+                            @case(\App\Enums\MatchStatus::SquaddingClosed)
+                                Squads are locked to shooters. Finalise squad assignments, then mark the match <strong class="text-primary">Ready</strong>.
+                                @break
+                            @case(\App\Enums\MatchStatus::Ready)
+                                Pre-flight done. Tablets can download the match. Scoring goes live on the first shot or when you tap <strong class="text-primary">Start Match</strong>.
                                 @break
                             @case(\App\Enums\MatchStatus::Active)
                                 Match is live. Scoring app can download and submit scores.
@@ -1529,15 +1537,24 @@ new #[Layout('components.layouts.app')]
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    @if(in_array(\App\Enums\MatchStatus::Active, $match->status->allowedTransitions()))
+                    {{-- Primary CTA: Mark Ready from SquaddingClosed, Start Match from Ready,
+                         Start Match (straight to Active) from earlier stages. --}}
+                    @if($match->status === \App\Enums\MatchStatus::SquaddingClosed)
+                        <button type="button" wire:click="transitionStatus('ready')"
+                                wire:confirm="Mark this match as Ready? Tablets will be able to download it. Scoring is still locked until the first shot or tapping Start Match."
+                                class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-900/40 transition-colors min-h-[44px]">
+                            <x-icon name="chevron-right" class="h-4 w-4" />
+                            Mark Ready
+                        </button>
+                    @elseif(in_array(\App\Enums\MatchStatus::Active, $match->status->allowedTransitions()))
                         <button type="button" wire:click="transitionStatus('active')"
-                                wire:confirm="Start the match now? It will become visible in the scoring app."
+                                wire:confirm="Start the match now? Scoring goes live and the scoreboard begins accepting hits."
                                 class="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-green-900/40 transition-colors min-h-[44px]">
                             <x-icon name="chevron-right" class="h-4 w-4" />
                             Start Match
                         </button>
                     @endif
-                    @if($match->status === \App\Enums\MatchStatus::Active)
+                    @if(in_array($match->status, [\App\Enums\MatchStatus::Active, \App\Enums\MatchStatus::Ready]))
                         <flux:button href="{{ route('score') }}" target="_blank" variant="primary" class="!bg-accent hover:!bg-accent-hover">Open Scoring App</flux:button>
                     @endif
                     <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost" size="sm">Squadding</flux:button>
@@ -1630,7 +1647,11 @@ new #[Layout('components.layouts.app')]
                                 </label>
 
                                 @if($side_bet_enabled && $match)
-                                    <p class="text-xs text-muted italic">Add squads and shooters first, then select side bet participants.</p>
+                                    @if($match->shooters()->exists())
+                                        <p class="text-xs text-muted italic">Scroll down to the <strong class="text-primary">Side Bet Buy-In</strong> panel to tick each shooter who paid in.</p>
+                                    @else
+                                        <p class="text-xs text-muted italic">Add squads and shooters first, then select side bet participants.</p>
+                                    @endif
                                 @endif
                             </div>
                         @endif
@@ -1841,7 +1862,7 @@ new #[Layout('components.layouts.app')]
 
             <div class="flex flex-wrap gap-3 border-t border-border pt-4">
                 <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost">Manage Squadding</flux:button>
-                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed]))
+                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready]))
                     <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">Open Scoring</flux:button>
                     <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">View Scoreboard</flux:button>
                 @endif

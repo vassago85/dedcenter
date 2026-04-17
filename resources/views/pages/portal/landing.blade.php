@@ -201,6 +201,7 @@ new #[Layout('components.layouts.portal')]
                                     $statusLabel = match(true) {
                                         $canRegisterNow => 'Register →',
                                         $match->status === MatchStatus::Active => 'Live Now →',
+                                        $match->status === MatchStatus::Ready => 'Starting Soon',
                                         $match->status === MatchStatus::SquaddingOpen => 'Squadding →',
                                         $match->status === MatchStatus::SquaddingClosed => 'Squads Locked',
                                         $match->status === MatchStatus::RegistrationClosed => 'Registration Closed',

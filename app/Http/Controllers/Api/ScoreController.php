@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MatchStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ScoreResource;
 use App\Models\Gong;
@@ -10,6 +11,7 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use App\Models\TargetSet;
+use App\Services\NotificationService;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -51,6 +53,19 @@ class ScoreController extends Controller
             'stage_times.*.device_id' => ['required', 'string', 'max:255'],
             'stage_times.*.recorded_at' => ['required', 'date'],
         ]);
+
+        // Auto-promote a Ready match to Active the moment anything is captured
+        // (scores OR stage times). Ready means "tablets loaded, waiting to
+        // start"; as soon as the first shot lands the match is live.
+        $isCapturingSomething = ! empty($validated['scores'])
+            || ! empty($validated['deleted_scores'])
+            || ! empty($validated['stage_times']);
+
+        if ($isCapturingSomething && $match->status === MatchStatus::Ready) {
+            $oldStatus = $match->status;
+            $match->update(['status' => MatchStatus::Active]);
+            app(NotificationService::class)->onStatusChange($match, $oldStatus, MatchStatus::Active);
+        }
 
         if (! empty($validated['deleted_scores'])) {
             foreach ($validated['deleted_scores'] as $del) {

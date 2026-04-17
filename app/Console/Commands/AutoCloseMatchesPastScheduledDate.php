@@ -21,7 +21,7 @@ class AutoCloseMatchesPastScheduledDate extends Command
 
         $matches = ShootingMatch::query()
             ->whereDate('date', '<', $today)
-            ->whereIn('status', [MatchStatus::Active, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed])
+            ->whereIn('status', [MatchStatus::Active, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready])
             ->get();
 
         $closed = 0;

@@ -87,6 +87,7 @@ new #[Layout('components.layouts.app')]
             MatchStatus::RegistrationClosed->value,
             MatchStatus::SquaddingOpen->value,
             MatchStatus::SquaddingClosed->value,
+            MatchStatus::Ready->value,
             MatchStatus::Active->value,
         ];
 

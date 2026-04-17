@@ -10,6 +10,7 @@ enum MatchStatus: string
     case RegistrationClosed = 'registration_closed';
     case SquaddingOpen = 'squadding_open';
     case SquaddingClosed = 'squadding_closed';
+    case Ready = 'ready';
     case Active = 'active';
     case Completed = 'completed';
 
@@ -22,6 +23,7 @@ enum MatchStatus: string
             self::RegistrationClosed => 'Registration Closed',
             self::SquaddingOpen => 'Squadding Open',
             self::SquaddingClosed => 'Squadding Closed',
+            self::Ready => 'Ready',
             self::Active => 'Active',
             self::Completed => 'Completed',
         };
@@ -36,6 +38,7 @@ enum MatchStatus: string
             self::RegistrationClosed => 'amber',
             self::SquaddingOpen => 'indigo',
             self::SquaddingClosed => 'cyan',
+            self::Ready => 'emerald',
             self::Active => 'green',
             self::Completed => 'zinc',
         };
@@ -52,13 +55,14 @@ enum MatchStatus: string
         // so they can keep editing. Re-Completing does not re-award badges
         // (the evaluator is idempotent on slug+shooter).
         return match ($this) {
-            self::Draft => [self::PreRegistration, self::RegistrationOpen, self::RegistrationClosed, self::SquaddingOpen, self::Active],
+            self::Draft => [self::PreRegistration, self::RegistrationOpen, self::RegistrationClosed, self::SquaddingOpen, self::SquaddingClosed, self::Ready, self::Active],
             self::PreRegistration => [self::Draft, self::RegistrationOpen, self::RegistrationClosed],
             self::RegistrationOpen => [self::Draft, self::PreRegistration, self::RegistrationClosed],
-            self::RegistrationClosed => [self::Draft, self::PreRegistration, self::RegistrationOpen, self::SquaddingOpen, self::SquaddingClosed, self::Active],
-            self::SquaddingOpen => [self::RegistrationClosed, self::RegistrationOpen, self::SquaddingClosed, self::Active],
-            self::SquaddingClosed => [self::SquaddingOpen, self::RegistrationClosed, self::Active],
-            self::Active => [self::SquaddingClosed, self::SquaddingOpen, self::RegistrationClosed, self::Completed],
+            self::RegistrationClosed => [self::Draft, self::PreRegistration, self::RegistrationOpen, self::SquaddingOpen, self::SquaddingClosed, self::Ready, self::Active],
+            self::SquaddingOpen => [self::RegistrationClosed, self::RegistrationOpen, self::SquaddingClosed, self::Ready, self::Active],
+            self::SquaddingClosed => [self::SquaddingOpen, self::RegistrationClosed, self::Ready, self::Active],
+            self::Ready => [self::SquaddingClosed, self::SquaddingOpen, self::Active],
+            self::Active => [self::Ready, self::SquaddingClosed, self::SquaddingOpen, self::RegistrationClosed, self::Completed],
             self::Completed => [self::Active],
         };
     }
@@ -71,7 +75,8 @@ enum MatchStatus: string
             self::RegistrationOpen => 'Shooters can register and pay from the portal.',
             self::RegistrationClosed => 'No more sign-ups. You can still edit the list manually.',
             self::SquaddingOpen => 'Squads are being built. Self-squadding allowed if enabled.',
-            self::SquaddingClosed => 'Squads locked to shooters. MD can still edit. Match not yet live.',
+            self::SquaddingClosed => 'Squads locked to shooters. MD finalising. Match not visible to tablets yet.',
+            self::Ready => 'Pre-flight done. Tablets can download the match. Side Bet buy-in finalisable. Scoring still locked.',
             self::Active => 'Scoring is live. Scoreboard accepts hits. Side Bet buy-in editable.',
             self::Completed => 'Scores finalised, achievements awarded, notifications sent.',
         };
@@ -94,8 +99,11 @@ enum MatchStatus: string
                 ? 'Registered shooters will be notified squadding is open.'
                 : 'Self-squadding re-opens to shooters.',
             self::SquaddingClosed => $forward
-                ? 'Self-squadding locks for shooters. You can still edit squads. Match is not live yet.'
-                : 'Match is no longer live. Scoreboard stops accepting new hits.',
+                ? 'Self-squadding locks for shooters. You can still edit squads. Match is not downloadable to tablets yet.'
+                : 'Match goes back to pre-Ready. Tablets will lose access on next sync.',
+            self::Ready => $forward
+                ? 'Match is ready. Tablets can download it. Scoring stays locked until you tap Start Match or the first score is captured.'
+                : 'Tablets will lose access to the match on their next sync.',
             self::Active => $from === self::Completed
                 ? 'Match will no longer be marked finished. Achievements already awarded and emails already sent stay in place.'
                 : 'Scoring becomes live. Shooters can see the live scoreboard.',
@@ -117,8 +125,9 @@ enum MatchStatus: string
             self::RegistrationClosed => 3,
             self::SquaddingOpen => 4,
             self::SquaddingClosed => 5,
-            self::Active => 6,
-            self::Completed => 7,
+            self::Ready => 6,
+            self::Active => 7,
+            self::Completed => 8,
         };
     }
 }
