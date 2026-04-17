@@ -459,7 +459,9 @@ new #[Layout('components.layouts.app')]
 
     /**
      * Quick preset for Royal Flush matches: create 400/500/600/700 m target
-     * sets, each with 5 gongs. Idempotent — skips distances that already exist.
+     * sets, each with 5 gongs using the canonical RF multiplier table
+     * (G1:1.00, G2:1.30, G3:1.50, G4:1.80, G5:2.00). Idempotent — fills
+     * missing distances and snaps existing gong multipliers to the table.
      */
     public function addRoyalFlushPresets(): void
     {
@@ -468,29 +470,35 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
+        $gongMultipliers = ['1.00', '1.30', '1.50', '1.80', '2.00'];
         $created = 0;
         foreach ([400, 500, 600, 700] as $distance) {
-            $exists = $this->match->targetSets()->where('distance_meters', $distance)->exists();
-            if ($exists) {
-                continue;
+            $ts = $this->match->targetSets()->where('distance_meters', $distance)->first();
+            $isNew = ! $ts;
+            if ($isNew) {
+                $ts = $this->createTargetSet($distance);
+                $created++;
             }
-            $ts = $this->createTargetSet($distance);
-            // Seed 5 gongs G1..G5.
+            $existing = \App\Models\Gong::where('target_set_id', $ts->id)->orderBy('number')->get()->keyBy('number');
             for ($n = 1; $n <= 5; $n++) {
-                \App\Models\Gong::create([
-                    'target_set_id' => $ts->id,
-                    'number' => $n,
-                    'label' => "G{$n}",
-                    'multiplier' => '1.00',
-                ]);
+                $mult = $gongMultipliers[$n - 1];
+                if ($existing->has($n)) {
+                    $existing[$n]->fill(['label' => "G{$n}", 'multiplier' => $mult])->save();
+                } else {
+                    \App\Models\Gong::create([
+                        'target_set_id' => $ts->id,
+                        'number' => $n,
+                        'label' => "G{$n}",
+                        'multiplier' => $mult,
+                    ]);
+                }
             }
-            $created++;
         }
 
         if ($created === 0) {
-            Flux::toast('All RF distances already exist.', variant: 'info');
+            Flux::toast('RF distances were already present — multipliers refreshed to the RF table.', variant: 'success');
         } else {
-            Flux::toast("Added {$created} Royal Flush target set(s).", variant: 'success');
+            Flux::toast("Added {$created} Royal Flush target set(s) with RF multipliers.", variant: 'success');
         }
     }
 
