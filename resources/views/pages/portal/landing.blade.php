@@ -140,23 +140,23 @@ new #[Layout('components.layouts.portal')]
     </div>
 
     {{-- Stats --}}
-    <div class="mx-auto max-w-6xl px-4 -mt-8 sm:px-6 lg:px-8 relative z-10">
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div class="rounded-xl border border-white/10 bg-app p-6 text-center">
-                <p class="text-3xl font-bold text-primary">{{ $totalMatches }}</p>
-                <p class="mt-1 text-sm text-muted">Total Matches</p>
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-4">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+            <div class="rounded-xl border border-white/10 bg-app px-4 py-5 text-center sm:p-6">
+                <p class="text-2xl font-bold text-primary sm:text-3xl">{{ $totalMatches }}</p>
+                <p class="mt-1 text-xs text-muted sm:text-sm">Total Matches</p>
             </div>
-            <div class="rounded-xl border border-white/10 bg-app p-6 text-center">
-                <p class="text-3xl font-bold portal-primary">{{ $upcomingMatches->count() }}</p>
-                <p class="mt-1 text-sm text-muted">Upcoming</p>
+            <div class="rounded-xl border border-white/10 bg-app px-4 py-5 text-center sm:p-6">
+                <p class="text-2xl font-bold portal-primary sm:text-3xl">{{ $upcomingMatches->count() }}</p>
+                <p class="mt-1 text-xs text-muted sm:text-sm">Upcoming</p>
             </div>
-            <div class="rounded-xl border border-white/10 bg-app p-6 text-center hidden sm:block">
-                <p class="text-3xl font-bold text-primary">{{ $completedCount }}</p>
-                <p class="mt-1 text-sm text-muted">Completed</p>
+            <div class="rounded-xl border border-white/10 bg-app px-4 py-5 text-center sm:p-6">
+                <p class="text-2xl font-bold text-primary sm:text-3xl">{{ $completedCount }}</p>
+                <p class="mt-1 text-xs text-muted sm:text-sm">Completed</p>
             </div>
-            <div class="rounded-xl border border-white/10 bg-app p-6 text-center hidden sm:block">
-                <p class="text-3xl font-bold portal-primary">{{ $registrationsOpen }}</p>
-                <p class="mt-1 text-sm text-muted">Open for Registration</p>
+            <div class="rounded-xl border border-white/10 bg-app px-4 py-5 text-center sm:p-6">
+                <p class="text-2xl font-bold portal-primary sm:text-3xl">{{ $registrationsOpen }}</p>
+                <p class="mt-1 text-xs text-muted sm:text-sm">Open for Registration</p>
             </div>
         </div>
     </div>
