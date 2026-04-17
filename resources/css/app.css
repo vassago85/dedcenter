@@ -35,8 +35,8 @@
     --color-surface-2: #243757;
     --color-border: #31486d;
     --color-primary: #f3f7ff;
-    --color-secondary: #dde5f3;
-    --color-muted: #d7dfed;
+    --color-secondary: #eef3fc;
+    --color-muted: #e2eaf7;
     --color-accent: #ff2b2b;
     --color-accent-hover: #e32020;
     --color-accent-soft: rgba(255, 43, 43, 0.12);
@@ -416,4 +416,64 @@ html.dark :where([data-flux-description]) {
 /* ── FAQ accordion (native <details> on marketing pages) ── */
 .lp-faq-details summary::-webkit-details-marker { display: none; }
 .lp-faq-details summary::marker { display: none; content: ''; }
+
+/* =============================================================
+   READABILITY OVERRIDES — 2026-04-18
+   Many Blade templates use Tailwind `text-muted` / `text-secondary`
+   (which map to our tokens) OR raw zinc/slate utilities. Against
+   our #08142b navy app background, anything darker than ~#cfd9ec
+   is hard to read. Force everything that looks "muted" on the
+   app shell to render near-white.
+   ============================================================= */
+
+/* Map the token utilities to near-white (they already resolve via
+   @theme, but some bundles cache the pre-brightened value). */
+html.dark .text-muted,
+html.dark .text-secondary {
+    color: var(--color-secondary) !important;
+}
+
+html.dark .text-primary {
+    color: var(--color-primary) !important;
+}
+
+/* Tailwind zinc/slate greys used directly in older templates — remap
+   the darker dark-mode variants onto our readable palette.           */
+html.dark .text-zinc-400,
+html.dark .text-zinc-500,
+html.dark .text-zinc-600,
+html.dark .text-slate-400,
+html.dark .text-slate-500,
+html.dark .text-slate-600,
+html.dark .text-gray-400,
+html.dark .text-gray-500,
+html.dark .text-gray-600 {
+    color: var(--color-secondary) !important;
+}
+
+/* Flux 'subtle' button variant (text-zinc-500 hover:text-zinc-800
+   dark:text-zinc-400 dark:hover:text-white) — normalise. */
+html.dark [data-flux-button].text-zinc-500,
+html.dark [data-flux-button].text-zinc-400 {
+    color: var(--color-secondary) !important;
+}
+
+/* Context bar (mode switch banner) — the red/blue mode bar had
+   light-blue body text barely visible. */
+html.dark .app-context-bar,
+html.dark .app-context-bar * {
+    color: inherit;
+}
+
+/* Marketing nav mobile/dark greys — lighten. */
+html.dark .lp-nav-text-muted,
+html.dark .marketing-mobile-link {
+    color: var(--color-secondary) !important;
+}
+html.dark .lp-nav-text-muted:hover,
+html.dark .marketing-mobile-link:hover,
+html.dark .lp-nav-text-muted:focus-visible,
+html.dark .marketing-mobile-link:focus-visible {
+    color: #ffffff !important;
+}
 
