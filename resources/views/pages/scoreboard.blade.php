@@ -448,7 +448,12 @@ new #[Layout('components.layouts.scoreboard')]
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
-            @php($canExport = auth()->user()?->isAdmin() || ($match->organization_id && auth()->user()?->isOrgMatchDirector($match->organization)))
+            @php
+                $user = auth()->user();
+                $canExport = $user
+                    ? ($user->isAdmin() || ($match->organization_id && $user->isOrgMatchDirector($match->organization)))
+                    : false;
+            @endphp
             @if($match->status === \App\Enums\MatchStatus::Completed && $canExport)
                 <div class="mt-3 flex flex-wrap gap-2">
                     <a href="{{ route('scoreboard.export.standings', $match) }}"

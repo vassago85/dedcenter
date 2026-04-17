@@ -1473,6 +1473,68 @@ new #[Layout('components.layouts.app')]
     @endif
 
     <div x-show="tab === 'info'">
+    @if($match)
+        {{-- Quick-status card: shows current lifecycle state and the single
+             most-useful next action. Keeps MDs out of the Config tab just to
+             flip a status. --}}
+        @php
+            $statusCardClasses = match($match->status) {
+                \App\Enums\MatchStatus::Active => 'border-green-500/40 bg-green-950/20',
+                \App\Enums\MatchStatus::Completed => 'border-zinc-500/30 bg-zinc-900/30',
+                \App\Enums\MatchStatus::SquaddingOpen => 'border-indigo-500/40 bg-indigo-950/20',
+                default => 'border-amber-500/30 bg-amber-950/15',
+            };
+        @endphp
+        <div class="mb-6 rounded-xl border {{ $statusCardClasses }} p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">Current Status</div>
+                    <div class="mt-1 flex items-center gap-2">
+                        <span class="inline-flex items-center rounded-full bg-{{ $match->status->color() }}-600/25 px-3 py-1 text-sm font-semibold text-{{ $match->status->color() }}-300">
+                            {{ $match->status->label() }}
+                        </span>
+                    </div>
+                    <p class="mt-2 text-sm text-secondary">
+                        @switch($match->status)
+                            @case(\App\Enums\MatchStatus::Draft)
+                                This match is a draft. Open registration or squadding to progress.
+                                @break
+                            @case(\App\Enums\MatchStatus::PreRegistration)
+                            @case(\App\Enums\MatchStatus::RegistrationOpen)
+                                Shooters are registering. Close registration when ready to squad.
+                                @break
+                            @case(\App\Enums\MatchStatus::RegistrationClosed)
+                                Registration closed. Open squadding or start the match.
+                                @break
+                            @case(\App\Enums\MatchStatus::SquaddingOpen)
+                                Squadding is open. Click <strong class="text-primary">Start Match</strong> on match day to make it visible in the scoring app.
+                                @break
+                            @case(\App\Enums\MatchStatus::Active)
+                                Match is live. Scoring app can download and submit scores.
+                                @break
+                            @case(\App\Enums\MatchStatus::Completed)
+                                Match completed. Scores are locked unless you reopen it.
+                                @break
+                        @endswitch
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    @if(in_array(\App\Enums\MatchStatus::Active, $match->status->allowedTransitions()))
+                        <button type="button" wire:click="transitionStatus('active')"
+                                wire:confirm="Start the match now? It will become visible in the scoring app."
+                                class="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-green-900/40 transition-colors min-h-[44px]">
+                            <x-icon name="chevron-right" class="h-4 w-4" />
+                            Start Match
+                        </button>
+                    @endif
+                    @if($match->status === \App\Enums\MatchStatus::Active)
+                        <flux:button href="{{ route('score') }}" target="_blank" variant="primary" class="!bg-accent hover:!bg-accent-hover">Open Scoring App</flux:button>
+                    @endif
+                    <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost" size="sm">Squadding</flux:button>
+                </div>
+            </div>
+        </div>
+    @endif
     <form wire:submit="save" class="space-y-6">
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <h2 class="text-lg font-semibold text-primary">Match Details</h2>

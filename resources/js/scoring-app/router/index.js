@@ -108,13 +108,20 @@ router.beforeEach(async (to, from, next) => {
 
         const mode = localStorage.getItem(MODE_KEY);
 
+        // Users who can score default to Scoring Mode (HomeView) unless they
+        // have explicitly chosen Member Mode. This means MDs/ROs/Owners land
+        // on the "Start Scoring" page by default instead of being sent to the
+        // member feed where scoring entry points are hidden.
         if (to.name === 'home') {
-            if (!userStore.canScore || mode === 'member') {
+            if (!userStore.canScore) {
+                return next({ name: 'member-home' });
+            }
+            if (mode === 'member') {
                 return next({ name: 'member-home' });
             }
         }
 
-        if (to.name === 'member-home' && userStore.canScore && mode === 'score') {
+        if (to.name === 'member-home' && userStore.canScore && mode !== 'member') {
             return next({ name: 'home' });
         }
     }

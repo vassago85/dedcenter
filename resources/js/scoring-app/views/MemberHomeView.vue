@@ -45,6 +45,27 @@
             </p>
         </div>
 
+        <!-- Scoring Mode CTA (only for users who can score) -->
+        <section v-if="userStore.canScore" class="mx-auto max-w-lg px-4 pt-2 pb-1">
+            <button
+                @click="switchToScoreMode"
+                class="group flex w-full items-center gap-3 rounded-xl border border-red-600/40 bg-red-600/10 px-4 py-3 text-left transition-colors hover:bg-red-600/20 active:scale-[0.99]"
+            >
+                <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-white">Start Scoring</p>
+                    <p class="text-xs text-slate-400">Open the scoring interface for active matches</p>
+                </div>
+                <svg class="h-4 w-4 flex-shrink-0 text-slate-500 group-hover:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+            </button>
+        </section>
+
         <!-- Live Now -->
         <section v-if="matchData.live.length" class="mx-auto max-w-lg px-4 py-4">
             <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-400">

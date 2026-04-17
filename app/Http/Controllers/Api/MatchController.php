@@ -17,7 +17,17 @@ class MatchController extends Controller
         $user = $request->user();
         $orgIds = $user->organizations()->pluck('organizations.id');
 
-        $matches = ShootingMatch::where('status', MatchStatus::Active)
+        // Include SquaddingOpen so the scoring app can pre-download the match
+        // the night before (common MD workflow). Completed is included too so
+        // RO can review/fix scores after the match. Draft/registration states
+        // are intentionally excluded — nothing to score yet.
+        $importableStatuses = [
+            MatchStatus::SquaddingOpen,
+            MatchStatus::Active,
+            MatchStatus::Completed,
+        ];
+
+        $matches = ShootingMatch::whereIn('status', $importableStatuses)
             ->where(function ($q) use ($user, $orgIds) {
                 $q->where('created_by', $user->id)
                   ->orWhereIn('organization_id', $orgIds);
