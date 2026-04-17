@@ -95,6 +95,11 @@ new #[Layout('components.layouts.portal')]
             return;
         }
 
+        if (! $this->match->canRegister() || $this->match->isRegistrationPastDeadline()) {
+            Flux::toast('Registration is closed for this match.', variant: 'danger');
+            return;
+        }
+
         if ($this->registration && !$this->registration->isPreRegistered()) {
             return;
         }
@@ -423,7 +428,7 @@ new #[Layout('components.layouts.portal')]
                     </div>
                 </form>
 
-            @elseif(! $registration && ($match->canRegister() || $match->is_active || $match->status === \App\Enums\MatchStatus::Draft))
+            @elseif(! $registration && $match->canRegister() && ! $match->isRegistrationPastDeadline())
                 <p class="text-sm text-muted">Fill in your equipment details and register for this match.</p>
                 <form wire:submit="register" class="space-y-4">
                     @include('pages.member.partials.equipment-form')

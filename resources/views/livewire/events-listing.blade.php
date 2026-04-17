@@ -108,7 +108,7 @@
                     $isCompleted = $statusValue === 'completed';
                     $isPreReg    = $statusValue === 'pre_registration';
                     $isRegOpen   = $statusValue === 'registration_open';
-                    $canRegister = $isPreReg || $isRegOpen;
+                    $canRegister = ($isPreReg || $isRegOpen) && ! $match->isRegistrationPastDeadline();
                     $cardImage   = $match->card_image_url;
                     $hasImage    = ! empty($cardImage);
                     $org         = $match->organization;

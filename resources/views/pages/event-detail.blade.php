@@ -883,7 +883,7 @@ new #[Layout('components.layouts.app')]
                         Show Interest
                     </flux:button>
 
-                @elseif($match->isRegistrationOpen())
+                @elseif($match->isRegistrationOpen() && ! $match->isRegistrationPastDeadline())
                     <p class="text-base text-muted">Registration is open. Complete your equipment details and register.</p>
                     @php $closes = $match->registration_closes_at ?? $match->defaultRegistrationCloseDate(); @endphp
                     @if($closes)
@@ -892,6 +892,9 @@ new #[Layout('components.layouts.app')]
                     <flux:button href="{{ route('matches.show', $match) }}" variant="primary" class="min-h-[44px] !bg-accent hover:!bg-accent-hover focus:ring-2 focus:ring-accent focus:outline-none">
                         Register
                     </flux:button>
+
+                @elseif($match->isRegistrationOpen() && $match->isRegistrationPastDeadline())
+                    <p class="text-base text-muted">Registration has closed for this match.</p>
 
                 @else
                     <p class="text-base text-muted">Registration is not yet open for this match.</p>

@@ -129,7 +129,6 @@ class RoyalFlush18April2026Seeder extends Seeder
                 ['Jeane Van Der Merwe', '6.5 Creedmoor'],
                 ['AJ Snyman', '6 Dasher'],
                 ['Paul Charsley', '6.5 Creedmoor'],
-                ['Morton Mynhardt', '6.5 PRC'],
                 ['Rudolph Louw', '300 WSM'],
                 ['Andre Combrink', '308 Win'],
                 ['Dries Bekker', '6.5 Creedmoor'],
@@ -186,11 +185,17 @@ class RoyalFlush18April2026Seeder extends Seeder
         DB::transaction(function () use (
             $org, $matchName, $matchDate, $concurrentRelays, $maxSquadSize, $relays
         ) {
-            $match = ShootingMatch::firstOrNew([
+            // Include soft-deleted ("archived") rows so a previously archived
+            // Royal Flush match gets restored instead of creating a duplicate.
+            $match = ShootingMatch::withTrashed()->firstOrNew([
                 'organization_id' => $org->id,
                 'name' => $matchName,
                 'date' => $matchDate,
             ]);
+            if ($match->exists && $match->trashed()) {
+                $match->restore();
+                $this->command?->info("Restored archived match [{$match->id}].");
+            }
             if (! $match->exists) {
                 $match->status = MatchStatus::SquaddingOpen;
             }

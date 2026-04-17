@@ -32,6 +32,12 @@ new #[Layout('components.layouts.app')]
     {
         $this->match = $match;
 
+        if (! $match->canRegister() || $match->isRegistrationPastDeadline()) {
+            Flux::toast('Registration is closed for this match.', variant: 'warning');
+            $this->redirect(route('events.show', $match));
+            return;
+        }
+
         $existing = MatchRegistration::where('match_id', $match->id)
             ->where('user_id', auth()->id())
             ->first();
@@ -145,6 +151,12 @@ new #[Layout('components.layouts.app')]
 
     public function submit(): void
     {
+        if (! $this->match->canRegister() || $this->match->isRegistrationPastDeadline()) {
+            Flux::toast('Registration is closed for this match.', variant: 'danger');
+            $this->redirect(route('events.show', $this->match));
+            return;
+        }
+
         $this->validateStep1();
         if ($this->needsStep2()) {
             $this->validateStep2();
