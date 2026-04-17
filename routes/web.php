@@ -60,6 +60,7 @@ Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
 Route::middleware('auth')->group(function () {
     Route::get('/scoreboard/{match}/export/standings', [MatchExportController::class, 'standings'])->name('scoreboard.export.standings');
     Route::get('/scoreboard/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('scoreboard.export.detailed');
+    Route::get('/scoreboard/{match}/export/rf-shots', [MatchExportController::class, 'royalFlushShots'])->name('scoreboard.export.rf-shots');
 });
 Volt::route('/live/{match}', 'live')->name('live');
 Route::get('/badges-preview', BadgeGalleryController::class)->name('badges.preview');

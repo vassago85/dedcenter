@@ -439,6 +439,13 @@ new #[Layout('components.layouts.app')]
                 <x-icon name="download" class="h-3.5 w-3.5" />
                 Full Results (CSV)
             </a>
+            @if($match->royal_flush_enabled)
+                <a href="{{ route('scoreboard.export.rf-shots', $match) }}"
+                   class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
+                    <x-icon name="download" class="h-3.5 w-3.5" />
+                    RF Shots (CSV, 1/0)
+                </a>
+            @endif
             <a href="{{ route('scoreboard', $match) }}" target="_blank"
                class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
                 <x-icon name="external-link" class="h-3.5 w-3.5" />

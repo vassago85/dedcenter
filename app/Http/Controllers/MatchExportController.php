@@ -49,6 +49,18 @@ class MatchExportController extends Controller
         return $this->streamCsv("{$slug}-detailed.csv", fn ($out) => $this->standardDetailed($match, $out));
     }
 
+    /**
+     * Royal Flush shots CSV: Name, Caliber, Shot 1 … Shot N (1 = hit, 0 = miss or unscored).
+     * Shot order is target_sets sort_order ascending × gongs number ascending.
+     */
+    public function royalFlushShots(ShootingMatch $match): StreamedResponse
+    {
+        $this->authorizeExport($match);
+        $slug = Str::slug($match->name);
+
+        return $this->streamCsv("{$slug}-rf-shots.csv", fn ($out) => $this->rfShots($match, $out));
+    }
+
     // ── Standard ────────────────────────────────────────────────
 
     private function standardStandings(ShootingMatch $match, $out): void
@@ -164,6 +176,73 @@ class MatchExportController extends Controller
                 $row['cells'],
                 [$row['hits'], $row['misses'], $row['total']],
             ));
+        }
+    }
+
+    // ── Royal Flush shots (1/0) ────────────────────────────────
+
+    /**
+     * CSV: Name, Caliber, Shot 1 … Shot N.
+     * Canonical shot order = target_sets.sort_order ASC × gongs.number ASC.
+     * 1 = hit, 0 = miss or unscored. Shooter caliber pulled from match_registrations.
+     */
+    private function rfShots(ShootingMatch $match, $out): void
+    {
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        $orderedGongIds = $targetSets->flatMap->gongs->pluck('id')->values();
+        $shotCount = $orderedGongIds->count();
+
+        $shooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('match_registrations', function ($j) use ($match) {
+                $j->on('match_registrations.user_id', '=', 'shooters.user_id')
+                  ->where('match_registrations.match_id', '=', $match->id);
+            })
+            ->where('squads.match_id', $match->id)
+            ->orderBy('squads.sort_order')
+            ->orderBy('shooters.sort_order')
+            ->select(
+                'shooters.id',
+                'shooters.name',
+                'shooters.user_id',
+                'match_registrations.caliber as reg_caliber',
+            )
+            ->get();
+
+        $scoresByShooter = Score::query()
+            ->whereIn('shooter_id', $shooters->pluck('id'))
+            ->whereIn('gong_id', $orderedGongIds)
+            ->get(['shooter_id', 'gong_id', 'is_hit'])
+            ->groupBy('shooter_id');
+
+        $header = ['Name', 'Caliber'];
+        for ($i = 1; $i <= $shotCount; $i++) {
+            $header[] = "Shot {$i}";
+        }
+        fputcsv($out, $header, ',', '"', '\\');
+
+        foreach ($shooters as $shooter) {
+            // Prefer stored registration caliber; fall back to suffix "Name — Caliber" from shooter name.
+            $caliber = $shooter->reg_caliber;
+            $displayName = $shooter->name;
+            if (str_contains($displayName, ' — ')) {
+                [$displayName, $suffix] = array_pad(explode(' — ', $displayName, 2), 2, '');
+                if (empty($caliber)) {
+                    $caliber = $suffix;
+                }
+            }
+
+            $scores = $scoresByShooter->get($shooter->id, collect())->keyBy('gong_id');
+            $row = [$displayName, $caliber ?? ''];
+            foreach ($orderedGongIds as $gid) {
+                $score = $scores->get($gid);
+                $row[] = ($score && $score->is_hit) ? 1 : 0;
+            }
+            fputcsv($out, $row, ',', '"', '\\');
         }
     }
 

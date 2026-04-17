@@ -448,7 +448,8 @@ new #[Layout('components.layouts.scoreboard')]
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
             <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
-            @if($match->status === \App\Enums\MatchStatus::Completed && (auth()->user()?->isAdmin() || ($match->organization_id && auth()->user()?->isOrgMatchDirector($match->organization))))
+            @php($canExport = auth()->user()?->isAdmin() || ($match->organization_id && auth()->user()?->isOrgMatchDirector($match->organization)))
+            @if($match->status === \App\Enums\MatchStatus::Completed && $canExport)
                 <div class="mt-3 flex flex-wrap gap-2">
                     <a href="{{ route('scoreboard.export.standings', $match) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
@@ -459,6 +460,15 @@ new #[Layout('components.layouts.scoreboard')]
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
                         <x-icon name="download" class="h-3.5 w-3.5" />
                         Full Results CSV
+                    </a>
+                </div>
+            @endif
+            @if($match->royal_flush_enabled && $canExport)
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <a href="{{ route('scoreboard.export.rf-shots', $match) }}"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                        <x-icon name="download" class="h-3.5 w-3.5" />
+                        RF Shots CSV (1/0)
                     </a>
                 </div>
             @endif
