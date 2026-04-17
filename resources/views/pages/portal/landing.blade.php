@@ -90,7 +90,9 @@ new #[Layout('components.layouts.portal')]
         <div class="absolute inset-0 opacity-10">
             <div class="absolute inset-0" style="background: radial-gradient(ellipse at 30% 50%, var(--portal-primary), transparent 70%);"></div>
         </div>
-        @php($portalHeroLogoUrl = $organization->logoUrl())
+        @php
+            $portalHeroLogoUrl = $organization->logoUrl();
+        @endphp
         <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-36">
             <div class="grid gap-10 lg:items-center{{ $portalHeroLogoUrl ? ' lg:grid-cols-2 lg:gap-12 xl:gap-16' : '' }}">
                 <div>
