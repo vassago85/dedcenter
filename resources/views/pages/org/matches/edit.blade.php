@@ -252,8 +252,8 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
-        if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed])) {
-            Flux::toast('Buy-in is locked once scoring starts.', variant: 'danger');
+        if ($this->match->status === MatchStatus::Completed) {
+            Flux::toast('Buy-in is locked once the match is completed.', variant: 'danger');
             return;
         }
 
@@ -2888,7 +2888,7 @@ new #[Layout('components.layouts.app')]
             <flux:separator />
 
             @php
-                $sideBetLocked = in_array($match->status, [MatchStatus::Active, MatchStatus::Completed]);
+                $sideBetLocked = $match->status === MatchStatus::Completed;
                 $allShootersForBet = $match->shooters()->with('squad')->orderBy('name')->get();
             @endphp
 
@@ -2905,9 +2905,9 @@ new #[Layout('components.layouts.app')]
                         </h2>
                         <p class="mt-1 text-xs text-muted">
                             @if($sideBetLocked)
-                                Buy-in is locked once scoring starts. {{ count($sideBetShooterIds) }} {{ Str::plural('participant', count($sideBetShooterIds)) }} registered.
+                                Buy-in is locked after the match is completed. {{ count($sideBetShooterIds) }} {{ Str::plural('participant', count($sideBetShooterIds)) }} registered.
                             @else
-                                Select shooters who bought in this morning. Locked once scoring starts.
+                                Tick shooters who bought in. You can keep adding / removing until the match is completed.
                             @endif
                         </p>
                     </div>
