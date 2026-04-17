@@ -7,6 +7,7 @@ use App\Models\Squad;
 use App\Models\Shooter;
 use App\Models\User;
 use Flux\Flux;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -311,6 +312,46 @@ new #[Layout('components.layouts.app')]
         $maxSort = Shooter::where('squad_id', $targetSquadId)->max('sort_order') ?? 0;
         $shooter->update(['squad_id' => $targetSquadId, 'sort_order' => $maxSort + 1]);
         Flux::toast("Moved {$shooter->name} to {$targetSquad->name}.", variant: 'success');
+    }
+
+    /** Swap with the immediate neighbour above them in the same squad. */
+    public function moveShooterUp(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        if (! $this->match->squads()->whereKey($shooter->squad_id)->exists()) { return; }
+
+        $neighbour = Shooter::where('squad_id', $shooter->squad_id)
+            ->where('sort_order', '<', $shooter->sort_order)
+            ->orderByDesc('sort_order')
+            ->first();
+        if (! $neighbour) { return; }
+
+        DB::transaction(function () use ($shooter, $neighbour) {
+            $a = $shooter->sort_order;
+            $b = $neighbour->sort_order;
+            $shooter->update(['sort_order' => $b]);
+            $neighbour->update(['sort_order' => $a]);
+        });
+    }
+
+    /** Swap with the immediate neighbour below them in the same squad. */
+    public function moveShooterDown(int $shooterId): void
+    {
+        $shooter = Shooter::findOrFail($shooterId);
+        if (! $this->match->squads()->whereKey($shooter->squad_id)->exists()) { return; }
+
+        $neighbour = Shooter::where('squad_id', $shooter->squad_id)
+            ->where('sort_order', '>', $shooter->sort_order)
+            ->orderBy('sort_order')
+            ->first();
+        if (! $neighbour) { return; }
+
+        DB::transaction(function () use ($shooter, $neighbour) {
+            $a = $shooter->sort_order;
+            $b = $neighbour->sort_order;
+            $shooter->update(['sort_order' => $b]);
+            $neighbour->update(['sort_order' => $a]);
+        });
     }
 
     public function removeFromRelay(int $shooterId): void
@@ -650,6 +691,27 @@ new #[Layout('components.layouts.app')]
                                                     </td>
                                                     <td class="px-2 py-1.5 text-right">
                                                         <div class="flex items-center justify-end gap-1" x-data="{ open: false, sOpen: false }">
+                                                            {{-- Reorder within squad --}}
+                                                            <button wire:click="moveShooterUp({{ $shooter->id }})"
+                                                                    @class([
+                                                                        'rounded px-1.5 py-1 text-xs transition-colors min-h-[32px]',
+                                                                        'text-muted/30 cursor-not-allowed' => $loop->first,
+                                                                        'text-muted hover:text-secondary hover:bg-surface-2' => ! $loop->first,
+                                                                    ])
+                                                                    @disabled($loop->first)
+                                                                    title="Move up">
+                                                                <x-icon name="chevron-up" class="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button wire:click="moveShooterDown({{ $shooter->id }})"
+                                                                    @class([
+                                                                        'rounded px-1.5 py-1 text-xs transition-colors min-h-[32px]',
+                                                                        'text-muted/30 cursor-not-allowed' => $loop->last,
+                                                                        'text-muted hover:text-secondary hover:bg-surface-2' => ! $loop->last,
+                                                                    ])
+                                                                    @disabled($loop->last)
+                                                                    title="Move down">
+                                                                <x-icon name="chevron-down" class="h-3.5 w-3.5" />
+                                                            </button>
                                                             <div class="relative" @click.away="sOpen = false">
                                                                 <button @click="sOpen = !sOpen" class="rounded px-2 py-1 text-[10px] font-medium text-muted hover:text-secondary hover:bg-surface-2 transition-colors min-h-[32px]" title="Change status">
                                                                     <x-icon name="settings" class="h-3.5 w-3.5" />
