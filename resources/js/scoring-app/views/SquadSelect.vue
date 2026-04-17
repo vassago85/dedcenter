@@ -61,6 +61,7 @@
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import { useScoringStore } from '../stores/scoringStore';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 
 const props = defineProps({
@@ -69,8 +70,25 @@ const props = defineProps({
 
 const router = useRouter();
 const matchStore = useMatchStore();
+const scoringStore = useScoringStore();
 
-function selectSquad(squad) {
+// Pick a squad for this scoring session and hand off to ScoringFlow
+// positioned on that squad (not just the generic scoring view, which
+// would re-prompt for stage/squad).
+async function selectSquad(squad) {
+    // Make sure scoringStore is initialised for this match so jumpToSquad
+    // has the correct squad ordering loaded.
+    const scores = matchStore.currentMatch?.scores ?? [];
+    await scoringStore.initForMatch(props.matchId, scores);
+
+    const squads = (matchStore.squads ?? []).slice().sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    );
+    const idx = squads.findIndex(s => s.id === squad.id);
+    if (idx >= 0 && typeof scoringStore.jumpToSquad === 'function') {
+        scoringStore.jumpToSquad(idx);
+    }
+
     router.push({ name: 'scoring', params: { matchId: props.matchId } });
 }
 

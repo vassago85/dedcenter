@@ -302,7 +302,7 @@
                             </template>
                             <template v-else>
                                 <router-link
-                                    :to="{ name: 'squad-select', params: { matchId: props.matchId } }"
+                                    :to="{ name: 'scoring', params: { matchId: props.matchId } }"
                                     class="flex items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 py-3 font-semibold text-white transition-colors hover:bg-slate-700"
                                 >
                                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
