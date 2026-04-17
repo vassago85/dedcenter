@@ -92,10 +92,7 @@ new #[Layout('components.layouts.portal')]
         </div>
         @php($portalHeroLogoUrl = $organization->logoUrl())
         <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-36">
-            <div @class([
-                'grid gap-10 lg:items-center',
-                'lg:grid-cols-2 lg:gap-12 xl:gap-16' => (bool) $portalHeroLogoUrl,
-            ])>
+            <div class="grid gap-10 lg:items-center{{ $portalHeroLogoUrl ? ' lg:grid-cols-2 lg:gap-12 xl:gap-16' : '' }}">
                 <div>
                     <x-portal-ad-slot class="mb-8 max-w-2xl" :organization="$organization" placement="portal_home_hero" variant="cover" />
                     <div class="max-w-2xl">
