@@ -149,7 +149,9 @@ new #[Layout('components.layouts.app')]
             $this->public_bio = $match->public_bio ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->registration_closes_at = $match->registration_closes_at?->format('Y-m-d\TH:i') ?? '';
-            $this->scoring_type = $match->scoring_type ?? 'standard';
+            $this->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr'], true)
+                ? $match->scoring_type
+                : 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
@@ -1900,8 +1902,9 @@ new #[Layout('components.layouts.app')]
 
         <div x-show="tab === 'stages'" x-cloak class="space-y-6">
 
-        {{-- Target Sets — Relay scoring --}}
-        @if($scoring_type === 'standard')
+        {{-- Target Sets — Relay scoring (also the fallback when scoring_type is an
+             unknown legacy value like 'royal_flush' — don't leave the tab blank) --}}
+        @if(! in_array($scoring_type, ['prs', 'elr'], true))
         <div class="space-y-4">
             <h2 class="text-lg font-semibold text-primary">Target Sets</h2>
 

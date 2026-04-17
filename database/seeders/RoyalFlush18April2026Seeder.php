@@ -202,12 +202,24 @@ class RoyalFlush18April2026Seeder extends Seeder
             $match->royal_flush_enabled = true;
             $match->concurrent_relays = $concurrentRelays;
             $match->max_squad_size = $maxSquadSize;
-            $match->scoring_type = $match->scoring_type ?? 'royal_flush';
+            // scoring_type must be one of the edit-form whitelist (standard|prs|elr).
+            // The Royal Flush feature is driven by the royal_flush_enabled flag above,
+            // not by scoring_type. Using an unknown value leaves the Stages tab empty.
+            $match->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr'], true)
+                ? $match->scoring_type
+                : 'standard';
             $match->self_squadding_enabled = false;
             $match->created_by = $match->created_by ?? User::query()->value('id');
             $match->save();
 
             $this->command?->info("Match [{$match->id}] {$match->name} ready.");
+
+            // Full wipe of any existing shooters on this match (any squad, including
+            // stale duplicates manually created on prior runs). Otherwise idempotent
+            // re-runs leave orphaned rows if a shooter was added in an earlier seed
+            // and then removed from this roster.
+            Shooter::whereIn('squad_id', Squad::where('match_id', $match->id)->pluck('id'))
+                ->delete();
 
             $squadByNum = [];
             foreach ($relays as $num => $_) {
@@ -216,7 +228,6 @@ class RoyalFlush18April2026Seeder extends Seeder
                     ['sort_order' => $num, 'max_capacity' => $maxSquadSize]
                 );
                 $squad->fill(['sort_order' => $num, 'max_capacity' => $maxSquadSize])->save();
-                Shooter::where('squad_id', $squad->id)->delete();
                 $squadByNum[$num] = $squad;
             }
 
