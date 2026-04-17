@@ -25,11 +25,19 @@ class RoyalFlush18April2026Seeder extends Seeder
 {
     public function run(): void
     {
-        $org = Organization::where('slug', 'royal-flush')->first();
+        // Prefer exact slug; fall back to any slug starting with "royal-flush"
+        // (e.g. "royal-flush-1" on servers where the slug was auto-incremented),
+        // and finally match by name.
+        $org = Organization::where('slug', 'royal-flush')->first()
+            ?? Organization::where('slug', 'like', 'royal-flush%')->orderBy('id')->first()
+            ?? Organization::where('name', 'Royal Flush')->first();
+
         if (! $org) {
             $this->command->error('Royal Flush organization not found. Run DatabaseSeeder first.');
             return;
         }
+
+        $this->command?->info("Using organization [{$org->id}] {$org->name} (slug={$org->slug}).");
 
         $matchName = 'Royal Flush — 18 April 2026';
         $matchDate = '2026-04-18';
