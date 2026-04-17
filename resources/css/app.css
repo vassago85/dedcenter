@@ -35,8 +35,8 @@
     --color-surface-2: #243757;
     --color-border: #31486d;
     --color-primary: #f3f7ff;
-    --color-secondary: #b8c6de;
-    --color-muted: #c0cfdf;
+    --color-secondary: #dde5f3;
+    --color-muted: #d7dfed;
     --color-accent: #ff2b2b;
     --color-accent-hover: #e32020;
     --color-accent-soft: rgba(255, 43, 43, 0.12);
@@ -178,12 +178,14 @@ html.dark :where([data-flux-input]) input[type='datetime-local'] {
 
 /* Ghost / outline / subtle buttons: Flux uses `text-zinc-800 dark:text-white` but the custom `dark:`
    variant doesn't match `html.dark`, so text stays near-black on dark navy backgrounds.
-   Use real specificity (not :where()) so this actually overrides Tailwind utility classes. */
+   Use real specificity (not :where()) so this actually overrides Tailwind utility classes.
+   Use primary (near-white) not secondary — secondary is too dim on the navy app background. */
 html.dark [data-flux-button] {
-    color: var(--color-secondary) !important;
+    color: var(--color-primary) !important;
 }
 html.dark [data-flux-button]:is(:hover, :focus-visible) {
     color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.08) !important;
 }
 html.dark [data-flux-button][class*='!bg-accent'],
 html.dark [data-flux-button][class*='bg-accent'],
