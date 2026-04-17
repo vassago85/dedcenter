@@ -430,16 +430,79 @@ new #[Layout('components.layouts.app')]
         }
 
         $this->validate(['tsDistance' => 'required|integer|min:1']);
-        $distance = (int) $this->tsDistance;
+        $this->createTargetSet((int) $this->tsDistance);
+        $this->reset('tsDistance');
+        Flux::toast('Target set added.', variant: 'success');
+    }
+
+    /**
+     * Variant that accepts the distance as an explicit argument so the caller
+     * doesn't need to rely on wire:model being synced. Used by the Alpine-bound
+     * "Add Target Set" button.
+     */
+    public function addTargetSetValue($distance): void
+    {
+        if ($this->scoring_type === 'prs') {
+            Flux::toast('This button is for relay scoring. Use Add Stage for PRS.', variant: 'warning');
+            return;
+        }
+
+        $distance = (int) $distance;
+        if ($distance < 1) {
+            Flux::toast('Enter a valid distance in metres.', variant: 'warning');
+            return;
+        }
+
+        $this->createTargetSet($distance);
+        Flux::toast("Added {$distance}m target set.", variant: 'success');
+    }
+
+    /**
+     * Quick preset for Royal Flush matches: create 400/500/600/700 m target
+     * sets, each with 5 gongs. Idempotent — skips distances that already exist.
+     */
+    public function addRoyalFlushPresets(): void
+    {
+        if (! $this->match) {
+            Flux::toast('Save the match first before adding presets.', variant: 'warning');
+            return;
+        }
+
+        $created = 0;
+        foreach ([400, 500, 600, 700] as $distance) {
+            $exists = $this->match->targetSets()->where('distance_meters', $distance)->exists();
+            if ($exists) {
+                continue;
+            }
+            $ts = $this->createTargetSet($distance);
+            // Seed 5 gongs G1..G5.
+            for ($n = 1; $n <= 5; $n++) {
+                \App\Models\Gong::create([
+                    'target_set_id' => $ts->id,
+                    'number' => $n,
+                    'label' => "G{$n}",
+                    'multiplier' => '1.00',
+                ]);
+            }
+            $created++;
+        }
+
+        if ($created === 0) {
+            Flux::toast('All RF distances already exist.', variant: 'info');
+        } else {
+            Flux::toast("Added {$created} Royal Flush target set(s).", variant: 'success');
+        }
+    }
+
+    protected function createTargetSet(int $distance): \App\Models\TargetSet
+    {
         $maxSort = $this->match->targetSets()->max('sort_order') ?? 0;
-        $this->match->targetSets()->create([
+        return $this->match->targetSets()->create([
             'label' => "{$distance}m",
             'distance_meters' => $distance,
             'distance_multiplier' => $distance / 100,
             'sort_order' => $maxSort + 1,
         ]);
-        $this->reset('tsDistance');
-        Flux::toast('Target set added.', variant: 'success');
     }
 
     public function addPrsStage(): void
@@ -2011,13 +2074,28 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endforeach
 
-            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3" x-data="{ dist: '' }">
                 <h3 class="text-sm font-medium text-secondary">Add Target Set</h3>
-                <div class="flex gap-3 items-end">
+                <div class="flex gap-3 items-end flex-wrap">
                     <div class="w-32">
-                        <flux:input wire:model.live.debounce.300ms="tsDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 100" />
+                        <label class="block text-xs font-medium text-secondary mb-1">Distance (m)</label>
+                        <input x-model="dist" type="number" min="1" placeholder="e.g. 400"
+                               @keydown.enter.prevent="$wire.addTargetSetValue(dist); dist = ''"
+                               class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500" />
                     </div>
-                    <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Target Set</flux:button>
+                    <div class="flex gap-2">
+                        <button type="button" @click="$wire.addTargetSetValue(dist); dist = ''"
+                                class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+                            Add Target Set
+                        </button>
+                        {{-- Quick presets: Royal Flush 400/500/600/700 in one click. --}}
+                        @if($match?->organization?->isRoyalFlushOrg())
+                            <button type="button" wire:click="addRoyalFlushPresets"
+                                    class="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-secondary hover:bg-surface">
+                                + RF Presets (400/500/600/700)
+                            </button>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
