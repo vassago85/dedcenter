@@ -1,29 +1,26 @@
 import './bootstrap';
 
-// Browser-extension DOM noise defense for Livewire morph.
+// Livewire hardening for browser-extension noise.
 //
-// Extensions (Grammarly, LastPass, 1Password, Honey, ColorZilla, Brave
-// price-tracking, iOS webview injections, etc.) inject hidden nodes and
-// attributes into the DOM. When Livewire's morph engine diffs the server
-// HTML against the live DOM, these extra siblings/attributes cause
+// Extensions (Grammarly, LastPass, 1Password, Honey, etc.) inject hidden
+// DOM nodes. When Livewire's morph engine diffs the server HTML against
+// the live DOM those extra siblings can cause
 // "TypeError: Cannot read properties of null (reading 'before')" inside
-// wire-transition.js and the page stops responding to server updates.
+// the morph walk. Livewire returns HTTP 200 but the commit aborts
+// mid-apply; without intervention the component's pending spinner sits
+// forever because the commit never reaches its completion callbacks.
 //
-// Two-layer defense:
-//   1. Strip *unambiguous* extension-only elements on page load & livewire
-//      navigation. We do NOT run strippers inside morph hooks (that mutates
-//      the DOM mid-walk and causes the null-before crash the strippers are
-//      meant to prevent) and we only target tag names that are reserved
-//      vendor prefixes. Attribute selectors like [data-gramm] are NOT used
-//      because the app itself sets data-gramm="false" on <body> to signal
-//      to Grammarly that it should stay out - matching that selector would
-//      remove <body>.
-//   2. Swallow the specific morph null-before crash globally so one bad
-//      diff never dead-pages the user.
+// Strategy:
+//   1. Strip *unambiguous* extension-only custom-elements on page load
+//      and after Livewire SPA navigation. We do not touch the DOM during
+//      morph hooks (that is what caused the null-before crashes in the
+//      first place) and we never match attribute selectors that could
+//      collide with real app markup (e.g. data-gramm, set on <body>).
+//   2. On a fatal morph error, call Livewire.all().forEach(c => c.$commit?.())
+//      is not safe - instead we reset any lingering "processing" flags on
+//      Livewire components so spinners clear, and log to console so the
+//      error is still visible in devtools for diagnosis.
 
-// CRITICAL: these must all be custom-element tag selectors unique to an
-// extension vendor. Adding attribute selectors here risks matching real
-// app elements (including <body>) and wiping the page.
 const EXTENSION_SELECTORS = [
     'grammarly-desktop-integration',
     'grammarly-extension',
@@ -45,32 +42,65 @@ function stripExtensionNoise() {
 document.addEventListener('DOMContentLoaded', stripExtensionNoise);
 document.addEventListener('livewire:navigated', stripExtensionNoise);
 
-// Layer 2: swallow the specific morph race-condition error.
-// Extensions inject/remove nodes between snapshot and patch; the resulting
-// "Cannot read properties of null (reading 'before')" is visual-only and
-// should not stop subsequent Livewire round-trips.
-const MORPH_NULL_BEFORE = /reading 'before'|reading "before"/i;
+// Release stuck Livewire spinners after a morph failure.
+//
+// When morph throws mid-apply, Livewire's commit promise never resolves,
+// so wire:loading indicators, wire:dirty classes and the disabled state
+// on submit buttons stay pinned. We clear them by hand and let the user
+// retry or navigate away. The next full page load will show the persisted
+// state (the server already saved successfully).
+function clearStuckLivewireLoading() {
+    // wire:loading shows via CSS - adding `display:none` directly ensures it hides.
+    document.querySelectorAll('[wire\\:loading]').forEach((el) => {
+        el.style.display = 'none';
+    });
+    // Re-enable any buttons Livewire disabled via wire:loading.attr="disabled"
+    document.querySelectorAll('[wire\\:loading\\.attr\\.disabled], [wire\\:loading\\.attr="disabled"]').forEach((el) => {
+        el.removeAttribute('disabled');
+    });
+    // Alpine/Livewire also toggle aria-busy on forms - clear it
+    document.querySelectorAll('[aria-busy="true"]').forEach((el) => {
+        el.setAttribute('aria-busy', 'false');
+    });
+}
 
-function isLivewireMorphNullBefore(err) {
+const MORPH_ERROR_PATTERNS = [
+    /reading 'before'/i,
+    /reading "before"/i,
+    /morph/i,
+];
+
+function looksLikeMorphError(err) {
     if (!err) return false;
     const msg = typeof err === 'string' ? err : (err.message || '');
-    if (!MORPH_NULL_BEFORE.test(msg)) return false;
-    const stack = (err.stack || '') + '';
-    return /morph|wire-transition|supportMorphDom|livewire/i.test(stack);
+    const stack = (err && err.stack) || '';
+    const haystack = `${msg}\n${stack}`;
+    return MORPH_ERROR_PATTERNS.some((re) => re.test(haystack))
+        && /livewire|morph|alpine/i.test(haystack);
 }
 
 window.addEventListener('error', (event) => {
-    if (isLivewireMorphNullBefore(event.error || event.message)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-    }
+    if (!looksLikeMorphError(event.error || event.message)) return;
+    // Do NOT preventDefault - let DevTools show the error.
+    // Just release stuck UI so the user isn't dead-locked.
+    setTimeout(clearStuckLivewireLoading, 0);
 }, true);
 
 window.addEventListener('unhandledrejection', (event) => {
-    if (isLivewireMorphNullBefore(event.reason)) {
-        event.preventDefault();
-    }
+    if (!looksLikeMorphError(event.reason)) return;
+    setTimeout(clearStuckLivewireLoading, 0);
 });
+
+// Also register a Livewire hook so we clear spinners on commit failures
+// that Livewire itself catches internally (these don't bubble as window errors).
+function registerLivewireHooks() {
+    if (!window.Livewire?.hook) return;
+    window.Livewire.hook('commit.failed', () => {
+        setTimeout(clearStuckLivewireLoading, 0);
+    });
+}
+document.addEventListener('livewire:init', registerLivewireHooks);
+document.addEventListener('livewire:navigated', registerLivewireHooks);
 
 if ('serviceWorker' in navigator && document.querySelector('meta[name="vapid-public-key"]')) {
     import('./scoring-app/lib/pushSubscription.js').then((mod) => {

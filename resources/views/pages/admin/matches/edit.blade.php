@@ -1439,11 +1439,12 @@ new #[Layout('components.layouts.app')]
                     @endphp
 
                     <button
+                        wire:key="status-step-{{ $step->value }}"
+                        type="button"
                         @if(! $isCurrent && $isAllowed)
                             wire:click="transitionStatus('{{ $step->value }}')"
                             wire:confirm="{{ $confirmText }}"
                         @else
-                            type="button"
                             disabled
                         @endif
                         class="group relative flex items-start gap-3 rounded-xl border p-3 text-left transition-colors
@@ -2357,7 +2358,7 @@ new #[Layout('components.layouts.app')]
                         </div>
                         <div class="max-h-64 overflow-y-auto space-y-1">
                             @foreach($allShootersForBet as $sh)
-                                <label class="flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors {{ $sideBetLocked ? 'opacity-60' : 'hover:bg-surface-2/50 cursor-pointer' }}">
+                                <label wire:key="side-bet-shooter-{{ $sh->id }}" class="flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors {{ $sideBetLocked ? 'opacity-60' : 'hover:bg-surface-2/50 cursor-pointer' }}">
                                     <input type="checkbox" value="{{ $sh->id }}" wire:model="sideBetShooterIds"
                                            {{ $sideBetLocked ? 'disabled' : '' }}
                                            class="rounded border-slate-600 bg-surface-2 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 h-4 w-4" />
