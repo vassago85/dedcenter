@@ -4,10 +4,12 @@ namespace Database\Seeders;
 
 use App\Enums\MatchStatus;
 use App\Models\MatchRegistration;
+use App\Models\Gong;
 use App\Models\Organization;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
+use App\Models\TargetSet;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -213,6 +215,45 @@ class RoyalFlush18April2026Seeder extends Seeder
             $match->save();
 
             $this->command?->info("Match [{$match->id}] {$match->name} ready.");
+
+            // ── Target sets / gongs ───────────────────────────────────────────
+            // Royal Flush is always 400/500/600/700 m, 5 gongs each. Create them
+            // if missing so the admin doesn't have to click through the UI after
+            // seeding. Idempotent: only fills gaps, won't duplicate existing rows.
+            $rfDistances = [400, 500, 600, 700];
+            foreach ($rfDistances as $i => $distance) {
+                $ts = TargetSet::firstOrCreate(
+                    ['match_id' => $match->id, 'distance_meters' => $distance],
+                    [
+                        'label' => "{$distance}m",
+                        'distance_multiplier' => $distance / 100,
+                        'sort_order' => $i + 1,
+                    ]
+                );
+                // If a stale row has the wrong sort_order or multiplier, fix it.
+                $ts->fill([
+                    'label' => "{$distance}m",
+                    'distance_multiplier' => $distance / 100,
+                    'sort_order' => $i + 1,
+                ])->save();
+
+                // 5 gongs per distance, numbered 1..5, progressive size tag so
+                // small-gong-sniper and friends work out of the box.
+                $existingCount = Gong::where('target_set_id', $ts->id)->count();
+                if ($existingCount < 5) {
+                    $maxNumber = Gong::where('target_set_id', $ts->id)->max('number') ?? 0;
+                    for ($g = $existingCount + 1; $g <= 5; $g++) {
+                        $num = $maxNumber + ($g - $existingCount);
+                        Gong::create([
+                            'target_set_id' => $ts->id,
+                            'number' => $num,
+                            'label' => "G{$num}",
+                            'multiplier' => '1.00',
+                        ]);
+                    }
+                }
+            }
+            $this->command?->info('Target sets ensured: 400/500/600/700 m × 5 gongs.');
 
             // Full wipe of any existing shooters on this match (any squad, including
             // stale duplicates manually created on prior runs). Otherwise idempotent

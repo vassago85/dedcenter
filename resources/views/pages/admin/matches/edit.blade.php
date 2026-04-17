@@ -1539,7 +1539,7 @@ new #[Layout('components.layouts.app')]
                 <h3 class="text-sm font-medium text-secondary">Add Target Set</h3>
                 <div class="flex gap-3 items-end">
                     <div class="w-32">
-                        <flux:input wire:model="tsDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 100" />
+                        <flux:input wire:model.live.debounce.300ms="tsDistance" label="Distance (m)" type="number" min="1" placeholder="e.g. 100" />
                     </div>
                     <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Target Set</flux:button>
                 </div>
@@ -1820,7 +1820,7 @@ new #[Layout('components.layouts.app')]
                 <h3 class="text-sm font-medium text-secondary">Add Stage</h3>
                 <div class="flex gap-3 items-end">
                     <div class="flex-1 max-w-sm">
-                        <flux:input wire:model="tsLabel" label="Stage Name" placeholder="e.g. Stage 1 — Positional" />
+                        <flux:input wire:model.live.debounce.300ms="tsLabel" label="Stage Name" placeholder="e.g. Stage 1 — Positional" />
                     </div>
                     <flux:button wire:click="addTargetSet" size="sm" variant="primary" class="!bg-amber-600 hover:!bg-amber-700">Add Stage</flux:button>
                 </div>
