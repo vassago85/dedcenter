@@ -25,6 +25,22 @@ class RoyalFlush18April2026Seeder extends Seeder
 {
     public function run(): void
     {
+        // Diagnostic: report DB connection + counts so we can tell if we're looking
+        // in the wrong database (or if tables are empty on a fresh environment).
+        $conn = DB::connection();
+        $dbName = $conn->getDatabaseName();
+        $orgCount = Organization::count();
+        $userCount = User::count();
+        $this->command?->info("DB connection: {$conn->getName()} / database={$dbName}");
+        $this->command?->info("Organizations total: {$orgCount}, Users total: {$userCount}");
+
+        if ($orgCount > 0) {
+            $orgList = Organization::select('id', 'slug', 'name')->orderBy('id')->limit(20)->get();
+            foreach ($orgList as $o) {
+                $this->command?->info("  org[{$o->id}] slug={$o->slug} | name={$o->name}");
+            }
+        }
+
         // Prefer exact slug; fall back to any slug starting with "royal-flush"
         // (e.g. "royal-flush-1" on servers where the slug was auto-incremented),
         // and finally match by name.
