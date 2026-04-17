@@ -10,54 +10,33 @@ import './bootstrap';
 // wire-transition.js and the page stops responding to server updates.
 //
 // Two-layer defense:
-//   1. Strip known extension nodes/attributes before & during morph.
-//   2. Swallow the morph null-before crash globally so one bad diff
-//      never dead-pages the user.
+//   1. Strip *unambiguous* extension-only elements on page load & livewire
+//      navigation. We do NOT run strippers inside morph hooks (that mutates
+//      the DOM mid-walk and causes the null-before crash the strippers are
+//      meant to prevent) and we only target tag names that are reserved
+//      vendor prefixes. Attribute selectors like [data-gramm] are NOT used
+//      because the app itself sets data-gramm="false" on <body> to signal
+//      to Grammarly that it should stay out - matching that selector would
+//      remove <body>.
+//   2. Swallow the specific morph null-before crash globally so one bad
+//      diff never dead-pages the user.
 
+// CRITICAL: these must all be custom-element tag selectors unique to an
+// extension vendor. Adding attribute selectors here risks matching real
+// app elements (including <body>) and wiping the page.
 const EXTENSION_SELECTORS = [
-    // Grammarly
     'grammarly-desktop-integration',
     'grammarly-extension',
-    '[data-grammarly-shadow-root]',
-    '[data-gramm]',
-    // LastPass
     'lastpass-extension-icon',
-    'iframe[data-lastpass-iframe-type]',
-    'div[data-lastpass-icon-root]',
-    // 1Password
     'com-1password-button',
     'com-1password-op-menu',
     'com-1password-notification',
-    // Honey / PayPal
     'honey-extension-root',
-    '#honey-side-app-iframe',
-    // Dashlane
-    'iframe[data-dashlane-autofill]',
-    'div[data-dashlane-label]',
-    // Bitwarden
-    '[data-bwignore]',
-    // Misc known injectors
-    'iframe[src*="chrome-extension"]',
-    'iframe[src*="moz-extension"]',
 ].join(',');
-
-const EXTENSION_ATTRIBUTES = [
-    'data-new-gr-c-s-check-loaded',
-    'data-gr-ext-installed',
-    'data-new-gr-c-s-loaded',
-    'data-lt-installed',
-    'cz-shortcut-listen',
-    'monica-id',
-    'monica-version',
-];
 
 function stripExtensionNoise() {
     try {
         document.querySelectorAll(EXTENSION_SELECTORS).forEach((n) => n.remove());
-        const body = document.body;
-        if (body) {
-            EXTENSION_ATTRIBUTES.forEach((a) => body.removeAttribute(a));
-        }
     } catch (_) {
         // Never let cleanup itself break the page.
     }
@@ -65,19 +44,6 @@ function stripExtensionNoise() {
 
 document.addEventListener('DOMContentLoaded', stripExtensionNoise);
 document.addEventListener('livewire:navigated', stripExtensionNoise);
-
-function registerLivewireHooks() {
-    if (!window.Livewire) return;
-    // Strip right before Livewire reads the DOM for morph.
-    window.Livewire.hook('morph', stripExtensionNoise);
-    window.Livewire.hook('morph.updating', stripExtensionNoise);
-    window.Livewire.hook('morph.added', stripExtensionNoise);
-}
-if (window.Livewire) {
-    registerLivewireHooks();
-} else {
-    document.addEventListener('livewire:init', registerLivewireHooks);
-}
 
 // Layer 2: swallow the specific morph race-condition error.
 // Extensions inject/remove nodes between snapshot and patch; the resulting
