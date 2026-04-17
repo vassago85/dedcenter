@@ -224,7 +224,7 @@ new #[Layout('components.layouts.app')]
     </div>
 
     {{-- Match Overview Stats --}}
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <div class="rounded-xl border border-border bg-surface p-5">
             <p class="text-xs font-medium uppercase tracking-wide text-muted">Active Matches</p>
             <p class="mt-2 text-3xl font-bold {{ $activeMatches > 0 ? 'text-green-400' : 'text-primary' }}">{{ $activeMatches }}</p>
@@ -375,27 +375,27 @@ new #[Layout('components.layouts.app')]
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-border text-left text-muted">
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide">Name</th>
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide">Date</th>
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide">Status</th>
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide text-right">Fee</th>
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide text-right">Registrations</th>
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide text-right">Shooters</th>
-                            <th class="px-6 py-3 text-xs font-medium uppercase tracking-wide"></th>
+                            <th class="px-3 py-3 text-xs font-medium uppercase tracking-wide sm:px-6">Name</th>
+                            <th class="px-3 py-3 text-xs font-medium uppercase tracking-wide sm:px-6">Date</th>
+                            <th class="px-3 py-3 text-xs font-medium uppercase tracking-wide sm:px-6">Status</th>
+                            <th class="hidden px-3 py-3 text-xs font-medium uppercase tracking-wide text-right md:table-cell sm:px-6">Fee</th>
+                            <th class="hidden px-3 py-3 text-xs font-medium uppercase tracking-wide text-right lg:table-cell sm:px-6">Registrations</th>
+                            <th class="hidden px-3 py-3 text-xs font-medium uppercase tracking-wide text-right lg:table-cell sm:px-6">Shooters</th>
+                            <th class="px-3 py-3 text-xs font-medium uppercase tracking-wide sm:px-6"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
                         @foreach($recentMatches as $match)
                             <tr class="hover:bg-surface-2/30 transition-colors">
-                                <td class="px-6 py-3 font-medium text-primary">{{ $match->name }}</td>
-                                <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
-                                <td class="px-6 py-3">
+                                <td class="px-3 py-3 font-medium text-primary sm:px-6">{{ $match->name }}</td>
+                                <td class="whitespace-nowrap px-3 py-3 text-secondary sm:px-6">{{ $match->date?->format('d M Y') ?? '—' }}</td>
+                                <td class="px-3 py-3 sm:px-6">
                                     <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                                 </td>
-                                <td class="px-6 py-3 text-right text-secondary">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
-                                <td class="px-6 py-3 text-right text-secondary">{{ $match->registrations_count }}</td>
-                                <td class="px-6 py-3 text-right text-secondary">{{ $match->shooters_count }}</td>
-                                <td class="px-6 py-3 text-right">
+                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-secondary md:table-cell sm:px-6">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
+                                <td class="hidden px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->registrations_count }}</td>
+                                <td class="hidden px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->shooters_count }}</td>
+                                <td class="px-3 py-3 text-right sm:px-6">
                                     <flux:button href="{{ route('org.matches.edit', [$org, $match]) }}" size="sm" variant="ghost">Edit</flux:button>
                                 </td>
                             </tr>

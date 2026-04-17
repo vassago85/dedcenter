@@ -51,7 +51,7 @@ new #[Layout('components.layouts.app')]
     </div>
 
     {{-- Stats --}}
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4">
         <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
             <p class="text-xs sm:text-sm font-medium text-muted">Total Matches</p>
             <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalMatches }}</p>
@@ -153,29 +153,29 @@ new #[Layout('components.layouts.app')]
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-border text-left text-muted">
-                            <th class="px-6 py-3 font-medium">Name</th>
-                            <th class="px-6 py-3 font-medium">Organization</th>
-                            <th class="px-6 py-3 font-medium">Date</th>
-                            <th class="px-6 py-3 font-medium">Status</th>
-                            <th class="px-6 py-3 font-medium text-right">Fee</th>
-                            <th class="px-6 py-3 font-medium text-right">Reg</th>
-                            <th class="px-6 py-3 font-medium text-right">Shooters</th>
-                            <th class="px-6 py-3 font-medium"></th>
+                            <th class="px-3 py-3 font-medium sm:px-6">Name</th>
+                            <th class="hidden px-3 py-3 font-medium md:table-cell sm:px-6">Organization</th>
+                            <th class="px-3 py-3 font-medium sm:px-6">Date</th>
+                            <th class="px-3 py-3 font-medium sm:px-6">Status</th>
+                            <th class="hidden px-3 py-3 font-medium text-right lg:table-cell sm:px-6">Fee</th>
+                            <th class="hidden px-3 py-3 font-medium text-right lg:table-cell sm:px-6">Reg</th>
+                            <th class="hidden px-3 py-3 font-medium text-right lg:table-cell sm:px-6">Shooters</th>
+                            <th class="px-3 py-3 font-medium sm:px-6"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($recentMatches as $match)
                             <tr class="hover:bg-surface-2/30 transition-colors">
-                                <td class="px-6 py-3 font-medium text-white">{{ $match->name }}</td>
-                                <td class="px-6 py-3 text-secondary text-xs">{{ $match->organization?->name ?? '—' }}</td>
-                                <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
-                                <td class="px-6 py-3">
+                                <td class="px-3 py-3 font-medium text-white sm:px-6">{{ $match->name }}</td>
+                                <td class="hidden px-3 py-3 text-secondary text-xs md:table-cell sm:px-6">{{ $match->organization?->name ?? '—' }}</td>
+                                <td class="whitespace-nowrap px-3 py-3 text-secondary sm:px-6">{{ $match->date?->format('d M Y') ?? '—' }}</td>
+                                <td class="px-3 py-3 sm:px-6">
                                     <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                                 </td>
-                                <td class="px-6 py-3 text-right text-secondary">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
-                                <td class="px-6 py-3 text-right text-secondary">{{ $match->registrations_count }}</td>
-                                <td class="px-6 py-3 text-right text-secondary">{{ $match->shooters_count }}</td>
-                                <td class="px-6 py-3 text-right">
+                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
+                                <td class="hidden px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->registrations_count }}</td>
+                                <td class="hidden px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->shooters_count }}</td>
+                                <td class="px-3 py-3 text-right sm:px-6">
                                     <a href="{{ route('admin.matches.edit', $match) }}" class="text-sm font-medium text-secondary hover:text-white">Edit</a>
                                 </td>
                             </tr>

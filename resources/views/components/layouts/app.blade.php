@@ -114,7 +114,7 @@
             </div>
         </aside>
 
-        <div class="flex flex-1 flex-col lg:ml-0">
+        <div class="flex min-w-0 flex-1 flex-col lg:ml-0">
             <header class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-app/95 px-4 backdrop-blur lg:px-8">
                 <button type="button" @click="sidebarOpen = true" class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent lg:hidden">
                     <x-icon name="menu" class="h-6 w-6" />
@@ -137,8 +137,8 @@
                 <x-app-context-bar :mode="$contextMode" :mode-label="$contextModeLabel" :context-label="$contextLabel" :exit-url="$contextExitUrl" :exit-label="$contextExitLabel" />
             @endauth
 
-            <main class="flex-1 px-4 py-6 lg:px-8">
-                {{ $slot }}
+            <main class="min-w-0 flex-1 overflow-x-hidden px-4 py-6 lg:px-8">
+                <div class="min-w-0">{{ $slot }}</div>
             </main>
         </div>
     </div>
