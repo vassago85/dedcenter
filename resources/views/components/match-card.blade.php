@@ -91,7 +91,7 @@
         {{-- CTA --}}
         @if($context !== 'marketplace')
             <div class="mt-auto">
-                @if(in_array($statusValue, ['pre_registration', 'registration_open']))
+                @if(in_array($statusValue, ['pre_registration', 'registration_open']) && ! $match->isRegistrationPastDeadline())
                     <a href="{{ app_url('/matches/' . $match->id) }}"
                        class="inline-flex w-full items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
                         Register &rarr;

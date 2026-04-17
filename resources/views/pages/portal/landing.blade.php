@@ -197,7 +197,23 @@ new #[Layout('components.layouts.portal')]
                                 <span class="text-lg font-bold {{ $match->entry_fee ? 'text-primary' : 'text-green-400' }}">
                                     {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}
                                 </span>
-                                <span class="text-sm font-medium portal-primary">Register &rarr;</span>
+                                @php
+                                    $canRegisterNow = $match->canRegister() && ! $match->isRegistrationPastDeadline();
+                                    $statusLabel = match(true) {
+                                        $canRegisterNow => 'Register →',
+                                        $match->status === MatchStatus::Active => 'Live Now →',
+                                        $match->status === MatchStatus::SquaddingOpen => 'Squadding →',
+                                        $match->status === MatchStatus::RegistrationClosed => 'Registration Closed',
+                                        $match->isRegistrationPastDeadline() => 'Registration Closed',
+                                        default => 'View Details →',
+                                    };
+                                    $statusClass = match(true) {
+                                        $canRegisterNow => 'portal-primary',
+                                        $match->status === MatchStatus::Active => 'text-red-400',
+                                        default => 'text-muted',
+                                    };
+                                @endphp
+                                <span class="text-sm font-medium {{ $statusClass }}">{{ $statusLabel }}</span>
                             </div>
                         </a>
                     @endforeach

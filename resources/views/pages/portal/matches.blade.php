@@ -89,11 +89,25 @@ new #[Layout('components.layouts.portal')]
                             <span class="text-lg font-bold {{ $match->entry_fee ? 'text-primary' : 'text-green-400' }}">
                                 {{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}
                             </span>
-                            @if($match->status !== MatchStatus::Completed)
-                                <span class="text-sm font-medium portal-primary">Register &rarr;</span>
-                            @else
-                                <span class="text-sm text-muted">View results</span>
-                            @endif
+                            @php
+                                $canRegisterNow = $match->canRegister() && ! $match->isRegistrationPastDeadline();
+                                $ctaLabel = match(true) {
+                                    $match->status === MatchStatus::Completed => 'View results',
+                                    $canRegisterNow => 'Register →',
+                                    $match->status === MatchStatus::Active => 'Live Now →',
+                                    $match->status === MatchStatus::SquaddingOpen => 'Squadding →',
+                                    $match->isRegistrationPastDeadline() => 'Registration Closed',
+                                    $match->status === MatchStatus::RegistrationClosed => 'Registration Closed',
+                                    default => 'View Details →',
+                                };
+                                $ctaClass = match(true) {
+                                    $match->status === MatchStatus::Completed => 'text-muted',
+                                    $canRegisterNow => 'portal-primary',
+                                    $match->status === MatchStatus::Active => 'text-red-400',
+                                    default => 'text-muted',
+                                };
+                            @endphp
+                            <span class="text-sm font-medium {{ $ctaClass }}">{{ $ctaLabel }}</span>
                         </div>
                     </a>
                 @endforeach
