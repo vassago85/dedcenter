@@ -33,11 +33,40 @@ class RoyalFlush18April2026Seeder extends Seeder
             ?? Organization::where('name', 'Royal Flush')->first();
 
         if (! $org) {
-            $this->command->error('Royal Flush organization not found. Run DatabaseSeeder first.');
-            return;
-        }
+            // Auto-create the org if it doesn't exist yet (fresh environments).
+            $admin = User::where('role', 'owner')->orderBy('id')->first()
+                ?? User::orderBy('id')->first();
 
-        $this->command?->info("Using organization [{$org->id}] {$org->name} (slug={$org->slug}).");
+            if (! $admin) {
+                $this->command->error('No users exist; cannot create Royal Flush org. Run DatabaseSeeder first.');
+                return;
+            }
+
+            $org = Organization::create([
+                'slug' => 'royal-flush',
+                'name' => 'Royal Flush',
+                'description' => 'Year-long precision shooting competition. Compete across multiple matches to claim the top spot on the leaderboard.',
+                'type' => 'competition',
+                'status' => 'active',
+                'created_by' => $admin->id,
+                'primary_color' => '#b91c1c',
+                'secondary_color' => '#0f172a',
+                'hero_text' => 'Royal Flush 2026',
+                'hero_description' => 'The ultimate year-long precision shooting competition. Register for matches, submit your scores, and climb the leaderboard.',
+                'portal_enabled' => true,
+                'portal_entitled' => true,
+                'portal_ad_rights' => true,
+                'best_of' => 5,
+            ]);
+
+            $org->admins()->syncWithoutDetaching([
+                $admin->id => ['is_owner' => true],
+            ]);
+
+            $this->command?->info("Created Royal Flush organization [{$org->id}] with slug={$org->slug}.");
+        } else {
+            $this->command?->info("Using organization [{$org->id}] {$org->name} (slug={$org->slug}).");
+        }
 
         $matchName = 'Royal Flush — 18 April 2026';
         $matchDate = '2026-04-18';
