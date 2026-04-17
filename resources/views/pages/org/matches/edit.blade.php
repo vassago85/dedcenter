@@ -1813,6 +1813,9 @@ new #[Layout('components.layouts.app')]
                 @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed]))
                     <flux:button href="{{ route('org.matches.export.standings', [$organization, $match]) }}" variant="ghost">Download Standings</flux:button>
                     <flux:button href="{{ route('org.matches.export.detailed', [$organization, $match]) }}" variant="ghost">Download Full Results</flux:button>
+                    @if($match->side_bet_enabled && $match->royal_flush_enabled)
+                        <flux:button href="{{ route('org.matches.side-bet-report', [$organization, $match]) }}" variant="ghost" class="!text-amber-400">Side Bet Report</flux:button>
+                    @endif
                     <flux:button wire:click="toggleScoresPublished" variant="{{ $scores_published ? 'ghost' : 'primary' }}" class="{{ $scores_published ? '' : '!bg-amber-600 hover:!bg-amber-700' }}">
                         {{ $scores_published ? 'Hide Scores' : 'Publish Scores' }}
                     </flux:button>

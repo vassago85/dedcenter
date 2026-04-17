@@ -202,6 +202,7 @@ class RoyalFlush18April2026Seeder extends Seeder
                 $match->status = MatchStatus::SquaddingOpen;
             }
             $match->royal_flush_enabled = true;
+            $match->side_bet_enabled = true;
             $match->concurrent_relays = $concurrentRelays;
             $match->max_squad_size = $maxSquadSize;
             // scoring_type must be one of the edit-form whitelist (standard|prs|elr).
