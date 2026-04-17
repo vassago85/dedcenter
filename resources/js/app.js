@@ -91,11 +91,44 @@ window.addEventListener('unhandledrejection', (event) => {
     setTimeout(clearStuckLivewireLoading, 0);
 });
 
-// Also register a Livewire hook so we clear spinners on commit failures
+// Also register Livewire hooks so we clear spinners on commit failures
 // that Livewire itself catches internally (these don't bubble as window errors).
+// Plus an 8-second watchdog: if a request was sent but never completed its
+// morph (response.received fires but commit.succeed/failed doesn't), force
+// the UI back to a responsive state so the user isn't dead-locked.
 function registerLivewireHooks() {
     if (!window.Livewire?.hook) return;
-    window.Livewire.hook('commit.failed', () => {
+
+    const pendingCommits = new Map();
+    const WATCHDOG_MS = 8000;
+
+    window.Livewire.hook('commit.prepare', ({ component }) => {
+        if (!component) return;
+        const id = component.id || Math.random().toString(36);
+        // Clear any previous watchdog for this component.
+        const existing = pendingCommits.get(id);
+        if (existing) clearTimeout(existing);
+        const t = setTimeout(() => {
+            console.warn('[livewire-watchdog] commit for component', id, 'exceeded', WATCHDOG_MS, 'ms - clearing spinner');
+            clearStuckLivewireLoading();
+            pendingCommits.delete(id);
+        }, WATCHDOG_MS);
+        pendingCommits.set(id, t);
+    });
+
+    const clearWatchdog = ({ component }) => {
+        if (!component) return;
+        const id = component.id;
+        const existing = pendingCommits.get(id);
+        if (existing) {
+            clearTimeout(existing);
+            pendingCommits.delete(id);
+        }
+    };
+
+    window.Livewire.hook('commit.succeed', clearWatchdog);
+    window.Livewire.hook('commit.failed', (ctx) => {
+        clearWatchdog(ctx);
         setTimeout(clearStuckLivewireLoading, 0);
     });
 }

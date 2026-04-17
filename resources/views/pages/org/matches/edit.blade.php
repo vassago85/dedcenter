@@ -2720,7 +2720,7 @@ new #[Layout('components.layouts.app')]
             @if($disqualifications->isNotEmpty())
                 <div class="space-y-2">
                     @foreach($disqualifications as $dq)
-                        <div class="flex items-center justify-between rounded-lg border border-red-600/30 bg-red-900/10 px-4 py-3">
+                        <div wire:key="dq-{{ $dq->id }}" class="flex items-center justify-between rounded-lg border border-red-600/30 bg-red-900/10 px-4 py-3">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="rounded bg-red-600/30 px-1.5 py-0.5 text-[10px] font-bold text-red-400">{{ $dq->isMatchDq() ? 'MATCH DQ' : 'STAGE DQ' }}</span>
@@ -2854,7 +2854,7 @@ new #[Layout('components.layouts.app')]
             @if(count($customFields) > 0)
                 <div class="space-y-2">
                     @foreach($customFields as $cf)
-                        <div class="flex items-center justify-between rounded-lg border border-border bg-surface-2/30 px-4 py-3">
+                        <div wire:key="cf-{{ $cf['id'] }}" class="flex items-center justify-between rounded-lg border border-border bg-surface-2/30 px-4 py-3">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm font-medium text-primary">{{ $cf['label'] }}</span>

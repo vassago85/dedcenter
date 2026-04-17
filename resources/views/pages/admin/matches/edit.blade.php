@@ -2231,7 +2231,7 @@ new #[Layout('components.layouts.app')]
             @if(count($customFields) > 0)
                 <div class="space-y-2">
                     @foreach($customFields as $cf)
-                        <div class="flex items-center justify-between rounded-lg border border-border bg-surface-2/30 px-4 py-3">
+                        <div wire:key="cf-{{ $cf['id'] }}" class="flex items-center justify-between rounded-lg border border-border bg-surface-2/30 px-4 py-3">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm font-medium text-primary">{{ $cf['label'] }}</span>
