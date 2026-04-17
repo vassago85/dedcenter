@@ -418,44 +418,78 @@ html.dark :where([data-flux-description]) {
 .lp-faq-details summary::marker { display: none; content: ''; }
 
 /* =============================================================
-   READABILITY OVERRIDES — 2026-04-18
+   READABILITY OVERRIDES — 2026-04-18 (rev C)
    Many Blade templates use Tailwind `text-muted` / `text-secondary`
    (which map to our tokens) OR raw zinc/slate utilities. Against
    our #08142b navy app background, anything darker than ~#cfd9ec
-   is hard to read. Force everything that looks "muted" on the
-   app shell to render near-white.
+   is hard to read.
+
+   Rev C: drop the `html.dark` prefix and use a literal hex to
+   neutralise any stale CSS-variable values in cached bundles.
+   The whole app is dark anyway; there's no light-mode variant
+   shipped, so unconditional is safe.
    ============================================================= */
 
-/* Map the token utilities to near-white (they already resolve via
-   @theme, but some bundles cache the pre-brightened value). */
-html.dark .text-muted,
-html.dark .text-secondary {
-    color: var(--color-secondary) !important;
+.text-muted,
+.text-secondary {
+    color: #e6edf8 !important;
 }
 
-html.dark .text-primary {
-    color: var(--color-primary) !important;
+.text-primary {
+    color: #f3f7ff !important;
 }
 
-/* Tailwind zinc/slate greys used directly in older templates — remap
-   the darker dark-mode variants onto our readable palette.           */
-html.dark .text-zinc-400,
-html.dark .text-zinc-500,
-html.dark .text-zinc-600,
-html.dark .text-slate-400,
-html.dark .text-slate-500,
-html.dark .text-slate-600,
-html.dark .text-gray-400,
-html.dark .text-gray-500,
-html.dark .text-gray-600 {
-    color: var(--color-secondary) !important;
+/* Tailwind zinc/slate/gray greys used directly in older templates —
+   remap the darker variants onto our readable palette. */
+.text-zinc-300,
+.text-zinc-400,
+.text-zinc-500,
+.text-zinc-600,
+.text-slate-300,
+.text-slate-400,
+.text-slate-500,
+.text-slate-600,
+.text-gray-300,
+.text-gray-400,
+.text-gray-500,
+.text-gray-600 {
+    color: #e6edf8 !important;
 }
 
 /* Flux 'subtle' button variant (text-zinc-500 hover:text-zinc-800
    dark:text-zinc-400 dark:hover:text-white) — normalise. */
-html.dark [data-flux-button].text-zinc-500,
-html.dark [data-flux-button].text-zinc-400 {
-    color: var(--color-secondary) !important;
+[data-flux-button].text-zinc-500,
+[data-flux-button].text-zinc-400 {
+    color: #e6edf8 !important;
+}
+
+/* Opacity-suffixed variants Tailwind emits like `text-muted/50`,
+   `text-muted/70` etc. (used for the "tag" icon and subtitles). */
+[class*='text-muted\\/'],
+[class*='text-secondary\\/'] {
+    color: #e6edf8 !important;
+}
+
+/* Empty-state and subtitle paragraphs across the app frequently use
+   `text-xs text-muted` or `text-sm text-muted`. Belt-and-braces: pick
+   up any descendant of an app-surface that still renders the old color. */
+.bg-surface p.text-muted,
+.bg-surface-2 p.text-muted,
+.bg-sidebar p.text-muted,
+main p.text-muted,
+main p.text-secondary {
+    color: #e6edf8 !important;
+}
+
+/* Table head/body cells in admin/org dashboards use `text-muted` or
+   `text-secondary`. Force a readable tone on ALL table cells. */
+th, thead th, tbody td {
+    color: inherit;
+}
+th.text-muted, th.text-secondary,
+td.text-muted, td.text-secondary,
+thead tr, tbody tr.text-muted {
+    color: #e6edf8 !important;
 }
 
 /* Context bar (mode switch banner) — the red/blue mode bar had
