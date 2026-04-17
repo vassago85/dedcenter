@@ -85,12 +85,8 @@
                 {{-- Mobile menu: native disclosure (closed by default; no Alpine on this bundle) --}}
                 <details class="marketing-nav-details md:hidden relative">
                     <summary class="marketing-nav-summary list-none flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors hover:bg-white/10 outline-none ring-0" aria-label="Toggle menu">
-                        <svg class="marketing-nav-icon-open h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                        </svg>
-                        <svg class="marketing-nav-icon-close h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
+                        <x-icon name="menu" class="marketing-nav-icon-open h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" />
+                        <x-icon name="x" class="marketing-nav-icon-close h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" />
                     </summary>
                     <div class="marketing-mobile-panel absolute left-1/2 top-full z-[60] mt-0 w-screen max-w-[100vw] -translate-x-1/2 border-t px-6 py-4 shadow-[0_18px_48px_rgba(0,0,0,0.45)]" style="border-color: var(--lp-border); background: rgba(7, 19, 39, 0.97); backdrop-filter: blur(20px) saturate(1.4);">
                         <div class="mx-auto max-w-6xl space-y-1">

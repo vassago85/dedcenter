@@ -111,7 +111,7 @@ new #[Layout('components.layouts.app')]
     @if($pendingOrgs->isNotEmpty())
         <div class="mb-6 rounded-xl border border-amber-600/30 bg-amber-900/10 px-5 py-4">
             <div class="flex items-start gap-3">
-                <svg class="h-5 w-5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                <x-icon name="circle-alert" class="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
                 <div>
                     <p class="text-sm font-semibold text-amber-400">Organization Pending Review</p>
                     <p class="mt-1 text-sm text-muted">Your organization{{ $pendingOrgs->count() > 1 ? 's' : '' }}
@@ -159,7 +159,7 @@ new #[Layout('components.layouts.app')]
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <a href="{{ route('matches') }}" class="group rounded-xl border border-border bg-surface p-4 text-center transition-all hover:border-accent/50 hover:bg-surface-2/50">
             <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                <x-icon name="calendar" class="h-5 w-5" />
             </div>
             <span class="text-xs font-semibold text-primary">Upcoming Matches</span>
             <p class="mt-0.5 text-[10px] text-muted">View registered events</p>
@@ -167,7 +167,7 @@ new #[Layout('components.layouts.app')]
 
         <a href="{{ route('matches') }}" class="group rounded-xl border border-border bg-surface p-4 text-center transition-all hover:border-accent/50 hover:bg-surface-2/50">
             <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.996.178-1.768.65-2.08 1.293m0 0c-.353.725-.172 1.578.405 2.37.577.792 1.476 1.468 2.597 1.9M3.17 5.53c-.272.14-.52.3-.747.477m12.326-1.77c.996.178 1.768.65 2.08 1.293m0 0c.353.725.172 1.578-.405 2.37-.577.792-1.476 1.468-2.597 1.9m2.675-3.563c.272.14.52.3.747.477" /></svg>
+                <x-icon name="trophy" class="h-5 w-5" />
             </div>
             <span class="text-xs font-semibold text-primary">My Results</span>
             <p class="mt-0.5 text-[10px] text-muted">Past match scores</p>
@@ -176,7 +176,7 @@ new #[Layout('components.layouts.app')]
         @if($primaryOrg)
             <a href="{{ route('leaderboard', $primaryOrg) }}" class="group rounded-xl border border-border bg-surface p-4 text-center transition-all hover:border-accent/50 hover:bg-surface-2/50">
                 <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                    <x-icon name="chart-column" class="h-5 w-5" />
                 </div>
                 <span class="text-xs font-semibold text-primary">Season Standings</span>
                 <p class="mt-0.5 text-[10px] text-muted">Leaderboard rankings</p>
@@ -184,7 +184,7 @@ new #[Layout('components.layouts.app')]
         @else
             <div class="rounded-xl border border-border/50 bg-surface/50 p-4 text-center opacity-50">
                 <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                    <x-icon name="chart-column" class="h-5 w-5" />
                 </div>
                 <span class="text-xs font-semibold text-muted">Season Standings</span>
                 <p class="mt-0.5 text-[10px] text-muted">Join a club first</p>
@@ -193,7 +193,7 @@ new #[Layout('components.layouts.app')]
 
         <a href="{{ route('settings') }}" class="group rounded-xl border border-border bg-surface p-4 text-center transition-all hover:border-accent/50 hover:bg-surface-2/50">
             <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+                <x-icon name="user" class="h-5 w-5" />
             </div>
             <span class="text-xs font-semibold text-primary">My Profile</span>
             <p class="mt-0.5 text-[10px] text-muted">Account & settings</p>
@@ -261,7 +261,7 @@ new #[Layout('components.layouts.app')]
 
         @if($upcomingMatches->isEmpty())
             <div class="px-6 py-10 text-center">
-                <svg class="mx-auto h-10 w-10 text-muted/50" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                <x-icon name="calendar" class="mx-auto h-10 w-10 text-muted/50" />
                 <p class="mt-3 text-sm font-medium text-muted">No upcoming matches</p>
                 <p class="mt-1 text-xs text-muted">Browse available matches to register for your next event.</p>
                 <flux:button href="{{ route('browse-events') }}" variant="primary" size="sm" class="mt-4 !bg-accent hover:!bg-accent-hover">
@@ -292,7 +292,7 @@ new #[Layout('components.layouts.app')]
 
         @if($recentResults->isEmpty())
             <div class="px-6 py-10 text-center">
-                <svg class="mx-auto h-10 w-10 text-muted/50" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.996.178-1.768.65-2.08 1.293" /></svg>
+                <x-icon name="trophy" class="mx-auto h-10 w-10 text-muted/50" />
                 <p class="mt-3 text-sm font-medium text-muted">No results yet</p>
                 <p class="mt-1 text-xs text-muted">Your completed match results will appear here.</p>
                 <p class="mt-2 text-xs text-secondary">Looking for all past results? Go to <a href="{{ route('browse-events') }}" class="font-semibold text-accent hover:underline">Find a Match</a> and select the <span class="font-semibold">Past Results</span> tab.</p>
@@ -302,7 +302,7 @@ new #[Layout('components.layouts.app')]
                 @foreach($recentResults as $match)
                     <a href="{{ route('scoreboard', $match) }}" class="group flex items-center gap-4 rounded-xl border border-border bg-surface-2/30 p-4 transition-all hover:border-accent/40 hover:bg-surface-2/50">
                         <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-surface-2">
-                            <svg class="h-5 w-5 text-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497" /></svg>
+                            <x-icon name="trophy" class="h-5 w-5 text-muted" />
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-semibold text-primary group-hover:text-accent transition-colors">{{ $match->name }}</p>

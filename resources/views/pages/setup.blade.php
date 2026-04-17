@@ -295,9 +295,7 @@ new #[Layout('components.layouts.marketing')]
             <div class="grid gap-6 sm:grid-cols-2">
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-                        </svg>
+                        <x-icon name="lock" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Set a PIN</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">The Match Director sets a numeric PIN when locking a device. The PIN prevents the Range Officer from navigating away from their assigned stage or squad.</p>
@@ -305,9 +303,7 @@ new #[Layout('components.layouts.marketing')]
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-                        </svg>
+                        <x-icon name="lock-open" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">MD Override</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">If a Range Officer forgets the PIN, the Match Director can unlock the device by entering their DeadCenter username and password. No need to reset the tablet.</p>

@@ -103,9 +103,7 @@ new #[Layout('components.layouts.app')]
             />
         </div>
         <flux:button href="{{ route('org.matches.create', $org) }}" variant="primary" class="!bg-accent hover:!bg-accent-hover">
-            <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
+            <x-icon name="plus" class="mr-2 h-4 w-4" />
             Create Match
         </flux:button>
     </div>
@@ -147,7 +145,7 @@ new #[Layout('components.layouts.app')]
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <a href="{{ route('org.matches.create', $org) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">
             <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                <x-icon name="plus" class="h-5 w-5" />
             </div>
             <span class="text-sm font-semibold text-primary">Create Match</span>
             <p class="mt-0.5 text-xs text-muted">Set up a new event</p>
@@ -156,7 +154,7 @@ new #[Layout('components.layouts.app')]
         @if($latestActiveMatch)
             <a href="{{ route('org.matches.edit', [$org, $latestActiveMatch]) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" /></svg>
+                    <x-icon name="tag" class="h-5 w-5" />
                 </div>
                 <span class="text-sm font-semibold text-primary">Manage Stages</span>
                 <p class="mt-0.5 text-xs text-muted">Configure target sets</p>
@@ -164,7 +162,7 @@ new #[Layout('components.layouts.app')]
 
             <a href="{{ route('org.matches.squadding', [$org, $latestActiveMatch]) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                    <x-icon name="users" class="h-5 w-5" />
                 </div>
                 <span class="text-sm font-semibold text-primary">Manage Squads</span>
                 <p class="mt-0.5 text-xs text-muted">Assign shooters to squads</p>
@@ -172,14 +170,14 @@ new #[Layout('components.layouts.app')]
         @else
             <div class="rounded-xl border border-border/50 bg-surface/50 p-4 opacity-50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" /></svg>
+                    <x-icon name="tag" class="h-5 w-5" />
                 </div>
                 <span class="text-sm font-semibold text-muted">Manage Stages</span>
                 <p class="mt-0.5 text-xs text-muted">Create a match first</p>
             </div>
             <div class="rounded-xl border border-border/50 bg-surface/50 p-4 opacity-50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                    <x-icon name="users" class="h-5 w-5" />
                 </div>
                 <span class="text-sm font-semibold text-muted">Manage Squads</span>
                 <p class="mt-0.5 text-xs text-muted">Create a match first</p>
@@ -188,7 +186,7 @@ new #[Layout('components.layouts.app')]
 
         <a href="https://{{ config('domains.app') }}/score" target="_blank" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-red-500/50 hover:bg-surface-2/50">
             <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-red-600/10 text-red-500 group-hover:bg-red-600/20 transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>
+                <x-icon name="play" class="h-5 w-5" />
             </div>
             <span class="text-sm font-semibold text-primary">Open Scoring</span>
             <p class="mt-0.5 text-xs text-muted">Launch scoring app</p>
@@ -196,7 +194,7 @@ new #[Layout('components.layouts.app')]
 
         <a href="{{ route('org.registrations', $org) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">
             <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" /></svg>
+                <x-icon name="clipboard-list" class="h-5 w-5" />
             </div>
             <span class="text-sm font-semibold text-primary">View Registrations</span>
             @if($pendingRegistrations > 0)
@@ -209,7 +207,7 @@ new #[Layout('components.layouts.app')]
         @if($latestActiveMatch)
             <a href="{{ route('org.matches.edit', [$org, $latestActiveMatch]) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted group-hover:text-accent transition-colors">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                    <x-icon name="upload" class="h-5 w-5" />
                 </div>
                 <span class="text-sm font-semibold text-primary">Publish Results</span>
                 <p class="mt-0.5 text-xs text-muted">Finalize and share scores</p>
@@ -217,7 +215,7 @@ new #[Layout('components.layouts.app')]
         @else
             <div class="rounded-xl border border-border/50 bg-surface/50 p-4 opacity-50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                    <x-icon name="upload" class="h-5 w-5" />
                 </div>
                 <span class="text-sm font-semibold text-muted">Publish Results</span>
                 <p class="mt-0.5 text-xs text-muted">No active match</p>
@@ -272,7 +270,7 @@ new #[Layout('components.layouts.app')]
                     <div class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors
                         {{ $isActive ? 'bg-accent text-white' : ($isDone ? 'bg-green-600 text-white' : 'bg-surface-2 text-muted') }}">
                         @if($isDone)
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            <x-icon name="check" class="h-4 w-4" />
                         @else
                             {{ $i + 1 }}
                         @endif
@@ -300,7 +298,7 @@ new #[Layout('components.layouts.app')]
 
         @if($stagePreview->isEmpty())
             <div class="px-6 py-8 text-center">
-                <svg class="mx-auto h-10 w-10 text-muted/50" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" /></svg>
+                <x-icon name="tag" class="mx-auto h-10 w-10 text-muted/50" />
                 <p class="mt-3 text-sm font-medium text-muted">No stages configured yet</p>
                 <p class="mt-1 text-xs text-muted">Add target sets to this match to get started.</p>
             </div>
@@ -347,7 +345,7 @@ new #[Layout('components.layouts.app')]
     <div class="flex items-center gap-4">
         <a href="{{ route('leaderboard', $org) }}" target="_blank"
            class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 transition-colors">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75Z" /></svg>
+            <x-icon name="chart-column" class="h-4 w-4" />
             View Leaderboard (Best of {{ $organization->best_of }})
         </a>
     </div>
@@ -365,7 +363,7 @@ new #[Layout('components.layouts.app')]
 
         @if($recentMatches->isEmpty())
             <div class="px-6 py-10 text-center">
-                <svg class="mx-auto h-10 w-10 text-muted/50" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H16.5C17.3284 3.75 18 4.42157 18 5.25V18.75C18 19.5784 17.3284 20.25 16.5 20.25H7.5C6.67157 20.25 6 19.5784 6 18.75V5.25C6 4.42157 6.67157 3.75 7.5 3.75Z" /></svg>
+                <x-icon name="file-text" class="mx-auto h-10 w-10 text-muted/50" />
                 <p class="mt-3 text-sm font-medium text-muted">No matches yet</p>
                 <p class="mt-1 text-xs text-muted">Create your first match to get started.</p>
                 <flux:button href="{{ route('org.matches.create', $org) }}" variant="primary" size="sm" class="mt-4 !bg-accent hover:!bg-accent-hover">

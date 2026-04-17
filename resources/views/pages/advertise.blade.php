@@ -107,9 +107,7 @@ new #[Layout('components.layouts.marketing', [
         <div class="mt-12 grid gap-6 md:grid-cols-3">
             <div class="rounded-2xl p-6 text-left" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225,6,0,0.08);">
-                    <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                    </svg>
+                    <x-icon name="house" class="h-6 w-6" style="color: var(--lp-red);" aria-hidden="true" />
                 </div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Platform sponsorships</h3>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
@@ -118,9 +116,7 @@ new #[Layout('components.layouts.marketing', [
             </div>
             <div class="rounded-2xl p-6 text-left" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
-                    <svg class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6 6v12h12V6H6Z" />
-                    </svg>
+                    <x-icon name="building-2" class="h-6 w-6 text-blue-400" aria-hidden="true" />
                 </div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Club portal sponsorships</h3>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
@@ -129,9 +125,7 @@ new #[Layout('components.layouts.marketing', [
             </div>
             <div class="rounded-2xl p-6 text-left" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
-                    <svg class="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" />
-                    </svg>
+                    <x-icon name="trophy" class="h-6 w-6 text-amber-400" aria-hidden="true" />
                 </div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Match sponsorship opportunities</h3>
                 <p class="mt-2 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
@@ -153,19 +147,19 @@ new #[Layout('components.layouts.marketing', [
         </div>
         <ul class="mx-auto mt-10 max-w-2xl space-y-3">
             <li class="flex items-start gap-3 text-sm" style="color: var(--lp-text-soft);">
-                <svg class="mt-0.5 h-5 w-5 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                <x-icon name="check" class="mt-0.5 h-5 w-5 shrink-0 text-green-400" aria-hidden="true" />
                 <span>Monthly or seasonal featured placements on high-traffic public surfaces</span>
             </li>
             <li class="flex items-start gap-3 text-sm" style="color: var(--lp-text-soft);">
-                <svg class="mt-0.5 h-5 w-5 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                <x-icon name="check" class="mt-0.5 h-5 w-5 shrink-0 text-green-400" aria-hidden="true" />
                 <span>Campaign-led bursts tied to product launches or key range dates</span>
             </li>
             <li class="flex items-start gap-3 text-sm" style="color: var(--lp-text-soft);">
-                <svg class="mt-0.5 h-5 w-5 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                <x-icon name="check" class="mt-0.5 h-5 w-5 shrink-0 text-green-400" aria-hidden="true" />
                 <span>Club- and federation-aligned packages for deeper community presence</span>
             </li>
             <li class="flex items-start gap-3 text-sm" style="color: var(--lp-text-soft);">
-                <svg class="mt-0.5 h-5 w-5 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                <x-icon name="check" class="mt-0.5 h-5 w-5 shrink-0 text-green-400" aria-hidden="true" />
                 <span>Event and match adjacency — where shooters are most engaged</span>
             </li>
         </ul>
@@ -201,7 +195,7 @@ new #[Layout('components.layouts.marketing', [
         @if($submitted)
             <div class="mt-10 rounded-2xl p-8 text-center" style="border: 1px solid rgba(16,185,129,0.3); background: rgba(16,185,129,0.05);">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style="background: rgba(16,185,129,0.15);">
-                    <svg class="h-7 w-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="h-7 w-7 text-green-400" aria-hidden="true" />
                 </div>
                 <h3 class="text-xl font-bold" style="color: var(--lp-text);">Thank you</h3>
                 <p class="mt-2" style="color: var(--lp-text-soft);">We’ve received your message and will respond as soon as we can.</p>

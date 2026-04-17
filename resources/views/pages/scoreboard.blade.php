@@ -452,12 +452,12 @@ new #[Layout('components.layouts.scoreboard')]
                 <div class="mt-3 flex flex-wrap gap-2">
                     <a href="{{ route('scoreboard.export.standings', $match) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
-                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        <x-icon name="download" class="h-3.5 w-3.5" />
                         Standings CSV
                     </a>
                     <a href="{{ route('scoreboard.export.detailed', $match) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
-                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        <x-icon name="download" class="h-3.5 w-3.5" />
                         Full Results CSV
                     </a>
                 </div>
@@ -552,7 +552,7 @@ new #[Layout('components.layouts.scoreboard')]
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ $isPrs ? $entry->total_score : number_format($entry->total_score, 1) }}</span>
-                            <svg class="h-5 w-5 text-muted transition-transform" :class="open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                            <x-icon name="chevron-down" x-bind:class="open && 'rotate-180'" class="h-5 w-5 text-muted transition-transform" />
                         </div>
                     </button>
                     <div x-show="open" x-collapse>
@@ -612,10 +612,7 @@ new #[Layout('components.layouts.scoreboard')]
 
                         <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ number_format($entry->total_score, 1) }}</span>
 
-                        <svg class="h-5 w-5 flex-shrink-0 text-muted transition-transform sm:h-6 sm:w-6 {{ $isExpanded ? 'rotate-180' : '' }}"
-                             fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
+                        <x-icon name="chevron-down" class="h-5 w-5 flex-shrink-0 text-muted transition-transform sm:h-6 sm:w-6 {{ $isExpanded ? 'rotate-180' : '' }}" />
                     </button>
 
                     @if($isExpanded)
@@ -1247,7 +1244,7 @@ new #[Layout('components.layouts.scoreboard')]
                             </div>
                             <div class="flex items-center gap-3">
                                 <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ $entry->total_score }}</span>
-                                <svg class="h-5 w-5 text-zinc-500 transition-transform" :class="tOpen && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                                <x-icon name="chevron-down" x-bind:class="tOpen && 'rotate-180'" class="h-5 w-5 text-zinc-500 transition-transform" />
                             </div>
                         </button>
                         <div x-show="tOpen" x-collapse>

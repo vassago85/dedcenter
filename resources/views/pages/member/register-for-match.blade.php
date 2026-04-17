@@ -255,9 +255,7 @@ new #[Layout('components.layouts.app')]
     {{-- Header --}}
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('events.show', $match) }}" variant="ghost" size="sm" class="min-h-[44px] focus:ring-2 focus:ring-accent focus:outline-none">
-            <svg class="mr-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
+            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
             Back
         </flux:button>
         <div>
@@ -343,9 +341,7 @@ new #[Layout('components.layouts.app')]
                              wire:loading.attr="disabled" wire:target="nextStep">
                     <span wire:loading.remove wire:target="nextStep" class="inline-flex items-center">
                         Next
-                        <svg class="ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                        </svg>
+                        <x-icon name="chevron-right" class="ml-1 h-4 w-4" />
                     </span>
                     <span wire:loading wire:target="nextStep">Loading…</span>
                 </flux:button>
@@ -500,9 +496,7 @@ new #[Layout('components.layouts.app')]
                 <flux:button wire:click="prevStep" variant="ghost" class="min-h-[44px] focus:ring-2 focus:ring-accent focus:outline-none"
                              wire:loading.attr="disabled" wire:target="prevStep">
                     <span wire:loading.remove wire:target="prevStep" class="inline-flex items-center">
-                        <svg class="mr-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                        </svg>
+                        <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
                         Back
                     </span>
                     <span wire:loading wire:target="prevStep">Loading…</span>
@@ -511,9 +505,7 @@ new #[Layout('components.layouts.app')]
                              wire:loading.attr="disabled" wire:target="nextStep">
                     <span wire:loading.remove wire:target="nextStep" class="inline-flex items-center">
                         Next
-                        <svg class="ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                        </svg>
+                        <x-icon name="chevron-right" class="ml-1 h-4 w-4" />
                     </span>
                     <span wire:loading wire:target="nextStep">Loading…</span>
                 </flux:button>
@@ -675,9 +667,7 @@ new #[Layout('components.layouts.app')]
                 <flux:button wire:click="prevStep" variant="ghost" class="min-h-[44px] focus:ring-2 focus:ring-accent focus:outline-none"
                              wire:loading.attr="disabled" wire:target="prevStep">
                     <span wire:loading.remove wire:target="prevStep" class="inline-flex items-center">
-                        <svg class="mr-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                        </svg>
+                        <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
                         Back
                     </span>
                     <span wire:loading wire:target="prevStep">Loading…</span>
@@ -687,9 +677,7 @@ new #[Layout('components.layouts.app')]
                              wire:confirm="Confirm your registration for {{ $match->name }}?"
                              wire:loading.attr="disabled" wire:target="submit">
                     <span wire:loading.remove wire:target="submit" class="inline-flex items-center">
-                        <svg class="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
+                        <x-icon name="circle-check" class="mr-1.5 h-4 w-4" />
                         Confirm Registration
                     </span>
                     <span wire:loading wire:target="submit">Submitting…</span>

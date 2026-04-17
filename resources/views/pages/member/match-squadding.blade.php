@@ -91,7 +91,7 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-8 max-w-4xl" wire:poll.5s>
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('matches.show', $match) }}" variant="ghost" size="sm">
-            <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
             Back
         </flux:button>
         <div>
@@ -102,9 +102,7 @@ new #[Layout('components.layouts.app')]
 
     @if($myShooter)
         <div class="rounded-xl border border-green-800 bg-green-900/20 p-4 flex items-center gap-3">
-            <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
+            <x-icon name="circle-check" class="h-5 w-5 text-green-400" />
             <div>
                 <p class="text-sm font-medium text-green-400">You are in: {{ $myShooter->squad->name }}</p>
                 <p class="text-xs text-muted">You can switch to another squad below if there's room.</p>

@@ -328,9 +328,7 @@ new #[Layout('components.layouts.app')]
     {{-- Header --}}
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('matches') }}" variant="ghost" size="sm">
-            <svg class="mr-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
+            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
             Back
         </flux:button>
         <div>
@@ -357,15 +355,11 @@ new #[Layout('components.layouts.app')]
                 </span>
                 <span class="text-sm font-semibold text-green-400">Match is live &mdash; Watch Live Scores</span>
             @else
-                <svg class="h-5 w-5 text-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                </svg>
+                <x-icon name="chart-column" class="h-5 w-5 text-muted" />
                 <span class="text-sm font-semibold text-secondary">View Scoreboard &amp; Results</span>
             @endif
         </div>
-        <svg class="h-5 w-5 {{ $match->status === \App\Enums\MatchStatus::Active ? 'text-green-400' : 'text-muted' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-        </svg>
+        <x-icon name="chevron-right" class="h-5 w-5 {{ $match->status === \App\Enums\MatchStatus::Active ? 'text-green-400' : 'text-muted' }}" />
     </a>
 
     {{-- Match Info --}}
@@ -423,12 +417,10 @@ new #[Layout('components.layouts.app')]
         <a href="{{ route('matches.squadding', $match) }}"
            class="flex items-center justify-between gap-4 rounded-xl border border-indigo-700/50 bg-gradient-to-r from-indigo-900/30 to-surface px-6 py-4 transition-colors hover:border-indigo-600/60">
             <div class="flex items-center gap-3">
-                <svg class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-                </svg>
+                <x-icon name="users" class="h-5 w-5 text-indigo-400" />
                 <span class="text-sm font-semibold text-indigo-400">Squadding is open &mdash; Pick your squad</span>
             </div>
-            <svg class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+            <x-icon name="chevron-right" class="h-5 w-5 text-indigo-400" />
         </a>
     @endif
 
@@ -455,9 +447,7 @@ new #[Layout('components.layouts.app')]
         @elseif($match->isPreRegistration() && $registration && $registration->isPreRegistered())
             <div class="rounded-lg border border-violet-800 bg-violet-900/20 p-4">
                 <div class="flex items-center gap-2">
-                    <svg class="h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
+                    <x-icon name="circle-check" class="h-5 w-5 text-violet-400" />
                     <span class="text-sm font-medium text-violet-400">You're pre-registered!</span>
                 </div>
                 <p class="mt-1 text-xs text-muted">You'll be notified when full registration opens. If you don't complete registration before it closes, your spot will be released.</p>
@@ -506,9 +496,7 @@ new #[Layout('components.layouts.app')]
             {{-- Confirmed --}}
             <div class="rounded-lg border border-green-800 bg-green-900/20 p-4">
                 <div class="flex items-center gap-2">
-                    <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
+                    <x-icon name="circle-check" class="h-5 w-5 text-green-400" />
                     <span class="text-sm font-medium text-green-400">Your registration is confirmed!</span>
                 </div>
                 <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
@@ -518,9 +506,7 @@ new #[Layout('components.layouts.app')]
             {{-- Rejected --}}
             <div class="rounded-lg border border-red-800 bg-red-900/20 p-4">
                 <div class="flex items-center gap-2">
-                    <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
+                    <x-icon name="circle-x" class="h-5 w-5 text-red-400" />
                     <span class="text-sm font-medium text-red-400">Your registration was rejected.</span>
                 </div>
                 @if($registration->admin_notes)
@@ -532,9 +518,7 @@ new #[Layout('components.layouts.app')]
             {{-- Awaiting review --}}
             <div class="rounded-lg border border-blue-800 bg-blue-900/20 p-4">
                 <div class="flex items-center gap-2">
-                    <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
+                    <x-icon name="clock" class="h-5 w-5 text-blue-400" />
                     <span class="text-sm font-medium text-blue-400">Your proof of payment is under review.</span>
                 </div>
                 <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>

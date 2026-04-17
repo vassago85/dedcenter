@@ -172,7 +172,7 @@ new #[Layout('components.layouts.app')]
             <template x-if="supported && denied">
                 <div class="rounded-lg border border-amber-600/30 bg-amber-900/10 p-4">
                     <div class="flex items-start gap-3">
-                        <svg class="h-5 w-5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+                        <x-icon name="triangle-alert" class="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
                         <div>
                             <p class="text-base font-medium text-amber-400">Push Notifications Blocked</p>
                             <p class="mt-1 text-sm text-muted">Your browser has blocked notifications for this site. To re-enable, open your browser settings and allow notifications for <strong class="text-secondary">deadcenter.co.za</strong>.</p>
@@ -183,7 +183,7 @@ new #[Layout('components.layouts.app')]
 
             <template x-if="loading">
                 <div class="flex items-center gap-2 text-sm text-muted">
-                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                    <x-icon name="loader" class="h-4 w-4 animate-spin" />
                     Checking push status...
                 </div>
             </template>
@@ -191,7 +191,7 @@ new #[Layout('components.layouts.app')]
             {{-- PWA Install Guide --}}
             <div class="rounded-lg border border-blue-600/20 bg-blue-900/10 p-5 space-y-4">
                 <div class="flex items-start gap-3">
-                    <svg class="h-6 w-6 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>
+                    <x-icon name="smartphone" class="h-6 w-6 text-blue-400 mt-0.5 shrink-0" />
                     <div>
                         <p class="text-base font-semibold text-blue-300">Install DeadCenter on Your Phone</p>
                         <p class="mt-1 text-sm text-muted">Push notifications require the DeadCenter app to be installed on your device. It installs from your browser in seconds — no app store needed.</p>

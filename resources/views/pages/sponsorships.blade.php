@@ -102,21 +102,21 @@ new #[Layout('components.layouts.marketing', [
         <div class="mt-12 grid gap-6 sm:grid-cols-3">
             <div class="rounded-2xl p-6 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl" style="background: rgba(225,6,0,0.08);">
-                    <svg class="h-7 w-7" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                    <x-icon name="chart-column" class="h-7 w-7" style="color: var(--lp-red);" />
                 </div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Live Scoring</h3>
                 <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Real-time scoreboards viewed by competitors, spectators, and online audiences during every match.</p>
             </div>
             <div class="rounded-2xl p-6 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-600/10">
-                    <svg class="h-7 w-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" /></svg>
+                    <x-icon name="trophy" class="h-7 w-7 text-amber-500" />
                 </div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Leaderboards &amp; Results</h3>
                 <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Season leaderboards and match results shared online, printed, and exported as PDFs after every event.</p>
             </div>
             <div class="rounded-2xl p-6 text-center" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600/10">
-                    <svg class="h-7 w-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
+                    <x-icon name="book-open" class="h-7 w-7 text-blue-500" />
                 </div>
                 <h3 class="text-lg font-semibold" style="color: var(--lp-text);">Scoring Screens</h3>
                 <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">Brand visibility on the scoring app used by every scorer during the match &mdash; seen on tablets and devices at the range.</p>
@@ -141,7 +141,7 @@ new #[Layout('components.layouts.marketing', [
         <div class="grid gap-5 sm:grid-cols-2">
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg" style="background: rgba(225,6,0,0.08);">
-                    <svg class="h-5 w-5" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172" /></svg>
+                    <x-icon name="trophy" class="h-5 w-5" style="color: var(--lp-red);" />
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Leaderboard powered by [Your Brand]</h3>
@@ -150,7 +150,7 @@ new #[Layout('components.layouts.marketing', [
             </div>
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-600/10">
-                    <svg class="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                    <x-icon name="chart-column" class="h-5 w-5 text-amber-500" />
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Results powered by [Your Brand]</h3>
@@ -159,7 +159,7 @@ new #[Layout('components.layouts.marketing', [
             </div>
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600/10">
-                    <svg class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
+                    <x-icon name="book-open" class="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Scoring powered by [Your Brand]</h3>
@@ -168,7 +168,7 @@ new #[Layout('components.layouts.marketing', [
             </div>
             <div class="flex gap-4 rounded-2xl p-6" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-600/10">
-                    <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+                    <x-icon name="file-text" class="h-5 w-5 text-green-500" />
                 </div>
                 <div>
                     <h3 class="font-semibold" style="color: var(--lp-text);">Full Event Visibility Package</h3>
@@ -195,19 +195,19 @@ new #[Layout('components.layouts.marketing', [
                 </p>
                 <ul class="mt-6 space-y-3">
                     <li class="flex items-start gap-3">
-                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <x-icon name="check" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" />
                         <span class="text-sm" style="color: var(--lp-text-soft);">Match director gets first option on the full package</span>
                     </li>
                     <li class="flex items-start gap-3">
-                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <x-icon name="check" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" />
                         <span class="text-sm" style="color: var(--lp-text-soft);">If declined, individual placements open to any brand</span>
                     </li>
                     <li class="flex items-start gap-3">
-                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <x-icon name="check" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" />
                         <span class="text-sm" style="color: var(--lp-text-soft);">Full package locks all 3 placements to one brand</span>
                     </li>
                     <li class="flex items-start gap-3">
-                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                        <x-icon name="check" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" />
                         <span class="text-sm" style="color: var(--lp-text-soft);">Feature-based wording: "[Feature] powered by [Brand]"</span>
                     </li>
                 </ul>
@@ -311,7 +311,7 @@ new #[Layout('components.layouts.marketing', [
         @if($submitted)
             <div class="mt-10 rounded-2xl p-8 text-center" style="border: 1px solid rgba(16,185,129,0.3); background: rgba(16,185,129,0.05);">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style="background: rgba(16,185,129,0.15);">
-                    <svg class="h-7 w-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="h-7 w-7 text-green-400" />
                 </div>
                 <h3 class="text-xl font-bold" style="color: var(--lp-text);">Message Sent</h3>
                 <p class="mt-2" style="color: var(--lp-text-soft);">Thanks for your interest. We'll be in touch soon.</p>

@@ -85,7 +85,7 @@
                             <div class="mt-2 border-t border-border pt-3">
                                 <button type="button" @click="adminOpen = !adminOpen" class="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 text-xs font-semibold uppercase tracking-wider text-muted transition-colors hover:text-secondary focus:outline-none focus:ring-2 focus:ring-accent">
                                     Platform admin tools
-                                    <svg :class="adminOpen && 'rotate-180'" class="h-3.5 w-3.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                                    <x-icon name="chevron-down" class="h-3.5 w-3.5 transition-transform duration-200" x-bind:class="adminOpen && 'rotate-180'" />
                                 </button>
                                 <div x-show="adminOpen" x-collapse x-cloak class="mt-2 space-y-1">
                                     <x-layouts.nav.platform-admin />
@@ -105,7 +105,7 @@
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+                            <x-icon name="log-out" class="h-4 w-4" />
                             Sign Out
                         </button>
                     </form>
@@ -117,14 +117,14 @@
         <div class="flex flex-1 flex-col lg:ml-0">
             <header class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-app/95 px-4 backdrop-blur lg:px-8">
                 <button type="button" @click="sidebarOpen = true" class="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent lg:hidden">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                    <x-icon name="menu" class="h-6 w-6" />
                 </button>
                 <div class="flex-1"></div>
                 @auth
                     @if($authUser->canScore())
                         <a href="https://{{ config('domains.app') }}/score" target="_blank" class="inline-flex min-h-[44px] flex-col items-start justify-center rounded-lg px-3 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent" style="background:#ff2b2b;">
                             <span class="inline-flex items-center gap-2 text-sm font-semibold">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>
+                                <x-icon name="play" class="h-4 w-4" />
                                 Open scoring app
                             </span>
                             <span class="text-[10px] uppercase tracking-wider text-white/80">Separate window for tablet speed</span>

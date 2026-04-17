@@ -1093,9 +1093,7 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-8 max-w-4xl" x-data="{ tab: 'info' }">
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('admin.matches.index') }}" variant="ghost" size="sm">
-            <svg class="mr-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
+            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
             Back
         </flux:button>
         <div>
@@ -1611,7 +1609,7 @@ new #[Layout('components.layouts.app')]
                     <div x-data="{ detailOpen: {{ ($ts->gongs->isNotEmpty() || $ts->positions->isNotEmpty()) ? 'true' : 'false' }} }">
                     <button type="button" @click="detailOpen = !detailOpen"
                             class="flex w-full items-center gap-2 px-6 py-2 text-xs font-medium text-secondary hover:text-primary transition-colors border-b border-border/50">
-                        <svg :class="detailOpen && 'rotate-90'" class="h-3 w-3 text-muted transition-transform" fill="currentColor" viewBox="0 0 20 20"><path d="M6.293 4.293a1 1 0 011.414 0L13 9.586a1 1 0 010 1.414l-5.293 5.293a1 1 0 01-1.414-1.414L10.586 10 6.293 5.707a1 1 0 010-1.414z"/></svg>
+                        <x-icon name="chevron-right" class="h-3 w-3 text-muted transition-transform" x-bind:class="detailOpen && 'rotate-90'" />
                         Detailed Setup (Targets, Positions &amp; Shot Sequence)
                         @if($ts->gongs->isNotEmpty())
                             <span class="text-[10px] text-muted ml-1">{{ $ts->gongs->count() }} targets{{ $ts->positions->isNotEmpty() ? ', '.$ts->positions->count().' positions' : '' }}{{ $ts->shotSequence->isNotEmpty() ? ', '.$ts->shotSequence->count().' shots defined' : '' }}</span>
@@ -1793,7 +1791,7 @@ new #[Layout('components.layouts.app')]
                                     @foreach($ts->shotSequence->sortBy('shot_number') as $seq)
                                         <div class="flex items-center gap-3 rounded px-2 py-1 text-sm {{ $loop->even ? 'bg-surface-2/30' : '' }}" data-id="{{ $seq->id }}">
                                             <span class="drag-handle cursor-grab active:cursor-grabbing text-muted hover:text-primary">
-                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                                                <x-icon name="grip-vertical" class="h-4 w-4" />
                                             </span>
                                             <span class="w-6 text-right font-mono text-muted text-xs">{{ $seq->shot_number }}</span>
                                             <span class="font-medium text-primary">{{ $seq->position?->name ?? '?' }}</span>

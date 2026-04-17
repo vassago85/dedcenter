@@ -1,9 +1,7 @@
 <div id="dc-install-prompt" style="display:none; position:fixed; bottom:1rem; left:1rem; right:1rem; z-index:9999; max-width:28rem; margin:0 auto; border-radius:1rem; border:1px solid rgba(255,255,255,0.1); background:rgba(30,41,59,0.97); padding:1rem; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); backdrop-filter:blur(16px);">
     <div style="display:flex; align-items:flex-start; gap:0.75rem;">
         <div style="flex-shrink:0; width:2.5rem; height:2.5rem; display:flex; align-items:center; justify-content:center; border-radius:0.75rem; background:rgba(220,38,38,0.2);">
-            <svg style="width:1.25rem; height:1.25rem; color:#ef4444;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3" />
-            </svg>
+            <x-icon name="smartphone" style="width:1.25rem; height:1.25rem; color:#ef4444;" />
         </div>
         <div style="flex:1;">
             <p style="font-size:0.875rem; font-weight:600; color:#fff; margin:0;">Add DeadCenter to Home Screen</p>
@@ -17,9 +15,7 @@
             </div>
         </div>
         <button onclick="window._dcDismiss()" style="color:#64748b; background:none; border:none; cursor:pointer; padding:0.25rem;">
-            <svg style="width:1rem; height:1rem;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
+            <x-icon name="x" style="width:1rem; height:1rem;" />
         </button>
     </div>
 </div>

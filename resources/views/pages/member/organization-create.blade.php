@@ -52,7 +52,7 @@ new #[Layout('components.layouts.app')]
 <div class="space-y-6 max-w-2xl" x-data="{ step: 1 }">
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('organizations') }}" variant="ghost" size="sm">
-            <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
             Back
         </flux:button>
         <div>
@@ -70,7 +70,7 @@ new #[Layout('components.layouts.app')]
                     <span>1</span>
                 </template>
                 <template x-if="step > 1">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="h-4 w-4" />
                 </template>
             </span>
             <span class="text-sm font-medium" :class="step === 1 ? 'text-accent' : 'text-green-400'">About Your Organization</span>
@@ -129,7 +129,7 @@ new #[Layout('components.layouts.app')]
             <div class="flex justify-end pt-2">
                 <button type="button" @click="if ($wire.name.trim()) step = 2" class="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors">
                     Continue
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                    <x-icon name="chevron-right" class="h-4 w-4" />
                 </button>
             </div>
         </div>
@@ -163,15 +163,15 @@ new #[Layout('components.layouts.app')]
                 <h3 class="text-sm font-semibold text-amber-400">What happens next</h3>
                 <ul class="mt-2 space-y-1.5 text-sm text-muted">
                     <li class="flex items-start gap-2">
-                        <svg class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <x-icon name="clock" class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
                         A site administrator will review your request.
                     </li>
                     <li class="flex items-start gap-2">
-                        <svg class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>
+                        <x-icon name="bell" class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
                         You'll receive a notification when approved.
                     </li>
                     <li class="flex items-start gap-2">
-                        <svg class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg>
+                        <x-icon name="rocket" class="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
                         Once approved, you can start creating matches immediately.
                     </li>
                 </ul>
@@ -179,7 +179,7 @@ new #[Layout('components.layouts.app')]
 
             <div class="flex items-center justify-between pt-2">
                 <button type="button" @click="step = 1" class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-secondary hover:text-primary transition-colors">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                    <x-icon name="chevron-left" class="h-4 w-4" />
                     Back
                 </button>
                 <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Submit for Approval</flux:button>

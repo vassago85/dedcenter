@@ -171,7 +171,7 @@
                             </span>
                             <span class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                 Watch Live Scores
-                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                <x-icon name="arrow-right" class="h-3.5 w-3.5" />
                             </span>
                         </div>
                     </a>
@@ -263,7 +263,7 @@
                                 </div>
                                 <span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap" style="color: var(--lp-red);">
                                     {{ $ctaLabel }}
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    <x-icon name="arrow-right" class="h-3.5 w-3.5" />
                                 </span>
                             </div>
                         </a>
@@ -340,7 +340,7 @@
                             </div>
                             <span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap" style="color: var(--lp-red);">
                                 {{ $ctaLabel }}
-                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                <x-icon name="arrow-right" class="h-3.5 w-3.5" />
                             </span>
                         </div>
                     </a>
@@ -486,7 +486,7 @@
                                 </div>
                                 <span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap" style="color: var(--lp-red);">
                                     {{ $ctaLabel }}
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    <x-icon name="arrow-right" class="h-3.5 w-3.5" />
                                 </span>
                             </div>
                         </a>
@@ -560,7 +560,7 @@
                                 <span class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style="background: {{ $scoringBg }}; color: {{ $scoringColor }};">{{ $scoringLabel }}</span>
                                 <span class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--lp-red);">
                                     View Results
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                                    <x-icon name="arrow-right" class="h-3.5 w-3.5" />
                                 </span>
                             </div>
                         </a>
@@ -613,7 +613,7 @@
                 <div class="mt-10 text-center">
                     <a href="{{ route('badges.preview') }}" class="lp-cta-nav inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold">
                         View All Badges
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                        <x-icon name="arrow-right" class="h-4 w-4" />
                     </a>
                 </div>
             </div>
@@ -633,9 +633,7 @@
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-green-600/10">
-                        <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-                        </svg>
+                        <x-icon name="users" class="h-6 w-6 text-green-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Team Events</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Register individually, pay your own entry, then team up with friends. Create a team or join an existing one &mdash; team scores are aggregated automatically on the leaderboard.</p>
@@ -643,9 +641,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                        </svg>
+                        <x-icon name="clipboard-list" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Personal Match Reports</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Download a detailed PDF report after every match with your scores, stage breakdown, and placement. Reports are also emailed to you automatically when results are published.</p>
@@ -653,9 +649,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
-                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
-                        </svg>
+                        <x-icon name="wrench" class="h-6 w-6 text-blue-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Equipment Profiles</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Save your rifle, ammo, scope, and accessory setup as reusable profiles. Load a profile during match registration to auto-fill your equipment details in seconds.</p>
@@ -663,9 +657,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--lp-red);">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                        </svg>
+                        <x-icon name="bell" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Push Notifications</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Get notified when registration opens, when squadding is live, and when your match results are published. Control exactly which notifications you receive from your settings.</p>
@@ -673,9 +665,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
-                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                        </svg>
+                        <x-icon name="smartphone" class="h-6 w-6 text-blue-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Install as App</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Add DeadCenter to your home screen on any phone. Works as a standalone app with offline support and built-in navigation. Also available as a native Android app on the Play Store.</p>
@@ -697,7 +687,7 @@
             <div class="grid gap-8 lg:grid-cols-3">
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                        <x-icon name="chart-column" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="text-lg font-semibold mb-2" style="color: var(--lp-text);">Relative Scoring</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Your score is expressed as a percentage of the top shooter&rsquo;s score. This allows fair comparison across different matches, venues, and conditions.</p>
@@ -705,7 +695,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(59, 130, 246, 0.08);">
-                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                        <x-icon name="calendar" class="h-6 w-6 text-blue-500" />
                     </div>
                     <h3 class="text-lg font-semibold mb-2" style="color: var(--lp-text);">Season Aggregation</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Season standings aggregate your average relative score, matches played, and best/worst performance. Best-of-N rules let organizers drop your weakest results.</p>
@@ -713,7 +703,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(34, 197, 94, 0.08);">
-                        <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" /></svg>
+                        <x-icon name="trophy" class="h-6 w-6 text-green-500" />
                     </div>
                     <h3 class="text-lg font-semibold mb-2" style="color: var(--lp-text);">Leaderboards</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">View standings per club, league, or competition. Filter by division and category. Every organization can publish a public leaderboard.</p>
@@ -806,7 +796,7 @@
             <p class="mt-2 text-sm" style="color: var(--lp-text-soft);">DeadCenter gives match directors powerful tools to set up matches, manage scoring, and publish results with zero friction.</p>
             <a href="{{ md_url('/') }}" class="mt-5 inline-flex items-center gap-2 text-sm font-semibold transition-colors" style="color: var(--lp-red);">
                 Visit the Match Director Page
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                <x-icon name="arrow-right" class="h-4 w-4" />
             </a>
         </div>
     </section>
@@ -832,7 +822,7 @@
                         <summary class="cursor-pointer list-none px-6 py-4 text-left text-sm font-semibold transition-colors hover:!text-white" style="color: var(--lp-text);">
                             <span class="flex w-full items-center justify-between gap-3">
                                 <span class="min-w-0">{{ $faq['q'] }}</span>
-                                <svg class="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-open:rotate-180" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                                <x-icon name="chevron-down" class="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-open:rotate-180" style="color: var(--lp-text-muted);" />
                             </span>
                         </summary>
                         <p class="px-6 pb-4 text-sm leading-relaxed" style="color: var(--lp-text-soft);">{{ $faq['a'] }}</p>

@@ -287,7 +287,7 @@ new #[Layout('components.layouts.app')]
     {{-- ══════════ HEADER ══════════ --}}
     <div>
         <a href="{{ route('events') }}" class="inline-flex min-h-[44px] items-center rounded-lg px-3 py-2 text-base font-medium text-muted transition-colors hover:bg-white/5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-accent">
-            <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <x-icon name="chevron-left" class="mr-1.5 h-4 w-4" />
             Events
         </a>
 
@@ -342,7 +342,7 @@ new #[Layout('components.layouts.app')]
                 </span>
                 <span class="text-base font-semibold text-green-400">Match is live &mdash; Watch Live Scores</span>
             </div>
-            <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+            <x-icon name="chevron-right" class="h-5 w-5 text-green-400" />
         </a>
     @endif
 
@@ -418,7 +418,7 @@ new #[Layout('components.layouts.app')]
                 </div>
                 <a href="{{ route('matches.report.download', $match) }}"
                    class="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                    <x-icon name="download" class="h-4.5 w-4.5" />
                     Download My Match Report (PDF)
                 </a>
             </div>
@@ -431,17 +431,17 @@ new #[Layout('components.layouts.app')]
             <span class="text-sm font-medium text-secondary">Download Results:</span>
             <a href="{{ route('scoreboard.export.standings', $match) }}"
                class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                <x-icon name="download" class="h-3.5 w-3.5" />
                 Standings (CSV)
             </a>
             <a href="{{ route('scoreboard.export.detailed', $match) }}"
                class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                <x-icon name="download" class="h-3.5 w-3.5" />
                 Full Results (CSV)
             </a>
             <a href="{{ route('scoreboard', $match) }}" target="_blank"
                class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                <x-icon name="external-link" class="h-3.5 w-3.5" />
                 Full Scoreboard
             </a>
         </div>
@@ -614,7 +614,7 @@ new #[Layout('components.layouts.app')]
                                     <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">
                                         {{ $isPrs ? $entry->total_score : number_format($entry->total_score, 1) }}
                                     </span>
-                                    <svg class="h-5 w-5 text-muted transition-transform" :class="open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                                    <x-icon name="chevron-down" x-bind:class="open && 'rotate-180'" class="h-5 w-5 text-muted transition-transform" />
                                 </div>
                             </button>
                             <div x-show="open" x-collapse>
@@ -815,7 +815,7 @@ new #[Layout('components.layouts.app')]
                 @if($registration && $registration->isConfirmed())
                     <div class="rounded-lg border border-green-800 bg-green-900/20 p-4">
                         <div class="flex items-center gap-2">
-                            <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            <x-icon name="circle-check" class="h-5 w-5 text-green-400" />
                             <span class="text-sm font-medium text-green-400">Your registration is confirmed!</span>
                         </div>
                         <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
@@ -824,7 +824,7 @@ new #[Layout('components.layouts.app')]
                 @elseif($registration && $registration->isPreRegistered())
                     <div class="rounded-lg border border-violet-800 bg-violet-900/20 p-4">
                         <div class="flex items-center gap-2">
-                            <svg class="h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            <x-icon name="circle-check" class="h-5 w-5 text-violet-400" />
                             <span class="text-sm font-medium text-violet-400">You're pre-registered!</span>
                         </div>
                         <p class="mt-1 text-xs text-muted">You'll be notified when full registration opens.</p>
@@ -838,7 +838,7 @@ new #[Layout('components.layouts.app')]
                 @elseif($registration && $registration->isProofSubmitted())
                     <div class="rounded-lg border border-blue-800 bg-blue-900/20 p-4">
                         <div class="flex items-center gap-2">
-                            <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            <x-icon name="clock" class="h-5 w-5 text-blue-400" />
                             <span class="text-sm font-medium text-blue-400">Proof of payment under review.</span>
                         </div>
                         <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
@@ -856,7 +856,7 @@ new #[Layout('components.layouts.app')]
                 @elseif($registration && $registration->isRejected())
                     <div class="rounded-lg border border-red-800 bg-red-900/20 p-4">
                         <div class="flex items-center gap-2">
-                            <svg class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            <x-icon name="circle-x" class="h-5 w-5 text-red-400" />
                             <span class="text-sm font-medium text-red-400">Registration was rejected.</span>
                         </div>
                         @if($registration->admin_notes)

@@ -576,7 +576,7 @@ new #[Layout('components.layouts.app')]
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-4">
             <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" variant="ghost" size="sm">
-                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
                 Back
             </flux:button>
             <div>
@@ -777,27 +777,27 @@ new #[Layout('components.layouts.app')]
                                                             {{-- Status menu --}}
                                                             <div class="relative" @click.away="sOpen = false">
                                                                 <button @click="sOpen = !sOpen" class="rounded px-2 py-1 text-[10px] font-medium text-muted hover:text-secondary hover:bg-surface-2 transition-colors min-h-[32px]" title="Change status">
-                                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                                                    <x-icon name="settings" class="h-3.5 w-3.5" />
                                                                 </button>
                                                                 <div x-show="sOpen" x-transition x-cloak class="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-border bg-surface-2 py-1 shadow-xl">
                                                                     @if(!$shooter->isActive())
                                                                         <button wire:click="markPresent({{ $shooter->id }})" @click="sOpen = false"
                                                                                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-green-400 hover:bg-surface transition-colors min-h-[36px]">
-                                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                                                            <x-icon name="check" class="h-3.5 w-3.5" />
                                                                             Mark Present
                                                                         </button>
                                                                     @endif
                                                                     @if(!$shooter->isNoShow())
                                                                         <button wire:click="markNoShow({{ $shooter->id }})" @click="sOpen = false"
                                                                                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-400 hover:bg-surface transition-colors min-h-[36px]">
-                                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                                            <x-icon name="ban" class="h-3.5 w-3.5" />
                                                                             Mark No-Show
                                                                         </button>
                                                                     @endif
                                                                     @if(!$shooter->isWithdrawn())
                                                                         <button wire:click="markWithdrawn({{ $shooter->id }})" @click="sOpen = false"
                                                                                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-amber-400 hover:bg-surface transition-colors min-h-[36px]">
-                                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+                                                                            <x-icon name="log-out" class="h-3.5 w-3.5" />
                                                                             Mark Withdrawn
                                                                         </button>
                                                                     @endif
@@ -805,7 +805,7 @@ new #[Layout('components.layouts.app')]
                                                                     <button wire:click="deleteShooter({{ $shooter->id }})" @click="sOpen = false"
                                                                             wire:confirm="Permanently remove {{ $shooter->name }}? This deletes all their scores."
                                                                             class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-[36px]">
-                                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                                                        <x-icon name="trash-2" class="h-3.5 w-3.5" />
                                                                         Delete Shooter
                                                                     </button>
                                                                 </div>
@@ -890,12 +890,12 @@ new #[Layout('components.layouts.app')]
             <div class="flex flex-wrap gap-2">
                 <flux:button wire:click="markAllPresent" size="sm" variant="ghost" class="!text-green-400 hover:!bg-green-500/10 min-h-[44px]"
                              wire:confirm="Confirm all shooters as present?">
-                    <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="mr-1.5 h-4 w-4" />
                     All Present
                 </flux:button>
                 <flux:button wire:click="markAllNoShow" size="sm" variant="ghost" class="!text-zinc-400 hover:!bg-zinc-500/10 min-h-[44px]"
                              wire:confirm="Mark all shooters WITHOUT scores as no-show? Shooters who already have scores will not be affected.">
-                    <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    <x-icon name="ban" class="mr-1.5 h-4 w-4" />
                     Flag No-Shows (no scores)
                 </flux:button>
             </div>
@@ -956,7 +956,7 @@ new #[Layout('components.layouts.app')]
                                                         wire:confirm="Permanently remove {{ $shooter->name }}? This deletes all their scores."
                                                         class="rounded px-1.5 py-1 text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-colors min-h-[32px]"
                                                         title="Delete shooter">
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                                    <x-icon name="trash-2" class="h-3.5 w-3.5" />
                                                 </button>
                                             </div>
                                         </td>
@@ -969,7 +969,7 @@ new #[Layout('components.layouts.app')]
             </div>
         @else
             <div class="rounded-xl border border-dashed border-border bg-surface/50 p-8 text-center">
-                <svg class="mx-auto h-10 w-10 text-muted/30 mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                <x-icon name="users" class="mx-auto h-10 w-10 text-muted/30 mb-3" />
                 <p class="text-muted">No shooters in this match yet. Add squads and assign registrants first.</p>
             </div>
         @endif
@@ -991,7 +991,7 @@ new #[Layout('components.layouts.app')]
                 <label class="block text-sm font-medium text-secondary">Link to existing account <span class="text-muted font-normal">(optional)</span></label>
                 @if($walkinUserId)
                     <div class="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3">
-                        <svg class="h-5 w-5 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <x-icon name="circle-check" class="h-5 w-5 text-green-400 shrink-0" />
                         <div class="flex-1">
                             <p class="text-sm font-medium text-primary">{{ $walkinName }}</p>
                             <p class="text-xs text-muted">Linked — scores will appear on their profile</p>
@@ -1056,7 +1056,7 @@ new #[Layout('components.layouts.app')]
             </div>
 
             <flux:button wire:click="addWalkin" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]">
-                <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" /></svg>
+                <x-icon name="user-plus" class="mr-1.5 h-4 w-4" />
                 Add Walk-in
             </flux:button>
         </div>
@@ -1066,15 +1066,15 @@ new #[Layout('components.layouts.app')]
             <h3 class="text-sm font-semibold text-blue-300">Tips for Match Day</h3>
             <ul class="text-sm text-muted space-y-2">
                 <li class="flex items-start gap-2">
-                    <svg class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                     <span><strong class="text-secondary">Link accounts when possible</strong> — walk-in scores count toward their season record, rankings, and badges.</span>
                 </li>
                 <li class="flex items-start gap-2">
-                    <svg class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                     <span><strong class="text-secondary">No-shows stay on record</strong> — they're hidden from the active roster but the registration is kept. You can reinstate them if they arrive late.</span>
                 </li>
                 <li class="flex items-start gap-2">
-                    <svg class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    <x-icon name="check" class="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
                     <span><strong class="text-secondary">Delete is permanent</strong> — only delete a shooter if they were added by mistake. It removes all their scores too.</span>
                 </li>
             </ul>

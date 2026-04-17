@@ -39,12 +39,8 @@
 
                 <details class="marketing-nav-details md:hidden relative">
                     <summary class="marketing-nav-summary list-none flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors hover:bg-white/10 outline-none ring-0" aria-label="Toggle menu">
-                        <svg class="marketing-nav-icon-open h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                        </svg>
-                        <svg class="marketing-nav-icon-close h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
+                        <x-icon name="menu" class="marketing-nav-icon-open h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" />
+                        <x-icon name="x" class="marketing-nav-icon-close h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" />
                     </summary>
                     <div class="marketing-mobile-panel absolute left-1/2 top-full z-[60] mt-0 w-screen max-w-[100vw] -translate-x-1/2 border-t px-6 py-4 shadow-[0_18px_48px_rgba(0,0,0,0.45)]" style="border-color: var(--lp-border); background: rgba(7, 19, 39, 0.97); backdrop-filter: blur(20px) saturate(1.4);">
                         <div class="mx-auto max-w-6xl space-y-1">
@@ -264,7 +260,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(245, 158, 11, 0.08);">
-                        <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
+                        <x-icon name="lightbulb" class="h-6 w-6 text-amber-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Offline-First Scoring</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">No signal at the range? No problem. Scores are saved locally on the device and sync automatically when connectivity returns.</p>
@@ -272,7 +268,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                        <x-icon name="monitor" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Live Scoreboards</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">TV scoreboard for the range, plus a mobile-friendly live page spectators can open by scanning a QR code. Auto-refreshes every 10 seconds.</p>
@@ -280,7 +276,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(59, 130, 246, 0.08);">
-                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" /></svg>
+                        <x-icon name="refresh-cw" class="h-6 w-6 text-blue-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Multi-Device Sync</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Multiple Range Officers can score simultaneously on different tablets. All scores merge on the server and appear on the scoreboard in real-time.</p>
@@ -288,7 +284,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(59, 130, 246, 0.08);">
-                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z" /></svg>
+                        <x-icon name="layout-grid" class="h-6 w-6 text-blue-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Divisions &amp; Categories</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Split shooters by equipment class (Open, Factory, Limited) and demographics (Overall, Ladies, Junior, Senior). Filter scoreboards by either axis.</p>
@@ -296,7 +292,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(34, 197, 94, 0.08);">
-                        <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                        <x-icon name="users" class="h-6 w-6 text-green-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Leagues &amp; Clubs</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Create a league, add clubs underneath it. Season leaderboards aggregate scores across matches with best-of-N scoring.</p>
@@ -304,7 +300,7 @@
 
                 <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                        <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
+                        <x-icon name="users" class="h-6 w-6" style="color: var(--lp-red);" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Registration &amp; Squadding</h3>
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Online registration with equipment details, payment tracking, and auto-squadding that respects shared-rifle constraints across concurrent relays.</p>
@@ -325,7 +321,7 @@
             <div class="rounded-2xl p-8 lg:p-10 ring-1 ring-amber-600/10" style="border: 1px solid rgba(146, 64, 14, 0.3); background: var(--lp-surface);">
                 <div class="flex items-start gap-5">
                     <div class="flex-shrink-0 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(245, 158, 11, 0.08);">
-                        <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.003 6.003 0 0 1-3.77 1.522m0 0a6.003 6.003 0 0 1-3.77-1.522" /></svg>
+                        <x-icon name="trophy" class="h-6 w-6 text-amber-500" />
                     </div>
                     <div>
                         <h3 class="text-xl font-bold" style="color: var(--lp-text);">Side Bet &mdash; Royal Flush</h3>
@@ -365,21 +361,21 @@
                     <div class="mt-8 lg:mt-0 grid gap-4 sm:grid-cols-3 lg:w-[420px] flex-shrink-0">
                         <div class="rounded-xl p-4 text-center" style="border: 1px solid var(--lp-border); background: rgba(59, 130, 246, 0.04);">
                             <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg" style="background: rgba(59, 130, 246, 0.1);">
-                                <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg>
+                                <x-icon name="cloud" class="h-5 w-5 text-blue-400" />
                             </div>
                             <p class="text-xs font-semibold" style="color: var(--lp-text);">Cloud</p>
                             <p class="mt-0.5 text-[11px] leading-tight" style="color: var(--lp-text-muted);">Online scoring via deadcenter.co.za</p>
                         </div>
                         <div class="rounded-xl p-4 text-center" style="border: 1px solid rgba(225, 6, 0, 0.15); background: rgba(225, 6, 0, 0.04);">
                             <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg" style="background: rgba(225, 6, 0, 0.1);">
-                                <svg class="h-5 w-5" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>
+                                <x-icon name="smartphone" class="h-5 w-5" style="color: var(--lp-red);" />
                             </div>
                             <p class="text-xs font-semibold" style="color: var(--lp-text);">Standalone</p>
                             <p class="mt-0.5 text-[11px] leading-tight" style="color: var(--lp-text-muted);">One device, fully offline</p>
                         </div>
                         <div class="rounded-xl p-4 text-center" style="border: 1px solid rgba(5, 150, 105, 0.2); background: rgba(16, 185, 129, 0.04);">
                             <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg" style="background: rgba(16, 185, 129, 0.1);">
-                                <svg class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" /></svg>
+                                <x-icon name="wifi" class="h-5 w-5 text-emerald-400" />
                             </div>
                             <p class="text-xs font-semibold" style="color: var(--lp-text);">Hub</p>
                             <p class="mt-0.5 text-[11px] leading-tight" style="color: var(--lp-text-muted);">Local WiFi server for multiple tablets</p>

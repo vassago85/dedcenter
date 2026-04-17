@@ -884,9 +884,7 @@ new #[Layout('components.layouts.scoreboard')]
             @foreach($recentActivity as $i => $event)
                 <div class="flex items-center gap-3 rounded-lg border-l-4 {{ $i === 0 ? 'border-l-green-500 bg-green-500/5' : 'border-l-border bg-surface/20' }} px-3 py-2 transition-all">
                     <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full {{ $i === 0 ? 'bg-green-500/20' : 'bg-surface' }}">
-                        <svg class="h-4 w-4 {{ $i === 0 ? 'text-green-400' : 'text-muted' }}" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
+                        <x-icon name="check" class="h-4 w-4 {{ $i === 0 ? 'text-green-400' : 'text-muted' }}" />
                     </div>
                     <div class="min-w-0 flex-1">
                         <p class="text-sm text-primary">
@@ -909,9 +907,7 @@ new #[Layout('components.layouts.scoreboard')]
             {{-- Total Hits --}}
             <div class="rounded-xl border border-border bg-surface/30 p-3 text-center">
                 <div class="mb-1 flex items-center justify-center">
-                    <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H6A2.25 2.25 0 0 0 3.75 6v1.5M16.5 3.75H18A2.25 2.25 0 0 1 20.25 6v1.5M20.25 16.5V18A2.25 2.25 0 0 1 18 20.25h-1.5M3.75 16.5V18A2.25 2.25 0 0 0 6 20.25h1.5" />
-                    </svg>
+                    <x-icon name="scan" class="h-5 w-5 text-green-400" />
                 </div>
                 <p class="text-2xl font-black tabular-nums text-green-400">{{ number_format($totalHits) }}</p>
                 <p class="text-[10px] font-medium text-muted">Total Hits</p>
@@ -920,9 +916,7 @@ new #[Layout('components.layouts.scoreboard')]
             {{-- Hit Rate --}}
             <div class="rounded-xl border border-border bg-surface/30 p-3 text-center">
                 <div class="mb-1 flex items-center justify-center">
-                    <svg class="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                    </svg>
+                    <x-icon name="chart-column" class="h-5 w-5 text-amber-400" />
                 </div>
                 <p class="text-2xl font-black tabular-nums text-amber-400">{{ $hitRate }}%</p>
                 <p class="text-[10px] font-medium text-muted">Hit Rate</p>
@@ -931,9 +925,7 @@ new #[Layout('components.layouts.scoreboard')]
             {{-- Clean Sweeps --}}
             <div class="rounded-xl border border-border bg-surface/30 p-3 text-center">
                 <div class="mb-1 flex items-center justify-center">
-                    <svg class="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
-                    </svg>
+                    <x-icon name="star" class="h-5 w-5 text-purple-400" />
                 </div>
                 <p class="text-2xl font-black tabular-nums text-purple-400">{{ $cleanSweeps }}</p>
                 <p class="text-[10px] font-medium text-muted">Clean Sweeps</p>
@@ -942,10 +934,7 @@ new #[Layout('components.layouts.scoreboard')]
             {{-- Hardest Stage --}}
             <div class="rounded-xl border border-border bg-surface/30 p-3 text-center">
                 <div class="mb-1 flex items-center justify-center">
-                    <svg class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.468 5.99 5.99 0 0 0-1.925 3.547 5.975 5.975 0 0 1-2.133-1.001A3.75 3.75 0 0 0 12 18Z" />
-                    </svg>
+                    <x-icon name="flame" class="h-5 w-5 text-red-400" />
                 </div>
                 @if($hardestStage && $hardestStage->total > 0)
                     <p class="text-sm font-black text-red-400 truncate">{{ $hardestStage->label }}</p>
@@ -960,18 +949,14 @@ new #[Layout('components.layouts.scoreboard')]
             @if($isPrs && $prsTimeStats)
                 <div class="rounded-xl border border-border bg-surface/30 p-3 text-center">
                     <div class="mb-1 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
+                        <x-icon name="clock" class="h-5 w-5 text-cyan-400" />
                     </div>
                     <p class="text-lg font-black tabular-nums text-cyan-400">{{ number_format($prsTimeStats->fastest, 1) }}s</p>
                     <p class="text-[10px] font-medium text-muted">Fastest Stage</p>
                 </div>
                 <div class="rounded-xl border border-border bg-surface/30 p-3 text-center">
                     <div class="mb-1 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
+                        <x-icon name="clock" class="h-5 w-5 text-slate-400" />
                     </div>
                     <p class="text-lg font-black tabular-nums text-slate-300">{{ number_format($prsTimeStats->average, 1) }}s</p>
                     <p class="text-[10px] font-medium text-muted">Avg Stage Time</p>

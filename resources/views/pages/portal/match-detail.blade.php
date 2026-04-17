@@ -311,7 +311,7 @@ new #[Layout('components.layouts.portal')]
     {{-- Header --}}
     <div class="flex items-center gap-4">
         <a href="{{ route('portal.matches', $organization) }}" class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium text-secondary hover:text-primary hover:bg-white/10 transition-colors">
-            <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
             Back
         </a>
     </div>
@@ -435,7 +435,7 @@ new #[Layout('components.layouts.portal')]
             @elseif($registration && $registration->isConfirmed())
                 <div class="rounded-lg border border-green-800 bg-green-900/20 p-4">
                     <div class="flex items-center gap-2">
-                        <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <x-icon name="circle-check" class="h-5 w-5 text-green-400" />
                         <span class="text-sm font-medium text-green-400">Your registration is confirmed!</span>
                     </div>
                     <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
@@ -444,7 +444,7 @@ new #[Layout('components.layouts.portal')]
             @elseif($registration->isRejected())
                 <div class="rounded-lg border border-red-800 bg-red-900/20 p-4">
                     <div class="flex items-center gap-2">
-                        <svg class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <x-icon name="circle-x" class="h-5 w-5 text-accent" />
                         <span class="text-sm font-medium text-accent">Registration rejected.</span>
                     </div>
                     @if($registration->admin_notes)
@@ -455,7 +455,7 @@ new #[Layout('components.layouts.portal')]
             @elseif($registration->isProofSubmitted())
                 <div class="rounded-lg border border-blue-800 bg-blue-900/20 p-4">
                     <div class="flex items-center gap-2">
-                        <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        <x-icon name="clock" class="h-5 w-5 text-blue-400" />
                         <span class="text-sm font-medium text-blue-400">Proof of payment is under review.</span>
                     </div>
                     <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>

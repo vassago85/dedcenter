@@ -84,9 +84,7 @@ new #[Layout('components.layouts.marketing')]
         <div class="grid gap-8 lg:grid-cols-3">
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                    <svg class="h-6 w-6" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z" />
-                    </svg>
+                    <x-icon name="server" class="h-6 w-6" style="color: var(--lp-red);" />
                 </div>
                 <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Hub Tablet</h3>
                 <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">One Android tablet starts a local server. It displays its IP address on screen. The hub collects scores from all connected clients and can also be used for scoring.</p>
@@ -94,9 +92,7 @@ new #[Layout('components.layouts.marketing')]
 
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(59, 130, 246, 0.08);">
-                    <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                    </svg>
+                    <x-icon name="smartphone" class="h-6 w-6 text-blue-500" />
                 </div>
                 <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Client Tablets</h3>
                 <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Other tablets enter the hub&rsquo;s IP address and connect as clients. They import the match from the hub, score their assigned stage or squad, and sync scores back over WiFi.</p>
@@ -104,9 +100,7 @@ new #[Layout('components.layouts.marketing')]
 
             <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                 <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style="background: rgba(16, 185, 129, 0.08);">
-                    <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
-                    </svg>
+                    <x-icon name="globe" class="h-6 w-6 text-green-500" />
                 </div>
                 <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Bridge to Cloud</h3>
                 <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">When the hub has internet (mobile hotspot, venue WiFi), it bridges all collected scores to deadcenter.co.za. Client tablets never need internet directly &mdash; the hub handles it.</p>
@@ -135,9 +129,7 @@ new #[Layout('components.layouts.marketing')]
                 <div class="space-y-6">
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                            <svg class="h-5 w-5" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                            </svg>
+                            <x-icon name="download" class="h-5 w-5" style="color: var(--lp-red);" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Room DB Local Storage</h4>
@@ -146,9 +138,7 @@ new #[Layout('components.layouts.marketing')]
                     </div>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-green-600/10">
-                            <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
-                            </svg>
+                            <x-icon name="wifi" class="h-5 w-5 text-green-500" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Hub &amp; Client Modes</h4>
@@ -157,9 +147,7 @@ new #[Layout('components.layouts.marketing')]
                     </div>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/10">
-                            <svg class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-                            </svg>
+                            <x-icon name="refresh-cw" class="h-5 w-5 text-blue-500" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Automatic Sync</h4>
@@ -168,9 +156,7 @@ new #[Layout('components.layouts.marketing')]
                     </div>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgba(142, 160, 191, 0.1);">
-                            <svg class="h-5 w-5" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                            </svg>
+                            <x-icon name="shield-check" class="h-5 w-5" style="color: var(--lp-text-muted);" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Device Lock &amp; PIN</h4>
@@ -197,9 +183,7 @@ new #[Layout('components.layouts.marketing')]
                 <div class="space-y-6">
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.08);">
-                            <svg class="h-5 w-5" style="color: var(--lp-red);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                            </svg>
+                            <x-icon name="download" class="h-5 w-5" style="color: var(--lp-red);" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">One-Tap Download</h4>
@@ -208,9 +192,7 @@ new #[Layout('components.layouts.marketing')]
                     </div>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-green-600/10">
-                            <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <x-icon name="circle-check" class="h-5 w-5 text-green-500" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Offline Ready Indicator</h4>
@@ -219,9 +201,7 @@ new #[Layout('components.layouts.marketing')]
                     </div>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/10">
-                            <svg class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-                            </svg>
+                            <x-icon name="refresh-cw" class="h-5 w-5 text-blue-500" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Auto-Sync When Connected</h4>
@@ -230,9 +210,7 @@ new #[Layout('components.layouts.marketing')]
                     </div>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl" style="background: rgba(142, 160, 191, 0.1);">
-                            <svg class="h-5 w-5" style="color: var(--lp-text-muted);" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                            </svg>
+                            <x-icon name="trash-2" class="h-5 w-5" style="color: var(--lp-text-muted);" />
                         </div>
                         <div>
                             <h4 class="font-semibold" style="color: var(--lp-text);">Clear Cache</h4>
