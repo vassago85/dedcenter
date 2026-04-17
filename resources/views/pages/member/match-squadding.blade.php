@@ -24,15 +24,21 @@ new #[Layout('components.layouts.app')]
             ->first();
 
         if (!$this->registration || !$this->registration->isConfirmed()) {
-            abort(403, 'You must have a confirmed registration to pick a squad.');
+            Flux::toast('You must have a confirmed registration to pick a squad.', variant: 'warning');
+            $this->redirect(route('events.show', $match));
+            return;
         }
 
         if ($match->status !== MatchStatus::SquaddingOpen) {
-            abort(403, 'Squadding is not open for this match.');
+            Flux::toast('Squadding is not open for this match yet.', variant: 'warning');
+            $this->redirect(route('events.show', $match));
+            return;
         }
 
         if (!$match->isSelfSquaddingEnabled()) {
-            abort(403, 'Self-squadding is not enabled for this match. The match director will assign squads.');
+            Flux::toast('Self-squadding is not enabled for this match. The match director will assign squads.', variant: 'warning');
+            $this->redirect(route('events.show', $match));
+            return;
         }
 
         $this->myShooter = Shooter::where('user_id', auth()->id())
