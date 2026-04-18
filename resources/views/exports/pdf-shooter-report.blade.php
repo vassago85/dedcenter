@@ -440,7 +440,13 @@
             letter-spacing: 0.03em;
         }
 
-        /* Badges — compact grid (3 across, very small tiles) */
+        /* Badges — compact grid (3 across, very small tiles).
+         *
+         * Visual language mirrors the platform shooter-badges / badge-flair
+         * components: the inline SVG glyph sits inside a tinted crest whose
+         * colour comes from (family x tier) or the medal / distance override.
+         * Gradients from the web UI are flattened to solid tinted backgrounds
+         * so print output stays faithful instead of washing out under Gotenberg. */
         .badge-grid {
             width: 100%;
             border-collapse: separate;
@@ -448,34 +454,80 @@
         }
         .badge-cell {
             border: 1px solid #e8edf4;
-            border-radius: 4px;
-            padding: 6px 8px;
+            border-radius: 5px;
+            padding: 6px 7px;
             vertical-align: top;
             width: 33.33%;
             background: #ffffff;
         }
-        .badge-cell.rf  { border-color: #f0c674; background: #fef7e0; border-top: 2px solid #b45309; }
-        .badge-cell.prs { border-color: #bae6fd; background: #f0f9ff; border-top: 2px solid #0284c7; }
+        .badge-cell .b-row { width: 100%; border-collapse: collapse; }
+        .badge-cell .b-row td { vertical-align: middle; padding: 0; }
 
-        .badge-cell .b-row {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .badge-cell .b-row td { vertical-align: top; padding: 0; }
-        .badge-cell .b-icon {
-            width: 20px;
-            height: 20px;
-            background: #0b1220;
-            color: #f8fafc;
+        .badge-cell .b-crest {
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            border: 1px solid transparent;
             text-align: center;
-            line-height: 20px;
-            font-size: 9pt;
-            font-weight: 800;
+            line-height: 0;
             display: inline-block;
-            border-radius: 3px;
+            vertical-align: middle;
         }
-        .badge-cell.rf  .b-icon { background: #b45309; color: #fef7e0; }
-        .badge-cell.prs .b-icon { background: #0284c7; color: #f0f9ff; }
+        .badge-cell .b-crest svg {
+            width: 13px;
+            height: 13px;
+            vertical-align: middle;
+            stroke-width: 2;
+            fill: none;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            margin-top: 4px;
+        }
+        .badge-cell .b-crest .b-dist {
+            display: inline-block;
+            width: 20px;
+            line-height: 20px;
+            font-weight: 900;
+            font-size: 6pt;
+            letter-spacing: -0.02em;
+            vertical-align: middle;
+        }
+        .badge-cell .b-crest .b-dist .b-dist-unit {
+            font-size: 5pt;
+            font-weight: 700;
+        }
+
+        /* Family + tier crests (flat print-safe equivalents of the platform
+         * gradient tokens). PRS = sky, Royal Flush = amber, tiers drop
+         * saturation as prestige drops.  */
+        .badge-cell.fam-prs.tier-featured  .b-crest { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
+        .badge-cell.fam-prs.tier-elite     .b-crest { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
+        .badge-cell.fam-prs.tier-milestone .b-crest { background: #f0f9ff; border-color: #bae6fd; color: #0284c7; }
+        .badge-cell.fam-prs.tier-earned    .b-crest { background: #f8fafc; border-color: #e2e8f0; color: #0369a1; }
+
+        .badge-cell.fam-rf.tier-featured   .b-crest { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+        .badge-cell.fam-rf.tier-elite      .b-crest { background: #fef3c7; border-color: #fde68a; color: #b45309; }
+        .badge-cell.fam-rf.tier-milestone  .b-crest { background: #fefce8; border-color: #fde68a; color: #a16207; }
+        .badge-cell.fam-rf.tier-earned     .b-crest { background: #fffbeb; border-color: #fef3c7; color: #b45309; }
+
+        /* Medal overrides (podium-gold / silver / bronze). Same three tiers
+         * the platform uses: amber, slate, orange. */
+        .badge-cell.ico-medal-1 .b-crest { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
+        .badge-cell.ico-medal-2 .b-crest { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+        .badge-cell.ico-medal-3 .b-crest { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+
+        /* Distance overrides (hot → cool, matching dist-* tokens). */
+        .badge-cell.ico-dist-700 .b-crest { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+        .badge-cell.ico-dist-600 .b-crest { background: #ffedd5; border-color: #fdba74; color: #c2410c; }
+        .badge-cell.ico-dist-500 .b-crest { background: #fef9c3; border-color: #fde68a; color: #a16207; }
+        .badge-cell.ico-dist-400 .b-crest { background: #dcfce7; border-color: #86efac; color: #15803d; }
+
+        /* Optional thin accent bar along the top so the competition family
+         * reads at a glance even in monochrome print. */
+        .badge-cell.fam-prs { border-top: 2px solid #0ea5e9; }
+        .badge-cell.fam-rf  { border-top: 2px solid #d97706; }
+
         .badge-cell .b-body { padding-left: 6px; }
         .badge-cell .b-label {
             font-size: 7.5pt;
@@ -711,18 +763,27 @@
                                 @foreach($row as $badge)
                                     @php
                                         $a = $badge->achievement;
-                                        $family = $a->competition_type ?? 'prs';
+                                        $family = ($a->competition_type ?? 'prs') === 'royal_flush' ? 'rf' : 'prs';
                                         $cfg = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG[$a->slug] ?? [];
                                         $tier = $cfg['tier'] ?? 'earned';
-                                        $letter = strtoupper(substr($a->label ?? $a->slug, 0, 1));
+                                        $icon = $cfg['icon'] ?? 'target';
+                                        $tierLabel = $family === 'rf' ? 'RF' : 'PRS';
                                     @endphp
-                                    <td class="badge-cell {{ $family }}">
+                                    <td class="badge-cell fam-{{ $family }} tier-{{ $tier }} ico-{{ $icon }}">
                                         <table class="b-row">
                                             <tr>
-                                                <td style="width: 22px;"><div class="b-icon">{{ $letter }}</div></td>
+                                                <td style="width: 24px;">
+                                                    <span class="b-crest">
+                                                        @if(str_starts_with($icon, 'dist-'))
+                                                            <span class="b-dist">{{ substr($icon, 5) }}<span class="b-dist-unit">m</span></span>
+                                                        @else
+                                                            @include('exports.partials.badge-icon-inline', ['name' => $icon])
+                                                        @endif
+                                                    </span>
+                                                </td>
                                                 <td class="b-body">
                                                     <div class="b-label">{{ $a->label }}</div>
-                                                    <div class="b-tier">{{ $family === 'royal_flush' ? 'RF' : 'PRS' }} · {{ strtoupper($tier) }}</div>
+                                                    <div class="b-tier">{{ $tierLabel }} · {{ strtoupper($tier) }}</div>
                                                 </td>
                                             </tr>
                                         </table>
