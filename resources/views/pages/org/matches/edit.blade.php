@@ -1328,9 +1328,7 @@ new #[Layout('components.layouts.app')]
         // slug+shooter, but there's no value in running them again.
         if ($targetStatus === MatchStatus::Completed && $oldStatus !== MatchStatus::Completed) {
             try {
-                if ($this->match->isPrs()) {
-                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
-                }
+                \App\Services\AchievementService::evaluateMatchCompletion($this->match);
                 if ($this->match->royal_flush_enabled) {
                     \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
                 }
@@ -1385,9 +1383,7 @@ new #[Layout('components.layouts.app')]
             $this->match->update(['scores_published' => $this->scores_published]);
             if ($this->scores_published) {
                 try {
-                    if ($this->match->isPrs()) {
-                        \App\Services\AchievementService::evaluateMatchCompletion($this->match);
-                    }
+                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
                     if ($this->match->royal_flush_enabled) {
                         \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
                     }

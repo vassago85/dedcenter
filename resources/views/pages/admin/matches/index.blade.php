@@ -142,6 +142,9 @@ new #[Layout('components.layouts.app')]
                                         </div>
                                     @else
                                         <div class="flex items-center justify-end gap-2">
+                                            <flux:button href="{{ route('admin.matches.hub', $match) }}" size="sm" variant="ghost">
+                                                Open
+                                            </flux:button>
                                             <flux:button href="{{ route('admin.matches.edit', $match) }}" size="sm" variant="ghost">
                                                 Edit
                                             </flux:button>

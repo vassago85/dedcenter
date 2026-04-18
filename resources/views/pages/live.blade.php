@@ -439,7 +439,8 @@ new #[Layout('components.layouts.scoreboard')]
                     $shooter->display_score = (float) $shooter->scores()
                         ->where('is_hit', true)
                         ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-                        ->sum('gongs.multiplier');
+                        ->leftJoin('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+                        ->sum(DB::raw('COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier'));
                     $shooter->display_time = 0;
                 }
                 return $shooter;

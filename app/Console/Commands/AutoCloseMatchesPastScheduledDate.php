@@ -38,9 +38,7 @@ class AutoCloseMatchesPastScheduledDate extends Command
             }
 
             try {
-                if ($match->isPrs()) {
-                    AchievementService::evaluateMatchCompletion($match);
-                }
+                AchievementService::evaluateMatchCompletion($match);
                 if ($match->royal_flush_enabled) {
                     AchievementService::evaluateRoyalFlushCompletion($match);
                 }

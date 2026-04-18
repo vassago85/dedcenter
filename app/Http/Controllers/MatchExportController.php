@@ -487,6 +487,226 @@ class MatchExportController extends Controller
         return $renderer->stream('exports.pdf-detailed', $data, "{$slug}-detailed.pdf");
     }
 
+    /**
+     * Consolidated post-match report:
+     *  - match meta (name, date, location, org)
+     *  - top standings (weighted formula, via MatchStandingsService)
+     *  - per-target-set breakdown
+     *  - Royal Flush leaderboard (if RF-enabled)
+     *  - Side bet winner + cascade (if side-bet enabled)
+     */
+    public function pdfPostMatchReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
+        $this->authorizeExport($match);
+        $slug = Str::slug($match->name);
+        $data = $this->buildPostMatchReportData($match);
+
+        return $renderer->stream('exports.pdf-post-match-report', $data, "{$slug}-post-match-report.pdf");
+    }
+
+    private function buildPostMatchReportData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $standingsService = new \App\Services\MatchStandingsService();
+
+        $standings = $standingsService->standardStandings($match);
+
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        $allGongIds = $targetSets->flatMap(fn ($ts) => $ts->gongs->pluck('id'));
+
+        $shooterIds = $standings->pluck('shooter_id');
+        $scores = Score::query()
+            ->whereIn('shooter_id', $shooterIds)
+            ->whereIn('gong_id', $allGongIds)
+            ->get()
+            ->groupBy('shooter_id');
+
+        // per-target-set hit totals per shooter
+        $perShooterBreakdown = [];
+        foreach ($standings as $row) {
+            $shooterScores = $scores->get($row->shooter_id, collect())->keyBy('gong_id');
+            $tsBreakdown = [];
+            foreach ($targetSets as $ts) {
+                $hits = 0;
+                $misses = 0;
+                $subtotal = 0;
+                $mult = (float) ($ts->distance_multiplier ?? 1);
+                foreach ($ts->gongs as $g) {
+                    $score = $shooterScores->get($g->id);
+                    if (! $score) {
+                        continue;
+                    }
+                    if ($score->is_hit) {
+                        $hits++;
+                        $subtotal += $mult * $g->multiplier;
+                    } else {
+                        $misses++;
+                    }
+                }
+                $tsBreakdown[] = [
+                    'label' => $ts->label,
+                    'distance_meters' => $ts->distance_meters,
+                    'hits' => $hits,
+                    'misses' => $misses,
+                    'subtotal' => round($subtotal, 2),
+                ];
+            }
+            $perShooterBreakdown[$row->shooter_id] = $tsBreakdown;
+        }
+
+        // Royal Flush leaderboard (if enabled)
+        $rfLeaderboard = collect();
+        if ($match->royal_flush_enabled) {
+            $rfTs = $match->targetSets()->orderByDesc('distance_meters')->with('gongs')->get();
+            $gongToTs = [];
+            foreach ($rfTs as $ts) {
+                foreach ($ts->gongs as $g) {
+                    $gongToTs[$g->id] = $ts->id;
+                }
+            }
+
+            $hitsByShooterTs = [];
+            foreach ($scores as $shooterId => $shooterScores) {
+                foreach ($shooterScores as $s) {
+                    if (! $s->is_hit) {
+                        continue;
+                    }
+                    $tsId = $gongToTs[$s->gong_id] ?? null;
+                    if ($tsId === null) {
+                        continue;
+                    }
+                    $hitsByShooterTs[$shooterId][$tsId] = ($hitsByShooterTs[$shooterId][$tsId] ?? 0) + 1;
+                }
+            }
+
+            $rfProfiles = [];
+            foreach ($standings as $row) {
+                $flushDistances = [];
+                foreach ($rfTs as $ts) {
+                    $gongCount = $ts->gongs->count();
+                    $hitsAtTs = $hitsByShooterTs[$row->shooter_id][$ts->id] ?? 0;
+                    if ($gongCount > 0 && $hitsAtTs >= $gongCount) {
+                        $flushDistances[] = (int) $ts->distance_meters;
+                    }
+                }
+                if (empty($flushDistances)) {
+                    continue;
+                }
+                $rfProfiles[] = (object) [
+                    'name' => $row->name,
+                    'squad' => $row->squad,
+                    'flush_count' => count($flushDistances),
+                    'flush_distances' => $flushDistances,
+                    'total_score' => $row->total_score,
+                ];
+            }
+
+            usort($rfProfiles, function ($a, $b) {
+                if ($a->flush_count !== $b->flush_count) {
+                    return $b->flush_count <=> $a->flush_count;
+                }
+                $aMax = max($a->flush_distances);
+                $bMax = max($b->flush_distances);
+                if ($aMax !== $bMax) {
+                    return $bMax <=> $aMax;
+                }
+                return $b->total_score <=> $a->total_score;
+            });
+
+            $rfLeaderboard = collect($rfProfiles);
+        }
+
+        // Side bet cascade (if enabled)
+        $sideBetCascade = null;
+        if ($match->side_bet_enabled) {
+            $sideBetCascade = $this->buildSideBetCascadeForPdf($match);
+        }
+
+        return [
+            'match' => $match,
+            'standings' => $standings,
+            'targetSets' => $targetSets,
+            'perShooterBreakdown' => $perShooterBreakdown,
+            'rfLeaderboard' => $rfLeaderboard,
+            'sideBetCascade' => $sideBetCascade,
+            'generatedAt' => now(),
+        ];
+    }
+
+    private function buildSideBetCascadeForPdf(ShootingMatch $match): array
+    {
+        $targetSets = $match->targetSets()->with('gongs')->get();
+
+        // Group gongs by their "rank" (number/position within their target set).
+        // Ranking rule: rank by biggest-gong hits first, cascade down through all gong sizes.
+        $gongsByNumber = [];
+        foreach ($targetSets as $ts) {
+            foreach ($ts->gongs as $g) {
+                $gongsByNumber[(int) $g->number][] = $g->id;
+            }
+        }
+        ksort($gongsByNumber);
+
+        $buyInShooterIds = $match->sideBetShooters()->pluck('shooters.id')->toArray();
+        if (empty($buyInShooterIds)) {
+            return [
+                'participants' => collect(),
+                'cascade_columns' => [],
+            ];
+        }
+
+        $shooters = Shooter::whereIn('id', $buyInShooterIds)
+            ->with('squad')
+            ->get();
+
+        // Count hits per shooter per gong-number bucket
+        $hitsByShooter = [];
+        foreach ($shooters as $shooter) {
+            foreach ($gongsByNumber as $number => $gongIds) {
+                $hits = Score::where('shooter_id', $shooter->id)
+                    ->whereIn('gong_id', $gongIds)
+                    ->where('is_hit', true)
+                    ->count();
+                $hitsByShooter[$shooter->id][$number] = $hits;
+            }
+        }
+
+        // Rank: highest gong-number (smallest gong) first — but user's spec says:
+        // "rank by biggest gong hits first, cascade down through all sizes".
+        // "Biggest gong" = gong number 1 (or lowest number) traditionally.
+        // We respect gong number ordering ascending (1 = biggest) for cascade.
+        $cascadeColumns = array_keys($gongsByNumber);
+        // Cascade from biggest (lowest number) to smallest (highest number)
+        sort($cascadeColumns);
+
+        $participants = $shooters->map(function ($s) use ($hitsByShooter, $cascadeColumns) {
+            return (object) [
+                'name' => $s->name,
+                'squad' => $s->squad?->name ?? '',
+                'cascade' => array_map(fn ($n) => $hitsByShooter[$s->id][$n] ?? 0, $cascadeColumns),
+            ];
+        });
+
+        $participants = $participants->sort(function ($a, $b) {
+            foreach ($a->cascade as $i => $aHits) {
+                $bHits = $b->cascade[$i] ?? 0;
+                if ($aHits !== $bHits) {
+                    return $bHits <=> $aHits;
+                }
+            }
+            return 0;
+        })->values();
+
+        return [
+            'participants' => $participants,
+            'cascade_columns' => $cascadeColumns,
+        ];
+    }
+
     private function buildPdfStandingsData(ShootingMatch $match): array
     {
         $match->load('organization');

@@ -73,18 +73,17 @@ class AchievementService
     /**
      * Evaluate match-scoped badges after the match is finalized.
      * Call this when scores are published or match is marked completed.
+     *
+     * Runs for ALL match types:
+     *   - Podium badges (gold/silver/bronze) — standard, RF, and PRS
+     *   - PRS-specific badges (iron-shooter, complete-shooter, deadcenter) — PRS only
      */
     public static function evaluateMatchCompletion(ShootingMatch $match): array
     {
-        if (! $match->isPrs()) {
-            return [];
-        }
-
         $awarded = [];
         $stages = $match->targetSets()->get();
-        $totalStages = $stages->count();
 
-        if ($totalStages === 0) {
+        if ($stages->isEmpty()) {
             return [];
         }
 
@@ -93,59 +92,70 @@ class AchievementService
             ->whereNotNull('shooters.user_id')
             ->get();
 
-        $allResults = PrsStageResult::where('match_id', $match->id)
-            ->get()
-            ->groupBy('shooter_id');
-
-        $maxHitsByStage = [];
-        foreach ($stages as $s) {
-            $maxHitsByStage[$s->id] = $s->total_shots ?? $s->gongs()->count();
+        if ($shooters->isEmpty()) {
+            return [];
         }
 
-        // Build rankings (same logic as prsScoreboardNew)
-        $rankings = self::buildPrsRankings($match, $allResults, $stages);
+        // PRS-specific badges (iron-shooter, complete-shooter, deadcenter)
+        if ($match->isPrs()) {
+            $totalStages = $stages->count();
 
-        foreach ($shooters as $shooter) {
-            $results = $allResults->get($shooter->id, collect());
-            if ($results->isEmpty()) {
-                continue;
+            $allResults = PrsStageResult::where('match_id', $match->id)
+                ->get()
+                ->groupBy('shooter_id');
+
+            $maxHitsByStage = [];
+            foreach ($stages as $s) {
+                $maxHitsByStage[$s->id] = $s->total_shots ?? $s->gongs()->count();
             }
 
-            $completedCount = $results->whereNotNull('completed_at')->count();
-            if ($completedCount < $totalStages) {
-                continue;
-            }
+            foreach ($shooters as $shooter) {
+                $results = $allResults->get($shooter->id, collect());
+                if ($results->isEmpty()) {
+                    continue;
+                }
 
-            // iron-shooter: every stage >= 80% hit rate
-            $allAbove80 = true;
-            foreach ($results as $r) {
-                $max = $maxHitsByStage[$r->stage_id] ?? 0;
-                if ($max === 0 || ($r->hits / $max) < 0.80) {
-                    $allAbove80 = false;
-                    break;
+                $completedCount = $results->whereNotNull('completed_at')->count();
+                if ($completedCount < $totalStages) {
+                    continue;
+                }
+
+                // iron-shooter: every stage >= 80% hit rate
+                $allAbove80 = true;
+                foreach ($results as $r) {
+                    $max = $maxHitsByStage[$r->stage_id] ?? 0;
+                    if ($max === 0 || ($r->hits / $max) < 0.80) {
+                        $allAbove80 = false;
+                        break;
+                    }
+                }
+                if ($allAbove80) {
+                    $badge = self::awardBadge('iron-shooter', $shooter, $match);
+                    if ($badge) {
+                        $awarded[] = $badge;
+                    }
+                }
+
+                // complete-shooter: zero not_taken across all stages, >= 75% overall
+                $totalNotTaken = $results->sum('not_taken');
+                $totalHits = $results->sum('hits');
+                $totalMaxHits = array_sum($maxHitsByStage);
+                if ($totalNotTaken === 0 && $totalMaxHits > 0 && ($totalHits / $totalMaxHits) >= 0.75) {
+                    $badge = self::awardBadge('complete-shooter', $shooter, $match);
+                    if ($badge) {
+                        $awarded[] = $badge;
+                    }
                 }
             }
-            if ($allAbove80) {
-                $badge = self::awardBadge('iron-shooter', $shooter, $match);
-                if ($badge) {
-                    $awarded[] = $badge;
-                }
-            }
 
-            // complete-shooter: zero not_taken across all stages, >= 75% overall
-            $totalNotTaken = $results->sum('not_taken');
-            $totalHits = $results->sum('hits');
-            $totalMaxHits = array_sum($maxHitsByStage);
-            if ($totalNotTaken === 0 && $totalMaxHits > 0 && ($totalHits / $totalMaxHits) >= 0.75) {
-                $badge = self::awardBadge('complete-shooter', $shooter, $match);
-                if ($badge) {
-                    $awarded[] = $badge;
-                }
-            }
+            // deadcenter: fastest clean run on compulsory tiebreaker
+            $awarded = array_merge($awarded, self::evaluateDeadCenter($match, $stages, $allResults));
         }
 
-        // podium badges
-        foreach ($rankings as $rank => $shooterId) {
+        // Podium badges — runs for all match types, uses MatchStandingsService for correct weighted ranking
+        $podiumIds = (new \App\Services\MatchStandingsService())->podiumShooterIds($match, 3);
+
+        foreach ($podiumIds as $rank => $shooterId) {
             $shooter = $shooters->firstWhere('id', $shooterId);
             if (! $shooter || ! $shooter->user_id) {
                 continue;
@@ -176,9 +186,6 @@ class AchievementService
                 }
             }
         }
-
-        // deadcenter: fastest clean run on compulsory tiebreaker
-        $awarded = array_merge($awarded, self::evaluateDeadCenter($match, $stages, $allResults));
 
         return $awarded;
     }
@@ -308,17 +315,23 @@ class AchievementService
             }
         }
 
-        // Royal Flush podium badges (top 3 by total score)
-        $ranked = $shooters->filter(fn ($s) => $s->user_id)->sortByDesc('display_score')->values();
-        foreach ($ranked->take(3) as $rank => $shooter) {
+        // Royal Flush podium badges (top 3 by weighted total score, via MatchStandingsService)
+        $podiumIds = (new \App\Services\MatchStandingsService())->podiumShooterIds($match, 3);
+        foreach ($podiumIds as $rank => $shooterId) {
+            $shooter = $shooters->firstWhere('id', $shooterId);
+            if (! $shooter || ! $shooter->user_id) {
+                continue;
+            }
+
             $slug = match ($rank) {
-                0 => 'rf-podium-gold',
-                1 => 'rf-podium-silver',
-                2 => 'rf-podium-bronze',
+                1 => 'rf-podium-gold',
+                2 => 'rf-podium-silver',
+                3 => 'rf-podium-bronze',
                 default => null,
             };
+
             if ($slug && ! self::hasMatchBadge($slug, $shooter->user_id, $match->id)) {
-                $badge = self::awardBadge($slug, $shooter, $match, null, ['rank' => $rank + 1]);
+                $badge = self::awardBadge($slug, $shooter, $match, null, ['rank' => $rank]);
                 if ($badge) {
                     $awarded[] = $badge;
                 }
@@ -757,7 +770,7 @@ class AchievementService
         return $max;
     }
 
-    private static function buildPrsRankings(ShootingMatch $match, $allResults, $stages): array
+    public static function buildPrsRankings(ShootingMatch $match, $allResults, $stages): array
     {
         $tiebreakerStage = $stages->firstWhere('is_tiebreaker', true);
 

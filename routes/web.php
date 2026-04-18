@@ -96,6 +96,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/settings/notifications', 'member.notification-settings')->name('settings.notifications');
     Volt::route('/events/{match}/register', 'member.register-for-match')->name('events.register');
     Route::get('/matches/{match}/report/download', [MatchReportController::class, 'download'])->name('matches.report.download');
+
+    // Shooter account claims
+    Volt::route('/claim', 'claim.index')->name('claim.index');
 });
 
 // ══════════════════════════════════════════════════
@@ -106,12 +109,14 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Volt::route('/dashboard', 'org.dashboard')->name('dashboard');
     Volt::route('/matches', 'org.matches.index')->name('matches.index');
     Volt::route('/matches/create', 'org.matches.edit')->name('matches.create');
-    Volt::route('/matches/{match}', 'org.matches.edit')->name('matches.edit');
+    Volt::route('/matches/{match}', 'org.matches.hub')->name('matches.hub');
+    Volt::route('/matches/{match}/edit', 'org.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'org.matches.squadding')->name('matches.squadding');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
+    Route::get('/matches/{match}/export/pdf-post-match', [MatchExportController::class, 'pdfPostMatchReport'])->name('matches.export.pdf-post-match');
     Volt::route('/matches/{match}/side-bet', 'org.matches.side-bet')->name('matches.side-bet');
     Volt::route('/matches/{match}/side-bet-report', 'org.matches.side-bet-report')->name('matches.side-bet-report');
 
@@ -144,12 +149,14 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/members', 'admin.members')->name('members');
     Volt::route('/matches', 'admin.matches.index')->name('matches.index');
     Volt::route('/matches/create', 'admin.matches.edit')->name('matches.create');
-    Volt::route('/matches/{match}', 'admin.matches.edit')->name('matches.edit');
+    Volt::route('/matches/{match}', 'admin.matches.hub')->name('matches.hub');
+    Volt::route('/matches/{match}/edit', 'admin.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'admin.matches.squadding')->name('matches.squadding');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
+    Route::get('/matches/{match}/export/pdf-post-match', [MatchExportController::class, 'pdfPostMatchReport'])->name('matches.export.pdf-post-match');
     Volt::route('/matches/{match}/side-bet-report', 'admin.matches.side-bet-report')->name('matches.side-bet-report');
 
     // ── Match Reports ──
@@ -175,6 +182,7 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/seasons', 'admin.seasons')->name('seasons');
     Volt::route('/homepage', 'admin.homepage')->name('homepage');
     Volt::route('/settings', 'admin.settings')->name('settings');
+    Volt::route('/shooter-claims', 'admin.shooter-claims')->name('shooter-claims');
 });
 
 // ══════════════════════════════════════════════════

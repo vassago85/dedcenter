@@ -169,6 +169,7 @@ new #[Layout('components.layouts.app')]
                                             </div>
                                         @else
                                             <div class="flex items-center justify-end gap-2">
+                                                <flux:button href="{{ route('org.matches.hub', [$organization, $match]) }}" size="sm" variant="ghost">Open</flux:button>
                                                 <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" size="sm" variant="ghost">Edit</flux:button>
                                                 <flux:button size="sm" variant="ghost" class="!text-amber-500 hover:!text-amber-400"
                                                              wire:click="archiveMatch({{ $match->id }})"

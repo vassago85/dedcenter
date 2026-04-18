@@ -149,11 +149,12 @@ new #[Layout('components.layouts.app')]
                     $shooter->not_taken = max(0, $totalTargets - $shooter->hits_count - $shooter->misses_count);
                 } else {
                     $scoreQuery = $shooter->scores()->where('is_hit', true)
-                        ->join('gongs', 'scores.gong_id', '=', 'gongs.id');
+                        ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
+                        ->leftJoin('target_sets', 'gongs.target_set_id', '=', 'target_sets.id');
                     if ($dayFiltered) {
                         $scoreQuery->whereIn('scores.gong_id', $allGongIds);
                     }
-                    $shooter->display_score = (float) $scoreQuery->sum('gongs.multiplier');
+                    $shooter->display_score = (float) $scoreQuery->sum(DB::raw('COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier'));
                     $shooter->display_time = 0;
                 }
                 return $shooter;

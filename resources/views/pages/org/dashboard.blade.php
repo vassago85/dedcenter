@@ -4,6 +4,8 @@ use App\Models\Organization;
 use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
 use App\Enums\MatchStatus;
+use App\Services\RoyalFlushMatchBuilder;
+use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -12,6 +14,41 @@ new #[Layout('components.layouts.app')]
     #[Title('Match Director Dashboard')]
     class extends Component {
     public Organization $organization;
+
+    /**
+     * One-click: create today's Royal Flush match with full preset applied.
+     * Available only to Royal Flush organizations.
+     */
+    public function createTodayRoyalFlushMatch()
+    {
+        if (! $this->organization->isRoyalFlushOrg()) {
+            Flux::toast('This organization is not a Royal Flush organization.', variant: 'danger');
+            return;
+        }
+
+        if (! auth()->user()?->isOrgAdmin($this->organization)) {
+            Flux::toast('Not authorized.', variant: 'danger');
+            return;
+        }
+
+        $existing = $this->organization->matches()
+            ->whereDate('date', today())
+            ->where('royal_flush_enabled', true)
+            ->first();
+
+        if ($existing) {
+            Flux::toast('A Royal Flush match already exists for today.', variant: 'warning');
+            return redirect()->route('org.matches.hub', [$this->organization, $existing]);
+        }
+
+        $match = (new RoyalFlushMatchBuilder())->createForDate(
+            $this->organization,
+            auth()->user()
+        );
+
+        Flux::toast('Today\'s Royal Flush match created.', variant: 'success');
+        return redirect()->route('org.matches.hub', [$this->organization, $match]);
+    }
 
     public function with(): array
     {
@@ -153,6 +190,18 @@ new #[Layout('components.layouts.app')]
             <span class="text-sm font-semibold text-primary">Create Match</span>
             <p class="mt-0.5 text-xs text-muted">Set up a new event</p>
         </a>
+
+        @if($org->isRoyalFlushOrg())
+            <button type="button" wire:click="createTodayRoyalFlushMatch"
+                    wire:confirm="Create today's Royal Flush match with the 400/500/600/700m preset? This will open squadding immediately."
+                    class="group rounded-xl border border-amber-600/40 bg-amber-900/10 p-4 text-left transition-all hover:border-amber-500 hover:bg-amber-900/20">
+                <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 group-hover:text-amber-300 transition-colors">
+                    <x-icon name="bolt" class="h-5 w-5" />
+                </div>
+                <span class="text-sm font-semibold text-primary">Create Today's Royal Flush</span>
+                <p class="mt-0.5 text-xs text-muted">One-click, preset applied</p>
+            </button>
+        @endif
 
         @if($latestActiveMatch)
             <a href="{{ route('org.matches.edit', [$org, $latestActiveMatch]) }}" class="group rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/50 hover:bg-surface-2/50">

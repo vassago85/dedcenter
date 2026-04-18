@@ -120,6 +120,17 @@ new #[Layout('components.layouts.app')]
         </button>
     </div>
 
+    <div class="rounded-xl border border-amber-700/40 bg-amber-900/10 px-5 py-4 text-sm text-amber-200">
+        <div class="mb-1 font-semibold text-amber-300">Side Bet tiebreaker rules</div>
+        <ol class="ml-5 list-decimal space-y-1 text-xs leading-relaxed">
+            <li>Rank by count of <strong>smallest-gong</strong> (highest-value) hits.</li>
+            <li>If tied, compare <strong>next-smallest</strong> gong hits.</li>
+            <li>Cascade down through every gong size, highest-value to lowest.</li>
+            <li>Within a gong size, shooters who hit at the <strong>furthest distance</strong> rank higher.</li>
+            <li>If still tied, total match score (weighted) breaks the tie.</li>
+        </ol>
+    </div>
+
     @if(!$enabled)
         <div class="rounded-xl border border-border bg-surface p-8 text-center">
             <p class="text-lg text-muted">Side Bet is not enabled for this match.</p>

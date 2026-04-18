@@ -1097,9 +1097,7 @@ new #[Layout('components.layouts.app')]
         // achievements are created either way — but skip the work).
         if ($targetStatus === MatchStatus::Completed && $oldStatus !== MatchStatus::Completed) {
             try {
-                if ($this->match->isPrs()) {
-                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
-                }
+                \App\Services\AchievementService::evaluateMatchCompletion($this->match);
                 if ($this->match->royal_flush_enabled) {
                     \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
                 }

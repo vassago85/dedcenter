@@ -163,9 +163,7 @@ class ScoreManagementController extends Controller
 
         if ($validated['published']) {
             try {
-                if ($match->isPrs()) {
-                    \App\Services\AchievementService::evaluateMatchCompletion($match);
-                }
+                \App\Services\AchievementService::evaluateMatchCompletion($match);
                 if ($match->royal_flush_enabled) {
                     \App\Services\AchievementService::evaluateRoyalFlushCompletion($match);
                 }
@@ -327,9 +325,7 @@ class ScoreManagementController extends Controller
         }
 
         try {
-            if ($match->isPrs()) {
-                \App\Services\AchievementService::evaluateMatchCompletion($match);
-            }
+            \App\Services\AchievementService::evaluateMatchCompletion($match);
             if ($match->royal_flush_enabled) {
                 \App\Services\AchievementService::evaluateRoyalFlushCompletion($match);
             }
