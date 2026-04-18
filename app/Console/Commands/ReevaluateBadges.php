@@ -132,11 +132,9 @@ class ReevaluateBadges extends Command
                 ]);
             }
 
-            // Count newly-present correct badges
-            foreach ([self::PODIUM_SLUGS => $correctStandard, self::RF_PODIUM_SLUGS => $correctRf] as $slugs => $correct) {
-            }
-            // Simpler counting: tally correct badges that now exist
-            $awarded = $this->countCorrectBadges($match, $correctStandard) + $this->countCorrectBadges($match, $correctRf, true);
+            // Tally correct badges that now exist (standard + RF podium).
+            $awarded = $this->countCorrectBadges($match, $correctStandard)
+                + $this->countCorrectBadges($match, $correctRf, true);
         } else {
             // In dry-run, project "would be awarded" = the correct map size (not yet held).
             $awarded = $this->countMissingCorrectBadges($match, self::PODIUM_SLUGS, $correctStandard)
