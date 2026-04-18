@@ -419,6 +419,27 @@ new #[Layout('components.layouts.app')]
         Flux::toast("All {$count} shooters confirmed as present.", variant: 'success');
     }
 
+    public function toggleSideBet(int $shooterId): void
+    {
+        if (! $this->match->side_bet_enabled) {
+            Flux::toast('Enable Side Bet on the match first.', variant: 'danger');
+            return;
+        }
+        if ($this->match->status === MatchStatus::Completed) {
+            Flux::toast('Buy-in is locked once the match is completed.', variant: 'danger');
+            return;
+        }
+        if (! $this->match->shooters()->whereKey($shooterId)->exists()) {
+            return;
+        }
+
+        if ($this->match->sideBetShooters()->where('shooters.id', $shooterId)->exists()) {
+            $this->match->sideBetShooters()->detach($shooterId);
+        } else {
+            $this->match->sideBetShooters()->syncWithoutDetaching([$shooterId]);
+        }
+    }
+
     public function markAllNoShow(): void
     {
         $shooters = $this->match->shooters()->where('status', 'active')->get();
@@ -600,6 +621,10 @@ new #[Layout('components.layouts.app')]
             ->toArray();
         }
 
+        $sideBetIds = $this->match->side_bet_enabled
+            ? $this->match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->flip()->toArray()
+            : [];
+
         return [
             'squads' => $realSquads,
             'allSquads' => $squads,
@@ -615,6 +640,9 @@ new #[Layout('components.layouts.app')]
             'withdrawnCount' => $withdrawnCount,
             'dqCount' => $dqCount,
             'userResults' => $userResults,
+            'sideBetIds' => $sideBetIds,
+            'sideBetEnabled' => (bool) $this->match->side_bet_enabled,
+            'sideBetLocked' => $this->match->status === MatchStatus::Completed,
         ];
     }
 }; ?>
@@ -636,6 +664,12 @@ new #[Layout('components.layouts.app')]
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            @if($sideBetEnabled)
+                <flux:button href="{{ route('org.matches.side-bet', [$organization, $match]) }}" variant="ghost" class="!text-amber-400 hover:!bg-amber-500/10 min-h-[44px]">
+                    <x-icon name="check" class="mr-1 h-4 w-4" />
+                    Side Bet Buy-In
+                </flux:button>
+            @endif
             @if($match->status->canTransitionTo(MatchStatus::SquaddingOpen))
                 <flux:button wire:click="openSquadding" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]" wire:confirm="Open squadding to shooters?">Open Squadding</flux:button>
             @elseif($match->status === MatchStatus::SquaddingOpen)
@@ -799,6 +833,9 @@ new #[Layout('components.layouts.app')]
                                             <th class="px-2 py-1.5 font-medium">Shooter</th>
                                             <th class="px-2 py-1.5 font-medium w-20">Status</th>
                                             <th class="px-2 py-1.5 font-medium w-32">Shares rifle</th>
+                                            @if($sideBetEnabled)
+                                                <th class="px-2 py-1.5 font-medium w-24 text-center">Side Bet</th>
+                                            @endif
                                             <th class="px-2 py-1.5 font-medium w-40 text-right">Actions</th>
                                         </tr></thead>
                                         <tbody class="divide-y divide-border/30">
@@ -823,6 +860,27 @@ new #[Layout('components.layouts.app')]
                                                             <span class="text-muted text-xs">&mdash;</span>
                                                         @endif
                                                     </td>
+                                                    @if($sideBetEnabled)
+                                                        @php $shIn = isset($sideBetIds[(int) $shooter->id]); @endphp
+                                                        <td class="px-2 py-1.5 text-center">
+                                                            <button type="button"
+                                                                    wire:click="toggleSideBet({{ $shooter->id }})"
+                                                                    @disabled($sideBetLocked)
+                                                                    title="{{ $shIn ? 'In the pot (tap to remove)' : 'Not in pot (tap to add)' }}"
+                                                                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[32px]
+                                                                        {{ $shIn
+                                                                            ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 hover:bg-amber-500/35'
+                                                                            : 'bg-surface-2 text-muted border border-border hover:border-amber-500/40 hover:text-amber-400' }}
+                                                                        {{ $sideBetLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' }}">
+                                                                @if($shIn)
+                                                                    <x-icon name="check" class="h-3 w-3" />
+                                                                    In
+                                                                @else
+                                                                    Out
+                                                                @endif
+                                                            </button>
+                                                        </td>
+                                                    @endif
                                                     <td class="px-2 py-1.5 text-right">
                                                         <div class="flex items-center justify-end gap-1" x-data="{ open: false, sOpen: false }">
                                                             {{-- Reorder within squad --}}

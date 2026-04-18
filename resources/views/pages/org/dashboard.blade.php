@@ -170,6 +170,22 @@ new #[Layout('components.layouts.app')]
                 <span class="text-sm font-semibold text-primary">Manage Squads</span>
                 <p class="mt-0.5 text-xs text-muted">Assign shooters to squads</p>
             </a>
+
+            @if($org->isRoyalFlushOrg())
+                <a href="{{ route('org.matches.side-bet', [$org, $latestActiveMatch]) }}" class="group rounded-xl border border-amber-600/40 bg-amber-900/10 p-4 transition-all hover:border-amber-500/70 hover:bg-amber-900/20">
+                    <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-600/20 text-amber-400 group-hover:bg-amber-600/30 transition-colors">
+                        <x-icon name="check" class="h-5 w-5" />
+                    </div>
+                    <span class="text-sm font-semibold text-primary">Side Bet Buy-In</span>
+                    <p class="mt-0.5 text-xs text-muted">
+                        @if($latestActiveMatch->side_bet_enabled)
+                            Tap shooters to add to pot
+                        @else
+                            Enable &amp; collect buy-ins
+                        @endif
+                    </p>
+                </a>
+            @endif
         @else
             <div class="rounded-xl border border-border/50 bg-surface/50 p-4 opacity-50">
                 <div class="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-muted">

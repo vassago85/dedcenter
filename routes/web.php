@@ -112,6 +112,7 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
+    Volt::route('/matches/{match}/side-bet', 'org.matches.side-bet')->name('matches.side-bet');
     Volt::route('/matches/{match}/side-bet-report', 'org.matches.side-bet-report')->name('matches.side-bet-report');
 
     // ── Match Reports ──

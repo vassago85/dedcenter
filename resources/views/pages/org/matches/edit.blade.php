@@ -1557,6 +1557,11 @@ new #[Layout('components.layouts.app')]
                     @if(in_array($match->status, [\App\Enums\MatchStatus::Active, \App\Enums\MatchStatus::Ready]))
                         <flux:button href="{{ route('score') }}" target="_blank" variant="primary" class="!bg-accent hover:!bg-accent-hover">Open Scoring App</flux:button>
                     @endif
+                    @if($organization->isRoyalFlushOrg())
+                        <flux:button href="{{ route('org.matches.side-bet', [$organization, $match]) }}" variant="ghost" size="sm" class="!text-amber-400 hover:!bg-amber-500/10">
+                            Side Bet Buy-In
+                        </flux:button>
+                    @endif
                     <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost" size="sm">Squadding</flux:button>
                 </div>
             </div>
