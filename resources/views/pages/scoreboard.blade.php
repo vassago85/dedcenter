@@ -967,7 +967,17 @@ new #[Layout('components.layouts.scoreboard')]
                             @if($shooter->user_id)
                                 <a href="{{ route('shooter.profile', $shooter->user_id) }}" class="line-clamp-2 text-primary hover:underline sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</a>
                             @else
-                                <span class="line-clamp-2 text-primary sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="line-clamp-2 text-primary sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
+                                    @if($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active)
+                                        <a href="{{ app_url('/claim?match=' . $match->id . '&shooter=' . $shooter->id) }}"
+                                           class="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent transition-colors hover:border-accent hover:bg-accent/20 hover:text-white sm:text-[10px]"
+                                           title="Link this result to your DeadCenter account (admin approval required)">
+                                            <span class="h-1 w-1 rounded-full bg-accent"></span>
+                                            Claim
+                                        </a>
+                                    @endif
+                                </div>
                             @endif
                             @if($shooter->user_id)
                                 <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :competitionType="$isPrs ? 'prs' : ($royalFlushEnabled ? 'royal_flush' : null)" :compact="true" />

@@ -718,12 +718,22 @@ new #[Layout('components.layouts.app')]
     @endif
 
     {{-- Scoreboard links --}}
-    <div class="flex items-center justify-center gap-3">
+    <div class="flex flex-wrap items-center justify-center gap-3">
         <flux:button href="{{ route('live', $match) }}" variant="primary" class="{{ $match->status === \App\Enums\MatchStatus::Active ? '!bg-green-600 hover:!bg-green-700' : '!bg-surface-2 hover:!bg-surface-2' }}">
             {{ $match->status === \App\Enums\MatchStatus::Active ? 'Watch Live Scores' : 'View Results' }}
         </flux:button>
         <flux:button href="{{ route('scoreboard', $match) }}" variant="ghost">
             TV Scoreboard
         </flux:button>
+        @if(
+            $match->status === \App\Enums\MatchStatus::Completed
+            && \App\Models\Shooter::whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+                ->where('user_id', auth()->id())
+                ->exists()
+        )
+            <flux:button href="{{ route('matches.my-report', $match) }}" variant="ghost" icon="download">
+                Download My Report
+            </flux:button>
+        @endif
     </div>
 </div>

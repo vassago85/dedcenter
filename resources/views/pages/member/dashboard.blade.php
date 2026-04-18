@@ -302,23 +302,34 @@ new #[Layout('components.layouts.app')]
         @else
             <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
                 @foreach($recentResults as $match)
-                    <a href="{{ route('scoreboard', $match) }}" class="group flex items-center gap-4 rounded-xl border border-border bg-surface-2/30 p-4 transition-all hover:border-accent/40 hover:bg-surface-2/50">
-                        <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-surface-2">
-                            <x-icon name="trophy" class="h-5 w-5 text-muted" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-primary group-hover:text-accent transition-colors">{{ $match->name }}</p>
-                            <div class="mt-0.5 flex items-center gap-2 text-xs text-muted">
-                                <span>{{ $match->date?->format('d M Y') }}</span>
-                                @if($match->organization)
-                                    <span>&bull; {{ $match->organization->name }}</span>
-                                @endif
+                    <div class="group flex items-center gap-4 rounded-xl border border-border bg-surface-2/30 p-4 transition-all hover:border-accent/40 hover:bg-surface-2/50">
+                        <a href="{{ route('scoreboard', $match) }}" class="flex min-w-0 flex-1 items-center gap-4">
+                            <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-surface-2">
+                                <x-icon name="trophy" class="h-5 w-5 text-muted" />
                             </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-semibold text-primary group-hover:text-accent transition-colors">{{ $match->name }}</p>
+                                <div class="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                                    <span>{{ $match->date?->format('d M Y') }}</span>
+                                    @if($match->organization)
+                                        <span>&bull; {{ $match->organization->name }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </a>
+                        <div class="flex flex-shrink-0 items-center gap-2">
+                            <a href="{{ route('matches.my-report', $match) }}"
+                               title="Download your match report (PDF)"
+                               class="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-secondary transition-colors hover:border-accent/40 hover:text-accent">
+                                <x-icon name="download" class="h-3.5 w-3.5" />
+                                <span>Report</span>
+                            </a>
+                            <a href="{{ route('scoreboard', $match) }}"
+                               class="text-xs font-medium text-accent group-hover:text-accent-hover transition-colors">
+                                View &rarr;
+                            </a>
                         </div>
-                        <div class="flex-shrink-0">
-                            <span class="text-xs font-medium text-accent group-hover:text-accent-hover transition-colors">View Results &rarr;</span>
-                        </div>
-                    </a>
+                    </div>
                 @endforeach
             </div>
             <div class="px-6 pb-4 text-center">

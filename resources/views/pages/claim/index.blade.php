@@ -17,6 +17,57 @@ new #[Layout('components.layouts.app')]
     public ?int $selectedShooterId = null;
     public string $evidence = '';
 
+    /** True when the selection came from a deep-link (e.g. the results-page chip). */
+    public bool $prefilled = false;
+
+    /**
+     * Route: GET /claim?match={id}&shooter={id}
+     *
+     * Deep-link support for the "Claim this result" chip on match report pages.
+     * If the link targets a shooter entry that still has no linked user and the
+     * user has no pending/approved claim for it yet, we pre-select both values
+     * so the member only has to click "Submit claim".
+     *
+     * The member still clicks Submit; the claim still goes to Pending for
+     * administrator review. No auto-approval.
+     */
+    public function mount(?int $match = null, ?int $shooter = null): void
+    {
+        $matchParam = $match ?? (int) request()->query('match');
+        $shooterParam = $shooter ?? (int) request()->query('shooter');
+
+        if (! $matchParam || ! $shooterParam) {
+            return;
+        }
+
+        $shooterModel = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $matchParam))
+            ->whereNull('user_id')
+            ->find($shooterParam);
+
+        if (! $shooterModel) {
+            Flux::toast(
+                'That shooter entry is either already linked or not part of the match in the link.',
+                variant: 'warning',
+            );
+            return;
+        }
+
+        $already = ShooterAccountClaim::where('user_id', auth()->id())
+            ->where('shooter_id', $shooterModel->id)
+            ->whereIn('status', [ShooterClaimStatus::Pending, ShooterClaimStatus::Approved])
+            ->exists();
+
+        if ($already) {
+            Flux::toast('You already have a claim in for that shooter — waiting for admin review.', variant: 'info');
+            return;
+        }
+
+        $this->selectedMatchId = $matchParam;
+        $this->selectedShooterId = $shooterModel->id;
+        $this->prefilled = true;
+    }
+
     public function with(): array
     {
         $user = auth()->user();
@@ -26,6 +77,19 @@ new #[Layout('components.layouts.app')]
             ->whereDate('date', '>=', now()->subDays(30))
             ->orderByDesc('date')
             ->get(['id', 'name', 'date']);
+
+        // If the user arrived via a deep link for a match that isn't in the
+        // 30-day Completed window (e.g. scores published before the match is
+        // formally marked Completed, or slightly older), make sure the
+        // selected match still appears in the dropdown so the form is valid.
+        if ($this->selectedMatchId && ! $recentMatches->firstWhere('id', $this->selectedMatchId)) {
+            $deepLinked = ShootingMatch::query()
+                ->whereKey($this->selectedMatchId)
+                ->first(['id', 'name', 'date']);
+            if ($deepLinked) {
+                $recentMatches = $recentMatches->prepend($deepLinked);
+            }
+        }
 
         $availableShooters = collect();
         if ($this->selectedMatchId) {
@@ -115,6 +179,23 @@ new #[Layout('components.layouts.app')]
             Shot in a recent match but you weren't logged in? Find your name in the match's shooter list and submit a claim. An administrator will review it and link the shooter entry to your account so scores and badges appear on your profile.
         </p>
     </div>
+
+    @if($prefilled && $selectedShooterId)
+        @php
+            $prefilledMatch = $recentMatches->firstWhere('id', $selectedMatchId);
+            $prefilledShooter = $availableShooters->firstWhere('id', $selectedShooterId);
+        @endphp
+        <div class="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-primary">
+            <div class="font-semibold">We've pre-filled this claim for you.</div>
+            <div class="mt-1 text-sm text-muted">
+                You're claiming
+                @if($prefilledShooter)<span class="font-semibold text-primary">{{ $prefilledShooter->name }}</span>@endif
+                @if($prefilledMatch) at <span class="font-semibold text-primary">{{ $prefilledMatch->name }}</span>@endif.
+                Add any evidence below (optional) and submit — an administrator will review the request before your scores
+                and badges appear on your profile.
+            </div>
+        </div>
+    @endif
 
     @if($hasLinkedShooter)
         <div class="rounded-xl border border-emerald-600/40 bg-emerald-900/10 px-4 py-3 text-sm text-emerald-300">

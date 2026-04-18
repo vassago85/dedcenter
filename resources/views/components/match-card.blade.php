@@ -29,6 +29,18 @@
         'completed' => 'bg-sky-600/90 text-white',
         default => '',
     };
+
+    // Personal report availability — only surfaces the "Download my report"
+    // button when the match is completed AND the current user has a linked
+    // shooter row in that match. Kept as a single exists() probe so cards
+    // can be rendered in lists without touching the full shooter set.
+    $hasMyReport = false;
+    if ($statusValue === 'completed' && auth()->check()) {
+        $hasMyReport = \App\Models\Shooter::whereHas(
+            'squad',
+            fn ($q) => $q->where('match_id', $match->id),
+        )->where('user_id', auth()->id())->exists();
+    }
 @endphp
 
 <div class="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-md transition-all duration-200 hover:scale-[1.01] hover:shadow-lg hover:border-border/80">
@@ -107,10 +119,25 @@
                         View Live Scores &rarr;
                     </a>
                 @elseif($statusValue === 'completed')
-                    <a href="{{ route('scoreboard', $match) }}"
-                       class="inline-flex w-full items-center justify-center rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
-                        View Results &rarr;
-                    </a>
+                    @if($hasMyReport)
+                        <div class="grid grid-cols-2 gap-2">
+                            <a href="{{ route('scoreboard', $match) }}"
+                               class="inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
+                                Results
+                            </a>
+                            <a href="{{ route('matches.my-report', $match) }}"
+                               title="Download your match report (PDF)"
+                               class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
+                                <x-icon name="download" class="h-3.5 w-3.5" />
+                                My Report
+                            </a>
+                        </div>
+                    @else
+                        <a href="{{ route('scoreboard', $match) }}"
+                           class="inline-flex w-full items-center justify-center rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
+                            View Results &rarr;
+                        </a>
+                    @endif
                 @else
                     <a href="{{ route('scoreboard', $match) }}"
                        class="inline-flex w-full items-center justify-center rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">

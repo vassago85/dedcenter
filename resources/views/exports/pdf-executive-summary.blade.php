@@ -21,6 +21,23 @@
         $columnsByDist[$col['distance_meters']]['multiplier'] = $col['distance_multiplier'];
         $columnsByDist[$col['distance_meters']]['cols'][] = $col;
     }
+
+    // Royal Flush scorecards use poker-card-face labels (10 J Q K A) for the
+    // five gongs per distance, so the technical breakdown reads like a
+    // scorecard instead of a G1/G2/G3 spreadsheet. We only switch to this
+    // vocabulary when the match is actually a Royal Flush AND every distance
+    // exposes exactly 5 gongs — otherwise we keep the neutral G{n} labels so
+    // non-RF matches still render correctly.
+    $allFiveUp = ! empty($columnsByDist)
+        && collect($columnsByDist)->every(fn ($g) => count($g['cols'] ?? []) === 5);
+    $useCardFaces = (bool) ($match->royal_flush_enabled ?? false) && $allFiveUp;
+    $cardFaces = ['10', 'J', 'Q', 'K', 'A'];
+    $gongLabel = function (int $gongNumber, int $positionInDistance) use ($useCardFaces, $cardFaces) {
+        if ($useCardFaces && isset($cardFaces[$positionInDistance])) {
+            return $cardFaces[$positionInDistance];
+        }
+        return 'G' . $gongNumber;
+    };
 @endphp
 <!DOCTYPE html>
 <html>
@@ -172,6 +189,27 @@
         .grid thead .gong-num  { font-size: 6.5pt; color: #f8fafc; font-weight: 700; }
         .grid thead .gong-mult { display: block; font-size: 5.5pt; color: #94a3b8; font-weight: 600; margin-top: 2px; letter-spacing: 0.04em; }
 
+        /* Royal Flush card-face header — 10 / J / Q / K / A. Typeset crisp
+           but compact so it reads like a scorecard, not a spreadsheet. */
+        .grid thead .card-face {
+            font-size: 8pt;
+            color: #f8fafc;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            line-height: 1;
+        }
+        .grid thead .card-face.card-face-special {
+            color: #fecaca;
+        }
+        .grid thead .card-mult {
+            display: block;
+            font-size: 5pt;
+            color: #94a3b8;
+            font-weight: 600;
+            margin-top: 3px;
+            letter-spacing: 0.04em;
+        }
+
         .grid tbody td {
             padding: 0;
             font-size: 6.5pt;
@@ -180,7 +218,7 @@
             vertical-align: middle;
             text-align: center;
             line-height: 1;
-            height: 13px;
+            height: 15px;
         }
         .grid tbody tr:nth-child(even) td { background: #fbfcfd; }
         .grid tbody tr.top1 td { background: #fef7e0 !important; }
@@ -232,24 +270,43 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* ─── Heatmap cells (filled squares) ─── */
-        .grid td.hm-hit  { background: #15803d !important; padding: 0; }
-        .grid td.hm-miss { background: #fce8e8 !important; padding: 0; }
-        .grid td.hm-none { background: #f5f7fa !important; padding: 0; }
-        /* Keep podium-row tint readable through heatmap cells */
-        .grid tr.top1 td.hm-hit  { background: #15803d !important; }
-        .grid tr.top1 td.hm-miss { background: #fbe4b9 !important; }
-        .grid tr.top1 td.hm-none { background: #f7ead0 !important; }
-        .grid tr.top2 td.hm-hit  { background: #15803d !important; }
-        .grid tr.top2 td.hm-miss { background: #e3e8ee !important; }
-        .grid tr.top2 td.hm-none { background: #ecf0f5 !important; }
-        .grid tr.top3 td.hm-hit  { background: #15803d !important; }
-        .grid tr.top3 td.hm-miss { background: #f7d9c3 !important; }
-        .grid tr.top3 td.hm-none { background: #faead9 !important; }
+        /* ─── Shot cells — tick / cross scorecard ───
+           Every cell renders as a compact icon tile. Gotenberg/Chromium handles
+           SVG reliably, so we use inline SVG glyphs for both hit (✓) and miss (✗)
+           to guarantee print fidelity regardless of fallback fonts. */
+        .grid td.hm-hit,
+        .grid td.hm-miss,
+        .grid td.hm-none {
+            padding: 1px 0;
+            background: #ffffff !important;
+        }
+        .grid td.hm-hit  { background: #f0fdf4 !important; }
+        .grid td.hm-miss { background: #fef2f2 !important; }
+        .grid td.hm-none { background: #fbfcfd !important; }
+
+        /* Keep podium-row tint present but softer so the icons stay readable. */
+        .grid tr.top1 td.hm-hit  { background: #f0fdf4 !important; }
+        .grid tr.top1 td.hm-miss { background: #fef6e7 !important; }
+        .grid tr.top1 td.hm-none { background: #fef7e0 !important; }
+        .grid tr.top2 td.hm-hit  { background: #f0fdf4 !important; }
+        .grid tr.top2 td.hm-miss { background: #f1f4f9 !important; }
+        .grid tr.top2 td.hm-none { background: #f1f4f9 !important; }
+        .grid tr.top3 td.hm-hit  { background: #f0fdf4 !important; }
+        .grid tr.top3 td.hm-miss { background: #fef2e7 !important; }
+        .grid tr.top3 td.hm-none { background: #fef2e7 !important; }
+
+        .shot {
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            line-height: 0;
+            vertical-align: middle;
+        }
+        .shot svg { display: block; width: 11px; height: 11px; }
 
         /* Distance boundary — softer vertical separator */
         .grid td.dist-end,
-        .grid th.dist-end { border-right: 1px solid #cbd5e1; }
+        .grid th.dist-end { border-right: 1.5px solid #cbd5e1; }
 
         /* ─── Legend ─── */
         .legend {
@@ -260,17 +317,14 @@
             color: #94a3b8;
             letter-spacing: 0.06em;
         }
-        .legend .swatch {
+        .legend .icon {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 11px;
+            height: 11px;
             vertical-align: middle;
             margin-right: 4px;
-            border-radius: 2px;
         }
-        .legend .s-hit  { background: #15803d; }
-        .legend .s-miss { background: #fce8e8; }
-        .legend .s-none { background: #f5f7fa; border: 1px solid #e8edf4; }
+        .legend .icon svg { display: block; width: 11px; height: 11px; }
         .legend .sep { margin: 0 12px; color: #cbd5e1; }
     </style>
 </head>
@@ -358,7 +412,17 @@
         </table>
 
         {{-- ─── Main Heatmap Grid ─── --}}
-        <div class="section-title"><span class="accent">■</span>ALL SHOOTERS <span class="muted">Green = hit · Pink = miss · Grey = no shot recorded</span></div>
+        <div class="section-title">
+            <span class="accent">■</span>
+            {{ $useCardFaces ? 'ROYAL FLUSH SCORECARD' : 'ALL SHOOTERS' }}
+            <span class="muted">
+                @if($useCardFaces)
+                    Each row: 20 shots, 5 per distance · green tick = hit · red cross = miss
+                @else
+                    Green tick = hit · Red cross = miss · Dash = no shot recorded
+                @endif
+            </span>
+        </div>
 
         <table class="grid">
             <thead>
@@ -375,13 +439,22 @@
                     <th class="score-head" rowspan="2">Score</th>
                     <th class="rate-head" rowspan="2">Hit%</th>
                 </tr>
-                {{-- Gong number row --}}
+                {{-- Gong / card-face row --}}
                 <tr>
                     @foreach($columnsByDist as $distM => $distGroup)
                         @foreach($distGroup['cols'] as $ci => $col)
+                            @php
+                                $label = $gongLabel($col['gong_number'], $ci);
+                                $isSpecial = $useCardFaces && in_array($label, ['A', 'K'], true);
+                            @endphp
                             <th class="{{ $ci === count($distGroup['cols']) - 1 ? 'dist-end' : '' }}">
-                                <span class="gong-num">G{{ $col['gong_number'] }}</span>
-                                <span class="gong-mult">{{ $mult($col['gong_multiplier']) }}</span>
+                                @if($useCardFaces)
+                                    <span class="card-face {{ $isSpecial ? 'card-face-special' : '' }}">{{ $label }}</span>
+                                    <span class="card-mult">{{ $mult($col['gong_multiplier']) }}</span>
+                                @else
+                                    <span class="gong-num">{{ $label }}</span>
+                                    <span class="gong-mult">{{ $mult($col['gong_multiplier']) }}</span>
+                                @endif
                             </th>
                         @endforeach
                     @endforeach
@@ -416,7 +489,27 @@
                                 };
                                 $endCls = isset($distBoundaries[$idx]) ? ' dist-end' : '';
                             @endphp
-                            <td class="{{ $cls }}{{ $endCls }}">&nbsp;</td>
+                            <td class="{{ $cls }}{{ $endCls }}">
+                                @if($cell['state'] === 'hit')
+                                    <span class="shot" title="Hit">
+                                        <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </span>
+                                @elseif($cell['state'] === 'miss')
+                                    <span class="shot" title="Miss">
+                                        <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#b91c1c" stroke-width="1.6" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                @else
+                                    <span class="shot" title="No shot recorded">
+                                        <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M3 6 L9 6" fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                @endif
+                            </td>
                         @endforeach
                         <td class="score">{{ $fmt($row['total_score']) }}</td>
                         <td class="rate">{{ $row['hit_rate'] }}%</td>
@@ -426,13 +519,23 @@
         </table>
 
         <div class="legend">
-            <span class="swatch s-hit"></span>Hit
+            <span class="icon">
+                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>Hit
             <span class="sep">·</span>
-            <span class="swatch s-miss"></span>Miss
+            <span class="icon">
+                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#b91c1c" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </span>Miss
             <span class="sep">·</span>
-            <span class="swatch s-none"></span>No shot recorded
+            <span class="icon">
+                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M3 6 L9 6" fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </span>No shot recorded
             <span class="sep">·</span>
-            Rows sorted by match rank · Podium tinted gold / silver / bronze
+            @if($useCardFaces)
+                Royal Flush scorecard · 10 / J / Q / K / A across each distance
+            @else
+                Rows sorted by match rank · Podium tinted gold / silver / bronze
+            @endif
         </div>
 
         @include('exports.partials.pdf-footer')

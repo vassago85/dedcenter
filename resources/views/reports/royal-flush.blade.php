@@ -43,19 +43,36 @@
 
     // Final-results rollup: every shooter, sum of distance subtotals per them.
     // Built from $standings (which is already rank-ordered by total_score).
+    // Carries shooter_id + user_id so the "Claim this result" chip can be
+    // rendered only for entries not yet linked to a member account.
     $finalResults = [];
+    $unclaimedCount = 0;
     foreach ($standings as $s) {
         $perDistance = [];
+        $rowUserId = null;
         foreach ($distanceTables as $dt) {
-            $row = collect($dt['rows'])->firstWhere('name', $s->name);
+            $row = collect($dt['rows'])->firstWhere('shooter_id', $s->shooter_id ?? null)
+                ?? collect($dt['rows'])->firstWhere('name', $s->name);
             $perDistance[] = [
                 'label'    => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
                 'subtotal' => $row['subtotal'] ?? 0,
                 'hits'     => $row['hits']     ?? 0,
                 'misses'   => $row['misses']   ?? 0,
             ];
+            if ($rowUserId === null && isset($row['user_id'])) {
+                $rowUserId = $row['user_id'];
+            }
         }
+
+        $isUnclaimed = ($rowUserId === null) && (($s->status ?? null) !== 'dq');
+        if ($isUnclaimed) {
+            $unclaimedCount++;
+        }
+
         $finalResults[] = [
+            'shooter_id'   => $s->shooter_id ?? null,
+            'user_id'      => $rowUserId,
+            'is_unclaimed' => $isUnclaimed,
             'rank'         => $s->rank,
             'name'         => $displayName($s->name),
             'caliber'      => $caliberFromName($s->name),
@@ -68,6 +85,11 @@
     }
 
     $seasonId = $match->season_id ?? null;
+
+    // Deep-link to the member-area claim page, pre-filled.
+    $claimUrl = function (int $shooterId) use ($match) {
+        return app_url('/claim?match=' . $match->id . '&shooter=' . $shooterId);
+    };
 @endphp
 <!DOCTYPE html>
 <html lang="en" class="dark scroll-smooth">
@@ -176,9 +198,46 @@
         /* Number styling */
         .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
+        /* Claim-result chip (used in Final Results table) */
+        .claim-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            background: rgba(225, 6, 0, 0.12);
+            color: #fca5a5;
+            border: 1px solid rgba(225, 6, 0, 0.35);
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .claim-chip:hover {
+            background: rgba(225, 6, 0, 0.22);
+            color: #fee2e2;
+            border-color: rgba(225, 6, 0, 0.6);
+        }
+        .claim-chip .dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 9999px;
+            background: var(--lp-red);
+        }
+
+        /* Banner */
+        .claim-banner {
+            background:
+                linear-gradient(135deg, rgba(225, 6, 0, 0.10) 0%, rgba(225, 6, 0, 0.02) 100%);
+            border: 1px solid rgba(225, 6, 0, 0.28);
+        }
+
         /* Action bar — hidden on print */
         @media print {
             .no-print { display: none !important; }
+            .claim-chip, .claim-banner { display: none !important; }
             .rf-shell {
                 background: #ffffff !important;
                 color: #0b1220 !important;
@@ -280,6 +339,36 @@
                 @if($orgName)<span>{{ $orgName }}</span>@endif
             </div>
         </div>
+
+        {{-- Claim-your-result banner (shown only when there are shooters not yet
+             linked to member accounts; hidden in print). --}}
+        @if($unclaimedCount > 0)
+            <div class="no-print mx-auto mt-10 max-w-4xl">
+                <div class="claim-banner flex flex-col items-start justify-between gap-4 rounded-2xl px-5 py-4 sm:flex-row sm:items-center">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background: rgba(225, 6, 0, 0.15); border: 1px solid rgba(225, 6, 0, 0.3);">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="var(--lp-red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <polyline points="17 11 19 13 23 9"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-[13px] font-bold tracking-wide text-white uppercase" style="letter-spacing: 0.04em;">
+                                Shot in this match?
+                            </div>
+                            <div class="mt-1 text-[13px]" style="color: var(--lp-text-muted);">
+                                Find your name in the results below and click <span class="font-semibold text-white">Claim result</span>. After the match director reviews and approves it, the result and badges appear on your profile.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px]" style="color: var(--lp-text-muted);">
+                        <span class="h-1.5 w-1.5 rounded-full" style="background: var(--lp-red);"></span>
+                        <span>{{ $unclaimedCount }} {{ $unclaimedCount === 1 ? 'result awaiting a claim' : 'results awaiting claims' }}</span>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         {{-- Summary ribbon --}}
         <div class="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4">
@@ -452,7 +541,17 @@
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5 whitespace-nowrap">
-                                    <span class="text-[13px] font-semibold text-white">{{ $r['name'] }}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[13px] font-semibold text-white">{{ $r['name'] }}</span>
+                                        @if($r['is_unclaimed'] && $r['shooter_id'])
+                                            <a href="{{ $claimUrl($r['shooter_id']) }}"
+                                               class="claim-chip no-print"
+                                               title="Link this result to your DeadCenter account (admin approval required)">
+                                                <span class="dot"></span>
+                                                Claim result
+                                            </a>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2.5 whitespace-nowrap text-[11px]" style="color: var(--lp-text-muted);">{{ $r['caliber'] ?? '—' }}</td>
                                 @foreach($r['per_distance'] as $pd)

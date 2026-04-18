@@ -556,6 +556,40 @@ class MatchExportController extends Controller
     }
 
     /**
+     * Member-facing shooter report.
+     *
+     * Any logged-in user can download the PDF for the match they shot — we
+     * resolve their own shooter row (via `shooters.user_id = auth()->id()`)
+     * and stream the same per-shooter report the org/admin surfaces use.
+     *
+     * Unlike pdfShooterReport(), this does NOT call authorizeExport(); the
+     * gate is purely "the shooter row is linked to this user". If they claim
+     * a result later, the link is updated via ShooterAccountClaim approval
+     * and this endpoint starts working for them — no config change needed.
+     */
+    public function pdfMyShooterReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
+        $user = auth()->user();
+        abort_unless($user, 403);
+
+        $shooter = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+            ->where('user_id', $user->id)
+            ->first();
+
+        abort_unless(
+            $shooter,
+            404,
+            'We couldn’t find your shooter record for this match. If you shot under a different name, claim that result first.',
+        );
+
+        $slug = Str::slug($match->name . '-' . $shooter->name);
+        $data = $this->buildShooterReportData($match, $shooter);
+
+        return $renderer->stream('exports.pdf-shooter-report', $data, "{$slug}-shooter-report.pdf");
+    }
+
+    /**
      * Executive summary data — builds the all-shooters heatmap plus podium and stats.
      *
      * Re-uses buildPostMatchReportData for scoring/standings/distances, then computes:
@@ -731,15 +765,45 @@ class MatchExportController extends Controller
             ];
         }
 
+        // Field context — how they did vs the field.
+        $standings = collect($base['standings']);
+        $fieldAvg = $standings->avg('total_score') ?: 0;
+        $fieldSize = $standings->count();
+        $myRank = $myStanding?->rank ?? null;
+        $myScore = $myStanding?->total_score ?? 0;
+
         // Insights (auto-computed, purely data-driven).
+        //
+        // Ordering / tie-breaking rules:
+        //   - Best Distance: highest hit-rate, ties broken by the harder
+        //     distance (higher distance_multiplier). A 100% sweep at 700m
+        //     beats a 100% sweep at 400m.
+        //   - Hardest Gong Cleared: highest weighted difficulty
+        //     (distance_multiplier × gong_multiplier). Ties break by longer
+        //     distance first, then higher gong multiplier.
+        //   - Toughest Miss: highest-weighted gong the shooter missed. Only
+        //     surfaced when the shooter dropped at least one shot. For a
+        //     clean match we substitute "Match Margin" (how far ahead of the
+        //     runner-up, or behind the leader) which is always meaningful and
+        //     never redundant with the KPI row.
+        //
+        // The KPI row in the single-page report already shows "vs Field
+        // Average" so we deliberately NO LONGER emit that as an insight tile
+        // to avoid showing the same stat twice on JD's page.
         $insights = [];
         if (! empty($myDistances)) {
-            $bestDistance = collect($myDistances)->sortByDesc('hit_rate')->first();
+            $bestDistance = collect($myDistances)
+                ->sortBy([
+                    ['hit_rate', 'desc'],
+                    ['distance_multiplier', 'desc'],
+                ])
+                ->first();
             if ($bestDistance && $bestDistance['hit_rate'] > 0) {
                 $insights[] = [
                     'label' => 'Best Distance',
                     'value' => $bestDistance['label'] . ' — ' . $bestDistance['hits'] . '/' . ($bestDistance['hits'] + $bestDistance['misses']),
-                    'sub' => $bestDistance['hit_rate'] . '% hit rate',
+                    'sub' => $bestDistance['hit_rate'] . '% hit rate'
+                        . ($bestDistance['is_clean_sweep'] ? ' · clean sweep' : ''),
                 ];
             }
 
@@ -753,25 +817,54 @@ class MatchExportController extends Controller
             }
 
             $hardestGongHit = null;
+            $toughestMiss = null;
             foreach ($myDistances as $dist) {
                 foreach ($dist['cells'] as $i => $cell) {
-                    if ($cell['state'] !== 'hit') {
-                        continue;
-                    }
                     $gong = $dist['gongs'][$i] ?? null;
                     if (! $gong) {
                         continue;
                     }
-                    $difficulty = $dist['distance_multiplier'] * $gong['multiplier'];
-                    if ($hardestGongHit === null || $difficulty > $hardestGongHit['difficulty']) {
-                        $hardestGongHit = [
-                            'difficulty' => $difficulty,
-                            'label' => $dist['label'] . ' · G' . $gong['number'],
-                            'points' => $cell['points'],
-                        ];
+                    $difficulty = (float) $dist['distance_multiplier'] * (float) $gong['multiplier'];
+                    $distM = (float) $dist['distance_multiplier'];
+                    $gongM = (float) $gong['multiplier'];
+
+                    if ($cell['state'] === 'hit') {
+                        // Tie-break on longer distance, then higher gong multiplier.
+                        $better = $hardestGongHit === null
+                            || $difficulty > $hardestGongHit['difficulty']
+                            || ($difficulty === $hardestGongHit['difficulty']
+                                && ($distM > $hardestGongHit['distance_multiplier']
+                                    || ($distM === $hardestGongHit['distance_multiplier']
+                                        && $gongM > $hardestGongHit['gong_multiplier'])));
+                        if ($better) {
+                            $hardestGongHit = [
+                                'difficulty' => $difficulty,
+                                'distance_multiplier' => $distM,
+                                'gong_multiplier' => $gongM,
+                                'label' => $dist['label'] . ' · G' . $gong['number'],
+                                'points' => $cell['points'],
+                            ];
+                        }
+                    } elseif ($cell['state'] === 'miss') {
+                        $better = $toughestMiss === null
+                            || $difficulty > $toughestMiss['difficulty']
+                            || ($difficulty === $toughestMiss['difficulty']
+                                && ($distM > $toughestMiss['distance_multiplier']
+                                    || ($distM === $toughestMiss['distance_multiplier']
+                                        && $gongM > $toughestMiss['gong_multiplier'])));
+                        if ($better) {
+                            $toughestMiss = [
+                                'difficulty' => $difficulty,
+                                'distance_multiplier' => $distM,
+                                'gong_multiplier' => $gongM,
+                                'label' => $dist['label'] . ' · G' . $gong['number'],
+                                'points_forfeited' => $difficulty,
+                            ];
+                        }
                     }
                 }
             }
+
             if ($hardestGongHit) {
                 $insights[] = [
                     'label' => 'Hardest Gong Cleared',
@@ -779,21 +872,57 @@ class MatchExportController extends Controller
                     'sub' => '+' . number_format($hardestGongHit['points'], 1) . ' pts',
                 ];
             }
+
+            // Fourth tile: the single most informative secondary stat for THIS
+            // shooter, avoiding overlap with KPI row cells.
+            if ($toughestMiss) {
+                // Shooter dropped at least one shot — show where the biggest
+                // leak was. This is the stat people care about when they're
+                // inside the top 10 but short of a clean match.
+                $insights[] = [
+                    'label' => 'Toughest Miss',
+                    'value' => $toughestMiss['label'],
+                    'sub' => '−' . number_format($toughestMiss['points_forfeited'], 1) . ' pts forfeited',
+                ];
+            } elseif ($fieldSize >= 2) {
+                // Clean match. Show the gap to the next shooter (or to the
+                // leader if this shooter IS the leader).
+                if ($myRank === 1) {
+                    $runnerUp = $standings->skip(1)->first();
+                    $runnerScore = (float) ($runnerUp?->total_score ?? 0);
+                    $gap = $myScore - $runnerScore;
+                    $insights[] = [
+                        'label' => 'Match Margin',
+                        'value' => '+' . number_format($gap, 1) . ' pts',
+                        'sub' => 'ahead of ' . (
+                            $runnerUp
+                                ? (\Illuminate\Support\Str::before($runnerUp->name, ' — ') ?: $runnerUp->name)
+                                : 'runner-up'
+                        ),
+                    ];
+                } else {
+                    $leader = $standings->first();
+                    $leaderScore = (float) ($leader?->total_score ?? 0);
+                    $gap = $leaderScore - $myScore;
+                    $insights[] = [
+                        'label' => 'Gap to Leader',
+                        'value' => ($gap > 0 ? '−' : '') . number_format($gap, 1) . ' pts',
+                        'sub' => 'behind ' . (
+                            $leader
+                                ? (\Illuminate\Support\Str::before($leader->name, ' — ') ?: $leader->name)
+                                : 'leader'
+                        ),
+                    ];
+                }
+            } elseif ($totalShots = (($myStanding?->hits ?? 0) + ($myStanding?->misses ?? 0))) {
+                // Solo-shooter edge case — still show something meaningful.
+                $insights[] = [
+                    'label' => 'Points per Shot',
+                    'value' => number_format($myScore / max(1, $totalShots), 2),
+                    'sub' => 'avg across ' . $totalShots . ' shots',
+                ];
+            }
         }
-
-        // Field context — how they did vs the field.
-        $standings = collect($base['standings']);
-        $fieldAvg = $standings->avg('total_score') ?: 0;
-        $fieldSize = $standings->count();
-        $myRank = $myStanding?->rank ?? null;
-        $myScore = $myStanding?->total_score ?? 0;
-        $vsAvg = $myScore - $fieldAvg;
-
-        $insights[] = [
-            'label' => 'vs Field Average',
-            'value' => ($vsAvg >= 0 ? '+' : '') . number_format($vsAvg, 1),
-            'sub' => 'Field avg ' . number_format($fieldAvg, 1),
-        ];
 
         // Badges earned in this match.
         $badges = [];
@@ -857,6 +986,13 @@ class MatchExportController extends Controller
             ->get()
             ->groupBy('shooter_id');
 
+        // Preload user_id for every shooter in the match so report views can
+        // decide whether to render a "Claim this result" chip per row.
+        $shooterUserIds = \App\Models\Shooter::query()
+            ->whereIn('id', $shooterIds)
+            ->pluck('user_id', 'id')
+            ->all();
+
         // Distance tables (tablet-summary shape): one table per target set, one row
         // per shooter (ordered by overall match rank), with tick/cross + points per gong.
         $distanceTables = [];
@@ -886,6 +1022,8 @@ class MatchExportController extends Controller
                     }
                 }
                 $rows[] = [
+                    'shooter_id' => (int) $standing->shooter_id,
+                    'user_id' => $shooterUserIds[$standing->shooter_id] ?? null,
                     'rank' => $standing->rank,
                     'name' => $standing->name,
                     'caliber' => $this->caliberFromShooterName($standing->name),

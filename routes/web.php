@@ -98,6 +98,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/events/{match}/register', 'member.register-for-match')->name('events.register');
     Route::get('/matches/{match}/report/download', [MatchReportController::class, 'download'])->name('matches.report.download');
 
+    // Personal shooter report (PDF) — any authenticated user can download
+    // the per-shooter report for a match in which they are a linked shooter.
+    Route::get('/matches/{match}/my-report', [MatchExportController::class, 'pdfMyShooterReport'])
+        ->name('matches.my-report');
+
     // Shooter account claims
     Volt::route('/claim', 'claim.index')->name('claim.index');
 });
