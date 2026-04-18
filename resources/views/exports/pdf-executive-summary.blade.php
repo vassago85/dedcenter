@@ -173,8 +173,8 @@
             font-weight: 800;
         }
         .grid thead th.pos-head  { width: 18px; }
-        .grid thead th.name-head { width: 96px; text-align: left; padding-left: 8px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
-        .grid thead th.cal-head  { width: 52px; text-align: left; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        .grid thead th.name-head { width: 92px; text-align: left; padding-left: 8px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        .grid thead th.cal-head  { width: 64px; text-align: left; padding-left: 4px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
         .grid thead th.score-head,
         .grid thead th.rate-head {
             background: #1e293b;
@@ -250,10 +250,15 @@
         }
         .grid td.cal {
             text-align: left;
-            padding: 2px 4px;
+            padding: 2px 6px 2px 4px;
             color: #94a3b8;
             font-size: 6.5pt;
             white-space: nowrap;
+            /* Clip long caliber strings (e.g. "30 Sherman Max", "6.5 Creedmoor")
+             * instead of letting them bleed into the first distance column. */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 64px;
             letter-spacing: 0.02em;
         }
         .grid td.score {
