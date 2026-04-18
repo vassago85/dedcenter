@@ -40,6 +40,7 @@ services:
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - SANCTUM_STATEFUL_DOMAINS=deadcenter.co.za,md.deadcenter.co.za,app.deadcenter.co.za
       - SESSION_DOMAIN=.deadcenter.co.za
+      - GOTENBERG_URL=${GOTENBERG_URL:-http://gotenberg:3000}
     volumes:
       - app-logs:/var/www/html/storage/logs
       - app-storage:/var/www/html/storage/app/public
@@ -52,6 +53,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      gotenberg:
+        condition: service_started
 
   db:
     image: mysql:8.0
@@ -87,6 +90,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Chromium-based PDF renderer. PdfDocumentRenderer tries Gotenberg first
+  # (for beautiful HTML-to-PDF via Chrome) and falls back to dompdf if Gotenberg
+  # is unreachable. Exposing nothing publicly — it's an internal service.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: deadcenter-gotenberg
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=false"
+      - "--api-timeout=30s"
+    networks:
+      - deadcenter-network
 
   scheduler:
     build:
@@ -151,6 +168,7 @@ services:
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-DeadCenter}
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - GOTENBERG_URL=${GOTENBERG_URL:-http://gotenberg:3000}
     volumes:
       - app-logs:/var/www/html/storage/logs
     networks:
@@ -159,6 +177,7 @@ services:
       - app
       - db
       - redis
+      - gotenberg
 
 networks:
   deadcenter-network:

@@ -61,6 +61,9 @@ run git pull --ff-only origin "$BRANCH"
 BEFORE_SHA=$(git rev-parse --short HEAD)
 echo ">> HEAD is now $BEFORE_SHA"
 
+echo ">> Pulling external images (gotenberg etc.)"
+run docker compose pull gotenberg || true
+
 echo ">> Building app image (no_cache=${NO_CACHE:-cached})"
 if [[ -n "$NO_CACHE" ]]; then
   run docker compose build --no-cache app
@@ -69,10 +72,11 @@ else
 fi
 
 if [[ "$RECREATE" -eq 1 ]]; then
-  echo ">> Recreating app, scheduler, queue"
-  run docker compose up -d --force-recreate app scheduler queue
+  echo ">> Recreating app, scheduler, queue, gotenberg"
+  run docker compose up -d --force-recreate app scheduler queue gotenberg
 else
-  echo ">> Skipping recreate (--no-recreate)"
+  echo ">> Skipping recreate (--no-recreate); starting gotenberg if new"
+  run docker compose up -d gotenberg
 fi
 
 echo ">> Done. HEAD=$BEFORE_SHA"
