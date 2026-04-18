@@ -102,7 +102,10 @@ it('builds per-distance tables with tick/cross cells and parsed caliber', functi
         ->and($table500['rows'][1]['subtotal'])->toBe(5.0);
 });
 
-it('renders the post-match blade view without errors', function () {
+it('renders the executive-summary blade view without errors', function () {
+    // The legacy pdf-post-match-report view was replaced by pdf-executive-summary
+    // during the HTML-first reports pivot. This test now verifies that the new
+    // template compiles and contains the expected data for a basic RF match.
     $owner = User::factory()->create();
     $match = ShootingMatch::factory()->create(['created_by' => $owner->id, 'scoring_type' => 'standard']);
 
@@ -115,10 +118,13 @@ it('renders the post-match blade view without errors', function () {
     $alice = Shooter::create(['name' => 'Alice — 6x46', 'squad_id' => $squad->id, 'status' => 'active']);
     Score::create(['shooter_id' => $alice->id, 'gong_id' => $g->id, 'is_hit' => true, 'recorded_at' => now()]);
 
-    $data = ($this->invoke)(new App\Http\Controllers\MatchExportController(), $match);
+    $controller = new App\Http\Controllers\MatchExportController();
+    $buildExec = new ReflectionMethod($controller, 'buildExecutiveSummaryData');
+    $buildExec->setAccessible(true);
+    $data = $buildExec->invoke($controller, $match);
 
-    $html = view('exports.pdf-post-match-report', $data)->render();
-    expect($html)->toContain('Post-Match Report')
+    $html = view('exports.pdf-executive-summary', $data + ['match' => $match])->render();
+    expect($html)->toContain('Executive Summary')
         ->toContain('Alice')
         ->toContain('6x46')
         ->toContain('500m');

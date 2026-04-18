@@ -274,17 +274,17 @@ new #[Layout('components.layouts.app')]
                 </div>
             </a>
 
-            {{-- Post-match PDF --}}
+            {{-- Executive Summary PDF (single page, all shooters heatmap) --}}
             @if($isCompleted)
-                <a href="{{ route('org.matches.export.pdf-post-match', [$organization, $match]) }}"
+                <a href="{{ route('org.matches.export.pdf-executive-summary', [$organization, $match]) }}"
                    class="group rounded-xl border border-emerald-600/40 bg-emerald-900/10 p-5 transition hover:border-emerald-500 hover:bg-emerald-900/20">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
                             <x-icon name="document-check" class="h-5 w-5" />
                         </div>
                         <div>
-                            <div class="font-semibold text-primary">Post-Match Report (PDF)</div>
-                            <div class="text-xs text-muted">Full summary + side bet + RF</div>
+                            <div class="font-semibold text-primary">Executive Summary (PDF)</div>
+                            <div class="text-xs text-muted">All shooters · podium · heatmap · landscape</div>
                         </div>
                     </div>
                 </a>
@@ -330,8 +330,18 @@ new #[Layout('components.layouts.app')]
                                 <div class="text-xs text-muted">{{ $row->squad }} &bull; {{ $row->hits }} hits / {{ $row->misses }} misses</div>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <div class="text-lg font-bold text-primary tabular-nums">{{ number_format($row->total_score, 1) }}</div>
+                        <div class="flex items-center gap-3 text-right">
+                            <div>
+                                <div class="text-lg font-bold text-primary tabular-nums">{{ number_format($row->total_score, 1) }}</div>
+                            </div>
+                            @if($isCompleted)
+                                <a href="{{ route('org.matches.export.pdf-shooter-report', [$organization, $match, $row->shooter_id]) }}"
+                                   title="Download individual shooter PDF"
+                                   class="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2/50 px-2 py-1 text-xs text-muted transition hover:border-accent hover:text-primary">
+                                    <x-icon name="document-check" class="h-3.5 w-3.5" />
+                                    PDF
+                                </a>
+                            @endif
                         </div>
                     </div>
                 @endforeach

@@ -488,20 +488,352 @@ class MatchExportController extends Controller
     }
 
     /**
-     * Consolidated post-match report:
-     *  - match meta (name, date, location, org)
-     *  - top standings (weighted formula, via MatchStandingsService)
-     *  - per-target-set breakdown
-     *  - Royal Flush leaderboard (if RF-enabled)
-     *  - Side bet winner + cascade (if side-bet enabled)
+     * Executive summary PDF — single page A4 landscape, all shooters on a
+     * filled-square heatmap, podium, stat cards, branded header.
+     *
+     * Replaces the legacy pdfPostMatchReport entry point (same route, new output).
      */
     public function pdfPostMatchReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        return $this->pdfExecutiveSummary($match, $renderer);
+    }
+
+    /**
+     * Royal Flush results report — A4 portrait HTML page.
+     *
+     * Light/magazine aesthetic, every shot rendered as a hit/miss cell grouped
+     * by distance with per-distance multipliers shown in column headers.
+     * Same data shape as the executive summary (re-uses buildExecutiveSummaryData).
+     */
+    public function royalFlushReport(ShootingMatch $match)
+    {
+        $this->authorizeExport($match);
+
+        abort_unless(
+            $match->royal_flush_enabled,
+            404,
+            'This report is only available for Royal Flush matches.',
+        );
+
+        $data = $this->buildExecutiveSummaryData($match);
+
+        return view('reports.royal-flush', $data + ['match' => $match]);
+    }
+
+    public function pdfExecutiveSummary(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
-        $data = $this->buildPostMatchReportData($match);
+        $data = $this->buildExecutiveSummaryData($match);
 
-        return $renderer->stream('exports.pdf-post-match-report', $data, "{$slug}-post-match-report.pdf");
+        // A4 landscape — wider grid for heatmap.
+        return $renderer->stream(
+            'exports.pdf-executive-summary',
+            $data,
+            "{$slug}-executive-summary.pdf",
+            ['width' => 297.0, 'height' => 210.0],
+        );
+    }
+
+    /**
+     * Individual shooter report — 3-page A4 portrait: hero, stages, badges + insights.
+     */
+    public function pdfShooterReport(ShootingMatch $match, Shooter $shooter, PdfDocumentRenderer $renderer)
+    {
+        $this->authorizeExport($match);
+
+        // Guard: shooter must belong to this match (via squad).
+        abort_unless(
+            $shooter->squad && $shooter->squad->match_id === $match->id,
+            404,
+            'Shooter does not belong to this match.',
+        );
+
+        $slug = Str::slug($match->name . '-' . $shooter->name);
+        $data = $this->buildShooterReportData($match, $shooter);
+
+        return $renderer->stream('exports.pdf-shooter-report', $data, "{$slug}-shooter-report.pdf");
+    }
+
+    /**
+     * Executive summary data — builds the all-shooters heatmap plus podium and stats.
+     *
+     * Re-uses buildPostMatchReportData for scoring/standings/distances, then computes:
+     *   - a flat heatmap matrix: rows = shooters in rank order, columns = every gong in match order
+     *   - stat cards: total shots, total hits, hit rate, avg score, winner, top distance
+     *   - per-distance aggregate hit rate (for the stat strip)
+     */
+    private function buildExecutiveSummaryData(ShootingMatch $match): array
+    {
+        $base = $this->buildPostMatchReportData($match);
+
+        $distanceTables = $base['distanceTables'];
+        $standings = $base['standings'];
+
+        // Build heatmap matrix: one entry per shooter, cells = flat list of hit/miss/none per gong, same column order across all shooters.
+        $heatmapColumns = [];
+        foreach ($distanceTables as $dt) {
+            foreach ($dt['gongs'] as $g) {
+                $heatmapColumns[] = [
+                    'distance_meters' => $dt['distance_meters'],
+                    'distance_label' => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
+                    'distance_multiplier' => $dt['distance_multiplier'],
+                    'gong_number' => $g['number'],
+                    'gong_multiplier' => $g['multiplier'],
+                    'points_per_hit' => $g['points_per_hit'],
+                ];
+            }
+        }
+
+        // Index distance rows by shooter for fast lookup.
+        $shooterRows = [];
+        foreach ($distanceTables as $dt) {
+            foreach ($dt['rows'] as $row) {
+                $shooterRows[$row['name']][$dt['distance_meters']] = $row;
+            }
+        }
+
+        $heatmap = [];
+        foreach ($standings as $standing) {
+            $cells = [];
+            foreach ($distanceTables as $dt) {
+                $row = $shooterRows[$standing->name][$dt['distance_meters']] ?? null;
+                if (! $row) {
+                    foreach ($dt['gongs'] as $_) {
+                        $cells[] = ['state' => 'none', 'points' => null];
+                    }
+                    continue;
+                }
+                foreach ($row['cells'] as $cell) {
+                    $cells[] = $cell;
+                }
+            }
+
+            $heatmap[] = [
+                'rank' => $standing->rank,
+                'name' => $standing->name,
+                'display_name' => \Illuminate\Support\Str::before($standing->name, ' — ') ?: $standing->name,
+                'caliber' => $this->caliberFromShooterName($standing->name),
+                'squad' => $standing->squad,
+                'status' => $standing->status,
+                'total_score' => $standing->total_score,
+                'total_hits' => $standing->hits ?? 0,
+                'total_shots' => ($standing->hits ?? 0) + ($standing->misses ?? 0),
+                'hit_rate' => (($standing->hits ?? 0) + ($standing->misses ?? 0)) > 0
+                    ? round((($standing->hits ?? 0) / (($standing->hits ?? 0) + ($standing->misses ?? 0))) * 100)
+                    : 0,
+                'cells' => $cells,
+            ];
+        }
+
+        // Stat cards
+        $totalShots = 0;
+        $totalHits = 0;
+        foreach ($heatmap as $row) {
+            foreach ($row['cells'] as $c) {
+                if ($c['state'] === 'hit' || $c['state'] === 'miss') {
+                    $totalShots++;
+                    if ($c['state'] === 'hit') {
+                        $totalHits++;
+                    }
+                }
+            }
+        }
+        $hitRate = $totalShots > 0 ? round(($totalHits / $totalShots) * 100) : 0;
+
+        $winner = $standings->first();
+        $runnerUp = $standings->skip(1)->first();
+        $third = $standings->skip(2)->first();
+
+        $avgScore = $standings->count() > 0
+            ? round($standings->avg('total_score'), 1)
+            : 0;
+
+        // Per-distance hit rate for header ribbon
+        $distanceStats = [];
+        foreach ($distanceTables as $dt) {
+            $shots = 0;
+            $hits = 0;
+            foreach ($dt['rows'] as $row) {
+                foreach ($row['cells'] as $c) {
+                    if ($c['state'] === 'hit' || $c['state'] === 'miss') {
+                        $shots++;
+                        if ($c['state'] === 'hit') {
+                            $hits++;
+                        }
+                    }
+                }
+            }
+            $distanceStats[] = [
+                'distance_meters' => $dt['distance_meters'],
+                'label' => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
+                'multiplier' => $dt['distance_multiplier'],
+                'gong_count' => count($dt['gongs']),
+                'shots' => $shots,
+                'hits' => $hits,
+                'hit_rate' => $shots > 0 ? round(($hits / $shots) * 100) : 0,
+            ];
+        }
+
+        return array_merge($base, [
+            'heatmap' => $heatmap,
+            'heatmapColumns' => $heatmapColumns,
+            'distanceStats' => $distanceStats,
+            'podium' => [
+                'first' => $winner,
+                'second' => $runnerUp,
+                'third' => $third,
+            ],
+            'statCards' => [
+                'totalShooters' => $standings->count(),
+                'totalShots' => $totalShots,
+                'totalHits' => $totalHits,
+                'hitRate' => $hitRate,
+                'avgScore' => $avgScore,
+                'winnerScore' => $winner?->total_score ?? 0,
+            ],
+        ]);
+    }
+
+    /**
+     * Individual shooter report data — hero metrics, per-distance breakdown,
+     * match insights, badges, and Royal Flush standing (if applicable).
+     */
+    private function buildShooterReportData(ShootingMatch $match, Shooter $shooter): array
+    {
+        $base = $this->buildPostMatchReportData($match);
+
+        // Locate this shooter's standing row.
+        $myStanding = collect($base['standings'])->firstWhere('shooter_id', $shooter->id);
+
+        // Per-distance rows for just this shooter.
+        $myDistances = [];
+        foreach ($base['distanceTables'] as $dt) {
+            $row = collect($dt['rows'])->firstWhere('name', $myStanding?->name);
+            if (! $row) {
+                continue;
+            }
+            $maxDistancePoints = $dt['distance_multiplier'] * collect($dt['gongs'])->sum('multiplier');
+            $myDistances[] = [
+                'distance_meters' => $dt['distance_meters'],
+                'label' => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
+                'distance_multiplier' => $dt['distance_multiplier'],
+                'gongs' => $dt['gongs'],
+                'cells' => $row['cells'],
+                'hits' => $row['hits'],
+                'misses' => $row['misses'],
+                'subtotal' => $row['subtotal'],
+                'max_points' => round($maxDistancePoints, 2),
+                'hit_rate' => ($row['hits'] + $row['misses']) > 0
+                    ? round(($row['hits'] / ($row['hits'] + $row['misses'])) * 100)
+                    : 0,
+                'is_clean_sweep' => $row['hits'] > 0 && $row['misses'] === 0,
+            ];
+        }
+
+        // Insights (auto-computed, purely data-driven).
+        $insights = [];
+        if (! empty($myDistances)) {
+            $bestDistance = collect($myDistances)->sortByDesc('hit_rate')->first();
+            if ($bestDistance && $bestDistance['hit_rate'] > 0) {
+                $insights[] = [
+                    'label' => 'Best Distance',
+                    'value' => $bestDistance['label'] . ' — ' . $bestDistance['hits'] . '/' . ($bestDistance['hits'] + $bestDistance['misses']),
+                    'sub' => $bestDistance['hit_rate'] . '% hit rate',
+                ];
+            }
+
+            $cleanSweeps = collect($myDistances)->where('is_clean_sweep', true);
+            if ($cleanSweeps->isNotEmpty()) {
+                $insights[] = [
+                    'label' => 'Clean Sweeps',
+                    'value' => $cleanSweeps->count() . ' distance' . ($cleanSweeps->count() === 1 ? '' : 's'),
+                    'sub' => $cleanSweeps->pluck('label')->implode(' · '),
+                ];
+            }
+
+            $hardestGongHit = null;
+            foreach ($myDistances as $dist) {
+                foreach ($dist['cells'] as $i => $cell) {
+                    if ($cell['state'] !== 'hit') {
+                        continue;
+                    }
+                    $gong = $dist['gongs'][$i] ?? null;
+                    if (! $gong) {
+                        continue;
+                    }
+                    $difficulty = $dist['distance_multiplier'] * $gong['multiplier'];
+                    if ($hardestGongHit === null || $difficulty > $hardestGongHit['difficulty']) {
+                        $hardestGongHit = [
+                            'difficulty' => $difficulty,
+                            'label' => $dist['label'] . ' · G' . $gong['number'],
+                            'points' => $cell['points'],
+                        ];
+                    }
+                }
+            }
+            if ($hardestGongHit) {
+                $insights[] = [
+                    'label' => 'Hardest Gong Cleared',
+                    'value' => $hardestGongHit['label'],
+                    'sub' => '+' . number_format($hardestGongHit['points'], 1) . ' pts',
+                ];
+            }
+        }
+
+        // Field context — how they did vs the field.
+        $standings = collect($base['standings']);
+        $fieldAvg = $standings->avg('total_score') ?: 0;
+        $fieldSize = $standings->count();
+        $myRank = $myStanding?->rank ?? null;
+        $myScore = $myStanding?->total_score ?? 0;
+        $vsAvg = $myScore - $fieldAvg;
+
+        $insights[] = [
+            'label' => 'vs Field Average',
+            'value' => ($vsAvg >= 0 ? '+' : '') . number_format($vsAvg, 1),
+            'sub' => 'Field avg ' . number_format($fieldAvg, 1),
+        ];
+
+        // Badges earned in this match.
+        $badges = [];
+        if ($shooter->user_id) {
+            $badges = \App\Models\UserAchievement::query()
+                ->where('user_id', $shooter->user_id)
+                ->where('match_id', $match->id)
+                ->with('achievement')
+                ->get()
+                ->filter(fn ($ua) => $ua->achievement !== null)
+                ->values()
+                ->all();
+        }
+
+        // Royal Flush profile for this shooter (if RF-enabled).
+        $myRf = null;
+        if ($match->royal_flush_enabled) {
+            $myRf = collect($base['rfLeaderboard'])->first(fn ($rf) => $rf->name === $myStanding?->name);
+        }
+
+        // Podium for field context (same derivation as the executive summary).
+        $podium = [
+            'first' => $standings->first(),
+            'second' => $standings->skip(1)->first(),
+            'third' => $standings->skip(2)->first(),
+        ];
+
+        return array_merge($base, [
+            'shooter' => $shooter,
+            'myStanding' => $myStanding,
+            'myDistances' => $myDistances,
+            'myRank' => $myRank,
+            'myScore' => $myScore,
+            'fieldSize' => $fieldSize,
+            'fieldAvg' => $fieldAvg,
+            'insights' => $insights,
+            'badges' => $badges,
+            'myRf' => $myRf,
+            'podium' => $podium,
+        ]);
     }
 
     private function buildPostMatchReportData(ShootingMatch $match): array

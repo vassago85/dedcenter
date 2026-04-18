@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/scoreboard/{match}/export/standings', [MatchExportController::class, 'standings'])->name('scoreboard.export.standings');
     Route::get('/scoreboard/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('scoreboard.export.detailed');
     Route::get('/scoreboard/{match}/export/rf-shots', [MatchExportController::class, 'royalFlushShots'])->name('scoreboard.export.rf-shots');
+    Route::get('/matches/{match}/report/royal-flush', [MatchExportController::class, 'royalFlushReport'])->name('matches.report.royal-flush');
 });
 Volt::route('/live/{match}', 'live')->name('live');
 Route::get('/badges-preview', BadgeGalleryController::class)->name('badges.preview');
@@ -117,6 +118,8 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
     Route::get('/matches/{match}/export/pdf-post-match', [MatchExportController::class, 'pdfPostMatchReport'])->name('matches.export.pdf-post-match');
+    Route::get('/matches/{match}/export/pdf-executive-summary', [MatchExportController::class, 'pdfExecutiveSummary'])->name('matches.export.pdf-executive-summary');
+    Route::get('/matches/{match}/export/pdf-shooter-report/{shooter}', [MatchExportController::class, 'pdfShooterReport'])->name('matches.export.pdf-shooter-report');
     Volt::route('/matches/{match}/side-bet', 'org.matches.side-bet')->name('matches.side-bet');
     Volt::route('/matches/{match}/side-bet-report', 'org.matches.side-bet-report')->name('matches.side-bet-report');
 
@@ -157,6 +160,8 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
     Route::get('/matches/{match}/export/pdf-detailed', [MatchExportController::class, 'pdfDetailed'])->name('matches.export.pdf-detailed');
     Route::get('/matches/{match}/export/pdf-post-match', [MatchExportController::class, 'pdfPostMatchReport'])->name('matches.export.pdf-post-match');
+    Route::get('/matches/{match}/export/pdf-executive-summary', [MatchExportController::class, 'pdfExecutiveSummary'])->name('matches.export.pdf-executive-summary');
+    Route::get('/matches/{match}/export/pdf-shooter-report/{shooter}', [MatchExportController::class, 'pdfShooterReport'])->name('matches.export.pdf-shooter-report');
     Volt::route('/matches/{match}/side-bet-report', 'admin.matches.side-bet-report')->name('matches.side-bet-report');
 
     // ── Match Reports ──

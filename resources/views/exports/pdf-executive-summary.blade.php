@@ -1,0 +1,441 @@
+@php
+    /**
+     * Executive Summary PDF (A4 Landscape, single page).
+     *
+     * @var \App\Models\ShootingMatch $match
+     * @var array $heatmap                Rows of shooter + cells
+     * @var array $heatmapColumns         Column meta (distance, gong number, multipliers)
+     * @var array $distanceStats          Per-distance aggregate hit rate
+     * @var array $podium                 first, second, third standings
+     * @var array $statCards              totals for header chips
+     * @var \Illuminate\Support\Collection $rfLeaderboard
+     * @var \Carbon\Carbon $generatedAt
+     */
+    $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
+    $mult = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') . '×';
+
+    // Group columns by distance for the header row (colspan-like behaviour via sub-headers).
+    $columnsByDist = [];
+    foreach ($heatmapColumns as $col) {
+        $columnsByDist[$col['distance_meters']]['label'] = $col['distance_label'];
+        $columnsByDist[$col['distance_meters']]['multiplier'] = $col['distance_multiplier'];
+        $columnsByDist[$col['distance_meters']]['cols'][] = $col;
+    }
+@endphp
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ $match->name }} — Executive Summary</title>
+    @include('exports.partials.pdf-styles')
+    <style>
+        /* Landscape page size */
+        @page { size: A4 landscape; margin: 0; }
+        body { width: 297mm; }
+
+        .wrap { padding: 14px 16px 12px; }
+
+        /* ─── Top row: podium + stat cards ─── */
+        .top-row { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        .top-row > tbody > tr > td { vertical-align: top; padding: 0; }
+        .top-row .podium-col { width: 58%; padding-right: 10px; }
+        .top-row .stats-col  { width: 42%; }
+
+        /* Stat cards — DeadCenter refined tiles */
+        .stats-grid {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 6px 0;
+            table-layout: fixed;
+        }
+        .stats-grid td {
+            border: 1px solid #e8edf4;
+            border-radius: 5px;
+            padding: 12px 14px;
+            vertical-align: top;
+            width: 25%;
+            background: #ffffff;
+        }
+        .stats-grid .lbl {
+            font-size: 6pt;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+        .stats-grid .val {
+            font-size: 18pt;
+            font-weight: 800;
+            color: #0b1220;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            margin-top: 6px;
+            letter-spacing: -0.02em;
+        }
+        .stats-grid .val .sub {
+            font-size: 9pt;
+            color: #94a3b8;
+            font-weight: 600;
+            letter-spacing: 0;
+            margin-left: 1px;
+        }
+        .stats-grid .bar {
+            margin-top: 8px;
+            height: 3px;
+            background: #f5f7fa;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .stats-grid .bar > span {
+            display: block;
+            height: 3px;
+            background: #e10600;
+            border-radius: 2px;
+        }
+
+        /* ─── Distance chips (sub-header strip) ─── */
+        .dist-strip {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 6px 0;
+            margin-top: 12px;
+        }
+        .dist-strip td {
+            border: 1px solid #e8edf4;
+            border-radius: 5px;
+            background: #fbfcfd;
+            padding: 9px 10px 8px;
+            text-align: center;
+        }
+        .dist-strip .d-label {
+            font-size: 10pt;
+            font-weight: 800;
+            color: #0b1220;
+            letter-spacing: -0.01em;
+        }
+        .dist-strip .d-meta {
+            font-size: 6.5pt;
+            color: #94a3b8;
+            margin-top: 3px;
+            letter-spacing: 0.04em;
+        }
+        .dist-strip .d-rate {
+            font-size: 7pt;
+            color: #334155;
+            font-weight: 700;
+            margin-top: 3px;
+            letter-spacing: 0.06em;
+        }
+
+        /* ─── Heatmap grid ─── */
+        .grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+            table-layout: fixed;
+            border: 1px solid #e8edf4;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .grid thead th {
+            background: #0b1220;
+            color: #f8fafc;
+            font-weight: 700;
+            padding: 5px 2px;
+            text-align: center;
+            font-size: 6.5pt;
+            border-right: 1px solid #121a2b;
+            letter-spacing: 0.04em;
+        }
+        .grid thead th.dist-head {
+            background: #121a2b;
+            color: #f8fafc;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-size: 7pt;
+            font-weight: 800;
+        }
+        .grid thead th.pos-head  { width: 18px; }
+        .grid thead th.name-head { width: 96px; text-align: left; padding-left: 8px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        .grid thead th.cal-head  { width: 52px; text-align: left; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        .grid thead th.score-head,
+        .grid thead th.rate-head {
+            background: #1e293b;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-size: 6pt;
+            width: 36px;
+        }
+        .grid thead th.score-head { color: #f8fafc; width: 42px; }
+        .grid thead th.rate-head  { color: #94a3b8; }
+
+        .grid thead .gong-num  { font-size: 6.5pt; color: #f8fafc; font-weight: 700; }
+        .grid thead .gong-mult { display: block; font-size: 5.5pt; color: #94a3b8; font-weight: 600; margin-top: 2px; letter-spacing: 0.04em; }
+
+        .grid tbody td {
+            padding: 0;
+            font-size: 6.5pt;
+            border-bottom: 1px solid #eef2f7;
+            border-right: 1px solid #f5f7fa;
+            vertical-align: middle;
+            text-align: center;
+            line-height: 1;
+            height: 13px;
+        }
+        .grid tbody tr:nth-child(even) td { background: #fbfcfd; }
+        .grid tbody tr.top1 td { background: #fef7e0 !important; }
+        .grid tbody tr.top2 td { background: #f1f4f9 !important; }
+        .grid tbody tr.top3 td { background: #fef2e7 !important; }
+        .grid tbody tr.dq   td { background: #fce8e8 !important; color: #94a3b8; font-style: italic; }
+
+        .grid td.pos {
+            font-weight: 800;
+            color: #94a3b8;
+            font-size: 7pt;
+            padding: 1px 0;
+            letter-spacing: 0.02em;
+        }
+        .grid tr.top1 td.pos { color: #b45309; }
+        .grid tr.top2 td.pos { color: #475569; }
+        .grid tr.top3 td.pos { color: #9a3412; }
+
+        .grid td.name {
+            text-align: left;
+            padding: 2px 4px 2px 8px;
+            font-weight: 700;
+            color: #0b1220;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 7pt;
+            letter-spacing: -0.005em;
+        }
+        .grid td.cal {
+            text-align: left;
+            padding: 2px 4px;
+            color: #94a3b8;
+            font-size: 6.5pt;
+            white-space: nowrap;
+            letter-spacing: 0.02em;
+        }
+        .grid td.score {
+            font-weight: 800;
+            color: #0b1220;
+            font-variant-numeric: tabular-nums;
+            font-size: 8pt;
+            letter-spacing: -0.01em;
+        }
+        .grid tr.top1 td.score { color: #b45309; }
+        .grid td.rate {
+            color: #475569;
+            font-size: 7pt;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ─── Heatmap cells (filled squares) ─── */
+        .grid td.hm-hit  { background: #15803d !important; padding: 0; }
+        .grid td.hm-miss { background: #fce8e8 !important; padding: 0; }
+        .grid td.hm-none { background: #f5f7fa !important; padding: 0; }
+        /* Keep podium-row tint readable through heatmap cells */
+        .grid tr.top1 td.hm-hit  { background: #15803d !important; }
+        .grid tr.top1 td.hm-miss { background: #fbe4b9 !important; }
+        .grid tr.top1 td.hm-none { background: #f7ead0 !important; }
+        .grid tr.top2 td.hm-hit  { background: #15803d !important; }
+        .grid tr.top2 td.hm-miss { background: #e3e8ee !important; }
+        .grid tr.top2 td.hm-none { background: #ecf0f5 !important; }
+        .grid tr.top3 td.hm-hit  { background: #15803d !important; }
+        .grid tr.top3 td.hm-miss { background: #f7d9c3 !important; }
+        .grid tr.top3 td.hm-none { background: #faead9 !important; }
+
+        /* Distance boundary — softer vertical separator */
+        .grid td.dist-end,
+        .grid th.dist-end { border-right: 1px solid #cbd5e1; }
+
+        /* ─── Legend ─── */
+        .legend {
+            margin-top: 10px;
+            padding: 8px 2px 0;
+            border-top: 1px solid #e8edf4;
+            font-size: 6.5pt;
+            color: #94a3b8;
+            letter-spacing: 0.06em;
+        }
+        .legend .swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            vertical-align: middle;
+            margin-right: 4px;
+            border-radius: 2px;
+        }
+        .legend .s-hit  { background: #15803d; }
+        .legend .s-miss { background: #fce8e8; }
+        .legend .s-none { background: #f5f7fa; border: 1px solid #e8edf4; }
+        .legend .sep { margin: 0 12px; color: #cbd5e1; }
+    </style>
+</head>
+<body>
+    @include('exports.partials.pdf-header', ['subtitle' => 'Executive Summary'])
+
+    <div class="wrap">
+        {{-- ─── Top: Podium + Stat cards ─── --}}
+        <table class="top-row">
+            <tr>
+                <td class="podium-col">
+                    <table class="podium">
+                        <tr>
+                            @if($podium['first'])
+                                <td class="p1">
+                                    <div class="rk">1st · Winner</div>
+                                    <div class="nm">{{ \Illuminate\Support\Str::before($podium['first']->name, ' — ') ?: $podium['first']->name }}</div>
+                                    @php $cal1 = \Illuminate\Support\Str::contains($podium['first']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['first']->name, ' — ')) : null; @endphp
+                                    @if($cal1)<div class="cal">{{ $cal1 }}</div>@endif
+                                    <div class="sc">{{ $fmt($podium['first']->total_score) }}</div>
+                                    <div class="sub">{{ $podium['first']->hits }} hits · {{ $podium['first']->squad }}</div>
+                                </td>
+                            @endif
+                            @if($podium['second'])
+                                <td class="p2">
+                                    <div class="rk">2nd</div>
+                                    <div class="nm">{{ \Illuminate\Support\Str::before($podium['second']->name, ' — ') ?: $podium['second']->name }}</div>
+                                    @php $cal2 = \Illuminate\Support\Str::contains($podium['second']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['second']->name, ' — ')) : null; @endphp
+                                    @if($cal2)<div class="cal">{{ $cal2 }}</div>@endif
+                                    <div class="sc">{{ $fmt($podium['second']->total_score) }}</div>
+                                    <div class="sub">{{ $podium['second']->hits }} hits</div>
+                                </td>
+                            @endif
+                            @if($podium['third'])
+                                <td class="p3">
+                                    <div class="rk">3rd</div>
+                                    <div class="nm">{{ \Illuminate\Support\Str::before($podium['third']->name, ' — ') ?: $podium['third']->name }}</div>
+                                    @php $cal3 = \Illuminate\Support\Str::contains($podium['third']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['third']->name, ' — ')) : null; @endphp
+                                    @if($cal3)<div class="cal">{{ $cal3 }}</div>@endif
+                                    <div class="sc">{{ $fmt($podium['third']->total_score) }}</div>
+                                    <div class="sub">{{ $podium['third']->hits }} hits</div>
+                                </td>
+                            @endif
+                        </tr>
+                    </table>
+                </td>
+                <td class="stats-col">
+                    <table class="stats-grid">
+                        <tr>
+                            <td>
+                                <div class="lbl">Shooters</div>
+                                <div class="val">{{ $statCards['totalShooters'] }}</div>
+                            </td>
+                            <td>
+                                <div class="lbl">Total Shots</div>
+                                <div class="val">{{ number_format($statCards['totalShots']) }}</div>
+                                <div class="bar"><span style="width: 100%;"></span></div>
+                            </td>
+                            <td>
+                                <div class="lbl">Hit Rate</div>
+                                <div class="val">{{ $statCards['hitRate'] }}<span class="sub">%</span></div>
+                                <div class="bar"><span style="width: {{ $statCards['hitRate'] }}%;"></span></div>
+                            </td>
+                            <td>
+                                <div class="lbl">Avg Score</div>
+                                <div class="val">{{ $fmt($statCards['avgScore']) }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        {{-- ─── Distance strip ─── --}}
+        <table class="dist-strip">
+            <tr>
+                @foreach($distanceStats as $ds)
+                    <td>
+                        <div class="d-label">{{ $ds['label'] }}</div>
+                        <div class="d-meta">multiplier {{ $mult($ds['multiplier']) }} · {{ $ds['gong_count'] }} gongs</div>
+                        <div class="d-rate">{{ $ds['hits'] }}/{{ $ds['shots'] }} · {{ $ds['hit_rate'] }}% hit rate</div>
+                    </td>
+                @endforeach
+            </tr>
+        </table>
+
+        {{-- ─── Main Heatmap Grid ─── --}}
+        <div class="section-title"><span class="accent">■</span>ALL SHOOTERS <span class="muted">Green = hit · Pink = miss · Grey = no shot recorded</span></div>
+
+        <table class="grid">
+            <thead>
+                {{-- Distance header row --}}
+                <tr>
+                    <th class="pos-head" rowspan="2">#</th>
+                    <th class="name-head" rowspan="2">Shooter</th>
+                    <th class="cal-head" rowspan="2">Caliber</th>
+                    @foreach($columnsByDist as $distM => $distGroup)
+                        <th class="dist-head dist-end" colspan="{{ count($distGroup['cols']) }}">
+                            {{ $distGroup['label'] }} · {{ $mult($distGroup['multiplier']) }}
+                        </th>
+                    @endforeach
+                    <th class="score-head" rowspan="2">Score</th>
+                    <th class="rate-head" rowspan="2">Hit%</th>
+                </tr>
+                {{-- Gong number row --}}
+                <tr>
+                    @foreach($columnsByDist as $distM => $distGroup)
+                        @foreach($distGroup['cols'] as $ci => $col)
+                            <th class="{{ $ci === count($distGroup['cols']) - 1 ? 'dist-end' : '' }}">
+                                <span class="gong-num">G{{ $col['gong_number'] }}</span>
+                                <span class="gong-mult">{{ $mult($col['gong_multiplier']) }}</span>
+                            </th>
+                        @endforeach
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($heatmap as $i => $row)
+                    @php
+                        $rowClass = '';
+                        if ($row['status'] === 'dq') $rowClass = 'dq';
+                        elseif ($row['rank'] === 1) $rowClass = 'top1';
+                        elseif ($row['rank'] === 2) $rowClass = 'top2';
+                        elseif ($row['rank'] === 3) $rowClass = 'top3';
+                    @endphp
+                    <tr class="{{ $rowClass }}">
+                        <td class="pos">{{ $row['status'] === 'dq' ? 'DQ' : $row['rank'] }}</td>
+                        <td class="name">{{ $row['display_name'] }}</td>
+                        <td class="cal">{{ $row['caliber'] ?? '' }}</td>
+                        @php
+                            $colIdx = 0;
+                            $distColCounts = array_map(fn ($g) => count($g['cols']), $columnsByDist);
+                            $distBoundaries = [];
+                            $acc = 0;
+                            foreach ($distColCounts as $n) { $acc += $n; $distBoundaries[$acc - 1] = true; }
+                        @endphp
+                        @foreach($row['cells'] as $idx => $cell)
+                            @php
+                                $cls = match ($cell['state']) {
+                                    'hit' => 'hm-hit',
+                                    'miss' => 'hm-miss',
+                                    default => 'hm-none',
+                                };
+                                $endCls = isset($distBoundaries[$idx]) ? ' dist-end' : '';
+                            @endphp
+                            <td class="{{ $cls }}{{ $endCls }}">&nbsp;</td>
+                        @endforeach
+                        <td class="score">{{ $fmt($row['total_score']) }}</td>
+                        <td class="rate">{{ $row['hit_rate'] }}%</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        <div class="legend">
+            <span class="swatch s-hit"></span>Hit
+            <span class="sep">·</span>
+            <span class="swatch s-miss"></span>Miss
+            <span class="sep">·</span>
+            <span class="swatch s-none"></span>No shot recorded
+            <span class="sep">·</span>
+            Rows sorted by match rank · Podium tinted gold / silver / bronze
+        </div>
+
+        @include('exports.partials.pdf-footer')
+    </div>
+</body>
+</html>
