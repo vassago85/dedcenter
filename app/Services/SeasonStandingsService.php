@@ -28,6 +28,39 @@ class SeasonStandingsService
             ->orderBy('date')
             ->get();
 
+        return $this->standingsFromMatches($matches);
+    }
+
+    /**
+     * Org-scoped (no-season) standings for the public portal leaderboard.
+     * Aggregates every completed match in the given org ids using the same
+     * best-3-scaled logic as season standings.
+     *
+     * @param  \Illuminate\Support\Collection<int>|array<int>  $orgIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function calculateForOrganizations($orgIds): array
+    {
+        $ids = collect($orgIds)->all();
+        if (count($ids) === 0) {
+            return [];
+        }
+
+        $matches = \App\Models\ShootingMatch::query()
+            ->whereIn('organization_id', $ids)
+            ->whereIn('status', ['active', 'completed'])
+            ->with(['targetSets.gongs', 'squads.shooters'])
+            ->orderBy('date')
+            ->get();
+
+        return $this->standingsFromMatches($matches);
+    }
+
+    /**
+     * Shared core used by both season and org-scoped calculations.
+     */
+    private function standingsFromMatches(\Illuminate\Support\Collection $matches): array
+    {
         if ($matches->isEmpty()) {
             return [];
         }
@@ -40,14 +73,15 @@ class SeasonStandingsService
             $pointsValue = max(1, (int) ($match->leaderboard_points ?? 100));
 
             foreach ($matchStandings as $entry) {
-                $userId = $entry['user_id'];
-                if (! $userId) {
-                    continue;
-                }
+                // Group by user_id when linked, else by a normalized name+caliber key
+                // so "Henri Klopper — 6x46" across matches still aggregates correctly.
+                $key = $entry['user_id']
+                    ? 'uid:'.$entry['user_id']
+                    : 'name:'.strtolower(trim((string) $entry['name']));
 
-                if (! isset($userScores[$userId])) {
-                    $userScores[$userId] = [
-                        'user_id' => $userId,
+                if (! isset($userScores[$key])) {
+                    $userScores[$key] = [
+                        'user_id' => $entry['user_id'],
                         'name' => $entry['name'],
                         'match_results' => [],
                     ];
@@ -56,7 +90,7 @@ class SeasonStandingsService
                 // Round to nearest integer (user spec).
                 $relScore = (int) round(($entry['total_score'] / $winnerScore) * $pointsValue);
 
-                $userScores[$userId]['match_results'][] = [
+                $userScores[$key]['match_results'][] = [
                     'match_id' => $match->id,
                     'match_name' => $match->name,
                     'match_date' => $match->date?->toDateString(),

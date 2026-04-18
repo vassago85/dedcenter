@@ -130,6 +130,41 @@ it('counts only best 3 and drops the weakest when 4+ matches exist', function ()
         ->and(collect($meRow['match_results'])->where('counted', false)->first()['relative_score'])->toBe(50);
 });
 
+it('aggregates by organization (no season) for the portal leaderboard', function () {
+    $org = App\Models\Organization::factory()->create();
+    $user = User::factory()->create();
+
+    // Two matches in the same org, no season assigned.
+    foreach ([60, 80] as $i => $rel) {
+        $owner = User::factory()->create();
+        $m = ShootingMatch::factory()->create([
+            'created_by' => $owner->id,
+            'scoring_type' => 'standard',
+            'status' => 'completed',
+            'organization_id' => $org->id,
+            'season_id' => null,
+            'leaderboard_points' => 100,
+        ]);
+        $ts = TargetSet::create([
+            'match_id' => $m->id, 'label' => '500m',
+            'distance_meters' => 500, 'distance_multiplier' => 5.0, 'sort_order' => 1,
+        ]);
+        $gs = collect(range(1, 100))->map(fn ($n) => ($this->mkGong)($ts, $n));
+        $sq = Squad::create(['match_id' => $m->id, 'name' => 'A']);
+        $me = Shooter::create(['name' => 'Me', 'squad_id' => $sq->id, 'status' => 'active', 'user_id' => $user->id]);
+        $w = Shooter::create(['name' => "W{$i}", 'squad_id' => $sq->id, 'status' => 'active']);
+        foreach ($gs->take($rel) as $g) ($this->hit)($me, $g);
+        foreach ($gs as $g) ($this->hit)($w, $g);
+    }
+
+    $standings = (new SeasonStandingsService())->calculateForOrganizations([$org->id]);
+    $meRow = collect($standings)->firstWhere('user_id', $user->id);
+
+    expect($meRow)->not->toBeNull()
+        ->and($meRow['matches_played'])->toBe(2)
+        ->and($meRow['best3_total'])->toBe(140); // 60 + 80
+});
+
 it('handles shooters with fewer than 3 matches', function () {
     $season = ($this->mkSeason)();
     $user = User::factory()->create();

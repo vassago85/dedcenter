@@ -3,15 +3,13 @@
 use App\Models\Organization;
 use App\Models\ShootingMatch;
 use App\Enums\MatchStatus;
-use Illuminate\Support\Facades\DB;
+use App\Services\SeasonStandingsService;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.portal')]
     class extends Component {
     public Organization $organization;
-    public string $divisionFilter = '';
-    public string $categoryFilter = '';
 
     public function getTitle(): string
     {
@@ -21,7 +19,6 @@ new #[Layout('components.layouts.portal')]
     public function with(): array
     {
         $org = $this->organization;
-        $bestOf = $org->best_of;
 
         $orgIds = collect([$org->id]);
         if ($org->isLeague()) {
@@ -33,85 +30,30 @@ new #[Layout('components.layouts.portal')]
             ->orderBy('date')
             ->get();
 
-        $matchIds = $matches->pluck('id');
-        $prsMatchIds = $matches->where('scoring_type', 'prs')->pluck('id');
+        $standings = (new SeasonStandingsService())->calculateForOrganizations($orgIds);
 
-        $allDivisions = DB::table('match_divisions')
-            ->whereIn('match_id', $matchIds)
-            ->select('id', 'name')
-            ->distinct()
-            ->orderBy('name')
-            ->get();
-
-        $divisionNames = $allDivisions->pluck('name')->unique()->sort()->values();
-
-        $allCategories = DB::table('match_categories')
-            ->whereIn('match_id', $matchIds)
-            ->select('id', 'name')
-            ->distinct()
-            ->orderBy('name')
-            ->get();
-        $categoryNames = $allCategories->pluck('name')->unique()->sort()->values();
-
-        $query = DB::table('shooters')
-            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-            ->join('scores', 'scores.shooter_id', '=', 'shooters.id')
-            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-            ->whereIn('squads.match_id', $matchIds)
-            ->where('scores.is_hit', true);
-
-        if ($this->divisionFilter !== '') {
-            $query->join('match_divisions', 'shooters.match_division_id', '=', 'match_divisions.id')
-                  ->where('match_divisions.name', $this->divisionFilter);
-        }
-
-        if ($this->categoryFilter !== '') {
-            $catIds = $allCategories->where('name', $this->categoryFilter)->pluck('id');
-            $catShooterIds = DB::table('match_category_shooter')
-                ->whereIn('match_category_id', $catIds)
-                ->pluck('shooter_id');
-            $query->whereIn('shooters.id', $catShooterIds);
-        }
-
-        $shooterMatchScores = $query->select(
-                'shooters.name as shooter_name',
-                'shooters.user_id',
-                'squads.match_id',
-                DB::raw('SUM(gongs.multiplier) as match_score'),
-                DB::raw('COUNT(*) as hit_count')
-            )
-            ->groupBy('shooters.name', 'shooters.user_id', 'squads.match_id')
-            ->get();
-
-        $grouped = [];
-        foreach ($shooterMatchScores as $row) {
-            $key = $row->user_id ? "uid:{$row->user_id}" : "name:" . strtolower($row->shooter_name);
-            if (! isset($grouped[$key])) {
-                $grouped[$key] = ['name' => $row->shooter_name, 'user_id' => $row->user_id, 'scores' => []];
+        // Flatten per-match results into an index keyed by match_id for the column view.
+        $standings = collect($standings)->map(function ($entry) {
+            $byMatch = [];
+            foreach ($entry['match_results'] as $r) {
+                $byMatch[$r['match_id']] = $r;
             }
-            $score = $prsMatchIds->contains($row->match_id) ? (float) $row->hit_count : (float) $row->match_score;
-            $grouped[$key]['scores'][$row->match_id] = $score;
-        }
+            $entry['scores_by_match'] = $byMatch;
+            return $entry;
+        })->values();
 
-        $leaderboard = collect($grouped)->map(function ($entry) use ($bestOf) {
-            $allScores = collect($entry['scores'])->sortDesc();
-            $topScores = $bestOf ? $allScores->take($bestOf) : $allScores;
-
-            return [
-                'name' => $entry['name'],
-                'total_score' => $topScores->sum(),
-                'match_count' => $allScores->count(),
-                'counted_matches' => $topScores->count(),
-                'scores_by_match' => $entry['scores'],
-            ];
-        })->sortByDesc('total_score')->values();
+        // Season cap = top-3 leaderboard_points values summed (300 for all-regular, 400 w/ finale).
+        $seasonCap = $matches
+            ->pluck('leaderboard_points')
+            ->map(fn ($v) => (int) ($v ?? 100))
+            ->sortDesc()
+            ->take(3)
+            ->sum();
 
         return [
-            'leaderboard' => $leaderboard,
+            'leaderboard' => $standings,
             'matches' => $matches,
-            'bestOf' => $bestOf,
-            'divisionNames' => $divisionNames,
-            'categoryNames' => $categoryNames,
+            'seasonCap' => $seasonCap ?: 300,
         ];
     }
 }; ?>
@@ -121,53 +63,16 @@ new #[Layout('components.layouts.portal')]
         <div>
             <h1 class="text-3xl font-bold text-primary">Season Leaderboard</h1>
             <p class="mt-1 text-sm text-muted">
-                {{ $organization->name }} —
-                @if($bestOf)
-                    Best {{ $bestOf }} {{ Str::plural('score', $bestOf) }} counted.
-                @else
-                All scores counted.
-            @endif
-        </p>
+                {{ $organization->name }} — best 3 match scores counted, out of {{ $seasonCap }}.
+            </p>
+            <p class="mt-1 text-xs text-muted/70">
+                Each match scored out of its own points value (regular = 100, season final = 200). Scaled score = round(shooter ÷ winner × points).
+            </p>
         </div>
         <x-powered-by-block feature="leaderboard" variant="block" />
     </div>
 
     <x-portal-ad-slot :organization="$organization" placement="portal_leaderboard_strip" variant="block" />
-
-    @if($divisionNames->isNotEmpty() || $categoryNames->isNotEmpty())
-        <div class="space-y-2">
-            @if($divisionNames->isNotEmpty())
-                <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-[10px] text-muted/60">DIV</span>
-                    <button wire:click="$set('divisionFilter', '')"
-                            class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $divisionFilter === '' ? 'bg-accent text-primary' : 'bg-white/10 text-muted hover:bg-white/20' }}">
-                        All
-                    </button>
-                    @foreach($divisionNames as $dn)
-                        <button wire:click="$set('divisionFilter', '{{ $dn }}')"
-                                class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $divisionFilter === $dn ? 'bg-accent text-primary' : 'bg-white/10 text-muted hover:bg-white/20' }}">
-                            {{ $dn }}
-                        </button>
-                    @endforeach
-                </div>
-            @endif
-            @if($categoryNames->isNotEmpty())
-                <div class="flex flex-wrap gap-2 items-center">
-                    <span class="text-[10px] text-muted/60">CAT</span>
-                    <button wire:click="$set('categoryFilter', '')"
-                            class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $categoryFilter === '' ? 'bg-blue-600 text-primary' : 'bg-white/10 text-muted hover:bg-white/20' }}">
-                        All
-                    </button>
-                    @foreach($categoryNames as $cn)
-                        <button wire:click="$set('categoryFilter', '{{ $cn }}')"
-                                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors {{ $categoryFilter === $cn ? 'bg-blue-600 text-primary' : 'bg-white/10 text-muted hover:bg-white/20' }}">
-                            {{ $cn }}
-                        </button>
-                    @endforeach
-                </div>
-            @endif
-        </div>
-    @endif
 
     @if($leaderboard->isEmpty())
         <div class="rounded-xl border border-white/10 bg-app px-6 py-12 text-center">
@@ -181,38 +86,36 @@ new #[Layout('components.layouts.portal')]
                         <tr class="border-b border-white/10 text-left text-muted">
                             <th class="px-4 py-3 font-medium w-12">#</th>
                             <th class="px-4 py-3 font-medium">Shooter</th>
-                            <th class="px-4 py-3 font-medium text-right">Total</th>
+                            <th class="px-4 py-3 font-medium text-right">Best 3 / {{ $seasonCap }}</th>
                             <th class="px-4 py-3 font-medium text-right">Matches</th>
                             @foreach($matches as $match)
-                                <th class="px-3 py-3 font-medium text-right text-xs whitespace-nowrap" title="{{ $match->name }}">
+                                @php $pv = (int) ($match->leaderboard_points ?? 100); @endphp
+                                <th class="px-3 py-3 font-medium text-right text-xs whitespace-nowrap {{ $pv >= 200 ? 'text-amber-300' : '' }}" title="{{ $match->name }}">
                                     {{ Str::limit($match->name, 12) }}
-                                    <br><span class="text-muted">{{ $match->date?->format('d/m') }}</span>
+                                    <br><span class="text-muted">{{ $match->date?->format('d/m') }} / {{ $pv }}</span>
                                 </th>
                             @endforeach
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        @foreach($leaderboard as $rank => $entry)
-                            <tr class="hover:bg-white/5 transition-colors {{ $rank < 3 ? 'bg-white/[0.02]' : '' }}">
-                                <td class="px-4 py-3 font-bold {{ $rank === 0 ? 'text-amber-400' : ($rank === 1 ? 'text-secondary' : ($rank === 2 ? 'text-amber-700' : 'text-muted')) }}">
-                                    {{ $rank + 1 }}
+                        @foreach($leaderboard as $entry)
+                            @php $rank = $entry['rank']; @endphp
+                            <tr class="hover:bg-white/5 transition-colors {{ $rank <= 3 ? 'bg-white/[0.02]' : '' }}">
+                                <td class="px-4 py-3 font-bold {{ $rank === 1 ? 'text-amber-400' : ($rank === 2 ? 'text-secondary' : ($rank === 3 ? 'text-amber-700' : 'text-muted')) }}">
+                                    {{ $rank }}
                                 </td>
                                 <td class="px-4 py-3 font-medium text-primary">{{ $entry['name'] }}</td>
-                                <td class="px-4 py-3 text-right font-bold text-primary">{{ number_format($entry['total_score'], 2) }}</td>
+                                <td class="px-4 py-3 text-right font-bold text-amber-400">{{ $entry['best3_total'] }}</td>
                                 <td class="px-4 py-3 text-right text-muted">
-                                    {{ $entry['counted_matches'] }}{{ $bestOf ? '/' . $entry['match_count'] : '' }}
+                                    {{ $entry['counting_results'] }}/{{ $entry['matches_played'] }}
                                 </td>
                                 @foreach($matches as $match)
                                     @php
-                                        $score = $entry['scores_by_match'][$match->id] ?? null;
-                                        $isTop = false;
-                                        if ($bestOf && $score !== null) {
-                                            $sorted = collect($entry['scores_by_match'])->sortDesc()->take($bestOf);
-                                            $isTop = $sorted->contains($score);
-                                        }
+                                        $result = $entry['scores_by_match'][$match->id] ?? null;
+                                        $counted = $result && $result['counted'];
                                     @endphp
-                                    <td class="px-3 py-3 text-right text-xs {{ $score !== null ? ($isTop ? 'portal-primary font-medium' : 'text-muted') : 'text-slate-700' }}">
-                                        {{ $score !== null ? number_format($score, 2) : '—' }}
+                                    <td class="px-3 py-3 text-right text-xs {{ $result === null ? 'text-slate-700' : ($counted ? 'text-primary font-medium' : 'text-muted line-through decoration-muted/50') }}">
+                                        {{ $result === null ? '—' : $result['relative_score'] }}
                                     </td>
                                 @endforeach
                             </tr>
@@ -223,10 +126,8 @@ new #[Layout('components.layouts.portal')]
         </div>
 
         <div class="text-xs text-muted space-y-1">
-            @if($bestOf)
-                <p>* Highlighted scores are the top {{ $bestOf }} counted toward the total.</p>
-            @endif
-            <p>Scores = sum of gong multipliers for successful hits.</p>
+            <p>* Bold values count toward the best-3 total. Struck-through values are dropped.</p>
+            <p>* Season final matches (worth 200) are highlighted in amber in the column header.</p>
         </div>
     @endif
 </div>
