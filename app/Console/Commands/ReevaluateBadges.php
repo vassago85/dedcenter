@@ -101,12 +101,15 @@ class ReevaluateBadges extends Command
     private function reevaluateMatch(ShootingMatch $match, MatchStandingsService $service, bool $dryRun): array
     {
         $podiumIds = $service->podiumShooterIds($match, 3);
+        $rankMap = $this->asUserRankMap($match, $podiumIds);
 
-        $correctStandard = $this->asUserRankMap($match, $podiumIds);
-        $correctRf = [];
-        if ($match->royal_flush_enabled) {
-            $correctRf = $correctStandard;
-        }
+        // Discipline-gated correctness:
+        //   - PRS podium (podium-gold/silver/bronze) is only correct on PRS matches.
+        //   - RF podium  (rf-podium-*) is only correct on Royal Flush matches.
+        // Any PRS podium sitting on a RF match is a bug and will be revoked; same
+        // in the other direction.
+        $correctStandard = $match->isPrs() ? $rankMap : [];
+        $correctRf = $match->royal_flush_enabled ? $rankMap : [];
 
         $stats = DB::transaction(function () use ($match, $correctStandard, $correctRf, $dryRun) {
             $revoked = 0;
@@ -114,6 +117,14 @@ class ReevaluateBadges extends Command
 
             $revoked += $this->revokeMismatched($match, self::PODIUM_SLUGS, $correctStandard, $dryRun, $kept);
             $revoked += $this->revokeMismatched($match, self::RF_PODIUM_SLUGS, $correctRf, $dryRun, $kept);
+
+            // If this match is NOT PRS, any first-podium / first-win lifetime badges
+            // stamped with this match_id are spurious (they were triggered by the
+            // old "PRS podium awarded on RF matches" bug). Revoke them so they can
+            // re-fire later on a real PRS podium for the same user.
+            if (! $match->isPrs()) {
+                $revoked += $this->revokeSpuriousPrsLifetime($match, $dryRun);
+            }
 
             return ['revoked' => $revoked, 'kept' => $kept];
         });
@@ -230,6 +241,46 @@ class ReevaluateBadges extends Command
                 $dryRun ? ' [dry-run]' : ''
             ));
 
+            if (! $dryRun) {
+                $ua->delete();
+            }
+            $revoked++;
+        }
+
+        return $revoked;
+    }
+
+    /**
+     * Revoke PRS-discipline lifetime badges (first-podium, first-win) whose
+     * triggering match_id is this non-PRS match. These were created by the old
+     * bug where PRS podium was awarded for every match type — once the PRS
+     * podium row is revoked, the lifetime-badge row must go with it so the
+     * next genuine PRS podium re-triggers the lifetime correctly.
+     */
+    private function revokeSpuriousPrsLifetime(ShootingMatch $match, bool $dryRun): int
+    {
+        $slugs = ['first-podium', 'first-win'];
+        $achievementIds = Achievement::whereIn('slug', $slugs)->pluck('id', 'slug')->all();
+        if (empty($achievementIds)) {
+            return 0;
+        }
+
+        $rows = UserAchievement::where('match_id', $match->id)
+            ->whereIn('achievement_id', array_values($achievementIds))
+            ->get();
+
+        $revoked = 0;
+        $slugByAchievementId = array_flip($achievementIds);
+
+        foreach ($rows as $ua) {
+            $slug = $slugByAchievementId[$ua->achievement_id] ?? 'unknown';
+            $this->line(sprintf(
+                '  - would revoke spurious %s from user #%d (non-PRS match %d)%s',
+                $slug,
+                $ua->user_id,
+                $match->id,
+                $dryRun ? ' [dry-run]' : ''
+            ));
             if (! $dryRun) {
                 $ua->delete();
             }

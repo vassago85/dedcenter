@@ -74,9 +74,11 @@ class AchievementService
      * Evaluate match-scoped badges after the match is finalized.
      * Call this when scores are published or match is marked completed.
      *
-     * Runs for ALL match types:
-     *   - Podium badges (gold/silver/bronze) — standard, RF, and PRS
-     *   - PRS-specific badges (iron-shooter, complete-shooter, deadcenter) — PRS only
+     * Discipline-gated:
+     *   - PRS-specific badges (iron-shooter, complete-shooter, deadcenter, PRS podium,
+     *     first-win, first-podium) — PRS matches only.
+     *   - Royal Flush podium (rf-podium-*) and Royal Flush lifetime badges are awarded
+     *     exclusively by evaluateRoyalFlushCompletion() to keep disciplines separate.
      */
     public static function evaluateMatchCompletion(ShootingMatch $match): array
     {
@@ -152,36 +154,42 @@ class AchievementService
             $awarded = array_merge($awarded, self::evaluateDeadCenter($match, $stages, $allResults));
         }
 
-        // Podium badges — runs for all match types, uses MatchStandingsService for correct weighted ranking
-        $podiumIds = (new \App\Services\MatchStandingsService())->podiumShooterIds($match, 3);
+        // PRS podium badges — PRS matches only. Royal Flush matches award their own
+        // rf-podium-* slugs inside evaluateRoyalFlushCompletion(), and other match
+        // types (Relay, ELR, etc.) do not currently award podium badges at all.
+        // This keeps discipline separation clean so a Royal Flush result never shows
+        // up under "PRS Badges" on a shooter's profile.
+        if ($match->isPrs()) {
+            $podiumIds = (new \App\Services\MatchStandingsService())->podiumShooterIds($match, 3);
 
-        foreach ($podiumIds as $rank => $shooterId) {
-            $shooter = $shooters->firstWhere('id', $shooterId);
-            if (! $shooter || ! $shooter->user_id) {
-                continue;
-            }
+            foreach ($podiumIds as $rank => $shooterId) {
+                $shooter = $shooters->firstWhere('id', $shooterId);
+                if (! $shooter || ! $shooter->user_id) {
+                    continue;
+                }
 
-            $slug = match ($rank) {
-                1 => 'podium-gold',
-                2 => 'podium-silver',
-                3 => 'podium-bronze',
-                default => null,
-            };
+                $slug = match ($rank) {
+                    1 => 'podium-gold',
+                    2 => 'podium-silver',
+                    3 => 'podium-bronze',
+                    default => null,
+                };
 
-            if (! $slug) {
-                break;
-            }
+                if (! $slug) {
+                    break;
+                }
 
-            if (! self::hasMatchBadge($slug, $shooter->user_id, $match->id)) {
-                $badge = self::awardBadge($slug, $shooter, $match, null, ['rank' => $rank]);
-                if ($badge) {
-                    $awarded[] = $badge;
+                if (! self::hasMatchBadge($slug, $shooter->user_id, $match->id)) {
+                    $badge = self::awardBadge($slug, $shooter, $match, null, ['rank' => $rank]);
+                    if ($badge) {
+                        $awarded[] = $badge;
 
-                    if ($rank === 1) {
-                        $awarded = array_merge($awarded, self::checkLifetime('first-win', 'podium-gold', $shooter, $match));
-                    }
-                    if ($rank <= 3) {
-                        $awarded = array_merge($awarded, self::checkLifetime('first-podium', 'podium-gold', $shooter, $match));
+                        if ($rank === 1) {
+                            $awarded = array_merge($awarded, self::checkLifetime('first-win', 'podium-gold', $shooter, $match));
+                        }
+                        if ($rank <= 3) {
+                            $awarded = array_merge($awarded, self::checkLifetime('first-podium', 'podium-gold', $shooter, $match));
+                        }
                     }
                 }
             }
