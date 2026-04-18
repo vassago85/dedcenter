@@ -30,47 +30,69 @@
                     <p class="text-muted">No standings yet. Matches need to be scored and assigned to this season.</p>
                 </div>
 
-                <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-border text-left text-muted">
-                                <th class="px-3 py-3 text-center w-10">#</th>
-                                <th class="px-3 py-3">Shooter</th>
-                                <th class="px-3 py-3 text-center">Matches</th>
-                                <th class="px-3 py-3 text-center">Avg Rel %</th>
-                                <th class="px-3 py-3 text-center">Total Rel</th>
-                                <th class="px-3 py-3 text-center">Best</th>
-                                <th class="px-3 py-3 text-center">Worst</th>
-                                <th class="px-3 py-3 text-center">Hits</th>
-                                <th class="px-3 py-3 text-right font-bold">Points</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-border">
-                            <tr
-                                v-for="entry in standings"
-                                :key="entry.user_id"
-                                class="transition-colors hover:bg-surface-2"
-                                :class="rankRowClass(entry.rank)"
-                            >
-                                <td class="px-3 py-3 text-center">
-                                    <span
-                                        v-if="entry.rank <= 3"
-                                        class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
-                                        :class="medalClass(entry.rank)"
-                                    >{{ entry.rank }}</span>
-                                    <span v-else class="text-muted">{{ entry.rank }}</span>
-                                </td>
-                                <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
-                                <td class="px-3 py-3 text-center tabular-nums">{{ entry.matches_played }}</td>
-                                <td class="px-3 py-3 text-center tabular-nums font-bold text-amber-400">{{ entry.avg_relative }}%</td>
-                                <td class="px-3 py-3 text-center tabular-nums">{{ entry.total_relative.toFixed(1) }}</td>
-                                <td class="px-3 py-3 text-center tabular-nums text-green-400">{{ entry.best_relative }}%</td>
-                                <td class="px-3 py-3 text-center tabular-nums text-red-400">{{ entry.worst_relative }}%</td>
-                                <td class="px-3 py-3 text-center tabular-nums">{{ entry.total_hits }}</td>
-                                <td class="px-3 py-3 text-right tabular-nums font-bold">{{ entry.total_points }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div v-else>
+                    <p class="mb-3 text-center text-xs text-muted">
+                        Each match scored out of its own points value (regular = 100, final = 200).
+                        Season total = sum of your <strong>best 3</strong> results.
+                        Match ranking by score; ties broken by matches played.
+                    </p>
+
+                    <div class="overflow-x-auto rounded-xl border border-border bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-3 py-3 text-center w-10">#</th>
+                                    <th class="px-3 py-3">Shooter</th>
+                                    <th class="px-3 py-3 text-center w-16">Played</th>
+                                    <th
+                                        v-for="match in matchColumns"
+                                        :key="'mh-' + match.match_id"
+                                        class="px-3 py-3 text-center text-xs tabular-nums whitespace-nowrap"
+                                        :class="match.points_value >= 200 ? 'text-amber-300' : 'text-muted'"
+                                    >
+                                        <div class="truncate max-w-[110px]">{{ match.match_name }}</div>
+                                        <div class="text-[10px] text-muted">/ {{ match.points_value }}</div>
+                                    </th>
+                                    <th class="px-3 py-3 text-right text-amber-400 font-bold whitespace-nowrap">Best 3 / {{ seasonCap }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <tr
+                                    v-for="entry in standings"
+                                    :key="entry.user_id"
+                                    class="transition-colors hover:bg-surface-2"
+                                    :class="rankRowClass(entry.rank)"
+                                >
+                                    <td class="px-3 py-3 text-center">
+                                        <span
+                                            v-if="entry.rank <= 3"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
+                                            :class="medalClass(entry.rank)"
+                                        >{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-3 py-3 text-center tabular-nums">{{ entry.matches_played }}</td>
+                                    <td
+                                        v-for="match in matchColumns"
+                                        :key="'mc-' + entry.user_id + '-' + match.match_id"
+                                        class="px-3 py-3 text-center tabular-nums"
+                                    >
+                                        <span
+                                            v-if="getResult(entry, match.match_id)"
+                                            :class="[
+                                                getResult(entry, match.match_id).counted ? 'font-bold text-primary' : 'text-muted line-through decoration-muted/50',
+                                                match.points_value >= 200 ? 'ring-1 ring-amber-500/40 rounded px-1.5 py-0.5' : ''
+                                            ]"
+                                            :title="getResult(entry, match.match_id).counted ? 'Counted in best 3' : 'Dropped (outside best 3)'"
+                                        >{{ getResult(entry, match.match_id).relative_score }}</span>
+                                        <span v-else class="text-muted/60">—</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right tabular-nums text-lg font-bold text-amber-400">{{ entry.best3_total }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </main>
@@ -78,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -90,6 +112,38 @@ const seasonName = ref('');
 const seasonDates = ref('');
 const loading = ref(true);
 const error = ref(null);
+
+// Derive the season's match columns from the first entry that has match_results.
+// Every shooter's match_results contain the same set of matches (missing = DNS).
+const matchColumns = computed(() => {
+    const seen = new Map();
+    for (const entry of standings.value) {
+        for (const r of entry.match_results || []) {
+            if (!seen.has(r.match_id)) {
+                seen.set(r.match_id, {
+                    match_id: r.match_id,
+                    match_name: r.match_name,
+                    match_date: r.match_date,
+                    points_value: r.points_value,
+                });
+            }
+        }
+    }
+    return Array.from(seen.values()).sort((a, b) => (a.match_date || '').localeCompare(b.match_date || ''));
+});
+
+// Season cap = top 3 points_values across all matches, summed.
+const seasonCap = computed(() => {
+    return matchColumns.value
+        .map((m) => m.points_value)
+        .sort((a, b) => b - a)
+        .slice(0, 3)
+        .reduce((a, b) => a + b, 0) || 300;
+});
+
+function getResult(entry, matchId) {
+    return (entry.match_results || []).find((r) => r.match_id === matchId) || null;
+}
 
 function medalClass(rank) {
     if (rank === 1) return 'bg-amber-500 text-black';

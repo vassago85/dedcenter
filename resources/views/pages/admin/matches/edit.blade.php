@@ -38,6 +38,7 @@ new #[Layout('components.layouts.app')]
     public bool $royal_flush_enabled = false;
     public array $sideBetShooterIds = [];
     public bool $scores_published = true;
+    public int $leaderboard_points = 100;
 
     // Custom Registration Fields
     public array $customFields = [];
@@ -111,6 +112,7 @@ new #[Layout('components.layouts.app')]
             $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
+            $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
             $this->season_id = $match->season_id;
             $this->loadCustomFields();
         }
@@ -135,6 +137,7 @@ new #[Layout('components.layouts.app')]
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
+        $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
 
         $org = $this->match?->organization;
         if ($org && ! $org->season_standings_enabled) {
@@ -1355,16 +1358,27 @@ new #[Layout('components.layouts.app')]
                 $seasonUi = ! $match?->organization_id || ($match->organization->season_standings_enabled ?? true);
             @endphp
             @if($seasonUi)
-                <div>
-                    <label class="block text-sm font-medium text-secondary mb-1">Season</label>
-                    <select wire:model="season_id"
-                            class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
-                        <option value="">No season</option>
-                        @foreach(\App\Models\Season::orderByDesc('year')->get() as $season)
-                            <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
-                        @endforeach
-                    </select>
-                    <p class="mt-1 text-xs text-muted">Optional — assign this match to a season for aggregate standings. Disabled for organizations that turned off season standings.</p>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-secondary mb-1">Season</label>
+                        <select wire:model="season_id"
+                                class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                            <option value="">No season</option>
+                            @foreach(\App\Models\Season::orderByDesc('year')->get() as $season)
+                                <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-muted">Optional — assign this match to a season for aggregate standings.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-secondary mb-1">Season points value</label>
+                        <select wire:model="leaderboard_points"
+                                class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                            <option value="100">Regular match (100)</option>
+                            <option value="200">Season final (200)</option>
+                        </select>
+                        <p class="mt-1 text-xs text-muted">Caps this match's contribution to the season leaderboard. Season total = best 3.</p>
+                    </div>
                 </div>
             @elseif($match?->organization)
                 <p class="text-xs text-muted rounded-lg border border-border bg-surface-2/40 px-3 py-2">Season assignment is off for {{ $match->organization->name }}. Enable it under Organization settings if you need season aggregates.</p>

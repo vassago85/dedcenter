@@ -40,6 +40,7 @@ new #[Layout('components.layouts.app')]
     public string $registration_closes_at = '';
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
+    public int $leaderboard_points = 100;
     public bool $royal_flush_enabled = false;
     public bool $side_bet_enabled = false;
     public int $concurrent_relays = 2;
@@ -154,6 +155,7 @@ new #[Layout('components.layouts.app')]
                 : 'standard';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
+            $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
             $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->corrections_pin = $match->corrections_pin ?? '';
@@ -193,6 +195,7 @@ new #[Layout('components.layouts.app')]
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
+        $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
         $validated['corrections_pin'] = $this->corrections_pin !== '' ? $this->corrections_pin : null;
         $validated['self_squadding_enabled'] = $this->self_squadding_enabled;
         $validated['team_event'] = $this->team_event;
@@ -1671,6 +1674,23 @@ new #[Layout('components.layouts.app')]
 
                     <div class="border-t border-border pt-4">
                         <flux:switch wire:model.live="self_squadding_enabled" label="Self-Squadding" description="Allow shooters to pick their own squad when squadding opens" />
+                    </div>
+
+                    <div class="border-t border-border pt-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-32">
+                                <label class="block text-sm font-medium text-secondary mb-1">Season points</label>
+                                <select wire:model="leaderboard_points"
+                                        class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                                    <option value="100">Regular match (100)</option>
+                                    <option value="200">Season final (200)</option>
+                                </select>
+                            </div>
+                            <p class="text-xs text-muted flex-1">
+                                Defines how much this match is worth on the season leaderboard. The season total is a shooter's best 3 scaled scores.
+                                <span class="block mt-1 text-[11px] text-muted/80">scaled = round(shooter_score / winner_score × points)</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
             @endif

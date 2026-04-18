@@ -525,37 +525,58 @@ class MatchExportController extends Controller
             ->get()
             ->groupBy('shooter_id');
 
-        // per-target-set hit totals per shooter
-        $perShooterBreakdown = [];
-        foreach ($standings as $row) {
-            $shooterScores = $scores->get($row->shooter_id, collect())->keyBy('gong_id');
-            $tsBreakdown = [];
-            foreach ($targetSets as $ts) {
-                $hits = 0;
-                $misses = 0;
-                $subtotal = 0;
-                $mult = (float) ($ts->distance_multiplier ?? 1);
+        // Distance tables (tablet-summary shape): one table per target set, one row
+        // per shooter (ordered by overall match rank), with tick/cross + points per gong.
+        $distanceTables = [];
+        foreach ($targetSets as $ts) {
+            $mult = (float) ($ts->distance_multiplier ?? 1);
+            $rows = [];
+            foreach ($standings as $standing) {
+                $shooterScores = $scores->get($standing->shooter_id, collect())->keyBy('gong_id');
+                $cells = [];
+                $rowHits = 0;
+                $rowMisses = 0;
+                $rowSubtotal = 0.0;
                 foreach ($ts->gongs as $g) {
                     $score = $shooterScores->get($g->id);
                     if (! $score) {
+                        $cells[] = ['state' => 'none', 'points' => null];
                         continue;
                     }
                     if ($score->is_hit) {
-                        $hits++;
-                        $subtotal += $mult * $g->multiplier;
+                        $pts = $mult * (float) $g->multiplier;
+                        $cells[] = ['state' => 'hit', 'points' => $pts];
+                        $rowHits++;
+                        $rowSubtotal += $pts;
                     } else {
-                        $misses++;
+                        $cells[] = ['state' => 'miss', 'points' => null];
+                        $rowMisses++;
                     }
                 }
-                $tsBreakdown[] = [
-                    'label' => $ts->label,
-                    'distance_meters' => $ts->distance_meters,
-                    'hits' => $hits,
-                    'misses' => $misses,
-                    'subtotal' => round($subtotal, 2),
+                $rows[] = [
+                    'rank' => $standing->rank,
+                    'name' => $standing->name,
+                    'caliber' => $this->caliberFromShooterName($standing->name),
+                    'squad' => $standing->squad,
+                    'status' => $standing->status,
+                    'cells' => $cells,
+                    'hits' => $rowHits,
+                    'misses' => $rowMisses,
+                    'subtotal' => round($rowSubtotal, 2),
                 ];
             }
-            $perShooterBreakdown[$row->shooter_id] = $tsBreakdown;
+            $distanceTables[] = [
+                'label' => $ts->label,
+                'distance_meters' => $ts->distance_meters,
+                'distance_multiplier' => $mult,
+                'gongs' => $ts->gongs->map(fn ($g) => [
+                    'number' => $g->number,
+                    'label' => $g->label,
+                    'multiplier' => (float) $g->multiplier,
+                    'points_per_hit' => round($mult * (float) $g->multiplier, 2),
+                ])->all(),
+                'rows' => $rows,
+            ];
         }
 
         // Royal Flush leaderboard (if enabled)
@@ -630,11 +651,33 @@ class MatchExportController extends Controller
             'match' => $match,
             'standings' => $standings,
             'targetSets' => $targetSets,
-            'perShooterBreakdown' => $perShooterBreakdown,
+            'distanceTables' => $distanceTables,
             'rfLeaderboard' => $rfLeaderboard,
             'sideBetCascade' => $sideBetCascade,
             'generatedAt' => now(),
         ];
+    }
+
+    /**
+     * Extract a caliber from a shooter name in the format "Firstname Lastname — 6x46".
+     * Tolerates both em-dash and hyphen separators. Returns null if no suffix.
+     */
+    private function caliberFromShooterName(?string $name): ?string
+    {
+        if ($name === null || $name === '') {
+            return null;
+        }
+
+        // Split on em-dash first, then on " - " (space-hyphen-space) to avoid eating hyphens inside names.
+        foreach ([' — ', ' – ', ' - '] as $sep) {
+            if (str_contains($name, $sep)) {
+                $parts = explode($sep, $name, 2);
+                $tail = trim($parts[1] ?? '');
+                return $tail !== '' ? $tail : null;
+            }
+        }
+
+        return null;
     }
 
     private function buildSideBetCascadeForPdf(ShootingMatch $match): array

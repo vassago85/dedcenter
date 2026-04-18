@@ -178,7 +178,7 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <p class="text-xs text-muted print:block">
-            Ranked by smallest gong hits, then distance value (furthest first), then next gong rank, then total match score.
+            Ranked by smallest-gong hits first; ties break on furthest distance at that gong, then cascade down through every gong size.
             &bull; {{ $entries->count() }} participants &bull; Generated {{ now()->format('d M Y H:i') }}
         </p>
     @endif

@@ -124,10 +124,9 @@ new #[Layout('components.layouts.app')]
         <div class="mb-1 font-semibold text-amber-300">Side Bet tiebreaker rules</div>
         <ol class="ml-5 list-decimal space-y-1 text-xs leading-relaxed">
             <li>Rank by count of <strong>smallest-gong</strong> (highest-value) hits.</li>
-            <li>If tied, compare <strong>next-smallest</strong> gong hits.</li>
-            <li>Cascade down through every gong size, highest-value to lowest.</li>
-            <li>Within a gong size, shooters who hit at the <strong>furthest distance</strong> rank higher.</li>
-            <li>If still tied, total match score (weighted) breaks the tie.</li>
+            <li>If tied, the shooter who hit the <strong>furthest distance</strong> at that gong ranks higher; then second-furthest; etc.</li>
+            <li>If still tied, drop to the <strong>next gong size</strong> and repeat (count → distances).</li>
+            <li>Cascade continues all the way down through every gong size.</li>
         </ol>
     </div>
 
@@ -189,7 +188,7 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <p class="text-xs text-muted print:block">
-            Ranked by smallest gong hits, then distance value (furthest first), then next gong rank, then total match score.
+            Ranked by smallest-gong hits first; ties break on furthest distance at that gong, then cascade down through every gong size.
             &bull; {{ $entries->count() }} participants &bull; Generated {{ now()->format('d M Y H:i') }}
         </p>
     @endif
