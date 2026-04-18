@@ -157,7 +157,10 @@ class SeasonStandingsService
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->where('squads.match_id', $match->id)
             ->where(function ($q) {
-                $q->whereNull('shooters.status')->orWhere('shooters.status', '!=', 'dq');
+                // Exclude DQs and no-shows from season standings — they didn't
+                // legitimately compete in the match.
+                $q->whereNull('shooters.status')
+                    ->orWhereNotIn('shooters.status', ['dq', 'no_show']);
             })
             ->select('shooters.id', 'shooters.name', 'shooters.user_id')
             ->get();

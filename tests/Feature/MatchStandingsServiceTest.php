@@ -99,6 +99,78 @@ it('puts DQd shooters at the bottom with rank null', function () {
         ->and($standings[1]->rank)->toBeNull();
 });
 
+it('excludes no-show shooters from the ranking and lists them at the bottom with rank null', function () {
+    // This is the bug the admin "mark as no-show" UI solves: a shooter who
+    // didn't attend but was accidentally scored as a wall of misses must not
+    // occupy a leaderboard slot — they shouldn't drag the field average down,
+    // and they shouldn't tie for last place.
+    $owner = User::factory()->create();
+    $match = ShootingMatch::factory()->create(['created_by' => $owner->id, 'scoring_type' => 'standard']);
+
+    $ts = TargetSet::create([
+        'match_id' => $match->id, 'label' => '500m',
+        'distance_meters' => 500, 'distance_multiplier' => 5.0, 'sort_order' => 1,
+    ]);
+    [$g1, $g2] = ($this->makeGongs)($ts, 2);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Alpha']);
+
+    // Real competitor with 2 hits.
+    $alice = Shooter::create(['name' => 'Alice', 'squad_id' => $squad->id, 'status' => 'active']);
+    ($this->hit)($alice, $g1);
+    ($this->hit)($alice, $g2);
+
+    // Real competitor with 1 hit.
+    $bob = Shooter::create(['name' => 'Bob', 'squad_id' => $squad->id, 'status' => 'active']);
+    ($this->hit)($bob, $g1);
+
+    // No-show scored as all misses — should be ignored for ranking but still
+    // appear in the collection so the report can render an N/S row.
+    $ghost = Shooter::create(['name' => 'Ghost', 'squad_id' => $squad->id, 'status' => 'no_show']);
+    ($this->hit)($ghost, $g1, false);
+    ($this->hit)($ghost, $g2, false);
+
+    $standings = (new MatchStandingsService())->standardStandings($match)->values();
+
+    expect($standings)->toHaveCount(3)
+        ->and($standings[0]->name)->toBe('Alice')
+        ->and($standings[0]->rank)->toBe(1)
+        ->and($standings[1]->name)->toBe('Bob')
+        ->and($standings[1]->rank)->toBe(2)
+        ->and($standings[2]->name)->toBe('Ghost')
+        ->and($standings[2]->status)->toBe('no_show')
+        ->and($standings[2]->rank)->toBeNull();
+});
+
+it('excludes no-show shooters from podium awarding', function () {
+    // Regression: the podium helper used to only filter DQs. Ensure no-shows
+    // are also dropped so we never award podium badges to someone who wasn't there.
+    $owner = User::factory()->create();
+    $u1 = User::factory()->create();
+    $u2 = User::factory()->create();
+
+    $match = ShootingMatch::factory()->create(['created_by' => $owner->id, 'scoring_type' => 'standard']);
+    $ts = TargetSet::create([
+        'match_id' => $match->id, 'label' => '500m',
+        'distance_meters' => 500, 'distance_multiplier' => 5.0, 'sort_order' => 1,
+    ]);
+    [$g1, $g2] = ($this->makeGongs)($ts, 2);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Alpha']);
+    $linked1 = Shooter::create(['name' => 'Linked1', 'squad_id' => $squad->id, 'status' => 'active', 'user_id' => $u1->id]);
+    // Linked2 is a no-show with more "points" recorded than Linked1 — must not
+    // be placed on the podium despite sitting "above" Linked1 by raw total.
+    $linked2 = Shooter::create(['name' => 'Linked2', 'squad_id' => $squad->id, 'status' => 'no_show', 'user_id' => $u2->id]);
+
+    ($this->hit)($linked1, $g1);
+    ($this->hit)($linked2, $g1);
+    ($this->hit)($linked2, $g2);
+
+    $podium = (new MatchStandingsService())->podiumShooterIds($match, 3);
+
+    expect($podium)->toBe([1 => $linked1->id]);
+});
+
 it('returns podium shooter ids ordered by rank for account-linked shooters only', function () {
     $owner = User::factory()->create();
     $u1 = User::factory()->create();

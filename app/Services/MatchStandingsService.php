@@ -20,11 +20,28 @@ use Illuminate\Support\Facades\DB;
  *   hits         (int)
  *   misses       (int)
  *   total_score  (float, rounded to 2 dp)
- *   status       (string) e.g. 'active' | 'dq'
- *   rank         (int|null)  — null for DQ rows
+ *   status       (string) one of 'active' | 'withdrawn' | 'dq' | 'no_show'
+ *   rank         (int|null)  — null for DQ *and* no-show rows
+ *
+ * Status handling for ranking:
+ *   - active / withdrawn → ranked normally by descending total_score
+ *   - dq                 → excluded from ranking (rank = null), listed at the end
+ *   - no_show            → excluded from ranking (rank = null), listed at the end;
+ *                          kept in the collection so we can surface "did not attend"
+ *                          rather than silently dropping the entry, but treated as
+ *                          NOT competing for stats purposes (hit rate, field avg,
+ *                          field size). A shooter accidentally scored as 20 misses
+ *                          will stop dragging field average down the moment they
+ *                          are flagged as a no-show in the UI.
  */
 class MatchStandingsService
 {
+    /**
+     * Shooter statuses that are excluded from the ranked leaderboard.
+     * `dq` and `no_show` both produce rank=null rows.
+     */
+    public const NON_RANKED_STATUSES = ['dq', 'no_show'];
+
     /**
      * Standings for a standard (non-PRS, non-ELR) match, including Royal Flush.
      *
@@ -52,12 +69,15 @@ class MatchStandingsService
             ->orderByDesc('agg_total')
             ->get();
 
-        $active = $rows->where('status', '!=', 'dq')->values();
-        $dq = $rows->where('status', 'dq')->values();
+        $ranked = $rows->filter(fn ($r) => ! in_array($r->status, self::NON_RANKED_STATUSES, true))->values();
+        $nonRanked = $rows->filter(fn ($r) => in_array($r->status, self::NON_RANKED_STATUSES, true))
+            // dq before no_show, preserving query order within each group
+            ->sortBy(fn ($r) => $r->status === 'dq' ? 0 : 1)
+            ->values();
 
         $standings = collect();
 
-        foreach ($active as $i => $row) {
+        foreach ($ranked as $i => $row) {
             $standings->push((object) [
                 'shooter_id' => (int) $row->shooter_id,
                 'name' => $row->name,
@@ -70,7 +90,7 @@ class MatchStandingsService
             ]);
         }
 
-        foreach ($dq as $row) {
+        foreach ($nonRanked as $row) {
             $standings->push((object) [
                 'shooter_id' => (int) $row->shooter_id,
                 'name' => $row->name,
@@ -100,7 +120,7 @@ class MatchStandingsService
 
         // Standard and Royal Flush share the weighted ranking.
         $standings = $this->standardStandings($match)
-            ->filter(fn ($row) => $row->status !== 'dq' && $row->rank !== null);
+            ->filter(fn ($row) => ! in_array($row->status, self::NON_RANKED_STATUSES, true) && $row->rank !== null);
 
         $linkedIds = DB::table('shooters')
             ->whereIn('id', $standings->pluck('shooter_id')->all())

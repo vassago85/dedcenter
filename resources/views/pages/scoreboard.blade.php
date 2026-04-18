@@ -179,6 +179,20 @@ new #[Layout('components.layouts.scoreboard')]
             $shooters = $shooters->sortByDesc('display_score')->values();
         }
 
+        // Pull DQs and no-shows out of the ranking sequence so they don't
+        // occupy a podium slot just because they were sorted naturally to the
+        // top/middle of the list. They are re-appended at the bottom with a
+        // null display_rank so the template can label them DQ / N/S.
+        $shooters = $shooters->partition(fn ($s) => ! in_array($s->status ?? 'active', ['dq', 'no_show'], true));
+        [$rankedShooters, $nonRankedShooters] = [$shooters[0]->values(), $shooters[1]->values()];
+        foreach ($rankedShooters as $i => $s) {
+            $s->display_rank = $i + 1;
+        }
+        foreach ($nonRankedShooters as $s) {
+            $s->display_rank = null;
+        }
+        $shooters = $rankedShooters->concat($nonRankedShooters)->values();
+
         $royalFlushEnabled = !$isPrs && (bool) $this->match->royal_flush_enabled;
         $royalFlushEntries = collect();
         $rfDistances = collect();
@@ -599,13 +613,20 @@ new #[Layout('components.layouts.scoreboard')]
         <div class="space-y-3">
             @forelse($detailedData as $index => $entry)
                 @php
-                    $rank = $index + 1;
+                    $rank = $entry->shooter->display_rank ?? null;
+                    $entryStatus = $entry->shooter->status ?? 'active';
+                    $isDqRow = $entryStatus === 'dq';
+                    $isNoShowRow = $entryStatus === 'no_show';
+                    $isOfflineRow = $isDqRow || $isNoShowRow;
+                    $rankLabel = $isDqRow ? 'DQ' : ($isNoShowRow ? 'N/S' : $rank);
                     $isExpanded = $expandedShooterId === $entry->shooter->id;
                 @endphp
-                <div class="overflow-hidden rounded-2xl border border-border bg-app">
+                <div class="overflow-hidden rounded-2xl border border-border bg-app {{ $isOfflineRow ? 'opacity-60' : '' }}">
                     <button type="button" wire:click="toggleExpand({{ $entry->shooter->id }})"
                             class="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface/50 sm:gap-4 sm:px-6 sm:py-4">
-                        @if($rank <= 3)
+                        @if($isOfflineRow)
+                            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center text-sm text-muted font-bold italic" title="{{ $isDqRow ? 'Disqualified' : 'Did not attend' }}">{{ $rankLabel }}</span>
+                        @elseif($rank <= 3)
                             @php
                                 $medalClass = match($rank) {
                                     1 => 'bg-amber-500 text-black',
@@ -947,22 +968,34 @@ new #[Layout('components.layouts.scoreboard')]
             <tbody class="divide-y divide-border">
                 @forelse($shooters as $index => $shooter)
                     @php
-                        $rank = $index + 1;
-                        $rowClass = match($rank) {
-                            1 => 'bg-amber-500/10 border-l-4 border-l-amber-400',
-                            2 => 'bg-slate-400/5 border-l-4 border-l-slate-400',
-                            3 => 'bg-orange-500/5 border-l-4 border-l-orange-600',
+                        $rank = $shooter->display_rank ?? null;
+                        $shooterStatus = $shooter->status ?? 'active';
+                        $isDqRow = $shooterStatus === 'dq';
+                        $isNoShowRow = $shooterStatus === 'no_show';
+                        $isOfflineRow = $isDqRow || $isNoShowRow;
+
+                        $rowClass = match(true) {
+                            $isOfflineRow => 'opacity-60 border-l-4 border-l-transparent',
+                            $rank === 1 => 'bg-amber-500/10 border-l-4 border-l-amber-400',
+                            $rank === 2 => 'bg-slate-400/5 border-l-4 border-l-slate-400',
+                            $rank === 3 => 'bg-orange-500/5 border-l-4 border-l-orange-600',
                             default => 'border-l-4 border-l-transparent',
                         };
-                        $rankClass = match($rank) {
-                            1 => 'text-amber-400 font-black',
-                            2 => 'text-secondary font-bold',
-                            3 => 'text-orange-500 font-bold',
+                        $rankClass = match(true) {
+                            $isOfflineRow => 'text-muted font-semibold italic',
+                            $rank === 1 => 'text-amber-400 font-black',
+                            $rank === 2 => 'text-secondary font-bold',
+                            $rank === 3 => 'text-orange-500 font-bold',
                             default => 'text-muted font-medium',
+                        };
+                        $rankLabel = match(true) {
+                            $isDqRow => 'DQ',
+                            $isNoShowRow => 'N/S',
+                            default => $rank,
                         };
                     @endphp
                     <tr class="{{ $rowClass }} transition-colors">
-                        <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $rank }}</td>
+                        <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl" @if($isNoShowRow) title="Did not attend" @endif>{{ $rankLabel }}</td>
                         <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
                             @if($shooter->user_id)
                                 <a href="{{ route('shooter.profile', $shooter->user_id) }}" class="line-clamp-2 text-primary hover:underline sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</a>

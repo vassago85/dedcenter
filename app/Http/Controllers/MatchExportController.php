@@ -604,6 +604,12 @@ class MatchExportController extends Controller
         $distanceTables = $base['distanceTables'];
         $standings = $base['standings'];
 
+        // Ranked competitors only — DQs and no-shows sit below the leaderboard
+        // and must NOT be counted toward field averages, hit rate, or stat cards.
+        // (No-shows in particular were previously dragging the field average
+        // down because they counted as a zero-score competitor.)
+        $rankedStandings = collect($standings)->filter(fn ($s) => $s->rank !== null)->values();
+
         // Build heatmap matrix: one entry per shooter, cells = flat list of hit/miss/none per gong, same column order across all shooters.
         $heatmapColumns = [];
         foreach ($distanceTables as $dt) {
@@ -660,10 +666,15 @@ class MatchExportController extends Controller
             ];
         }
 
-        // Stat cards
+        // Stat cards — count shots from ranked competitors only so the field
+        // hit rate isn't polluted by no-shows / DQs who were scored as misses.
+        $rankedNames = $rankedStandings->pluck('name')->flip();
         $totalShots = 0;
         $totalHits = 0;
         foreach ($heatmap as $row) {
+            if (! isset($rankedNames[$row['name']])) {
+                continue;
+            }
             foreach ($row['cells'] as $c) {
                 if ($c['state'] === 'hit' || $c['state'] === 'miss') {
                     $totalShots++;
@@ -675,20 +686,23 @@ class MatchExportController extends Controller
         }
         $hitRate = $totalShots > 0 ? round(($totalHits / $totalShots) * 100) : 0;
 
-        $winner = $standings->first();
-        $runnerUp = $standings->skip(1)->first();
-        $third = $standings->skip(2)->first();
+        $winner = $rankedStandings->first();
+        $runnerUp = $rankedStandings->skip(1)->first();
+        $third = $rankedStandings->skip(2)->first();
 
-        $avgScore = $standings->count() > 0
-            ? round($standings->avg('total_score'), 1)
+        $avgScore = $rankedStandings->count() > 0
+            ? round($rankedStandings->avg('total_score'), 1)
             : 0;
 
-        // Per-distance hit rate for header ribbon
+        // Per-distance hit rate for header ribbon — ranked competitors only.
         $distanceStats = [];
         foreach ($distanceTables as $dt) {
             $shots = 0;
             $hits = 0;
             foreach ($dt['rows'] as $row) {
+                if (! isset($rankedNames[$row['name']])) {
+                    continue;
+                }
                 foreach ($row['cells'] as $c) {
                     if ($c['state'] === 'hit' || $c['state'] === 'miss') {
                         $shots++;
@@ -719,7 +733,7 @@ class MatchExportController extends Controller
                 'third' => $third,
             ],
             'statCards' => [
-                'totalShooters' => $standings->count(),
+                'totalShooters' => $rankedStandings->count(),
                 'totalShots' => $totalShots,
                 'totalHits' => $totalHits,
                 'hitRate' => $hitRate,
@@ -766,9 +780,13 @@ class MatchExportController extends Controller
         }
 
         // Field context — how they did vs the field.
+        // Ranked competitors only; a no-show accidentally recorded as 20 misses
+        // would otherwise skew the average down and make every shooter look
+        // better than they actually were relative to the real field.
         $standings = collect($base['standings']);
-        $fieldAvg = $standings->avg('total_score') ?: 0;
-        $fieldSize = $standings->count();
+        $rankedStandings = $standings->filter(fn ($s) => $s->rank !== null)->values();
+        $fieldAvg = $rankedStandings->avg('total_score') ?: 0;
+        $fieldSize = $rankedStandings->count();
         $myRank = $myStanding?->rank ?? null;
         $myScore = $myStanding?->total_score ?? 0;
 

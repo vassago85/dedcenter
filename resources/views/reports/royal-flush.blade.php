@@ -64,7 +64,9 @@
             }
         }
 
-        $isUnclaimed = ($rowUserId === null) && (($s->status ?? null) !== 'dq');
+        // Don't prompt people to "claim" a result for a DQ or a shooter who
+        // didn't attend — there's nothing meaningful to claim.
+        $isUnclaimed = ($rowUserId === null) && ! in_array(($s->status ?? null), ['dq', 'no_show'], true);
         if ($isUnclaimed) {
             $unclaimedCount++;
         }
@@ -455,9 +457,12 @@
                                         $rowName    = $displayName($row['name']);
                                         $rowCaliber = $caliberFromName($row['name']);
                                         $isDq       = ($row['status'] ?? null) === 'dq';
+                                        $isNoShow   = ($row['status'] ?? null) === 'no_show';
+                                        $isOffline  = $isDq || $isNoShow;
+                                        $posLabel   = $isDq ? 'DQ' : ($isNoShow ? 'N/S' : $row['rank']);
                                     @endphp
-                                    <tr class="rf-table-row {{ $isDq ? 'opacity-50' : '' }}" style="border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
-                                        <td class="num px-4 py-2 text-left text-[11px] font-bold" style="color: var(--lp-text-muted);">{{ $isDq ? 'DQ' : $row['rank'] }}</td>
+                                    <tr class="rf-table-row {{ $isOffline ? 'opacity-50' : '' }}" style="border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
+                                        <td class="num px-4 py-2 text-left text-[11px] font-bold" style="color: var(--lp-text-muted);">{{ $posLabel }}</td>
                                         <td class="px-3 py-2 whitespace-nowrap">
                                             <span class="text-[12px] font-semibold text-white">{{ $rowName }}</span>
                                         </td>
@@ -525,11 +530,17 @@
                     </thead>
                     <tbody>
                         @foreach($finalResults as $r)
-                            @php $isDq = $r['status'] === 'dq'; @endphp
-                            <tr class="rf-table-row {{ $isDq ? 'opacity-50' : '' }}" style="border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
+                            @php
+                                $isDq = $r['status'] === 'dq';
+                                $isNoShow = ($r['status'] ?? null) === 'no_show';
+                                $isOffline = $isDq || $isNoShow;
+                            @endphp
+                            <tr class="rf-table-row {{ $isOffline ? 'opacity-50' : '' }}" style="border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
                                 <td class="num px-4 py-2.5 text-left">
                                     @if($isDq)
                                         <span class="text-[11px] font-bold tracking-wide" style="color: var(--lp-text-muted);">DQ</span>
+                                    @elseif($isNoShow)
+                                        <span class="text-[11px] font-bold tracking-wide" style="color: var(--lp-text-muted);" title="Did not attend">N/S</span>
                                     @elseif($r['rank'] === 1)
                                         <span class="medal medal-1 text-lg">1</span>
                                     @elseif($r['rank'] === 2)

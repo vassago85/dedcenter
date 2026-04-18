@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\MatchStatus;
+use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Services\MatchStandingsService;
+use Flux\Flux;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -20,20 +22,83 @@ new #[Layout('components.layouts.app')]
         return 'Admin — '.$this->match->name;
     }
 
+    /**
+     * Flip a shooter's attendance status post-match.
+     *
+     * Admins commonly score a full sheet of misses for a shooter who never
+     * actually showed up. Flipping them to "no_show" keeps the row visible
+     * (with a clear badge) while pulling them out of ranking + field stats
+     * so the executive summary / shooter reports are accurate.
+     *
+     * DQ is deliberately NOT handled here — it goes through the existing
+     * DisqualificationController so the audit trail stays intact.
+     */
+    public function setShooterStatus(int $shooterId, string $status): void
+    {
+        if (! in_array($status, ['active', 'no_show', 'withdrawn'], true)) {
+            Flux::toast('Invalid status.', variant: 'danger');
+            return;
+        }
+
+        $shooter = Shooter::findOrFail($shooterId);
+
+        if ($shooter->squad?->match_id !== $this->match->id) {
+            Flux::toast('Shooter is not part of this match.', variant: 'danger');
+            return;
+        }
+
+        if ($shooter->isDq()) {
+            Flux::toast("{$shooter->name} is disqualified — revoke the DQ first.", variant: 'danger');
+            return;
+        }
+
+        $shooter->update(['status' => $status]);
+
+        $label = match ($status) {
+            'active' => 'marked as present',
+            'no_show' => 'marked as no-show — excluded from ranking and field stats',
+            'withdrawn' => 'marked as withdrawn',
+        };
+
+        Flux::toast("{$shooter->name} {$label}.", variant: $status === 'active' ? 'success' : 'warning');
+    }
+
     public function with(): array
     {
         $status = $this->match->status;
 
-        $topStandings = collect();
+        $standings = collect();
         if (! $this->match->isPrs() && ! $this->match->isElr()) {
-            $topStandings = (new MatchStandingsService())->standardStandings($this->match)
-                ->filter(fn ($r) => $r->status !== 'dq')
-                ->take(5);
+            $standings = (new MatchStandingsService())->standardStandings($this->match);
         }
+
+        $topStandings = $standings->filter(fn ($r) => $r->rank !== null)->take(5);
+
+        // Attendance roster — every shooter in the match with status + score count
+        // so the admin can decide who genuinely did not attend.
+        $allShooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
+            ->where('squads.match_id', $this->match->id)
+            ->select('shooters.*', 'squads.name as squad_name')
+            ->selectRaw('COUNT(scores.id) as scored_shots')
+            ->groupBy('shooters.id', 'squads.name')
+            ->orderBy('squads.name')
+            ->orderBy('shooters.sort_order')
+            ->get();
+
+        $attendanceCounts = [
+            'active' => $allShooters->where('status', 'active')->count(),
+            'no_show' => $allShooters->where('status', 'no_show')->count(),
+            'withdrawn' => $allShooters->where('status', 'withdrawn')->count(),
+            'dq' => $allShooters->where('status', 'dq')->count(),
+        ];
 
         return [
             'status' => $status,
             'topStandings' => $topStandings,
+            'allShooters' => $allShooters,
+            'attendanceCounts' => $attendanceCounts,
             'registrationsCount' => $this->match->registrations()->count(),
             'shootersCount' => $this->match->shooters()->count(),
             'scoresCount' => \App\Models\Score::whereIn('shooter_id', $this->match->shooters()->pluck('shooters.id'))->count(),
@@ -147,6 +212,84 @@ new #[Layout('components.layouts.app')]
             @endif
         </div>
     </div>
+
+    {{-- Attendance management — post-match control so a shooter scored as a wall
+         of misses can be flipped to "No-Show" and pulled out of field stats. --}}
+    @if($allShooters->isNotEmpty())
+        <div class="rounded-xl border border-border bg-surface overflow-hidden" x-data="{ collapsed: {{ $isCompleted ? 'false' : 'true' }} }">
+            <button type="button" @click="collapsed = !collapsed" class="flex w-full items-center justify-between gap-3 border-b border-border bg-surface-2/40 px-5 py-3 text-left">
+                <div class="min-w-0">
+                    <h2 class="text-base font-semibold text-primary">Attendance &amp; Status</h2>
+                    <p class="text-xs text-muted">
+                        Flip any shooter to <span class="text-zinc-300">No-Show</span> / <span class="text-amber-300">Withdrawn</span> to correct post-match statistics.
+                        No-shows stay listed but are excluded from ranking, hit rate, and field averages.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="hidden items-center gap-2 text-[11px] font-medium sm:flex">
+                        <span class="rounded-full bg-green-500/10 px-2 py-0.5 text-green-300">{{ $attendanceCounts['active'] }} present</span>
+                        @if($attendanceCounts['no_show'] > 0)
+                            <span class="rounded-full bg-zinc-500/10 px-2 py-0.5 text-zinc-300">{{ $attendanceCounts['no_show'] }} no-show</span>
+                        @endif
+                        @if($attendanceCounts['withdrawn'] > 0)
+                            <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-300">{{ $attendanceCounts['withdrawn'] }} withdrawn</span>
+                        @endif
+                        @if($attendanceCounts['dq'] > 0)
+                            <span class="rounded-full bg-red-500/10 px-2 py-0.5 text-red-300">{{ $attendanceCounts['dq'] }} DQ</span>
+                        @endif
+                    </span>
+                    <x-icon name="chevron-down" class="h-4 w-4 text-muted transition" x-bind:class="collapsed ? '' : 'rotate-180'" />
+                </div>
+            </button>
+            <div x-show="!collapsed" x-cloak x-transition.duration.150ms>
+                <div class="divide-y divide-border/40">
+                    @foreach($allShooters as $sh)
+                        <div wire:key="attn-{{ $sh->id }}" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-semibold text-primary truncate">{{ $sh->name }}</span>
+                                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium {{ $sh->statusBadgeClasses() }}">{{ $sh->statusLabel() }}</span>
+                                    @if($sh->scored_shots > 0 && ($sh->isNoShow() || $sh->isWithdrawn()))
+                                        <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300" title="Scores recorded for a shooter marked as absent">
+                                            <x-icon name="exclamation-triangle" class="h-3 w-3" />
+                                            {{ $sh->scored_shots }} scores on record
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="mt-0.5 text-xs text-muted">{{ $sh->squad_name }} · {{ $sh->scored_shots }} shots scored</div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                @if($sh->isDq())
+                                    <span class="text-xs italic text-muted">DQ — revoke via match DQ controls</span>
+                                @else
+                                    @if(! $sh->isActive())
+                                        <button wire:click="setShooterStatus({{ $sh->id }}, 'active')"
+                                                class="rounded-md border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-medium text-green-300 transition hover:border-green-400 hover:bg-green-500/20">
+                                            Mark Present
+                                        </button>
+                                    @endif
+                                    @if(! $sh->isNoShow())
+                                        <button wire:click="setShooterStatus({{ $sh->id }}, 'no_show')"
+                                                wire:confirm="Mark {{ $sh->name }} as a no-show? They'll be excluded from ranking and field stats. Existing scores are preserved."
+                                                class="rounded-md border border-zinc-500/30 bg-zinc-500/10 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition hover:border-zinc-400 hover:bg-zinc-500/20">
+                                            Mark No-Show
+                                        </button>
+                                    @endif
+                                    @if(! $sh->isWithdrawn())
+                                        <button wire:click="setShooterStatus({{ $sh->id }}, 'withdrawn')"
+                                                wire:confirm="Mark {{ $sh->name }} as withdrawn?"
+                                                class="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-300 transition hover:border-amber-400 hover:bg-amber-500/20">
+                                            Withdraw
+                                        </button>
+                                    @endif
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
 
     @if($topStandings->isNotEmpty())
         <div class="rounded-xl border border-border bg-surface overflow-hidden">
