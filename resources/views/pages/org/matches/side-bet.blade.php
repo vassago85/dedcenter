@@ -83,30 +83,6 @@ new #[Layout('components.layouts.app')]
         }
     }
 
-    public function markAllInSquad(int $squadId): void
-    {
-        if ($this->match->status === MatchStatus::Completed || ! $this->match->side_bet_enabled) {
-            return;
-        }
-        $squad = $this->match->squads()->findOrFail($squadId);
-        $ids = $squad->shooters()->pluck('id')->map(fn ($id) => (int) $id)->toArray();
-        $this->match->sideBetShooters()->syncWithoutDetaching($ids);
-        $this->boughtIn = array_values(array_unique(array_merge($this->boughtIn, $ids)));
-        Flux::toast("Added squad {$squad->name} to the pot.", variant: 'success');
-    }
-
-    public function clearAllInSquad(int $squadId): void
-    {
-        if ($this->match->status === MatchStatus::Completed || ! $this->match->side_bet_enabled) {
-            return;
-        }
-        $squad = $this->match->squads()->findOrFail($squadId);
-        $ids = $squad->shooters()->pluck('id')->map(fn ($id) => (int) $id)->toArray();
-        $this->match->sideBetShooters()->detach($ids);
-        $this->boughtIn = array_values(array_diff($this->boughtIn, $ids));
-        Flux::toast("Cleared squad {$squad->name} from the pot.", variant: 'success');
-    }
-
     public function with(): array
     {
         $squads = $this->match
@@ -141,7 +117,7 @@ new #[Layout('components.layouts.app')]
                 <span>Side Bet</span>
             </div>
             <h1 class="mt-1 text-2xl font-bold text-primary">Side Bet Buy-In</h1>
-            <p class="text-sm text-muted">Tap a shooter to toggle them in or out of the pot. Saves instantly.</p>
+            <p class="text-sm text-muted">Individual shooters only. Tap a shooter to toggle them in or out of the pot. Saves instantly.</p>
         </div>
         <div class="flex items-center gap-2">
             <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost" size="sm">Squadding</flux:button>
@@ -221,22 +197,6 @@ new #[Layout('components.layouts.app')]
                                 {{ $squadInCount }} / {{ $squadTotal }} in
                             </span>
                         </div>
-                        @if(! $locked && $squadTotal > 0)
-                            <div class="flex items-center gap-2 shrink-0">
-                                @if($squadInCount < $squadTotal)
-                                    <button type="button" wire:click="markAllInSquad({{ $squad->id }})"
-                                            class="rounded-lg border border-amber-600/40 px-3 py-1.5 text-xs font-medium text-amber-400 hover:border-amber-500 hover:bg-amber-900/20 transition-colors min-h-[36px]">
-                                        All in
-                                    </button>
-                                @endif
-                                @if($squadInCount > 0)
-                                    <button type="button" wire:click="clearAllInSquad({{ $squad->id }})"
-                                            class="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-red-500/40 hover:text-red-400 transition-colors min-h-[36px]">
-                                        Clear
-                                    </button>
-                                @endif
-                            </div>
-                        @endif
                     </div>
 
                     @if($squad->shooters->isEmpty())
