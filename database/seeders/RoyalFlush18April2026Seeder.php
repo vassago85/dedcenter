@@ -164,7 +164,7 @@ class RoyalFlush18April2026Seeder extends Seeder
                 ['Johan Nel', '6 BR'],
                 ['Mohamed Ayob', '308 Win'],
                 ['Shaun Snyman', '300 WSM'],
-                ['Henri Koopper', '6x46'],
+                ['Henri Klopper', '6x46'],
                 ['Ettienne Hennop', '6.5 Creedmoor'],
                 ['Liesl Baben', '6.5 Creedmoor'],
                 ['Francois Van Der Walt', '7 Dakota'],
