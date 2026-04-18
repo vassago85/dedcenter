@@ -50,7 +50,12 @@
         @page { size: A4 landscape; margin: 0; }
         body { width: 297mm; }
 
-        .wrap { padding: 14px 16px 12px; }
+        /* Generous top/bottom gutters so the match-report table and the
+           footer breathe — the previous 12–14px gap made the first and last
+           shooter rows fuse against the page edges on print. The pdf-footer
+           brings its own 16px top margin, so the bottom gutter can stay
+           modest while still feeling intentional. */
+        .wrap { padding: 20px 16px 16px; }
 
         /* ─── Top row: podium + stat cards ─── */
         .top-row { width: 100%; border-collapse: collapse; margin-top: 4px; }
@@ -144,6 +149,10 @@
             letter-spacing: 0.06em;
         }
 
+        /* Match Report title — extra top gutter so the dense 25-row table
+           doesn't sit flush against the distance chips strip. */
+        .section-title-report { margin-top: 16px; margin-bottom: 8px; }
+
         /* ─── Heatmap grid ─── */
         .grid {
             width: 100%;
@@ -172,19 +181,29 @@
             font-size: 7pt;
             font-weight: 800;
         }
-        .grid thead th.pos-head  { width: 18px; }
-        .grid thead th.name-head { width: 92px; text-align: left; padding-left: 8px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
-        .grid thead th.cal-head  { width: 64px; text-align: left; padding-left: 4px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        .grid thead th.pos-head  { width: 22px; }
+        .grid thead th.name-head { width: 150px; text-align: left; padding-left: 8px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        .grid thead th.cal-head  { width: 110px; text-align: left; padding-left: 6px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
         .grid thead th.score-head,
         .grid thead th.rate-head {
             background: #1e293b;
             letter-spacing: 0.14em;
             text-transform: uppercase;
             font-size: 6pt;
-            width: 36px;
+            width: 38px;
         }
-        .grid thead th.score-head { color: #f8fafc; width: 42px; }
+        .grid thead th.score-head { color: #f8fafc; width: 44px; }
         .grid thead th.rate-head  { color: #94a3b8; }
+
+        /* Shot cells — narrow fixed width. 20 of these sit side-by-side; every
+           pixel saved here is given back to the Shooter / Caliber columns so
+           full names and long calibers (e.g. "6.5 Creedmoor", "30 Sherman Max")
+           are no longer truncated. An 11px SVG glyph + a hairline of padding
+           fits comfortably in 24px. */
+        .grid thead th.shot-head,
+        .grid td.hm-hit,
+        .grid td.hm-miss,
+        .grid td.hm-none { width: 24px; }
 
         .grid thead .gong-num  { font-size: 6.5pt; color: #f8fafc; font-weight: 700; }
         .grid thead .gong-mult { display: block; font-size: 5.5pt; color: #94a3b8; font-weight: 600; margin-top: 2px; letter-spacing: 0.04em; }
@@ -220,11 +239,25 @@
             line-height: 1;
             height: 15px;
         }
+        /* First and last row get a hair of extra padding so the block
+           doesn't fuse against the table's own border edges. Only 2px
+           each to preserve the single-page-landscape vertical budget. */
+        .grid tbody tr:first-child td { padding-top: 2px; }
+        .grid tbody tr:last-child  td { padding-bottom: 2px; }
         .grid tbody tr:nth-child(even) td { background: #fbfcfd; }
         .grid tbody tr.top1 td { background: #fef7e0 !important; }
         .grid tbody tr.top2 td { background: #f1f4f9 !important; }
         .grid tbody tr.top3 td { background: #fef2e7 !important; }
         .grid tbody tr.dq   td { background: #fce8e8 !important; color: #94a3b8; font-style: italic; }
+        /* No-show: shooter did not attend — dim the whole row and lighten the
+           shot cells so the executive eye skips past it instead of mistaking
+           the zeros for poor performance. */
+        .grid tbody tr.ns   td { background: #f4f4f5 !important; color: #a1a1aa; font-style: italic; }
+        .grid tbody tr.ns td.cal,
+        .grid tbody tr.ns td.name { color: #71717a; }
+        .grid tbody tr.ns .hm-miss { background: #e4e4e7 !important; }
+        .grid tbody tr.ns .hm-miss .shot,
+        .grid tbody tr.ns .hm-hit .shot { opacity: 0.55; }
 
         .grid td.pos {
             font-weight: 800;
@@ -250,15 +283,15 @@
         }
         .grid td.cal {
             text-align: left;
-            padding: 2px 6px 2px 4px;
+            padding: 2px 8px 2px 6px;
             color: #94a3b8;
             font-size: 6.5pt;
             white-space: nowrap;
-            /* Clip long caliber strings (e.g. "30 Sherman Max", "6.5 Creedmoor")
-             * instead of letting them bleed into the first distance column. */
+            /* Soft clip for extreme-length calibers, but most common strings
+             * (e.g. "30 Sherman Max", "6.5 Creedmoor", "6.5 PRCW") now fit. */
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 64px;
+            max-width: 110px;
             letter-spacing: 0.02em;
         }
         .grid td.score {
@@ -315,8 +348,8 @@
 
         /* ─── Legend ─── */
         .legend {
-            margin-top: 10px;
-            padding: 8px 2px 0;
+            margin-top: 14px;
+            padding: 10px 2px 6px;
             border-top: 1px solid #e8edf4;
             font-size: 6.5pt;
             color: #94a3b8;
@@ -417,9 +450,9 @@
         </table>
 
         {{-- ─── Main Heatmap Grid ─── --}}
-        <div class="section-title">
+        <div class="section-title section-title-report">
             <span class="accent">■</span>
-            {{ $useCardFaces ? 'ROYAL FLUSH SCORECARD' : 'ALL SHOOTERS' }}
+            MATCH REPORT
             <span class="muted">
                 @if($useCardFaces)
                     Each row: 20 shots, 5 per distance · green tick = hit · red cross = miss
@@ -452,7 +485,7 @@
                                 $label = $gongLabel($col['gong_number'], $ci);
                                 $isSpecial = $useCardFaces && in_array($label, ['A', 'K'], true);
                             @endphp
-                            <th class="{{ $ci === count($distGroup['cols']) - 1 ? 'dist-end' : '' }}">
+                            <th class="shot-head{{ $ci === count($distGroup['cols']) - 1 ? ' dist-end' : '' }}">
                                 @if($useCardFaces)
                                     <span class="card-face {{ $isSpecial ? 'card-face-special' : '' }}">{{ $label }}</span>
                                     <span class="card-mult">{{ $mult($col['gong_multiplier']) }}</span>
@@ -469,13 +502,22 @@
                 @foreach($heatmap as $i => $row)
                     @php
                         $rowClass = '';
-                        if ($row['status'] === 'dq') $rowClass = 'dq';
+                        $isNoShow = ($row['status'] ?? null) === 'no_show';
+                        $isDq = ($row['status'] ?? null) === 'dq';
+                        if ($isDq) $rowClass = 'dq';
+                        elseif ($isNoShow) $rowClass = 'ns';
                         elseif ($row['rank'] === 1) $rowClass = 'top1';
                         elseif ($row['rank'] === 2) $rowClass = 'top2';
                         elseif ($row['rank'] === 3) $rowClass = 'top3';
+
+                        $posLabel = match (true) {
+                            $isDq => 'DQ',
+                            $isNoShow => 'N/S',
+                            default => $row['rank'],
+                        };
                     @endphp
                     <tr class="{{ $rowClass }}">
-                        <td class="pos">{{ $row['status'] === 'dq' ? 'DQ' : $row['rank'] }}</td>
+                        <td class="pos">{{ $posLabel }}</td>
                         <td class="name">{{ $row['display_name'] }}</td>
                         <td class="cal">{{ $row['caliber'] ?? '' }}</td>
                         @php
