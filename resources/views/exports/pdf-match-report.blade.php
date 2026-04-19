@@ -25,86 +25,99 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { size: A4 portrait; margin: 12mm 14mm 16mm 14mm; }
+        /* Print the page edge-to-edge in dark navy so there is no white
+           paper band around the content. Inner padding restores the
+           visual "margin" inside that dark canvas. */
+        @page { size: A4 portrait; margin: 0; background: #071327; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9pt; color: #e2e8f0; background: #071327; }
+        html, body { background: #071327 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 8.5pt;
+            color: #e2e8f0;
+            background: #071327;
+            padding: 10mm 12mm 10mm 12mm;
+            line-height: 1.35;
+        }
 
-        .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 3px solid {{ $accent }}; margin-bottom: 14px; }
-        .brand { font-size: 20pt; font-weight: 800; letter-spacing: 3px; color: {{ $accent }}; }
+        .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; border-bottom: 2px solid {{ $accent }}; margin-bottom: 8px; }
+        .brand { font-size: 16pt; font-weight: 800; letter-spacing: 2px; color: {{ $accent }}; }
         .brand span { color: #ffffff; }
-        .subtitle { font-size: 8pt; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; text-align: right; }
+        .subtitle { font-size: 7pt; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; text-align: right; }
 
-        .match-name { font-size: 16pt; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
-        .match-meta { font-size: 8.5pt; color: #94a3b8; margin-bottom: 10px; }
-        .badge-tag { display: inline-block; font-size: 7.5pt; font-weight: 700; padding: 2px 8px; border-radius: 3px; letter-spacing: 0.5px; }
+        .match-name { font-size: 13pt; font-weight: 700; color: #ffffff; margin-bottom: 2px; }
+        .match-meta { font-size: 7.5pt; color: #94a3b8; margin-bottom: 6px; }
+        .badge-tag { display: inline-block; font-size: 7pt; font-weight: 700; padding: 1px 7px; border-radius: 3px; letter-spacing: 0.5px; }
         .badge-accent { background: {{ $accent }}; color: #fff; }
         .badge-muted { background: #1e293b; color: #cbd5e1; }
 
-        .shooter-name { font-size: 12pt; color: #e2e8f0; margin: 12px 0 4px; }
-        .shooter-name .bib { color: #64748b; font-size: 9pt; }
+        .shooter-name { font-size: 11pt; color: #e2e8f0; margin: 8px 0 2px; }
+        .shooter-name .bib { color: #64748b; font-size: 8.5pt; }
 
-        .section-title { font-size: 8pt; font-weight: 700; color: {{ $accent }}; text-transform: uppercase; letter-spacing: 2px; margin: 16px 0 8px; }
+        .section-title { font-size: 7.5pt; font-weight: 700; color: {{ $accent }}; text-transform: uppercase; letter-spacing: 1.5px; margin: 9px 0 4px; }
 
-        .stat-cards { display: flex; gap: 8px; margin-bottom: 10px; }
-        .stat-card { flex: 1; background: #1d2d4a; border-radius: 6px; padding: 12px 6px; text-align: center; }
-        .stat-value { font-size: 20pt; font-weight: 800; color: #ffffff; }
+        .stat-cards { display: flex; gap: 6px; margin-bottom: 6px; }
+        .stat-card { flex: 1; background: #1d2d4a; border-radius: 5px; padding: 7px 4px; text-align: center; }
+        .stat-value { font-size: 15pt; font-weight: 800; color: #ffffff; line-height: 1; }
         .stat-value.green { color: #22c55e; }
         .stat-value.red { color: #ef4444; }
         .stat-value.accent { color: {{ $accent }}; }
-        .stat-label { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+        .stat-label { font-size: 6.5pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
 
-        .summary-line { font-size: 9pt; color: #94a3b8; margin: 3px 0; }
+        .summary-line { font-size: 8.5pt; color: #94a3b8; margin: 1px 0; }
         .summary-line strong { color: #ffffff; }
         .summary-line .hl { color: {{ $accent }}; font-weight: 700; }
 
-        .stage-card { background: #0c1a33; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; page-break-inside: avoid; }
-        .stage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .stage-name { font-size: 10pt; font-weight: 700; color: #ffffff; }
-        .stage-name .dist { font-weight: 400; color: #64748b; font-size: 9pt; }
-        .stage-time { font-size: 9pt; color: {{ $accent }}; }
+        .stage-card { background: #0c1a33; border-radius: 5px; padding: 5px 10px; margin-bottom: 4px; page-break-inside: avoid; }
+        .stage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+        .stage-name { font-size: 9pt; font-weight: 700; color: #ffffff; }
+        .stage-name .dist { font-weight: 400; color: #64748b; font-size: 8pt; }
+        .stage-time { font-size: 8pt; color: {{ $accent }}; }
 
-        .gong-row { display: flex; gap: 3px; margin-bottom: 6px; flex-wrap: wrap; }
-        .gong-dot { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 7pt; font-weight: 700; color: #fff; }
+        .gong-row { display: flex; gap: 2px; margin-bottom: 3px; flex-wrap: wrap; }
+        .gong-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6.5pt; font-weight: 700; color: #fff; line-height: 1; }
         .gong-hit { background: #22c55e; }
         .gong-miss { background: #ef4444; }
         .gong-ns { background: #374151; color: #6b7280; }
 
-        .stage-stats { font-size: 8.5pt; color: #94a3b8; display: flex; justify-content: space-between; }
-        .stage-stats .pts { font-size: 10pt; font-weight: 700; color: #ffffff; }
+        .stage-stats { font-size: 7.5pt; color: #94a3b8; display: flex; justify-content: space-between; }
+        .stage-stats .pts { font-size: 9pt; font-weight: 700; color: #ffffff; }
 
-        .bw-card { background: #1d2d4a; border-radius: 6px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .bw-card { background: #1d2d4a; border-radius: 5px; padding: 5px 10px; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; }
         .bw-card.best { border-left: 3px solid #22c55e; }
         .bw-card.worst { border-left: 3px solid #ef4444; }
-        .bw-label { font-size: 9pt; color: #e2e8f0; }
+        .bw-label { font-size: 8.5pt; color: #e2e8f0; }
         .bw-label strong { font-weight: 700; }
         .bw-label .best-tag { color: #22c55e; }
         .bw-label .worst-tag { color: #ef4444; }
-        .bw-pts { font-size: 10pt; font-weight: 700; }
+        .bw-pts { font-size: 9pt; font-weight: 700; }
 
-        .field-row { background: #0c1a33; border-radius: 5px; padding: 8px 14px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
-        .field-row .label { font-size: 8.5pt; color: #94a3b8; }
-        .field-row .value { font-size: 10pt; font-weight: 700; color: #ffffff; }
+        /* 2-column grid for the compact "How You Compared" block. */
+        .field-grid { display: flex; flex-wrap: wrap; gap: 3px 4px; }
+        .field-row { flex: 1 1 calc(50% - 2px); background: #0c1a33; border-radius: 4px; padding: 4px 9px; display: flex; justify-content: space-between; align-items: center; min-width: 0; }
+        .field-row .label { font-size: 7.5pt; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .field-row .value { font-size: 9pt; font-weight: 700; color: #ffffff; flex-shrink: 0; margin-left: 6px; }
 
-        .fact-item { background: #1d2d4a; border-radius: 5px; padding: 8px 14px; margin-bottom: 4px; font-size: 8.5pt; color: #cbd5e1; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px; }
-        .fact-bullet { color: {{ $accent }}; font-size: 9pt; flex-shrink: 0; margin-top: 1px; }
+        .fact-item { background: #1d2d4a; border-radius: 4px; padding: 4px 9px; margin-bottom: 3px; font-size: 7.5pt; color: #cbd5e1; line-height: 1.35; display: flex; align-items: flex-start; gap: 5px; }
+        .fact-bullet { color: {{ $accent }}; font-size: 8pt; flex-shrink: 0; margin-top: 1px; }
 
-        .badge-card { background: #0c1a33; border-radius: 6px; padding: 8px 14px; margin-bottom: 4px; page-break-inside: avoid; }
-        .badge-name { font-size: 9pt; font-weight: 700; }
-        .badge-desc { font-size: 8pt; color: #94a3b8; margin-top: 2px; }
-        .badge-cat { font-size: 7pt; color: #64748b; margin-left: 6px; }
+        .badge-card { background: #0c1a33; border-radius: 5px; padding: 4px 10px; margin-bottom: 3px; page-break-inside: avoid; }
+        .badge-name { font-size: 8.5pt; font-weight: 700; }
+        .badge-desc { font-size: 7.5pt; color: #94a3b8; margin-top: 1px; }
+        .badge-cat { font-size: 6.5pt; color: #64748b; margin-left: 6px; }
         .badge-special { color: #F59E0B; border-left: 3px solid #F59E0B; }
         .badge-lifetime { color: #A855F7; border-left: 3px solid #A855F7; }
         .badge-repeatable { color: #38BDF8; border-left: 3px solid #38BDF8; }
 
-        .footer { margin-top: 16px; padding-top: 10px; border-top: 1px solid #1e293b; text-align: center; }
-        .footer .brand-sm { font-size: 12pt; font-weight: 700; letter-spacing: 2px; color: {{ $accent }}; }
+        .footer { margin-top: 8px; padding-top: 5px; border-top: 1px solid #1e293b; text-align: center; }
+        .footer .brand-sm { font-size: 10pt; font-weight: 700; letter-spacing: 1.5px; color: {{ $accent }}; }
         .footer .brand-sm span { color: #ffffff; }
-        .footer .url { font-size: 7.5pt; color: #475569; margin-top: 2px; }
-        .footer .gen { font-size: 7pt; color: #334155; margin-top: 6px; }
+        .footer .url { font-size: 7pt; color: #475569; margin-top: 1px; }
+        .footer .gen { font-size: 6.5pt; color: #334155; margin-top: 3px; }
 
-        .powered-by { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; padding: 6px 0; }
-        .powered-by img { height: 18px; max-width: 80px; object-fit: contain; }
-        .powered-by .text { font-size: 7.5pt; color: #64748b; }
+        .powered-by { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 4px; padding: 2px 0; }
+        .powered-by img { height: 14px; max-width: 70px; object-fit: contain; }
+        .powered-by .text { font-size: 7pt; color: #64748b; }
         .powered-by .name { font-weight: 600; color: #94a3b8; }
     </style>
 </head>
@@ -122,7 +135,7 @@
         {{ $match['date'] ?? '' }}
         @if(!empty($match['location'])) &bull; {{ $match['location'] }} @endif
     </div>
-    <div style="margin-bottom: 10px;">
+    <div style="margin-bottom: 4px;">
         <span class="badge-tag badge-accent">{{ $typeLabel }}</span>
         @if(!empty($shooter['division']))
             <span class="badge-tag badge-muted">{{ $shooter['division'] }}</span>
@@ -233,16 +246,24 @@
 
     {{-- BEST & WORST --}}
     @if($bestStage || $worstStage)
-        <div class="section-title">Best &amp; Worst</div>
+        <div class="section-title">Best &amp; Worst Stage</div>
         @if($bestStage)
             <div class="bw-card best">
-                <div class="bw-label"><strong class="best-tag">BEST:</strong> {{ $bestStage['label'] ?? '' }} &mdash; {{ number_format($bestStage['hit_rate'] ?? 0, 0) }}%</div>
+                <div class="bw-label">
+                    <strong class="best-tag">BEST STAGE:</strong>
+                    {{ $bestStage['label'] ?? '' }}
+                    &mdash; {{ $bestStage['hits'] ?? 0 }}/{{ $bestStage['targets'] ?? 0 }} impacts
+                </div>
                 <div class="bw-pts" style="color:#22c55e;">{{ number_format($bestStage['score'] ?? 0, 1) }} pts</div>
             </div>
         @endif
         @if($worstStage)
             <div class="bw-card worst">
-                <div class="bw-label"><strong class="worst-tag">WORST:</strong> {{ $worstStage['label'] ?? '' }} &mdash; {{ number_format($worstStage['hit_rate'] ?? 0, 0) }}%</div>
+                <div class="bw-label">
+                    <strong class="worst-tag">WORST STAGE:</strong>
+                    {{ $worstStage['label'] ?? '' }}
+                    &mdash; {{ $worstStage['hits'] ?? 0 }}/{{ $worstStage['targets'] ?? 0 }} impacts
+                </div>
                 <div class="bw-pts" style="color:#ef4444;">{{ number_format($worstStage['score'] ?? 0, 1) }} pts</div>
             </div>
         @endif
@@ -251,36 +272,38 @@
     {{-- FIELD COMPARISON --}}
     @if(!empty($fieldStats))
         <div class="section-title">How You Compared</div>
-        @if(isset($fieldStats['avg_score']))
-            <div class="field-row">
-                <span class="label">Field Average {{ $scoreLabel }}</span>
-                <span class="value">{{ number_format($fieldStats['avg_score'], 1) }}</span>
-            </div>
-        @endif
-        @if(isset($fieldStats['avg_hit_rate']))
-            <div class="field-row">
-                <span class="label">Field Average Hit Rate</span>
-                <span class="value">{{ number_format($fieldStats['avg_hit_rate'], 1) }}%</span>
-            </div>
-        @endif
-        @if(!empty($fieldStats['winner_name']))
-            <div class="field-row">
-                <span class="label">Winner: {{ $fieldStats['winner_name'] }}</span>
-                <span class="value" style="color:{{ $accent }};">{{ number_format($fieldStats['winner_score'] ?? 0, 1) }} pts</span>
-            </div>
-        @endif
-        @if(!empty($fieldStats['hardest_gong']))
-            <div class="field-row">
-                <span class="label">Hardest: <span style="color:#ef4444;">{{ $fieldStats['hardest_gong']['label'] ?? '' }}</span></span>
-                <span class="value" style="color:#ef4444;">{{ number_format($fieldStats['hardest_gong']['hit_rate'] ?? 0, 0) }}%</span>
-            </div>
-        @endif
-        @if(!empty($fieldStats['easiest_gong']))
-            <div class="field-row">
-                <span class="label">Easiest: <span style="color:#22c55e;">{{ $fieldStats['easiest_gong']['label'] ?? '' }}</span></span>
-                <span class="value" style="color:#22c55e;">{{ number_format($fieldStats['easiest_gong']['hit_rate'] ?? 0, 0) }}%</span>
-            </div>
-        @endif
+        <div class="field-grid">
+            @if(isset($fieldStats['avg_score']))
+                <div class="field-row">
+                    <span class="label">Field Avg {{ $scoreLabel }}</span>
+                    <span class="value">{{ number_format($fieldStats['avg_score'], 1) }}</span>
+                </div>
+            @endif
+            @if(isset($fieldStats['avg_hit_rate']))
+                <div class="field-row">
+                    <span class="label">Field Avg Hit Rate</span>
+                    <span class="value">{{ number_format($fieldStats['avg_hit_rate'], 1) }}%</span>
+                </div>
+            @endif
+            @if(!empty($fieldStats['winner_name']))
+                <div class="field-row">
+                    <span class="label">Winner: {{ $fieldStats['winner_name'] }}</span>
+                    <span class="value" style="color:{{ $accent }};">{{ number_format($fieldStats['winner_score'] ?? 0, 1) }}</span>
+                </div>
+            @endif
+            @if(!empty($fieldStats['hardest_gong']))
+                <div class="field-row">
+                    <span class="label">Hardest: <span style="color:#ef4444;">{{ $fieldStats['hardest_gong']['label'] ?? '' }}</span></span>
+                    <span class="value" style="color:#ef4444;">{{ number_format($fieldStats['hardest_gong']['hit_rate'] ?? 0, 0) }}%</span>
+                </div>
+            @endif
+            @if(!empty($fieldStats['easiest_gong']))
+                <div class="field-row">
+                    <span class="label">Easiest: <span style="color:#22c55e;">{{ $fieldStats['easiest_gong']['label'] ?? '' }}</span></span>
+                    <span class="value" style="color:#22c55e;">{{ number_format($fieldStats['easiest_gong']['hit_rate'] ?? 0, 0) }}%</span>
+                </div>
+            @endif
+        </div>
     @endif
 
     {{-- FUN FACTS --}}

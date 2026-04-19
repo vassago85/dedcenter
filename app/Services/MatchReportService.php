@@ -826,29 +826,55 @@ class MatchReportService
         ];
     }
 
+    /**
+     * Best / worst stage is chosen by raw points (score), matching how the
+     * match is won. Ties are broken by hit-rate so a stage with fewer
+     * targets but a cleaner run still wins over a sloppy higher-target one.
+     * We pass through hits/total so the report can show "3/5 impacts"
+     * instead of a percentage — impacts is the canonical language shooters
+     * use, percentage is derived and confusing next to the points value.
+     */
     private function bestStage(array $stages): ?array
     {
         if (empty($stages)) return null;
 
-        $best = collect($stages)->sortByDesc('hit_rate')->sortByDesc('score')->first();
+        $best = collect($stages)
+            ->sort(function ($a, $b) {
+                if ($a['score'] !== $b['score']) return $b['score'] <=> $a['score'];
+                return ($b['hit_rate'] ?? 0) <=> ($a['hit_rate'] ?? 0);
+            })
+            ->first();
 
-        return [
-            'label' => $best['label'],
-            'hit_rate' => $best['hit_rate'],
-            'score' => $best['score'],
-        ];
+        return $this->stageHeadline($best);
     }
 
     private function worstStage(array $stages): ?array
     {
         if (empty($stages)) return null;
 
-        $worst = collect($stages)->sortBy('hit_rate')->sortBy('score')->first();
+        $worst = collect($stages)
+            ->sort(function ($a, $b) {
+                if ($a['score'] !== $b['score']) return $a['score'] <=> $b['score'];
+                return ($a['hit_rate'] ?? 0) <=> ($b['hit_rate'] ?? 0);
+            })
+            ->first();
+
+        return $this->stageHeadline($worst);
+    }
+
+    private function stageHeadline(array $stage): array
+    {
+        $hits = (int) ($stage['hits'] ?? 0);
+        $misses = (int) ($stage['misses'] ?? 0);
+        $noShots = (int) ($stage['no_shots'] ?? 0);
+        $targets = $hits + $misses + $noShots;
 
         return [
-            'label' => $worst['label'],
-            'hit_rate' => $worst['hit_rate'],
-            'score' => $worst['score'],
+            'label' => $stage['label'],
+            'hit_rate' => $stage['hit_rate'] ?? 0,
+            'score' => $stage['score'],
+            'hits' => $hits,
+            'targets' => $targets,
         ];
     }
 

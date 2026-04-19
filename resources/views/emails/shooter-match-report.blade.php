@@ -334,7 +334,7 @@
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
-                        Best &amp; Worst
+                        Best &amp; Worst Stage
                     </td>
                 </tr>
             </table>
@@ -345,10 +345,10 @@
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
-                                    <strong style="color:#22c55e;">BEST:</strong>
+                                    <strong style="color:#22c55e;">BEST STAGE:</strong>
                                     {{ $bestStage['label'] ?? '' }}
                                     &mdash;
-                                    {{ number_format($bestStage['hit_rate'] ?? 0, 0) }}%
+                                    {{ $bestStage['hits'] ?? 0 }}/{{ $bestStage['targets'] ?? 0 }} impacts
                                 </td>
                                 <td align="right" style="font-size:14px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
                                     {{ number_format($bestStage['score'] ?? 0, 1) }} pts
@@ -366,10 +366,10 @@
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
-                                    <strong style="color:#ef4444;">WORST:</strong>
+                                    <strong style="color:#ef4444;">WORST STAGE:</strong>
                                     {{ $worstStage['label'] ?? '' }}
                                     &mdash;
-                                    {{ number_format($worstStage['hit_rate'] ?? 0, 0) }}%
+                                    {{ $worstStage['hits'] ?? 0 }}/{{ $worstStage['targets'] ?? 0 }} impacts
                                 </td>
                                 <td align="right" style="font-size:14px;font-weight:bold;color:#ef4444;font-family:Arial,Helvetica,sans-serif;">
                                     {{ number_format($worstStage['score'] ?? 0, 1) }} pts
