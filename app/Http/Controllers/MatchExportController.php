@@ -780,6 +780,82 @@ class MatchExportController extends Controller
             ];
         }
 
+        // ─── Royal Flushes per distance ───
+        // An RF = a ranked shooter hit every gong at one distance (target set).
+        // We walk the heatmap per-distance column groups and count full-sweep
+        // rows. Only meaningful for Royal Flush matches, so we skip the
+        // computation otherwise and let the blade hide the section.
+        $royalFlushesByDistance = [];
+        $royalFlushShootersByDistance = [];
+        $perfectHandShooters = [];
+
+        if ((bool) ($match->royal_flush_enabled ?? false)) {
+            // Flatten distance column counts so we can slice cells[] per distance.
+            $distColCounts = [];
+            foreach ($distanceTables as $dt) {
+                $distColCounts[(int) $dt['distance_meters']] = count($dt['gongs']);
+            }
+
+            foreach ($heatmap as $row) {
+                if (! isset($rankedNames[$row['name']])) {
+                    continue;
+                }
+
+                $offset = 0;
+                $flushesThisShooter = 0;
+                $distancesCompleted = 0;
+                foreach ($distColCounts as $distM => $n) {
+                    $slice = array_slice($row['cells'], $offset, $n);
+                    $offset += $n;
+                    if ($n === 0) {
+                        continue;
+                    }
+                    $hitCount = 0;
+                    foreach ($slice as $c) {
+                        if ($c['state'] === 'hit') {
+                            $hitCount++;
+                        }
+                    }
+                    if ($hitCount === $n) {
+                        $royalFlushesByDistance[$distM] = ($royalFlushesByDistance[$distM] ?? 0) + 1;
+                        $royalFlushShootersByDistance[$distM][] = $row['display_name'];
+                        $flushesThisShooter++;
+                        $distancesCompleted++;
+                    }
+                }
+
+                // Perfect Hand = flushed every distance (all cells across the
+                // match are hits). Only count shooters who actually shot every
+                // distance — a shooter missing a whole distance block shouldn't
+                // be awarded just because the cells they did shoot all hit.
+                if ($flushesThisShooter === count($distColCounts) && count($distColCounts) > 0) {
+                    $perfectHandShooters[] = $row['display_name'];
+                }
+            }
+
+            // Ensure every distance has a zero-baseline entry, in leaderboard order.
+            foreach ($distColCounts as $distM => $_) {
+                $royalFlushesByDistance[$distM] = $royalFlushesByDistance[$distM] ?? 0;
+                $royalFlushShootersByDistance[$distM] = $royalFlushShootersByDistance[$distM] ?? [];
+            }
+        }
+
+        // ─── Match-wide "cool facts" ───
+        // Small set of compact, human-readable highlights. All of these are
+        // defensively built: if the underlying data is missing/empty we just
+        // drop the fact instead of emitting an empty line. The blade hides
+        // the whole section when the array is empty.
+        $matchFacts = $this->buildMatchFacts(
+            $match,
+            $rankedStandings,
+            $heatmap,
+            $distanceStats,
+            $heatmapColumns,
+            $royalFlushesByDistance,
+            $royalFlushShootersByDistance,
+            $perfectHandShooters,
+        );
+
         return array_merge($base, [
             'heatmap' => $heatmap,
             'heatmapColumns' => $heatmapColumns,
@@ -797,7 +873,197 @@ class MatchExportController extends Controller
                 'avgScore' => $avgScore,
                 'winnerScore' => $winner?->total_score ?? 0,
             ],
+            'royalFlushesByDistance' => $royalFlushesByDistance,
+            'royalFlushShootersByDistance' => $royalFlushShootersByDistance,
+            'perfectHandShooters' => $perfectHandShooters,
+            'matchFacts' => $matchFacts,
         ]);
+    }
+
+    /**
+     * Compact human-readable highlights that sit below the main heatmap on
+     * the Full Match Report. Each fact is a plain string (optionally with a
+     * short category tag) so the blade can render them as simple bullets
+     * without needing per-fact templates.
+     *
+     * We intentionally skip facts whose underlying data is uninteresting
+     * (e.g. "winning margin 0.0 pts" when there's only one shooter), which
+     * keeps the section from padding itself with filler lines.
+     */
+    private function buildMatchFacts(
+        ShootingMatch $match,
+        \Illuminate\Support\Collection $rankedStandings,
+        array $heatmap,
+        array $distanceStats,
+        array $heatmapColumns,
+        array $royalFlushesByDistance,
+        array $royalFlushShootersByDistance,
+        array $perfectHandShooters,
+    ): array {
+        $facts = [];
+        $isRf = (bool) ($match->royal_flush_enabled ?? false);
+
+        // Winning margin — only meaningful with ≥2 ranked shooters.
+        if ($rankedStandings->count() >= 2) {
+            $winner = $rankedStandings->first();
+            $runnerUp = $rankedStandings->skip(1)->first();
+            $margin = (float) $winner->total_score - (float) $runnerUp->total_score;
+            if ($margin > 0.001) {
+                $winnerName = Str::before($winner->name, ' — ') ?: $winner->name;
+                $facts[] = [
+                    'tag' => 'Margin',
+                    'text' => sprintf(
+                        '%s took it by %s %s ahead of %s.',
+                        $winnerName,
+                        rtrim(rtrim(number_format($margin, 2, '.', ''), '0'), '.'),
+                        $isRf ? 'points' : 'pts',
+                        Str::before($runnerUp->name, ' — ') ?: $runnerUp->name,
+                    ),
+                ];
+            } elseif (abs($margin) < 0.001) {
+                $facts[] = [
+                    'tag' => 'Dead heat',
+                    'text' => 'The top two shooters finished on the same score — dead heat at the line.',
+                ];
+            }
+        }
+
+        // Perfect hands (every gong at every distance).
+        if ($isRf && count($perfectHandShooters) > 0) {
+            $names = implode(', ', $perfectHandShooters);
+            $facts[] = [
+                'tag' => 'Perfect Hand',
+                'text' => count($perfectHandShooters) === 1
+                    ? "{$names} shot a Perfect Hand — every gong at every distance, zero misses."
+                    : "Perfect Hand shot by " . count($perfectHandShooters) . " shooters: {$names}.",
+            ];
+        }
+
+        // Total Royal Flushes across the match.
+        if ($isRf) {
+            $totalFlushes = array_sum($royalFlushesByDistance);
+            if ($totalFlushes > 0) {
+                $facts[] = [
+                    'tag' => 'Flushes',
+                    'text' => $totalFlushes === 1
+                        ? 'One Royal Flush was shot in this match.'
+                        : "{$totalFlushes} Royal Flushes shot across the match.",
+                ];
+            } else {
+                $facts[] = [
+                    'tag' => 'Flushes',
+                    'text' => 'No Royal Flushes this match — the steel held.',
+                ];
+            }
+        }
+
+        // Toughest and easiest distance by field hit rate.
+        if (count($distanceStats) >= 2) {
+            $sorted = collect($distanceStats)->sortBy('hit_rate')->values();
+            $hardest = $sorted->first();
+            $easiest = $sorted->last();
+            if ($hardest && $easiest && $hardest['label'] !== $easiest['label']) {
+                $facts[] = [
+                    'tag' => 'Toughest',
+                    'text' => sprintf(
+                        '%s was the hardest distance (%d%% field hit rate); %s was the most forgiving at %d%%.',
+                        $hardest['label'],
+                        $hardest['hit_rate'],
+                        $easiest['label'],
+                        $easiest['hit_rate'],
+                    ),
+                ];
+            }
+        }
+
+        // Most consistent shooter — highest hit rate among ranked field.
+        $rankedSet = $rankedStandings->pluck('name')->flip();
+        $mostConsistent = null;
+        foreach ($heatmap as $row) {
+            if (! isset($rankedSet[$row['name']])) {
+                continue;
+            }
+            if ($row['total_shots'] < 4) { // need a real sample
+                continue;
+            }
+            if ($mostConsistent === null || $row['hit_rate'] > $mostConsistent['hit_rate']) {
+                $mostConsistent = $row;
+            }
+        }
+        if ($mostConsistent !== null && $mostConsistent['hit_rate'] >= 70) {
+            $winner = $rankedStandings->first();
+            // Don't restate a fact about the winner if we already covered them.
+            if (! $winner || $winner->name !== $mostConsistent['name']) {
+                $facts[] = [
+                    'tag' => 'Consistency',
+                    'text' => sprintf(
+                        '%s posted the highest hit rate in the field at %d%%.',
+                        $mostConsistent['display_name'],
+                        $mostConsistent['hit_rate'],
+                    ),
+                ];
+            }
+        }
+
+        // Calibre diversity — gives a read on how varied the field was.
+        $calibres = collect($heatmap)
+            ->pluck('caliber')
+            ->map(fn ($c) => trim((string) $c))
+            ->filter()
+            ->unique()
+            ->values();
+        if ($calibres->count() >= 3) {
+            $facts[] = [
+                'tag' => 'Field',
+                'text' => sprintf(
+                    '%d different calibres in the field — variety from %s.',
+                    $calibres->count(),
+                    $calibres->take(3)->implode(', ') . ($calibres->count() > 3 ? ', …' : ''),
+                ),
+            ];
+        }
+
+        // Most-dropped gong — which individual gong did the field struggle with.
+        if (count($heatmapColumns) > 0) {
+            $colStats = [];
+            foreach ($heatmap as $row) {
+                if (! isset($rankedSet[$row['name']])) {
+                    continue;
+                }
+                foreach ($row['cells'] as $i => $cell) {
+                    if ($cell['state'] === 'hit' || $cell['state'] === 'miss') {
+                        $colStats[$i]['shots'] = ($colStats[$i]['shots'] ?? 0) + 1;
+                        $colStats[$i]['hits'] = ($colStats[$i]['hits'] ?? 0) + (int) ($cell['state'] === 'hit');
+                    }
+                }
+            }
+            $worstCol = null;
+            $worstRate = 101;
+            foreach ($colStats as $i => $s) {
+                if ($s['shots'] < 3) {
+                    continue;
+                }
+                $rate = ($s['hits'] / $s['shots']) * 100;
+                if ($rate < $worstRate) {
+                    $worstRate = $rate;
+                    $worstCol = $i;
+                }
+            }
+            if ($worstCol !== null && $worstRate < 60) {
+                $col = $heatmapColumns[$worstCol];
+                $facts[] = [
+                    'tag' => 'Nemesis',
+                    'text' => sprintf(
+                        'The %s G%d gong was the nemesis of the day — only %d%% of attempts landed.',
+                        $col['distance_label'],
+                        $col['gong_number'],
+                        round($worstRate),
+                    ),
+                ];
+            }
+        }
+
+        return $facts;
     }
 
     /**

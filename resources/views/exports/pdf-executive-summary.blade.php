@@ -337,39 +337,45 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* ─── Shot cells — tick / cross scorecard ───
-           Every cell renders as a compact icon tile. Gotenberg/Chromium handles
-           SVG reliably, so we use inline SVG glyphs for both hit (✓) and miss (✗)
-           to guarantee print fidelity regardless of fallback fonts. */
+        /* ─── Shot cells — filled circle "gong dots" ───
+           Unified with the shooter report (pdf-match-report.blade.php) so
+           every DeadCenter PDF uses the same visual vocabulary for a shot.
+           The cell background is kept transparent now — the coloured circle
+           alone carries the hit/miss signal, which gives a cleaner, denser
+           grid than tinted tiles behind tiny icons. */
         .grid td.hm-hit,
         .grid td.hm-miss,
         .grid td.hm-none {
             padding: 1px 0;
             background: #0c1a33 !important;
         }
-        .grid td.hm-hit  { background: rgba(34,197,94,0.12) !important; }
-        .grid td.hm-miss { background: rgba(239,68,68,0.12) !important; }
-        .grid td.hm-none { background: #0c1a33 !important; }
 
-        /* Keep podium-row tint present but softer so the icons stay readable. */
-        .grid tr.top1 td.hm-hit  { background: rgba(34,197,94,0.14) !important; }
-        .grid tr.top1 td.hm-miss { background: rgba(239,68,68,0.14) !important; }
+        /* No more tinted cells — podium-row backgrounds alone mark the
+           top-3 rows; the circles themselves carry hit/miss. */
+        .grid tr.top1 td.hm-hit,
+        .grid tr.top1 td.hm-miss,
         .grid tr.top1 td.hm-none { background: rgba(251,191,36,0.08) !important; }
-        .grid tr.top2 td.hm-hit  { background: rgba(34,197,94,0.14) !important; }
-        .grid tr.top2 td.hm-miss { background: rgba(239,68,68,0.14) !important; }
+        .grid tr.top2 td.hm-hit,
+        .grid tr.top2 td.hm-miss,
         .grid tr.top2 td.hm-none { background: rgba(203,213,225,0.06) !important; }
-        .grid tr.top3 td.hm-hit  { background: rgba(34,197,94,0.14) !important; }
-        .grid tr.top3 td.hm-miss { background: rgba(239,68,68,0.14) !important; }
+        .grid tr.top3 td.hm-hit,
+        .grid tr.top3 td.hm-miss,
         .grid tr.top3 td.hm-none { background: rgba(251,146,60,0.08) !important; }
 
+        /* Gong dot — filled circle, identical treatment to the shooter
+           report (13px there; 9px here because we have ~20 shots per row
+           in portrait and need them to stay compact). */
         .shot {
             display: inline-block;
             width: 9px;
             height: 9px;
-            line-height: 0;
+            border-radius: 50%;
             vertical-align: middle;
+            line-height: 1;
         }
-        .shot svg { display: block; width: 9px; height: 9px; }
+        .shot-hit  { background: #22c55e; }
+        .shot-miss { background: #ef4444; }
+        .shot-none { background: #374151; }
 
         /* Distance boundary — slightly firmer vertical separator on dark */
         .grid td.dist-end,
@@ -392,7 +398,86 @@
             margin-right: 4px;
         }
         .legend .icon svg { display: block; width: 11px; height: 11px; }
+        .legend .legend-dot { border-radius: 50%; }
+        .legend .legend-hit  { background: #22c55e; }
+        .legend .legend-miss { background: #ef4444; }
+        .legend .legend-none { background: #374151; }
         .legend .sep { margin: 0 12px; color: #475569; }
+
+        /* ─── Royal Flushes by Distance ─── */
+        .rf-section { margin-top: 14px; page-break-inside: avoid; }
+        .rf-grid {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 5px 0;
+            table-layout: fixed;
+            margin-top: 5px;
+        }
+        .rf-grid td {
+            border: 1px solid #31486d;
+            border-radius: 5px;
+            background: #0c1a33;
+            padding: 7px 8px;
+            vertical-align: top;
+        }
+        .rf-grid .rf-dist {
+            font-size: 8pt;
+            font-weight: 800;
+            color: #f8fafc;
+            letter-spacing: 0.04em;
+        }
+        .rf-grid .rf-count {
+            font-size: 18pt;
+            font-weight: 800;
+            color: #fbbf24;
+            line-height: 1;
+            margin-top: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        .rf-grid .rf-count.zero { color: #475569; }
+        .rf-grid .rf-label {
+            font-size: 5.5pt;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-top: 2px;
+        }
+        .rf-grid .rf-names {
+            margin-top: 5px;
+            padding-top: 5px;
+            border-top: 1px solid #1e293b;
+            font-size: 6.5pt;
+            color: #cbd5e1;
+            line-height: 1.3;
+        }
+        .rf-grid .rf-names strong {
+            color: #f8fafc;
+            font-weight: 700;
+        }
+
+        /* ─── Match Facts ─── */
+        .facts-section { margin-top: 14px; page-break-inside: avoid; }
+        .fact {
+            background: #0c1a33;
+            border-left: 2px solid #ff2b2b;
+            border-radius: 3px;
+            padding: 5px 9px;
+            margin-bottom: 3px;
+            font-size: 7.5pt;
+            color: #cbd5e1;
+            line-height: 1.35;
+            page-break-inside: avoid;
+        }
+        .fact .tag {
+            display: inline-block;
+            font-size: 5.5pt;
+            font-weight: 800;
+            color: #ff2b2b;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-right: 6px;
+            vertical-align: baseline;
+        }
     </style>
 </head>
 <body>
@@ -478,9 +563,9 @@
             MATCH REPORT
             <span class="muted">
                 @if($useCardFaces)
-                    Each row: 20 shots, 5 per distance · green tick = hit · red cross = miss
+                    Each row: 20 shots, 5 per distance · green = hit · red = miss
                 @else
-                    Green tick = hit · Red cross = miss · Dash = no shot recorded
+                    Green = hit · Red = miss · Grey = no shot recorded
                 @endif
             </span>
         </div>
@@ -561,23 +646,11 @@
                             @endphp
                             <td class="{{ $cls }}{{ $endCls }}">
                                 @if($cell['state'] === 'hit')
-                                    <span class="shot" title="Hit">
-                                        <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </span>
+                                    <span class="shot shot-hit" title="Hit"></span>
                                 @elseif($cell['state'] === 'miss')
-                                    <span class="shot" title="Miss">
-                                        <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round"/>
-                                        </svg>
-                                    </span>
+                                    <span class="shot shot-miss" title="Miss"></span>
                                 @else
-                                    <span class="shot" title="No shot recorded">
-                                        <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M3 6 L9 6" fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-linecap="round"/>
-                                        </svg>
-                                    </span>
+                                    <span class="shot shot-none" title="No shot recorded"></span>
                                 @endif
                             </td>
                         @endforeach
@@ -589,17 +662,11 @@
         </table>
 
         <div class="legend">
-            <span class="icon">
-                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>Hit
+            <span class="icon legend-dot legend-hit"></span>Hit
             <span class="sep">·</span>
-            <span class="icon">
-                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round"/></svg>
-            </span>Miss
+            <span class="icon legend-dot legend-miss"></span>Miss
             <span class="sep">·</span>
-            <span class="icon">
-                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M3 6 L9 6" fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-linecap="round"/></svg>
-            </span>No shot recorded
+            <span class="icon legend-dot legend-none"></span>No shot recorded
             <span class="sep">·</span>
             @if($useCardFaces)
                 Royal Flush scorecard · 10 / J / Q / K / A across each distance
@@ -607,6 +674,60 @@
                 Rows sorted by match rank · Podium tinted gold / silver / bronze
             @endif
         </div>
+
+        {{-- ─── Royal Flushes by Distance ───
+             Only rendered for Royal Flush matches. Shows a per-distance
+             card with the count of full sweeps + the shooters who pulled
+             each one off. Zero-counts render as dimmed cards so the grid
+             stays visually aligned even when no flushes happened. --}}
+        @if(($match->royal_flush_enabled ?? false) && !empty($royalFlushesByDistance ?? []))
+            <div class="rf-section">
+                <div class="section-title section-title-report">
+                    <span class="accent">■</span>
+                    ROYAL FLUSHES BY DISTANCE
+                    <span class="muted">Full-sweep = every gong at the distance · {{ array_sum($royalFlushesByDistance) }} total this match</span>
+                </div>
+                <table class="rf-grid">
+                    <tr>
+                        @foreach($distanceStats as $ds)
+                            @php
+                                $distM = (int) $ds['distance_meters'];
+                                $count = (int) ($royalFlushesByDistance[$distM] ?? 0);
+                                $names = $royalFlushShootersByDistance[$distM] ?? [];
+                            @endphp
+                            <td>
+                                <div class="rf-dist">{{ $ds['label'] }}</div>
+                                <div class="rf-count {{ $count === 0 ? 'zero' : '' }}">{{ $count }}</div>
+                                <div class="rf-label">{{ $count === 1 ? 'Flush' : 'Flushes' }}</div>
+                                @if(count($names) > 0)
+                                    <div class="rf-names">
+                                        @foreach($names as $i => $n)
+                                            <strong>{{ $n }}</strong>@if($i < count($names) - 1), @endif
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                </table>
+            </div>
+        @endif
+
+        {{-- ─── Match Facts ─── --}}
+        @if(!empty($matchFacts ?? []))
+            <div class="facts-section">
+                <div class="section-title section-title-report">
+                    <span class="accent">■</span>
+                    MATCH FACTS
+                    <span class="muted">Highlights &amp; quirks from the day</span>
+                </div>
+                @foreach($matchFacts as $fact)
+                    <div class="fact">
+                        <span class="tag">{{ $fact['tag'] }}</span>{{ $fact['text'] }}
+                    </div>
+                @endforeach
+            </div>
+        @endif
 
         @include('exports.partials.pdf-footer')
     </div>
