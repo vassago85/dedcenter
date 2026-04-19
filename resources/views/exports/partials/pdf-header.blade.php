@@ -3,7 +3,7 @@
      * PDF header strip — DeadCenter brand left, match meta center, Royal Flush brand right (RF matches only).
      *
      * @var \App\Models\ShootingMatch $match
-     * @var string|null $subtitle  Optional section label (e.g. "Executive Summary", "Shooter Report")
+     * @var string|null $subtitle  Optional section label (e.g. "Full Match Report", "Shooter Report")
      */
     $subtitle = $subtitle ?? null;
     $isRf = (bool) ($match->royal_flush_enabled ?? false);

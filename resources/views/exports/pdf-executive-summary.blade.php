@@ -1,13 +1,15 @@
 @php
     /**
-     * Executive Summary PDF (A4 Portrait, multi-page when roster is deep).
+     * Full Match Report PDF (digital-first, one tall continuous navy page).
      *
-     * Converted from the old single-page landscape sheet so the report reads
-     * like the rest of the shooter-facing reports: navy edge-to-edge, podium
-     * + stat cards up top, then a tick/cross heatmap that flows across pages
-     * with a repeating header. Orphans/widows guards keep the last page from
-     * stranding a single shooter at the top, matching the user's ask for a
-     * clean, even page break.
+     * The surface is sized as 210mm wide (matches A4 portrait width so the
+     * typographic scale is consistent with the shooter report) with height
+     * `auto`, so Chromium/Gotenberg grow the page to fit all rows. No
+     * horizontal page breaks, no orphan rows, no need to repeat a thead.
+     * The dark navy background is unsuitable for print anyway, so we stop
+     * pretending this is a printable doc and just let it scroll in the
+     * viewer. Called "Executive Summary" historically — kept the filename
+     * for route-stability but renamed everywhere user-facing.
      *
      * @var \App\Models\ShootingMatch $match
      * @var array $heatmap                Rows of shooter + cells
@@ -50,17 +52,19 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ $match->name }} — Executive Summary</title>
+    <title>{{ $match->name }} — Full Match Report</title>
     @include('exports.partials.pdf-styles-dark')
     <style>
-        /* Portrait A4 edge-to-edge in navy (matches pdf-match-report). */
-        @page { size: A4 portrait; margin: 0; background: #071327; }
+        /* Digital-first: 210mm wide (keeps the A4-width typographic scale
+           shared with the shooter report) and auto height so the whole
+           report lays out on a single tall page. No page breaks, no thead
+           repeats, no orphan-row juggling. Edge-to-edge navy. */
+        @page { size: 210mm auto; margin: 0; background: #071327; }
         body { width: 210mm; background: #071327; }
 
-        /* Page gutter. Tight enough to fit the heatmap at portrait width,
-           generous enough that rows don't kiss the paper edge when Chromium
-           walks the table across pages. */
-        .wrap { padding: 14px 12px 12px; background: #071327; orphans: 3; widows: 3; }
+        /* Page gutter — generous since there's no per-page footer fighting
+           for vertical budget any more. */
+        .wrap { padding: 16px 14px; background: #071327; }
 
         /* ─── Top block: podium above stat cards (stacked for portrait).
              Each block is page-break-inside:avoid so page 1 always ships a
@@ -392,7 +396,7 @@
     </style>
 </head>
 <body>
-    @include('exports.partials.pdf-header', ['subtitle' => 'Executive Summary'])
+    @include('exports.partials.pdf-header', ['subtitle' => 'Full Match Report'])
 
     <div class="wrap">
         {{-- ─── Top: Podium (stacked for portrait) ─── --}}

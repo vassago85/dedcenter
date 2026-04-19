@@ -506,14 +506,18 @@ class MatchExportController extends Controller
     }
 
     /**
-     * Executive summary PDF — single page A4 landscape, all shooters on a
-     * filled-square heatmap, podium, stat cards, branded header.
+     * Full Match Report PDF — all shooters on a tick/cross heatmap, podium,
+     * stat cards, branded header. Digital-first: rendered as one tall
+     * continuous navy page (@page size: 210mm auto) so there are no
+     * awkward page breaks in the viewer and the dark background never has
+     * to paginate for print fidelity it won't achieve anyway.
      *
-     * Replaces the legacy pdfPostMatchReport entry point (same route, new output).
+     * Replaces the legacy pdfPostMatchReport and pdfExecutiveSummary entry
+     * points (same routes, new output + name).
      */
     public function pdfPostMatchReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
-        return $this->pdfExecutiveSummary($match, $renderer);
+        return $this->pdfFullMatchReport($match, $renderer);
     }
 
     /**
@@ -521,7 +525,7 @@ class MatchExportController extends Controller
      *
      * Light/magazine aesthetic, every shot rendered as a hit/miss cell grouped
      * by distance with per-distance multipliers shown in column headers.
-     * Same data shape as the executive summary (re-uses buildExecutiveSummaryData).
+     * Same data shape as the full match report (re-uses buildExecutiveSummaryData).
      */
     public function royalFlushReport(ShootingMatch $match)
     {
@@ -538,19 +542,33 @@ class MatchExportController extends Controller
         return view('reports.royal-flush', $data + ['match' => $match]);
     }
 
-    public function pdfExecutiveSummary(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    /**
+     * Full Match Report PDF generation.
+     *
+     * No customSize passed -> Gotenberg honours the template's CSS
+     * @page rule (size: 210mm auto), producing one tall continuous page.
+     */
+    public function pdfFullMatchReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
         $data = $this->buildExecutiveSummaryData($match);
 
-        // A4 landscape — wider grid for heatmap.
         return $renderer->stream(
             'exports.pdf-executive-summary',
             $data,
-            "{$slug}-executive-summary.pdf",
-            ['width' => 297.0, 'height' => 210.0],
+            "{$slug}-full-match-report.pdf",
         );
+    }
+
+    /**
+     * Backwards-compatible shim — some controllers/services still reference
+     * this by its historical name. Delegates to pdfFullMatchReport so the
+     * output is always the current template.
+     */
+    public function pdfExecutiveSummary(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
+        return $this->pdfFullMatchReport($match, $renderer);
     }
 
     /**

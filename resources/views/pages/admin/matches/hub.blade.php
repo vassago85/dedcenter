@@ -178,14 +178,14 @@ new #[Layout('components.layouts.app')]
             <a href="{{ route('admin.matches.export.pdf-standings', $match) }}" class="group rounded-xl border border-border bg-surface p-5 transition hover:border-accent">
                 <div class="flex items-center gap-3">
                     <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/15 text-red-400"><x-icon name="document-text" class="h-5 w-5" /></div>
-                    <div><div class="font-semibold text-primary">Standings PDF</div><div class="text-xs text-muted">Printable</div></div>
+                    <div><div class="font-semibold text-primary">Standings PDF</div><div class="text-xs text-muted">Leaderboard</div></div>
                 </div>
             </a>
             @if($isCompleted)
                 <a href="{{ route('admin.matches.export.pdf-executive-summary', $match) }}" class="group rounded-xl border border-emerald-600/40 bg-emerald-900/10 p-5 transition hover:border-emerald-500">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400"><x-icon name="document-check" class="h-5 w-5" /></div>
-                        <div><div class="font-semibold text-primary">Executive Summary (PDF)</div><div class="text-xs text-muted">All shooters · heatmap</div></div>
+                        <div><div class="font-semibold text-primary">Full Match Report (PDF)</div><div class="text-xs text-muted">All shooters · podium · heatmap</div></div>
                     </div>
                 </a>
             @endif

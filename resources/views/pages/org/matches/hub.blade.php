@@ -307,12 +307,12 @@ new #[Layout('components.layouts.app')]
                     </div>
                     <div>
                         <div class="font-semibold text-primary">Standings PDF</div>
-                        <div class="text-xs text-muted">Printable leaderboard</div>
+                        <div class="text-xs text-muted">Leaderboard</div>
                     </div>
                 </div>
             </a>
 
-            {{-- Executive Summary PDF (single page, all shooters heatmap) --}}
+            {{-- Full Match Report PDF (all shooters, tick/cross heatmap, digital-first) --}}
             @if($isCompleted)
                 <a href="{{ route('org.matches.export.pdf-executive-summary', [$organization, $match]) }}"
                    class="group rounded-xl border border-emerald-600/40 bg-emerald-900/10 p-5 transition hover:border-emerald-500 hover:bg-emerald-900/20">
@@ -321,8 +321,8 @@ new #[Layout('components.layouts.app')]
                             <x-icon name="document-check" class="h-5 w-5" />
                         </div>
                         <div>
-                            <div class="font-semibold text-primary">Executive Summary (PDF)</div>
-                            <div class="text-xs text-muted">All shooters · podium · heatmap · landscape</div>
+                            <div class="font-semibold text-primary">Full Match Report (PDF)</div>
+                            <div class="text-xs text-muted">All shooters · podium · heatmap</div>
                         </div>
                     </div>
                 </a>

@@ -5,10 +5,12 @@
     <title>{{ $match->name }} — Standings</title>
     @include('exports.partials.pdf-styles-dark')
     <style>
-        /* Portrait A4 edge-to-edge navy to match the shooter report. */
-        @page { size: A4 portrait; margin: 0; background: #071327; }
+        /* Digital-first: 210mm wide with auto height so the whole
+           leaderboard lays out on a single tall navy page. Matches the
+           Full Match Report so both post-match PDFs feel consistent. */
+        @page { size: 210mm auto; margin: 0; background: #071327; }
         body { width: 210mm; background: #071327; }
-        .wrap { padding: 14px 14px 12px; background: #071327; orphans: 3; widows: 3; }
+        .wrap { padding: 16px 14px; background: #071327; }
 
         /* Sponsor strip — tuned to dark */
         .sponsor {

@@ -102,10 +102,12 @@ it('builds per-distance tables with tick/cross cells and parsed caliber', functi
         ->and($table500['rows'][1]['subtotal'])->toBe(5.0);
 });
 
-it('renders the executive-summary blade view without errors', function () {
+it('renders the full-match-report blade view without errors', function () {
     // The legacy pdf-post-match-report view was replaced by pdf-executive-summary
-    // during the HTML-first reports pivot. This test now verifies that the new
-    // template compiles and contains the expected data for a basic RF match.
+    // during the HTML-first reports pivot. The user-facing name has since
+    // moved on to "Full Match Report" but we kept the filename for route
+    // stability. This test verifies the template compiles and surfaces the
+    // new branding + expected shooter data for a basic RF match.
     $owner = User::factory()->create();
     $match = ShootingMatch::factory()->create(['created_by' => $owner->id, 'scoring_type' => 'standard']);
 
@@ -124,7 +126,7 @@ it('renders the executive-summary blade view without errors', function () {
     $data = $buildExec->invoke($controller, $match);
 
     $html = view('exports.pdf-executive-summary', $data + ['match' => $match])->render();
-    expect($html)->toContain('Executive Summary')
+    expect($html)->toContain('Full Match Report')
         ->toContain('Alice')
         ->toContain('6x46')
         ->toContain('500m');
