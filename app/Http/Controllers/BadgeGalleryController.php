@@ -33,6 +33,7 @@ class BadgeGalleryController extends Controller
         'complete-shooter'   => ['icon' => 'circle-check', 'tier' => 'milestone', 'earnChip' => 'Earned once'],
 
         // ── Royal Flush ──
+        'perfect-hand'       => ['icon' => 'chess-queen',  'tier' => 'featured',  'earnChip' => 'Awarded per match'],
         'winning-hand'       => ['icon' => 'spade',        'tier' => 'featured',  'earnChip' => 'Awarded per match'],
 
         'royal-flush'        => ['icon' => 'crown',        'tier' => 'elite',     'earnChip' => 'Earned once'],

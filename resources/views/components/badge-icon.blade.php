@@ -86,6 +86,12 @@
     @case('spade')
         <path d="M5 9c-1.5 1.5-3 3.2-3 5.5A5.5 5.5 0 0 0 7.5 20c1.8 0 3-.5 4.5-2 1.5 1.5 2.7 2 4.5 2a5.5 5.5 0 0 0 5.5-5.5c0-2.3-1.5-4-3-5.5l-7-7-7 7Z"/><path d="M12 18v4"/>
         @break
+    @case('chess-queen')
+        {{-- Classic chess queen silhouette: 5 pointed crown, belt, weighted base.
+             Hand-crafted to match Lucide's stroke rhythm so it reads cleanly at
+             small sizes next to the other badge glyphs. --}}
+        <path d="M3 6l2.5 7h13L21 6l-3.5 2.5L12 3 6.5 8.5 3 6z"/><path d="M12 3v.01"/><path d="M5.5 13h13"/><path d="M6 17h12"/><path d="M7 17v4h10v-4"/>
+        @break
     @case('podium')
         {{-- Custom: 1st/2nd/3rd podium blocks --}}
         <rect x="2" y="14" width="6" height="7" rx="1"/><rect x="9" y="8" width="6" height="13" rx="1"/><rect x="16" y="11" width="6" height="10" rx="1"/><line x1="1" x2="23" y1="22" y2="22"/>

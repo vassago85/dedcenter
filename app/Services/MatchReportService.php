@@ -760,11 +760,25 @@ class MatchReportService
 
     // ── Shared helpers ──────────────────────────────────────────────────
 
+    /**
+     * Shooter badges for the PDF/email report.
+     *
+     * We enrich each row with the BADGE_CONFIG metadata (icon name + tier +
+     * earn-chip text) that drives the platform's preview-page styling, so
+     * the PDF can render the same crest/tier look as /badges-preview
+     * without the consumer having to re-implement the mapping.
+     *
+     * $ua->achievement might be null for orphaned rows (e.g. an achievement
+     * was soft-deleted after it was awarded) — we skip those defensively
+     * rather than 500 on a missing relation.
+     */
     private function shooterBadges(ShootingMatch $match, Shooter $shooter): array
     {
         if (! $shooter->user_id) {
             return [];
         }
+
+        $config = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG;
 
         return UserAchievement::where('match_id', $match->id)
             ->where('user_id', $shooter->user_id)
@@ -772,14 +786,27 @@ class MatchReportService
             ->orderBy('awarded_at')
             ->get()
             ->filter(fn ($ua) => $ua->achievement !== null)
-            ->map(fn ($ua) => [
-                'label' => $ua->achievement->label,
-                'description' => $ua->achievement->description,
-                'category' => $ua->achievement->category,
-                'competition_type' => $ua->achievement->competition_type ?? 'prs',
-                'stage' => $ua->stage?->label,
-                'metadata' => $ua->metadata,
-            ])
+            ->map(function ($ua) use ($config) {
+                $slug = $ua->achievement->slug;
+                $cfg = $config[$slug] ?? [];
+
+                $competition = $ua->achievement->competition_type ?? 'prs';
+                $family = $competition === 'royal_flush' ? 'rf' : 'prs';
+
+                return [
+                    'slug' => $slug,
+                    'label' => $ua->achievement->label,
+                    'description' => $ua->achievement->description,
+                    'category' => $ua->achievement->category,
+                    'competition_type' => $competition,
+                    'family' => $family,
+                    'icon' => $cfg['icon'] ?? 'target',
+                    'tier' => $cfg['tier'] ?? 'earned',
+                    'earn_chip' => $cfg['earnChip'] ?? null,
+                    'stage' => $ua->stage?->label,
+                    'metadata' => $ua->metadata,
+                ];
+            })
             ->values()
             ->toArray();
     }

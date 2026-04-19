@@ -61,6 +61,12 @@ class AchievementSeeder extends Seeder
             ['slug' => 'rf-podium-bronze', 'label' => 'Podium Bronze', 'description' => 'Finished third overall at a Royal Flush match.',  'category' => 'repeatable', 'scope' => 'match', 'is_repeatable' => true, 'sort_order' => 100, 'competition_type' => 'royal_flush'],
 
             // ── Royal Flush Match Special ──
+            // `perfect-hand` is repeatable by design: it stacks once per match for
+            // each shooter who goes perfect. The match-level uniqueness is enforced
+            // in AchievementService::evaluatePerfectHand() via hasMatchBadge(), the
+            // same guard rf-podium-* uses. Sort 290 so it reads ABOVE winning-hand
+            // on the preview page — it is the rarer achievement.
+            ['slug' => 'perfect-hand', 'label' => 'Perfect Hand',  'description' => 'Hit every target at every distance — a flawless Royal Flush run. Almost unheard of.',                                    'category' => 'match_special', 'scope' => 'match', 'is_repeatable' => true,  'sort_order' => 290, 'competition_type' => 'royal_flush'],
             ['slug' => 'winning-hand', 'label' => 'Winning Hand', 'description' => 'Won the side bet by hitting the most small gongs across all distances. Awarded once per match, or not at all.', 'category' => 'match_special', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 300, 'competition_type' => 'royal_flush'],
         ];
 

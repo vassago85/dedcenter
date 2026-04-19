@@ -308,6 +308,28 @@ class AchievementService
                 }
             }
 
+            // Perfect Hand: the shooter flushed every single distance. That means
+            // zero misses and zero not-taken across the entire match — the rarest
+            // run in Royal Flush.
+            //
+            // Match-level uniqueness is enforced via hasMatchBadge() (not via
+            // is_repeatable=false, which would make it lifetime-only). Multiple
+            // shooters on the same match can each earn it — hence the pattern
+            // mirrors rf-podium-* rather than winning-hand.
+            if (count($flushDistances) === $targetSets->count()
+                && $targetSets->count() > 0
+                && $shooter->user_id
+                && ! self::hasMatchBadge('perfect-hand', $shooter->user_id, $match->id)
+            ) {
+                $badge = self::awardBadge('perfect-hand', $shooter, $match, null, [
+                    'distances' => $flushDistances,
+                    'total_targets' => array_sum($gongCountByTs),
+                ]);
+                if ($badge) {
+                    $awarded[] = $badge;
+                }
+            }
+
             if ($smallGongAtFurthest && $furthestTs) {
                 $shooterGongs = $hitGongsByShooter[$shooter->id] ?? [];
                 if (in_array($smallGongAtFurthest->id, $shooterGongs)) {
