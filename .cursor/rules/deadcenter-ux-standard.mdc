@@ -1,0 +1,182 @@
+---
+description: DeadCenter UX/UI/IA/interaction standard — binding for all future work in this repo.
+alwaysApply: true
+---
+
+# DeadCenter UX Standard (binding)
+
+This is the non-negotiable UX/UI/IA standard for DeadCenter. Apply it to every screen, component, refactor, and new feature unless a later instruction explicitly overrides a specific part of it.
+
+The goal: DeadCenter must feel world-class — clean, fast, state-driven, intent-first, better organized than competing systems. The user should never think in routes; they should think *"where am I / what is this page for / what do I do next?"* — and every screen must answer all three instantly.
+
+## 0. Non-negotiables (before you touch anything)
+
+- **Do not break existing functionality, routes, permissions, middleware, role logic, data models, or the match lifecycle.** Improve the experience layer. Preserve business behavior.
+- **Prefer measured refactor over rewrite.** Order of operations: (1) layout cleanup → (2) hierarchy → (3) action prioritization → (4) consistency pass → (5) component reuse → then only deeper restructuring.
+- **Reuse the design primitives before inventing.** If the primitive doesn't exist, add it to the shared component set, don't inline a one-off.
+- **Respect role separation.** Guest / Shooter / Organization / Platform Admin modes must feel intentionally distinct — see §4.
+
+## 1. Ten UX principles (apply to every screen)
+
+1. **One screen = one primary purpose.** Don't let a page try to be dashboard + table + action center + menu simultaneously.
+2. **Hierarchy expresses priority.** Primary content dominates; secondary supports; meta is muted.
+3. **Reduce cognitive load.** No duplicate entry points; no scanning five areas to understand state.
+4. **Context first, actions second.** Tell the user where they are and what state the thing is in *before* showing buttons.
+5. **Actions match state.** Only show the CTAs relevant to the current state (esp. match lifecycle — see §8).
+6. **Stable navigation.** Don't move important controls between similar screens.
+7. **Progressive disclosure.** Essentials first; advanced/admin/niche behind sections, dropdowns, kebab menus, or secondary panels.
+8. **Disciplined density.** Information-rich is fine; cramped, noisy, or unreadable is not.
+9. **Consistency beats novelty.** Repeat strong patterns. Do not invent a new layout idiom per page.
+10. **Feel intentional.** Spacing, alignment, empty states, status styling — everything must read as "designed on purpose".
+
+## 2. Mode-based experience
+
+Three authenticated modes must feel distinct while sharing the visual language. Differentiate via context header, sidebar labels, density, panel emphasis, and accent use — *not* by diverging the design system.
+
+- **Shooter mode** — clean, focused, personal, low-friction. Purpose: my next match, my registrations, my results, my equipment, my organizations. Must *not* feel like a back office.
+- **Organization mode** — operational, structured, efficient, workspace-feeling. Purpose: running matches, registrations, team, settings.
+- **Platform admin mode** — powerful, dense, trustworthy, clearly administrative. Purpose: oversight of orgs, members, matches, revenue, settings. Must *not* feel like a dressed-up shooter dashboard.
+
+## 3. Global app shell standard
+
+- **Top bar**: brand anchor · current mode indicator · current page/context title · notifications · profile · mode switcher (when >1 mode). Orienting, not decorative.
+- **Sidebar**: disciplined. Top-level items limited and intentional. Target primary nav:
+  - **Shooter**: Dashboard · Matches · Results · Equipment · Organizations
+  - **Organization**: Dashboard · Matches · Registrations · Team · Settings
+  - **Admin**: Overview · Organizations · Matches · Revenue · Settings
+  Niche items live inside their section page, not in the primary nav.
+- **Page header** (every internal page): title · short supporting description (when needed) · status/context chips (when relevant) · primary action area on the right · breadcrumb only where it helps.
+- **Container & spacing**: consistent width, generous outer padding, clear vertical rhythm between sections, tight alignment *inside* tables/forms/cards. No cramped sections. No orphan floating controls.
+
+## 4. Page design template
+
+Unless there is a strong reason not to, every page follows this layering:
+
+1. **Header** — title, subtitle, primary CTA, contextual status/metadata.
+2. **Primary content zone** — the reason the page exists; visually dominates.
+3. **Secondary support zone** — side info, recent activity, small utilities, reference.
+4. **Bottom utility layer** (only when needed) — exports, history, audit trail, advanced actions.
+
+Never weigh all four equally.
+
+## 5. Match UX (core product surface)
+
+### Match Hub = command center, not a link collection
+
+Must surface:
+- match identity
+- match status (prominent, not buried in a small badge)
+- date/location key info
+- registration progress
+- squad progress
+- scoring state
+- **next recommended action**
+
+### Status-driven primary actions (pick by `match.status`)
+
+- `Draft` → Edit Match · Open Registration
+- `RegistrationOpen` → View Registrations · Close Registration
+- `RegistrationClosed` → Build Squads · Edit Squads
+- `Ready` → Open Scoring · View Matchbook
+- `Active` → Monitor Live Scoreboard · Continue Scoring
+- `Completed` → View Results · Export · Send Reports
+
+Status must dominate the match header, not be a small chip.
+
+Modules (registrations, squads, scoring, matchbook, reports, exports) are grouped and surfaced by *current relevance*.
+
+## 6. Dashboards — directional, not decorative
+
+- **Shooter**: next match · live or current match · upcoming registrations · recent result · clear "Find a Match" CTA. Do not overload.
+- **Org**: active matches · pending registrations · scoring-in-progress · tasks needing attention · org health snapshot.
+- **Admin**: pending approvals · recent activity · org health · member/claim issues · contact submissions · platform-level actions.
+
+Every dashboard widget must earn its place by helping a decision or a next step.
+
+## 7. Tables, cards, stats
+
+- **Tables** — scannable. Strong column alignment, reduced visual noise, clear row hover, sticky headers where useful, consistent action-menu column. Use the `x-data-table` primitive.
+- **Cards** — sparingly and intentionally. Not every block needs to be a boxed card.
+- **Stats** — elegant and decision-useful. Use `x-stat-card` only where it aids action.
+
+## 8. Forms
+
+- Clear labels. Concise help text.
+- Sections grouped logically (use `x-panel` or `x-section-header`).
+- Dangerous actions visually separated.
+- Validation messages clear and near the field.
+- Submit area anchored and obvious.
+- Long forms broken into panels/sections — never a wall of inputs.
+
+## 9. Visual + typographic direction
+
+- Premium, modern, clean, technical, calm, fast.
+- **Avoid**: gradient gimmicks, glow effects, bloated cards, weak contrast, inconsistent rounding/shadows, template feel.
+- **Prefer**: controlled contrast, clean type, good whitespace, crisp borders, subtle depth, disciplined color use, strong alignment.
+- Typography does the hierarchy work — don't rely only on borders/backgrounds.
+- Establish and reuse consistent styles: `page-title`, `section-title`, `card-title`, `label`, `body`, `meta`, `table-support`, `badge`.
+
+## 10. Icons (Lucide)
+
+- Functional, not decorative clutter.
+- Used in navigation, actions, status chips, ranks, contextual panels, empty states.
+- Consistent size + stroke weight.
+- Never stuffed into every heading/paragraph.
+
+## 11. Leaderboards / scoreboards / results (signature surfaces — must feel elite)
+
+- Ranking instantly readable. Top 3 stand out cleanly.
+- Important stats visually prioritized; meta doesn't overpower scores.
+- Mobile still usable.
+- **Top 3 treatment**: keep rank numbers visible, add a Lucide icon next to rank — 1st trophy, 2nd/3rd medal — subtle and clean, never cartoonish.
+
+## 12. States (every new/revised page must include all three)
+
+- **Empty** — say what the area is for, why it's empty, what to do next. Use `x-empty-state`.
+- **Loading** — prefer skeletons/structured placeholders (`x-skeleton`) over random spinners.
+- **Success** — calm, clear confirmation. No cheesy effects.
+
+## 13. Responsiveness
+
+Actually usable on laptop, desktop, tablet. Mobile must work for dashboards, scoreboards, results, registrations, and match-day operations where practical. Not just "technically responsive".
+
+## 14. Component standardization — use the primitives
+
+Do not inline one-off versions of any of these. If a primitive is missing, add it to `resources/views/components/` and use it everywhere.
+
+- `x-page-shell` — standard page container (width, padding, section rhythm)
+- `x-app-page-header` — header with eyebrow, title, description, status slot, actions slot
+- `x-section-header` — sub-section title + description + actions
+- `x-panel` — generic card/panel
+- `x-stat-card` — stat tile (use only where decisions benefit)
+- `x-status-badge` — token-mapped status pill
+- `x-data-table` — sticky header, hover rows, action column, empty-state slot
+- `x-filter-bar` — search + filter chip pattern
+- `x-action-menu` — kebab/overflow dropdown for secondary actions
+- `x-empty-state` — icon + title + description + action(s)
+- `x-skeleton` — loading placeholders (line, block, row)
+- `x-app-context-bar` — mode/context banner under the top bar
+
+## 15. Design QA checklist (run before finishing any page/feature)
+
+1. Is the page purpose instantly obvious?
+2. Is the current context obvious?
+3. Is the most important action obvious?
+4. Is there too much clutter?
+5. Are secondary actions pushed back enough?
+6. Does this feel consistent with the rest of the platform?
+7. Does this feel better than what was there before?
+8. Would a first-time user understand where to go next?
+9. Does this feel premium and intentional?
+10. Did we improve UX without breaking architecture?
+
+If any answer is "no", keep refining.
+
+## 16. How to interpret every new task
+
+Before writing code, answer:
+- What mode is this for?
+- What is the primary job of this page?
+- What should the user notice first?
+- What action matters most here?
+- How do we make this cleaner, faster, and more obvious — without breaking anything?

@@ -180,7 +180,7 @@ new #[Layout('components.layouts.app')]
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-2">
                                         <a href="{{ route('shooter.profile', $reg->user_id) }}" class="font-medium text-primary hover:underline" onclick="event.stopPropagation()">
-                                            {{ $reg->user->name }}
+                                            {{ $reg->user?->name ?? 'Unknown shooter' }}
                                         </a>
                                         @if($reg->share_rifle_with)
                                             <span class="rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">Shares rifle</span>

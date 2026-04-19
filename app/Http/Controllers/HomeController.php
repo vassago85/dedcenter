@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\ShootingMatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class HomeController extends Controller
@@ -28,7 +29,19 @@ class HomeController extends Controller
         return view('shooter-home', $this->shooterData());
     }
 
+    /**
+     * Build the shooter-home payload. This is dominated by ~10 aggregate
+     * queries that do not need to be perfectly live — cache the result for
+     * 60 seconds so the shooter home (hit on every nav back to `/`) stops
+     * thrashing the DB. Scoring/live data still flows through its own
+     * uncached pipeline elsewhere.
+     */
     private function shooterData(): array
+    {
+        return Cache::remember('home:shooter-data:v1', now()->addSeconds(60), fn () => $this->buildShooterData());
+    }
+
+    private function buildShooterData(): array
     {
         $adminFeatured = FeaturedItem::with('item')
             ->active()

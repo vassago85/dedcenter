@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\ShootingMatch;
-use App\Models\Shooter;
 use App\Models\User;
 use App\Models\Organization;
 use App\Models\MatchRegistration;
@@ -13,7 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
-    #[Title('Admin Dashboard')]
+    #[Title('Platform Admin Dashboard')]
     class extends Component {
     public function with(): array
     {
@@ -34,168 +33,183 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-8">
-    <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-            <x-app-page-header
-                title="Platform Admin Dashboard"
-                subtitle="Logged in as {{ auth()->user()->roleLabel() }}. Manage organizations, matches, and platform operations."
-                :crumbs="[
-                    ['label' => 'Platform Admin'],
-                    ['label' => 'Dashboard'],
-                ]"
-            />
-        </div>
-        <a href="{{ route('admin.matches.create') }}" class="shrink-0 inline-flex items-center gap-2 rounded-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-white transition-colors" style="background:#ff2b2b;">
-            <x-icon name="plus" class="h-4 w-4" />
-            <span class="hidden sm:inline">New Match</span>
-            <span class="sm:hidden">New</span>
-        </a>
-    </div>
+<div class="space-y-6">
+    <x-app-page-header
+        eyebrow="Platform operations"
+        title="Admin dashboard"
+        subtitle="Organizations, matches, and platform-wide moderation.">
+        <x-slot:actions>
+            <a href="{{ route('admin.matches.create') }}" class="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent-hover">
+                <x-icon name="plus" class="h-4 w-4" />
+                New match
+            </a>
+            <a href="{{ route('admin.organizations') }}" class="inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-secondary transition-colors hover:border-accent hover:text-primary">
+                <x-icon name="building-2" class="h-4 w-4" />
+                Organizations
+            </a>
+        </x-slot:actions>
+    </x-app-page-header>
 
+    {{-- Moderation CTA: pending shooter claims --}}
     @if($pendingClaims > 0)
         <a href="{{ route('admin.shooter-claims') }}"
            class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/60 bg-amber-500/10 px-5 py-4 transition-colors hover:bg-amber-500/15">
             <div class="flex items-start gap-3">
-                <x-icon name="circle-alert" class="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
+                <x-icon name="circle-alert" class="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
                 <div>
-                    <p class="text-sm font-semibold text-amber-300">{{ $pendingClaims }} shooter {{ $pendingClaims === 1 ? 'claim is' : 'claims are' }} waiting for review</p>
-                    <p class="text-xs text-amber-200/80">Imported shooters without email accounts have asked to link their results to a real account. Review and approve them.</p>
+                    <p class="text-sm font-semibold text-amber-200">{{ $pendingClaims }} shooter {{ $pendingClaims === 1 ? 'claim is' : 'claims are' }} waiting for review</p>
+                    <p class="text-xs text-amber-100/80">Imported shooters without email accounts have asked to link their results to a real account.</p>
                 </div>
             </div>
-            <span class="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-black">
+            <span class="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-black">
                 Review now <x-icon name="chevron-right" class="h-3.5 w-3.5" />
             </span>
         </a>
     @endif
 
-    {{-- Stats --}}
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4">
-        <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
-            <p class="text-xs sm:text-sm font-medium text-muted">Total Matches</p>
-            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalMatches }}</p>
-        </div>
-        <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
-            <p class="text-xs sm:text-sm font-medium text-muted">Active Matches</p>
-            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-green-400">{{ $activeMatches }}</p>
-        </div>
-        <div class="rounded-xl border border-border bg-surface p-4 sm:p-6">
-            <p class="text-xs sm:text-sm font-medium text-muted">Registered Shooters</p>
-            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalMembers }}</p>
-        </div>
-        <a href="{{ route('admin.organizations') }}" class="rounded-xl border border-border bg-surface p-4 sm:p-6 hover:border-amber-600/50 transition-colors">
-            <p class="text-xs sm:text-sm font-medium text-muted">Organizations</p>
-            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold text-white">{{ $totalOrgs }}</p>
-            @if($pendingOrgs > 0)
-                <p class="mt-1 text-xs text-amber-400">{{ $pendingOrgs }} pending</p>
-            @endif
-        </a>
-        <a href="{{ route('admin.registrations') }}" class="rounded-xl border border-border bg-surface p-4 sm:p-6 hover:border-red-600/50 transition-colors col-span-2 sm:col-span-1">
-            <p class="text-xs sm:text-sm font-medium text-muted">Pending Approvals</p>
-            <p class="mt-1 sm:mt-2 text-2xl sm:text-3xl font-bold {{ $pendingRegistrations > 0 ? 'text-accent' : 'text-white' }}">{{ $pendingRegistrations }}</p>
-        </a>
+    {{-- Stat strip --}}
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <x-stat-card label="Total matches" :value="$totalMatches" color="slate" :href="route('admin.matches.index')" />
+        <x-stat-card label="Active" :value="$activeMatches" :color="$activeMatches > 0 ? 'emerald' : 'slate'" helper="Running now" />
+        <x-stat-card label="Shooters" :value="$totalMembers" color="slate" helper="Registered users" />
+        <x-stat-card
+            label="Organizations"
+            :value="$totalOrgs"
+            :color="$pendingOrgs > 0 ? 'amber' : 'slate'"
+            :helper="$pendingOrgs > 0 ? $pendingOrgs.' pending' : null"
+            :href="route('admin.organizations')" />
+        <x-stat-card
+            label="Pending payments"
+            :value="$pendingRegistrations"
+            :color="$pendingRegistrations > 0 ? 'accent' : 'slate'"
+            :helper="$pendingRegistrations > 0 ? 'Proof submitted' : 'All clear'"
+            :href="route('admin.registrations')" />
+        <x-stat-card
+            label="Pending claims"
+            :value="$pendingClaims"
+            :color="$pendingClaims > 0 ? 'amber' : 'slate'"
+            :helper="$pendingClaims > 0 ? 'Need review' : 'All reviewed'"
+            :href="route('admin.shooter-claims')" />
     </div>
 
     {{-- Quick links --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <a href="{{ route('admin.matches.index') }}" class="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-slate-500 transition-colors">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
-                <x-icon name="file-text" class="h-5 w-5 text-secondary" />
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <a href="{{ route('admin.matches.index') }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/60">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted transition-colors group-hover:text-accent">
+                <x-icon name="file-text" class="h-5 w-5" />
             </div>
-            <div>
-                <p class="text-sm font-medium text-white">Manage Matches</p>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-primary">Manage matches</p>
                 <p class="text-xs text-muted">Create and edit matches</p>
             </div>
+            <x-icon name="arrow-right" class="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
         </a>
-        <a href="{{ route('admin.registrations') }}" class="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-slate-500 transition-colors">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
-                <x-icon name="clipboard-list" class="h-5 w-5 text-secondary" />
+        <a href="{{ route('admin.registrations') }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/60">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted transition-colors group-hover:text-accent">
+                <x-icon name="clipboard-list" class="h-5 w-5" />
             </div>
-            <div>
-                <p class="text-sm font-medium text-white">Registrations</p>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-primary">Registrations</p>
                 <p class="text-xs text-muted">Review payment proofs</p>
             </div>
+            <x-icon name="arrow-right" class="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
         </a>
-        <a href="{{ route('admin.settings') }}" class="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 hover:border-slate-500 transition-colors">
-            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2">
-                <x-icon name="settings" class="h-5 w-5 text-secondary" />
+        <a href="{{ route('admin.settings') }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-all hover:border-accent/60">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-2 text-muted transition-colors group-hover:text-accent">
+                <x-icon name="settings" class="h-5 w-5" />
             </div>
-            <div>
-                <p class="text-sm font-medium text-white">Settings</p>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-primary">Platform settings</p>
                 <p class="text-xs text-muted">Bank details &amp; configuration</p>
             </div>
+            <x-icon name="arrow-right" class="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
         </a>
     </div>
 
     {{-- Recent matches --}}
-    <div class="rounded-xl border border-border bg-surface">
-        <div class="border-b border-border px-4 sm:px-6 py-4">
-            <h2 class="text-lg font-semibold text-white">Recent Matches</h2>
-        </div>
+    <x-panel title="Recent matches" subtitle="Latest matches across all organizations" :padding="false">
+        <x-slot:actions>
+            <a href="{{ route('admin.matches.index') }}" class="inline-flex items-center gap-1 text-xs font-semibold text-muted transition-colors hover:text-primary">
+                View all
+                <x-icon name="arrow-right" class="h-3.5 w-3.5" />
+            </a>
+        </x-slot:actions>
 
         @if($recentMatches->isEmpty())
-            <div class="px-6 py-12 text-center">
-                <p class="text-muted">No matches yet.</p>
-                <a href="{{ route('admin.matches.create') }}" class="mt-4 inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white" style="background:#ff2b2b;">
-                    Create Your First Match
-                </a>
-            </div>
+            <x-empty-state
+                title="No matches yet"
+                description="Create the first match to get the platform running.">
+                <x-slot:icon>
+                    <x-icon name="file-text" class="h-6 w-6" />
+                </x-slot:icon>
+                <x-slot:actions>
+                    <a href="{{ route('admin.matches.create') }}" class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-semibold text-white hover:bg-accent-hover">
+                        Create first match
+                    </a>
+                </x-slot:actions>
+            </x-empty-state>
         @else
             {{-- Mobile cards --}}
-            <div class="divide-y divide-border sm:hidden">
+            <ul class="divide-y divide-border/70 sm:hidden">
                 @foreach($recentMatches as $match)
-                    <div class="p-4 space-y-2">
+                    <li class="space-y-2 px-5 py-3.5">
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
-                                <p class="text-sm font-medium text-white truncate">{{ $match->name }}</p>
+                                <p class="truncate text-sm font-semibold text-primary">{{ $match->name }}</p>
                                 <p class="text-xs text-muted">{{ $match->organization?->name ?? '—' }}</p>
                             </div>
                             <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                         </div>
-                        <div class="flex items-center justify-between text-xs text-secondary">
+                        <div class="flex items-center justify-between text-xs text-muted">
                             <span>{{ $match->date?->format('d M Y') ?? '—' }}</span>
                             <span>{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</span>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex gap-3 text-xs text-muted">
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="flex gap-3 text-muted">
                                 <span>{{ $match->registrations_count }} reg</span>
                                 <span>{{ $match->shooters_count }} shooters</span>
                             </div>
-                            <a href="{{ route('admin.matches.edit', $match) }}" class="text-xs font-medium text-secondary hover:text-white">Edit</a>
+                            <a href="{{ route('admin.matches.edit', $match) }}" class="font-semibold text-accent hover:text-accent-hover">Edit</a>
                         </div>
-                    </div>
+                    </li>
                 @endforeach
-            </div>
+            </ul>
 
             {{-- Desktop table --}}
             <div class="hidden sm:block overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-border text-left text-muted">
-                            <th class="px-3 py-3 font-medium sm:px-6">Name</th>
-                            <th class="hidden px-3 py-3 font-medium md:table-cell sm:px-6">Organization</th>
-                            <th class="px-3 py-3 font-medium sm:px-6">Date</th>
-                            <th class="px-3 py-3 font-medium sm:px-6">Status</th>
-                            <th class="hidden px-3 py-3 font-medium text-right lg:table-cell sm:px-6">Fee</th>
-                            <th class="hidden px-3 py-3 font-medium text-right lg:table-cell sm:px-6">Reg</th>
-                            <th class="hidden px-3 py-3 font-medium text-right lg:table-cell sm:px-6">Shooters</th>
-                            <th class="px-3 py-3 font-medium sm:px-6"></th>
+                        <tr class="border-b border-border/70 bg-surface-2/40 text-left">
+                            <th class="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">Name</th>
+                            <th class="hidden px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted md:table-cell">Organization</th>
+                            <th class="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">Date</th>
+                            <th class="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">Status</th>
+                            <th class="hidden px-6 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted lg:table-cell">Fee</th>
+                            <th class="hidden px-6 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted lg:table-cell">Reg</th>
+                            <th class="hidden px-6 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted lg:table-cell">Shooters</th>
+                            <th class="px-6 py-3"></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700">
+                    <tbody class="divide-y divide-border/70">
                         @foreach($recentMatches as $match)
-                            <tr class="hover:bg-surface-2/30 transition-colors">
-                                <td class="px-3 py-3 font-medium text-white sm:px-6">{{ $match->name }}</td>
-                                <td class="hidden px-3 py-3 text-secondary text-xs md:table-cell sm:px-6">{{ $match->organization?->name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-3 py-3 text-secondary sm:px-6">{{ $match->date?->format('d M Y') ?? '—' }}</td>
-                                <td class="px-3 py-3 sm:px-6">
+                            <tr class="group cursor-pointer transition-colors hover:bg-surface-2/50"
+                                onclick="window.location='{{ route('admin.matches.edit', $match) }}'">
+                                <td class="px-6 py-3.5">
+                                    <p class="text-sm font-semibold text-primary transition-colors group-hover:text-accent">{{ $match->name }}</p>
+                                </td>
+                                <td class="hidden px-6 py-3.5 text-xs text-muted md:table-cell">{{ $match->organization?->name ?? '—' }}</td>
+                                <td class="whitespace-nowrap px-6 py-3.5 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
+                                <td class="px-6 py-3.5">
                                     <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                                 </td>
-                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
-                                <td class="hidden px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->registrations_count }}</td>
-                                <td class="hidden px-3 py-3 text-right text-secondary lg:table-cell sm:px-6">{{ $match->shooters_count }}</td>
-                                <td class="px-3 py-3 text-right sm:px-6">
-                                    <a href="{{ route('admin.matches.edit', $match) }}" class="text-sm font-medium text-secondary hover:text-white">Edit</a>
+                                <td class="hidden whitespace-nowrap px-6 py-3.5 text-right text-secondary lg:table-cell">{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</td>
+                                <td class="hidden px-6 py-3.5 text-right text-secondary lg:table-cell">{{ $match->registrations_count }}</td>
+                                <td class="hidden px-6 py-3.5 text-right text-secondary lg:table-cell">{{ $match->shooters_count }}</td>
+                                <td class="px-6 py-3.5 text-right">
+                                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-muted transition-colors group-hover:text-accent">
+                                        Edit
+                                        <x-icon name="pencil" class="h-3 w-3" />
+                                    </span>
                                 </td>
                             </tr>
                         @endforeach
@@ -203,5 +217,5 @@ new #[Layout('components.layouts.app')]
                 </table>
             </div>
         @endif
-    </div>
+    </x-panel>
 </div>

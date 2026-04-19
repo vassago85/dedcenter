@@ -11,6 +11,58 @@
 
 [x-cloak] { display: none !important; }
 
+.node-pulse { animation: node-pulse 2.4s ease-in-out infinite; }
+@keyframes node-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(1.2); }
+}
+
+/* ── DeadCenter UX primitives ──
+   Shared helpers used by x-page-shell, x-skeleton, and x-data-table.
+   See `.cursor/rules/deadcenter-ux-standard.mdc` §14. */
+
+.dc-page {
+    width: 100%;
+    max-width: var(--container-page);
+    margin-left: auto;
+    margin-right: auto;
+}
+.dc-page-narrow { max-width: var(--container-narrow); }
+.dc-page-wide   { max-width: var(--container-wide); }
+
+.dc-section-stack > * + * { margin-top: var(--spacing-section); }
+.dc-block-stack   > * + * { margin-top: var(--spacing-block);   }
+
+.dc-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-surface);
+    border-radius: 0.5rem;
+}
+.dc-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        transparent 100%
+    );
+    animation: dc-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes dc-skeleton-shimmer {
+    100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .node-pulse,
+    .dc-skeleton::after {
+        animation: none;
+    }
+}
+
 [wire\:loading][wire\:loading\.delay],
 [wire\:loading] {
     pointer-events: none !important;
@@ -41,6 +93,60 @@
     --color-accent-hover: #e32020;
     --color-accent-soft: rgba(255, 43, 43, 0.12);
     --color-focus: rgba(255, 43, 43, 0.35);
+
+    /* ── DeadCenter type scale (UX standard §9 / §13) ──
+       Typography does the hierarchy work. Use these utilities instead of
+       ad-hoc text-* combos so every page reads the same. Each maps to a
+       Tailwind utility: text-page-title, text-section-title, etc. */
+    --text-page-title: 1.75rem;
+    --text-page-title--line-height: 2.1rem;
+    --text-page-title--letter-spacing: -0.015em;
+    --text-page-title--font-weight: 700;
+
+    --text-section-title: 1.0625rem;
+    --text-section-title--line-height: 1.4rem;
+    --text-section-title--letter-spacing: -0.005em;
+    --text-section-title--font-weight: 600;
+
+    --text-card-title: 0.9375rem;
+    --text-card-title--line-height: 1.25rem;
+    --text-card-title--font-weight: 600;
+
+    --text-eyebrow: 0.6875rem;
+    --text-eyebrow--line-height: 1rem;
+    --text-eyebrow--letter-spacing: 0.18em;
+    --text-eyebrow--font-weight: 600;
+
+    --text-label: 0.75rem;
+    --text-label--line-height: 1rem;
+    --text-label--letter-spacing: 0.02em;
+    --text-label--font-weight: 600;
+
+    --text-meta: 0.75rem;
+    --text-meta--line-height: 1.05rem;
+    --text-meta--font-weight: 500;
+
+    --text-body: 0.875rem;
+    --text-body--line-height: 1.4rem;
+
+    --text-body-strong: 0.875rem;
+    --text-body-strong--line-height: 1.4rem;
+    --text-body-strong--font-weight: 600;
+
+    --text-table-support: 0.75rem;
+    --text-table-support--line-height: 1.05rem;
+
+    /* ── DeadCenter spacing scale ──
+       Page sections use consistent vertical rhythm. Use space-y-section
+       between major page sections and space-y-block inside a section. */
+    --spacing-section: 2rem;
+    --spacing-block: 1rem;
+    --spacing-tight: 0.5rem;
+
+    /* ── Container widths (UX standard §3 / §5D) ── */
+    --container-page: 80rem;    /* 1280px — standard internal page width */
+    --container-narrow: 56rem;  /* 896px  — forms, settings, focused reads */
+    --container-wide: 96rem;    /* 1536px — dense admin tables */
 }
 
 :root {
@@ -402,6 +508,7 @@ html.dark :where([data-flux-description]) {
         gap: 2px;
         padding: 6px 16px calc(6px + env(safe-area-inset-bottom, 0px));
         background: rgba(7, 19, 39, 0.92);
+        -webkit-backdrop-filter: blur(16px) saturate(1.3);
         backdrop-filter: blur(16px) saturate(1.3);
         border-top: 1px solid rgba(255, 255, 255, 0.08);
     }

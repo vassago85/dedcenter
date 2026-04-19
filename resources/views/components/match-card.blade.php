@@ -114,17 +114,18 @@
                         Choose Squad &rarr;
                     </a>
                 @elseif($isLive)
-                    <a href="{{ route('scoreboard', $match) }}"
+                    <a href="{{ route('scoreboard', $match) }}" wire:navigate
                        class="inline-flex w-full items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
                         View Live Scores &rarr;
                     </a>
                 @elseif($statusValue === 'completed')
                     @if($hasMyReport)
                         <div class="grid grid-cols-2 gap-2">
-                            <a href="{{ route('scoreboard', $match) }}"
+                            <a href="{{ route('scoreboard', $match) }}" wire:navigate
                                class="inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
                                 Results
                             </a>
+                            {{-- PDF download — MUST NOT be wire:navigated --}}
                             <a href="{{ route('matches.my-report', $match) }}"
                                title="Download your match report (PDF)"
                                class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
@@ -133,13 +134,13 @@
                             </a>
                         </div>
                     @else
-                        <a href="{{ route('scoreboard', $match) }}"
+                        <a href="{{ route('scoreboard', $match) }}" wire:navigate
                            class="inline-flex w-full items-center justify-center rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
                             View Results &rarr;
                         </a>
                     @endif
                 @else
-                    <a href="{{ route('scoreboard', $match) }}"
+                    <a href="{{ route('scoreboard', $match) }}" wire:navigate
                        class="inline-flex w-full items-center justify-center rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
                         View Details &rarr;
                     </a>

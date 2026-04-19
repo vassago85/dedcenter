@@ -13,6 +13,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(\App\Services\NotificationService::class);
+
+        $this->app->singleton(
+            \Laravel\Fortify\Contracts\LoginResponse::class,
+            \App\Http\Responses\LoginResponse::class,
+        );
     }
 
     public function boot(): void

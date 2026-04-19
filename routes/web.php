@@ -6,6 +6,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MatchBookController;
 use App\Http\Controllers\MatchExportController;
 use App\Http\Controllers\MatchReportController;
+use App\Http\Controllers\ModeSwitchController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SponsorInfoController;
 use Illuminate\Support\Facades\Route;
@@ -105,6 +106,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Shooter account claims
     Volt::route('/claim', 'claim.index')->name('claim.index');
+
+    // Mode switcher (shooter / org / admin)
+    Route::post('/mode-switch', ModeSwitchController::class)->name('mode.switch');
 });
 
 // ══════════════════════════════════════════════════

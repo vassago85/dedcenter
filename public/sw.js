@@ -2,12 +2,30 @@ if (typeof ServiceWorkerGlobalScope === 'undefined') {
     // Loaded as a regular page script — do nothing
 } else {
 
-const CACHE_NAME = 'deadcenter-v11';
+const CACHE_NAME = 'deadcenter-v12';
 const STATIC_ASSETS = [
     '/offline.html',
     '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
+];
+
+// Paths that must NEVER be served from cache — these are live, auth-bound,
+// or mutating endpoints. Scoring/live/export/auth paths must always hit the
+// network so the scoring pipeline stays real-time.
+const NEVER_CACHE_PATTERNS = [
+    /^\/score(\/|$)/,
+    /^\/live(\/|$)/,
+    /^\/scoreboard\/[^/]+\/export\//,
+    /^\/matches\/[^/]+\/(report|export|my-report|matchbook)(\/|$)/,
+    /^\/admin\/matches\/[^/]+\/(report|export|matchbook)(\/|$)/,
+    /^\/org\/[^/]+\/matches\/[^/]+\/(report|export|matchbook)(\/|$)/,
+    /^\/login$/,
+    /^\/logout$/,
+    /^\/register$/,
+    /^\/mode-switch$/,
+    /^\/sanctum\//,
+    /^\/broadcasting\//,
 ];
 
 self.addEventListener('install', (event) => {
@@ -36,6 +54,16 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
 
     const url = new URL(request.url);
+
+    // Only manage same-origin traffic — let the browser handle cross-origin
+    // fetches (fonts, CDNs, analytics) normally.
+    if (url.origin !== self.location.origin) return;
+
+    // Never intercept auth/live/scoring/export traffic. These must always
+    // go to the network; stale data here would be dangerous.
+    if (NEVER_CACHE_PATTERNS.some((pattern) => pattern.test(url.pathname))) {
+        return;
+    }
 
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(networkFirst(request));

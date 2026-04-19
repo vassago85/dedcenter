@@ -240,8 +240,50 @@
     @case('trending-up')
         <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />
         @break
+    @case('trending-down')
+        <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" />
+        @break
+    @case('arrow-up-right')
+        <path d="M7 7h10v10" /><path d="M7 17 17 7" />
+        @break
+    @case('arrow-down-right')
+        <path d="M7 7h10v10" /><path d="m17 17-10-10" transform="rotate(90 12 12)" />
+        @break
+    @case('more-horizontal')
+        <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+        @break
+    @case('more-vertical')
+        <circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" />
+        @break
+    @case('filter')
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        @break
+    @case('x-circle')
+        <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
+        @break
+    @case('medal')
+        <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" /><path d="M11 12 5.12 2.2" /><path d="m13 12 5.88-9.8" /><circle cx="12" cy="17" r="5" /><path d="M12 18v-2h-.5" />
+        @break
+    @case('inbox')
+        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        @break
+    @case('sparkles')
+        <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /><path d="M20 3v4" /><path d="M22 5h-4" /><path d="M4 17v2" /><path d="M5 18H3" />
+        @break
     @case('banknote')
         <rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" />
+        @break
+    @case('gauge')
+        <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
+        @break
+    @case('user-check')
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="16 11 18 13 22 9" />
+        @break
+    @case('terminal')
+        <polyline points="4 17 10 11 4 5" /><line x1="12" x2="20" y1="19" y2="19" />
+        @break
+    @case('target')
+        <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
         @break
 
     @default
