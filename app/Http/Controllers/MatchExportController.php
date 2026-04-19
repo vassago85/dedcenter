@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PlacementKey;
+use App\Models\Organization;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
@@ -19,8 +20,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MatchExportController extends Controller
 {
-    public function standings(ShootingMatch $match): StreamedResponse
+    /**
+     * $organization is only injected when the request comes through the
+     * org-scoped route group (prefix: org/{organization}/...). When the
+     * platform-admin group calls the same method there is no such route
+     * parameter, so Laravel passes null. The sanity check prevents URL
+     * tampering (e.g. mixing an org slug the user CAN admin with a match
+     * that belongs to a DIFFERENT org).
+     */
+    public function standings(?Organization $organization, ShootingMatch $match): StreamedResponse
     {
+        $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
@@ -35,8 +45,9 @@ class MatchExportController extends Controller
         return $this->streamCsv("{$slug}-standings.csv", fn ($out) => $this->standardStandings($match, $out));
     }
 
-    public function detailed(ShootingMatch $match): StreamedResponse
+    public function detailed(?Organization $organization, ShootingMatch $match): StreamedResponse
     {
+        $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
@@ -487,8 +498,9 @@ class MatchExportController extends Controller
 
     // ── PDF Exports ──────────────────────────────────────────────
 
-    public function pdfStandings(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    public function pdfStandings(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
         $data = $this->buildPdfStandingsData($match);
@@ -496,8 +508,9 @@ class MatchExportController extends Controller
         return $renderer->stream('exports.pdf-standings', $data, "{$slug}-standings.pdf");
     }
 
-    public function pdfDetailed(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    public function pdfDetailed(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
         $data = $this->buildPdfDetailedData($match);
@@ -515,9 +528,9 @@ class MatchExportController extends Controller
      * Replaces the legacy pdfPostMatchReport and pdfExecutiveSummary entry
      * points (same routes, new output + name).
      */
-    public function pdfPostMatchReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    public function pdfPostMatchReport(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
-        return $this->pdfFullMatchReport($match, $renderer);
+        return $this->pdfFullMatchReport($organization, $match, $renderer);
     }
 
     /**
@@ -548,8 +561,9 @@ class MatchExportController extends Controller
      * No customSize passed -> Gotenberg honours the template's CSS
      * @page rule (size: 210mm auto), producing one tall continuous page.
      */
-    public function pdfFullMatchReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    public function pdfFullMatchReport(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
         $data = $this->buildExecutiveSummaryData($match);
@@ -566,9 +580,9 @@ class MatchExportController extends Controller
      * this by its historical name. Delegates to pdfFullMatchReport so the
      * output is always the current template.
      */
-    public function pdfExecutiveSummary(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    public function pdfExecutiveSummary(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
-        return $this->pdfFullMatchReport($match, $renderer);
+        return $this->pdfFullMatchReport($organization, $match, $renderer);
     }
 
     /**
@@ -580,8 +594,9 @@ class MatchExportController extends Controller
      * download, the preview URL, and the emailed attachment all stay
      * visually in lock-step.
      */
-    public function pdfShooterReport(ShootingMatch $match, Shooter $shooter, PdfDocumentRenderer $renderer, MatchReportService $reportService)
+    public function pdfShooterReport(?Organization $organization, ShootingMatch $match, Shooter $shooter, PdfDocumentRenderer $renderer, MatchReportService $reportService)
     {
+        $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
 
         abort_unless(
@@ -1407,6 +1422,34 @@ class MatchExportController extends Controller
         }
 
         abort(403, 'Only match directors and organization owners can download results.');
+    }
+
+    /**
+     * Guard against URL tampering on org-scoped export routes.
+     *
+     * The org route group is prefixed with `/org/{organization}/...` so
+     * Laravel injects an Organization as the first controller arg. When
+     * the admin group or the public scoreboard routes (which don't have
+     * that prefix) call the same method, Laravel passes null — so this
+     * method is a noop in that case.
+     *
+     * When an organization IS bound, make sure the match actually belongs
+     * to it. Without this, a match director of Org A could craft a URL
+     * like /org/a/matches/42/export/... where match 42 belongs to Org B
+     * and slip past authorizeExport (since Org A membership lets them
+     * through the org.admin middleware).
+     */
+    private function ensureOrgMatch(?Organization $organization, ShootingMatch $match): void
+    {
+        if ($organization === null) {
+            return;
+        }
+
+        abort_unless(
+            $match->organization_id === $organization->id,
+            404,
+            'Match does not belong to this organization.',
+        );
     }
 
     private function divisionLookup(ShootingMatch $match): array
