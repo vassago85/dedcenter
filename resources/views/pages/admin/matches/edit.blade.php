@@ -1164,7 +1164,11 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-8 max-w-4xl" x-data="{ tab: 'info' }">
+<div class="space-y-6 max-w-4xl" x-data="{ tab: 'info' }">
+    @if($match)
+        <x-match-hub-tabs :match="$match" />
+    @endif
+
     <div class="flex items-center gap-4">
         <flux:button href="{{ route('admin.matches.index') }}" variant="ghost" size="sm">
             <x-icon name="chevron-left" class="mr-1 h-4 w-4" />

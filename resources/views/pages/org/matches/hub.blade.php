@@ -166,31 +166,7 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
-    {{-- Status tabs (navigation) --}}
-    <div class="flex flex-wrap items-center gap-2 border-b border-border pb-0">
-        <a href="{{ route('org.matches.hub', [$organization, $match]) }}"
-           class="rounded-t-lg border-b-2 border-accent bg-surface px-4 py-2 text-sm font-semibold text-primary">
-            Overview
-        </a>
-        <a href="{{ route('org.matches.edit', [$organization, $match]) }}"
-           class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">
-            Configuration
-        </a>
-        <a href="{{ route('org.matches.squadding', [$organization, $match]) }}"
-           class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">
-            Squadding
-        </a>
-        <a href="{{ route('scoreboard', $match) }}"
-           class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">
-            Scoreboard
-        </a>
-        @if($match->side_bet_enabled)
-            <a href="{{ route('org.matches.side-bet', [$organization, $match]) }}"
-               class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">
-                Side Bet
-            </a>
-        @endif
-    </div>
+    <x-match-hub-tabs :match="$match" :organization="$organization" />
 
     {{-- Quick stats --}}
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">

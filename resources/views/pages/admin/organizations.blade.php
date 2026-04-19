@@ -12,6 +12,16 @@ new #[Layout('components.layouts.app')]
     class extends Component {
     public string $filter = 'pending';
 
+    public function mount(): void
+    {
+        // If there's nothing to review, default to "All" so the page isn't an
+        // empty pane. The Pending pill still shows the badge count when work
+        // exists so admins can jump to it with one click.
+        if (Organization::pending()->count() === 0) {
+            $this->filter = 'all';
+        }
+    }
+
     public function approve(int $id): void
     {
         $org = Organization::findOrFail($id);

@@ -41,6 +41,18 @@
         $isOrgMode = request()->routeIs('org.*') && $currentOrg;
         $isPlatformMode = request()->routeIs('admin.*');
 
+        // Sticky org mode: if the user clicked "Results & Standings" from the
+        // org sidebar (/leaderboard/{organization}), keep them in Org Mode as
+        // long as they actually belong to that org — otherwise the page looks
+        // like they were thrown back into Shooter Mode.
+        if (! $isOrgMode && request()->routeIs('leaderboard') && $leaderboardOrg && $authUser) {
+            $belongsToOrg = $userOrgs->contains(fn ($o) => $o->id === $leaderboardOrg->id);
+            if ($belongsToOrg || $authUser->isAdmin()) {
+                $isOrgMode = true;
+                $currentOrg = $leaderboardOrg;
+            }
+        }
+
         $contextMode = 'shooter';
         $contextModeLabel = 'Shooter Mode';
         $contextLabel = 'Your match-day companion.';
@@ -107,7 +119,11 @@
 
             <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
                 @auth
-                    @if($isOrgMode)
+                    @if($isPlatformMode)
+                        {{-- Platform Admin Mode owns the whole sidebar. Role
+                             switching happens via the top-right mode menu. --}}
+                        <x-layouts.nav.platform-admin />
+                    @elseif($isOrgMode)
                         <x-layouts.nav.org :current-org="$currentOrg" />
                     @else
                         <x-layouts.nav.shooter :auth-user="$authUser" :user-orgs="$userOrgs" :unread-notif-count="$unreadNotifCount" />

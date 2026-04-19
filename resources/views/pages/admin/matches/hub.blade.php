@@ -133,20 +133,7 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2 border-b border-border pb-0">
-        <a href="{{ route('admin.matches.hub', $match) }}"
-           class="rounded-t-lg border-b-2 border-accent bg-surface px-4 py-2 text-sm font-semibold text-primary">Overview</a>
-        <a href="{{ route('admin.matches.edit', $match) }}"
-           class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">Configuration</a>
-        <a href="{{ route('admin.matches.squadding', $match) }}"
-           class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">Squadding</a>
-        <a href="{{ route('scoreboard', $match) }}"
-           class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">Scoreboard</a>
-        @if($match->side_bet_enabled)
-            <a href="{{ route('admin.matches.side-bet-report', $match) }}"
-               class="rounded-t-lg border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted hover:text-primary">Side Bet</a>
-        @endif
-    </div>
+    <x-match-hub-tabs :match="$match" />
 
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div class="rounded-xl border border-border bg-surface p-4">

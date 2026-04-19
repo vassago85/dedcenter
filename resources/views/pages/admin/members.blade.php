@@ -335,10 +335,10 @@ new #[Layout('components.layouts.app')]
         <div class="flex-1">
             <flux:input wire:model.live.debounce.300ms="search" placeholder="Search by name or email..." icon="magnifying-glass" />
         </div>
-        <div class="flex gap-2 flex-wrap">
+        <div class="flex flex-wrap gap-2">
             @foreach(['all' => 'All', 'owner' => 'Owners', 'match_director' => 'Match Directors', 'shooter' => 'Shooters'] as $value => $label)
                 <button wire:click="$set('roleFilter', '{{ $value }}')"
-                        class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $roleFilter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                        class="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $roleFilter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                     {{ $label }}
                 </button>
             @endforeach
@@ -352,8 +352,8 @@ new #[Layout('components.layouts.app')]
                 <span class="text-sm font-medium text-primary">{{ count($selectedUserIds) }} member(s) selected</span>
                 <button wire:click="$set('selectedUserIds', []); $set('selectAllOnPage', false)" class="text-xs text-muted hover:text-secondary">Clear</button>
             </div>
-            <div class="flex flex-col sm:flex-row gap-3 items-end">
-                <div class="flex-1">
+            <div class="space-y-3">
+                <div>
                     <label class="block text-xs font-medium text-secondary mb-1">Organization</label>
                     <select wire:model="bulkOrgId" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent">
                         <option value="">Select organization...</option>
@@ -362,22 +362,27 @@ new #[Layout('components.layouts.app')]
                         @endforeach
                     </select>
                 </div>
-                <div class="flex gap-1.5 flex-wrap">
-                    @foreach($roleMap as $key => $label)
-                        <label class="cursor-pointer">
-                            <input type="checkbox" wire:model="bulkRoles" value="{{ $key }}" class="sr-only peer">
-                            <span class="inline-block rounded-full px-3 py-1.5 text-xs font-medium transition-colors border peer-checked:bg-accent peer-checked:text-primary peer-checked:border-accent bg-surface-2 text-secondary border-border hover:bg-surface-2">{{ $label }}</span>
-                        </label>
-                    @endforeach
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1">Roles</label>
+                    <div class="flex flex-wrap gap-1.5">
+                        @foreach($roleMap as $key => $label)
+                            <label class="cursor-pointer">
+                                <input type="checkbox" wire:model="bulkRoles" value="{{ $key }}" class="sr-only peer">
+                                <span class="inline-block whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors border peer-checked:bg-accent peer-checked:text-primary peer-checked:border-accent bg-surface-2 text-secondary border-border hover:bg-surface-2">{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
-                <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover" wire:click="bulkAssignRoles">
-                    Apply Roles
-                </flux:button>
-                <flux:button size="sm" variant="danger"
-                             wire:click="bulkDeleteMembers"
-                             wire:confirm="Permanently delete {{ count($selectedUserIds) }} selected member(s)? This removes all their data and cannot be undone.">
-                    Delete Selected
-                </flux:button>
+                <div class="flex flex-wrap gap-2">
+                    <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover" wire:click="bulkAssignRoles">
+                        Apply Roles
+                    </flux:button>
+                    <flux:button size="sm" variant="danger"
+                                 wire:click="bulkDeleteMembers"
+                                 wire:confirm="Permanently delete {{ count($selectedUserIds) }} selected member(s)? This removes all their data and cannot be undone.">
+                        Delete Selected
+                    </flux:button>
+                </div>
             </div>
         </div>
     @endif
@@ -388,8 +393,8 @@ new #[Layout('components.layouts.app')]
             Bulk Import Members by Email
         </summary>
         <div class="px-6 pb-5 pt-2 space-y-3">
-            <div class="flex flex-col sm:flex-row gap-3 items-end">
-                <div class="flex-1">
+            <div class="space-y-3">
+                <div>
                     <label class="block text-xs font-medium text-secondary mb-1">Organization</label>
                     <select wire:model="bulkImportOrgId" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent">
                         <option value="">Select organization...</option>
@@ -398,13 +403,16 @@ new #[Layout('components.layouts.app')]
                         @endforeach
                     </select>
                 </div>
-                <div class="flex gap-1.5 flex-wrap">
-                    @foreach($roleMap as $key => $label)
-                        <label class="cursor-pointer">
-                            <input type="checkbox" wire:model="bulkImportRoles.{{ $key }}" class="sr-only peer" @checked(! empty($bulkImportRoles[$key]))>
-                            <span class="inline-block rounded-full px-3 py-1.5 text-xs font-medium transition-colors border peer-checked:bg-accent peer-checked:text-primary peer-checked:border-accent bg-surface-2 text-secondary border-border hover:bg-surface-2">{{ $label }}</span>
-                        </label>
-                    @endforeach
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1">Roles</label>
+                    <div class="flex flex-wrap gap-1.5">
+                        @foreach($roleMap as $key => $label)
+                            <label class="cursor-pointer">
+                                <input type="checkbox" wire:model="bulkImportRoles.{{ $key }}" class="sr-only peer" @checked(! empty($bulkImportRoles[$key]))>
+                                <span class="inline-block whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors border peer-checked:bg-accent peer-checked:text-primary peer-checked:border-accent bg-surface-2 text-secondary border-border hover:bg-surface-2">{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
             </div>
             <textarea wire:model="bulkImportEmails" rows="3" placeholder="user1@example.com, user2@example.com (one per line or comma-separated)"

@@ -671,12 +671,14 @@ new #[Layout('components.layouts.app')]
 
 <div class="space-y-6 max-w-6xl" x-data="{ tab: @entangle('activeTab') }">
 
+    <x-match-hub-tabs :match="$match" :organization="$organization" />
+
     {{-- ═══════════════════════════════════════════════
          Header
          ═══════════════════════════════════════════════ --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-4">
-            <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" variant="ghost" size="sm">
+            <flux:button href="{{ route('org.matches.hub', [$organization, $match]) }}" variant="ghost" size="sm">
                 <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
                 Back
             </flux:button>

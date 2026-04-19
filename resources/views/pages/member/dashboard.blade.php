@@ -1,10 +1,12 @@
 <?php
 
-use App\Models\ShootingMatch;
-use App\Models\Shooter;
-use App\Models\MatchRegistration;
-use App\Models\UserAchievement;
 use App\Enums\MatchStatus;
+use App\Models\MatchRegistration;
+use App\Models\Shooter;
+use App\Models\ShootingMatch;
+use App\Models\User;
+use App\Models\UserAchievement;
+use App\Services\ShooterBestFinishesService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -12,94 +14,99 @@ use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
     #[Title('Shooter Dashboard')]
-    class extends Component {
-    public function with(): array
+    class extends Component
     {
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        $userId = $user->id;
+        public function with(): array
+        {
+            /** @var User $user */
+            $user = Auth::user();
+            $userId = $user->id;
 
-        $myMatchIds = MatchRegistration::where('user_id', $userId)->pluck('match_id');
+            $myMatchIds = MatchRegistration::where('user_id', $userId)->pluck('match_id');
 
-        $matchesShot = Shooter::where('user_id', $userId)
-            ->whereHas('squad.match', fn ($q) => $q->where('status', MatchStatus::Completed))
-            ->distinct('squad_id')
-            ->count();
+            $matchesShot = Shooter::where('user_id', $userId)
+                ->whereHas('squad.match', fn ($q) => $q->where('status', MatchStatus::Completed))
+                ->distinct('squad_id')
+                ->count();
 
-        $podiumBadges = UserAchievement::where('user_id', $userId)
-            ->whereHas('achievement', fn ($q) => $q->whereIn('slug', ['podium-gold', 'podium-silver', 'podium-bronze']))
-            ->get();
+            $podiumBadges = UserAchievement::where('user_id', $userId)
+                ->whereHas('achievement', fn ($q) => $q->whereIn('slug', ['podium-gold', 'podium-silver', 'podium-bronze']))
+                ->get();
 
-        $podiumCount = $podiumBadges->count();
+            $podiumCount = $podiumBadges->count();
 
-        $bestFinish = null;
-        foreach ($podiumBadges as $badge) {
-            $rank = $badge->metadata['rank'] ?? null;
-            if ($rank !== null && ($bestFinish === null || $rank < $bestFinish)) {
-                $bestFinish = (int) $rank;
-            }
+            $bestFinishes = (new ShooterBestFinishesService)->forUser($user);
+
+            // Best finish stat card shows the overall lowest rank across any org (rank-only,
+            // ignoring the meaningless cross-org comparison caveat) — the per-org breakdown
+            // lives in the dedicated container below.
+            $bestFinish = $bestFinishes
+                ->pluck('best_rank')
+                ->filter(fn ($r) => $r !== null)
+                ->min();
+            $bestFinish = $bestFinish !== null ? (int) $bestFinish : null;
+
+            $achievementCount = UserAchievement::where('user_id', $userId)->count();
+
+            $liveMatches = ShootingMatch::with('organization')
+                ->activeLiveToday()
+                ->orderBy('date', 'desc')
+                ->get();
+
+            $upcomingMatches = ShootingMatch::with('organization')
+                ->whereIn('id', $myMatchIds)
+                ->whereIn('status', [
+                    MatchStatus::PreRegistration,
+                    MatchStatus::RegistrationOpen,
+                    MatchStatus::RegistrationClosed,
+                    MatchStatus::SquaddingOpen,
+                    MatchStatus::SquaddingClosed,
+                    MatchStatus::Ready,
+                    MatchStatus::Active,
+                ])
+                ->where('date', '>=', now()->startOfDay())
+                ->withCount('shooters')
+                ->orderBy('date')
+                ->take(4)
+                ->get();
+
+            $recentResults = ShootingMatch::with('organization')
+                ->where('status', MatchStatus::Completed)
+                ->whereHas('shooters', fn ($q) => $q->where('user_id', $userId))
+                ->withCount('shooters')
+                ->latest('date')
+                ->take(4)
+                ->get();
+
+            $myOrgs = $user->organizations()->withPivot('is_owner', 'is_match_director', 'is_range_officer', 'is_shooter')->get();
+            $primaryOrg = $myOrgs->first();
+            $registrationsNeedingAction = MatchRegistration::with('match.organization')
+                ->where('user_id', $userId)
+                ->whereIn('payment_status', ['pending_payment', 'proof_submitted'])
+                ->latest('created_at')
+                ->take(3)
+                ->get();
+
+            $nextSquaddingMatch = $upcomingMatches->firstWhere('status', MatchStatus::SquaddingOpen);
+            $pendingOrgs = $myOrgs->filter(fn ($o) => $o->pivot->is_owner && $o->status === 'pending');
+
+            return compact(
+                'matchesShot',
+                'podiumCount',
+                'bestFinish',
+                'bestFinishes',
+                'achievementCount',
+                'liveMatches',
+                'upcomingMatches',
+                'recentResults',
+                'myOrgs',
+                'primaryOrg',
+                'registrationsNeedingAction',
+                'nextSquaddingMatch',
+                'pendingOrgs',
+            );
         }
-
-        $achievementCount = UserAchievement::where('user_id', $userId)->count();
-
-        $liveMatches = ShootingMatch::with('organization')
-            ->activeLiveToday()
-            ->orderBy('date', 'desc')
-            ->get();
-
-        $upcomingMatches = ShootingMatch::with('organization')
-            ->whereIn('id', $myMatchIds)
-            ->whereIn('status', [
-                MatchStatus::PreRegistration,
-                MatchStatus::RegistrationOpen,
-                MatchStatus::RegistrationClosed,
-                MatchStatus::SquaddingOpen,
-                MatchStatus::SquaddingClosed,
-                MatchStatus::Ready,
-                MatchStatus::Active,
-            ])
-            ->where('date', '>=', now()->startOfDay())
-            ->withCount('shooters')
-            ->orderBy('date')
-            ->take(4)
-            ->get();
-
-        $recentResults = ShootingMatch::with('organization')
-            ->where('status', MatchStatus::Completed)
-            ->whereHas('shooters', fn ($q) => $q->where('user_id', $userId))
-            ->withCount('shooters')
-            ->latest('date')
-            ->take(4)
-            ->get();
-
-        $myOrgs = $user->organizations()->withPivot('is_owner', 'is_match_director', 'is_range_officer', 'is_shooter')->get();
-        $primaryOrg = $myOrgs->first();
-        $registrationsNeedingAction = MatchRegistration::with('match.organization')
-            ->where('user_id', $userId)
-            ->whereIn('payment_status', ['pending_payment', 'proof_submitted'])
-            ->latest('created_at')
-            ->take(3)
-            ->get();
-
-        $nextSquaddingMatch = $upcomingMatches->firstWhere('status', MatchStatus::SquaddingOpen);
-        $pendingOrgs = $myOrgs->filter(fn ($o) => $o->pivot->is_owner && $o->status === 'pending');
-
-        return compact(
-            'matchesShot',
-            'podiumCount',
-            'bestFinish',
-            'achievementCount',
-            'liveMatches',
-            'upcomingMatches',
-            'recentResults',
-            'myOrgs',
-            'primaryOrg',
-            'registrationsNeedingAction',
-            'nextSquaddingMatch',
-            'pendingOrgs',
-        );
-    }
-}; ?>
+    }; ?>
 
 <div class="space-y-6">
     @if($pendingOrgs->isNotEmpty())
@@ -165,6 +172,116 @@ new #[Layout('components.layouts.app')]
             :color="$achievementCount > 0 ? 'accent' : 'slate'"
             helper="Badges earned" />
     </div>
+
+    {{-- Best finishes by organization — per-org stats so a Royal Flush win
+         isn't awkwardly compared to a PRS top 10. Each row shows the user's
+         best rank and percentile in that org, with a medal for podium-class
+         finishes. --}}
+    @if($bestFinishes->isNotEmpty())
+        <section class="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+            <div class="mb-4 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <h2 class="flex items-center gap-2 text-lg font-bold text-primary">
+                        <x-icon name="trophy" class="h-5 w-5 text-amber-400" />
+                        Best finishes by organization
+                    </h2>
+                    <p class="mt-0.5 text-xs text-muted">Your personal record in each club, league, or competition you shoot with.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                @foreach($bestFinishes as $row)
+                    @php
+                        $rank = $row->best_rank;
+                        $pct = $row->percentile;
+                        $medal = $rank !== null && $rank <= 3 ? 'medal' : null;
+                        $medalTone = $rank === 1 ? 'amber' : ($rank === 2 ? 'slate' : ($rank === 3 ? 'orange' : null));
+                        $tone = match(true) {
+                            $rank === null => 'slate',
+                            $rank === 1 => 'amber',
+                            $rank <= 3 => 'accent',
+                            $pct !== null && $pct <= 10 => 'emerald',
+                            $pct !== null && $pct <= 25 => 'sky',
+                            default => 'slate',
+                        };
+                        $toneClasses = match($tone) {
+                            'amber' => 'border-amber-500/40 bg-gradient-to-br from-amber-500/10 via-surface to-surface',
+                            'accent' => 'border-accent/40 bg-gradient-to-br from-accent/10 via-surface to-surface',
+                            'emerald' => 'border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-surface to-surface',
+                            'sky' => 'border-sky-500/30 bg-gradient-to-br from-sky-500/10 via-surface to-surface',
+                            default => 'border-border bg-surface-2/30',
+                        };
+                        $badgeClasses = match($tone) {
+                            'amber' => 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+                            'accent' => 'bg-accent/15 text-accent ring-accent/30',
+                            'emerald' => 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
+                            'sky' => 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+                            default => 'bg-surface-2 text-muted ring-border',
+                        };
+                        $org = $row->organization;
+                        $ordSuffix = $rank ? match($rank % 10) {
+                            1 => $rank % 100 === 11 ? 'th' : 'st',
+                            2 => $rank % 100 === 12 ? 'th' : 'nd',
+                            3 => $rank % 100 === 13 ? 'th' : 'rd',
+                            default => 'th',
+                        } : '';
+                    @endphp
+                    <article class="relative overflow-hidden rounded-xl border p-4 transition-colors {{ $toneClasses }}">
+                        <div class="flex items-start gap-3">
+                            {{-- Org logo / monogram --}}
+                            <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2">
+                                @if($org->logo_path)
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($org->logo_path) }}" alt="{{ $org->name }}" class="h-full w-full object-contain" />
+                                @else
+                                    <span class="text-base font-bold text-primary">{{ strtoupper(substr($org->name, 0, 2)) }}</span>
+                                @endif
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate text-sm font-semibold text-primary">{{ $org->name }}</div>
+                                <div class="mt-0.5 text-[11px] text-muted">
+                                    {{ $row->matches_shot }} {{ Str::plural('match', $row->matches_shot) }} shot
+                                </div>
+                            </div>
+                            @if($medal)
+                                <x-icon name="{{ $medal }}" class="h-7 w-7 shrink-0 {{ $medalTone === 'amber' ? 'text-amber-400' : ($medalTone === 'slate' ? 'text-slate-300' : 'text-orange-400') }}" />
+                            @endif
+                        </div>
+
+                        @if($rank !== null)
+                            <div class="mt-4 flex items-baseline gap-3">
+                                <div>
+                                    <div class="text-[10px] font-semibold uppercase tracking-wider text-muted">Best rank</div>
+                                    <div class="mt-0.5 flex items-baseline gap-1">
+                                        <span class="text-3xl font-black tabular-nums text-primary">{{ $rank }}</span>
+                                        <span class="text-base font-semibold text-muted">{{ $ordSuffix }}</span>
+                                        <span class="ml-1 text-xs text-muted">/ {{ $row->field_size }}</span>
+                                    </div>
+                                </div>
+                                @if($pct !== null)
+                                    <span class="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset {{ $badgeClasses }}">
+                                        <x-icon name="trending-up" class="h-3 w-3" />
+                                        Top {{ $pct }}%
+                                    </span>
+                                @endif
+                            </div>
+                            @if($row->best_match)
+                                <a href="{{ route('events.show', $row->best_match) }}"
+                                   class="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-muted transition-colors hover:text-accent">
+                                    <x-icon name="arrow-right" class="h-3 w-3" />
+                                    <span class="truncate">{{ $row->best_match->name }}</span>
+                                </a>
+                            @endif
+                        @else
+                            <div class="mt-4">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-muted">Best rank</div>
+                                <div class="mt-0.5 text-sm italic text-muted">Awaiting a ranked finish</div>
+                            </div>
+                        @endif
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
 
     {{-- Live now strip --}}
     @if($liveMatches->isNotEmpty())
@@ -320,7 +437,7 @@ new #[Layout('components.layouts.app')]
                                 </a>
                                 <a href="{{ route('scoreboard', $match) }}"
                                    class="inline-flex items-center gap-1 text-xs font-semibold text-accent transition-colors hover:text-accent-hover">
-                                    View
+                                    View match results
                                     <x-icon name="arrow-right" class="h-3.5 w-3.5" />
                                 </a>
                             </div>

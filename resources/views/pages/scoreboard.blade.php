@@ -450,6 +450,22 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div wire:poll.5s class="scoreboard-page min-h-screen min-w-0 max-w-full overflow-x-hidden bg-app text-primary px-3 py-4 sm:px-6 lg:p-10">
+    @php
+        $scoreboardUser = auth()->user();
+        $scoreboardIsMd = $scoreboardUser && $match->organization_id && $scoreboardUser->isOrgMatchDirector($match->organization);
+        $scoreboardIsAdmin = $scoreboardUser && $scoreboardUser->isAdmin();
+        $scoreboardCanManage = $scoreboardIsMd || $scoreboardIsAdmin;
+        // Prefer org-scoped routes when the user is an MD (or owner) of that org;
+        // fall back to admin routes for platform admins without the org pivot.
+        $scoreboardTabOrg = $scoreboardIsMd ? $match->organization : null;
+    @endphp
+
+    @if($scoreboardCanManage)
+        <div class="mb-4 print:hidden">
+            <x-match-hub-tabs :match="$match" :organization="$scoreboardTabOrg" />
+        </div>
+    @endif
+
     <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 sm:gap-3">

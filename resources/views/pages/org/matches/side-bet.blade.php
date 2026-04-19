@@ -108,11 +108,14 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="mx-auto max-w-5xl p-4 sm:p-6 space-y-6">
+
+    <x-match-hub-tabs :match="$match" :organization="$organization" />
+
     {{-- Header --}}
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
             <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-                <a href="{{ route('org.matches.edit', [$organization, $match]) }}" class="hover:text-accent">{{ $match->name }}</a>
+                <a href="{{ route('org.matches.hub', [$organization, $match]) }}" class="hover:text-accent">{{ $match->name }}</a>
                 <span>›</span>
                 <span>Side Bet</span>
             </div>
@@ -120,8 +123,9 @@ new #[Layout('components.layouts.app')]
             <p class="text-sm text-muted">Individual shooters only. Tap a shooter to toggle them in or out of the pot. Saves instantly.</p>
         </div>
         <div class="flex items-center gap-2">
-            <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost" size="sm">Squadding</flux:button>
-            <flux:button href="{{ route('org.matches.edit', [$organization, $match]) }}" variant="ghost" size="sm">Match Settings</flux:button>
+            @if($match->side_bet_enabled)
+                <flux:button href="{{ route('org.matches.side-bet-report', [$organization, $match]) }}" variant="ghost" size="sm">Report</flux:button>
+            @endif
         </div>
     </div>
 
