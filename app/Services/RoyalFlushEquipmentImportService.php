@@ -176,16 +176,18 @@ final class RoyalFlushEquipmentImportService
 
     private function importEmailForRow(ShootingMatch $match, ?string $saIdDigits, string $name, ?string $phoneDigits, int $rowIndex): string
     {
+        $suffix = User::IMPORT_PLACEHOLDER_EMAIL_SUFFIX;
+
         if ($saIdDigits !== null && $saIdDigits !== '') {
-            return sprintf('rf.m%d.id%s@import.invalid', $match->id, $saIdDigits);
+            return sprintf('rf.m%d.id%s%s', $match->id, $saIdDigits, $suffix);
         }
 
         if ($phoneDigits !== null && $phoneDigits !== '') {
-            return sprintf('rf.m%d.p%s@import.invalid', $match->id, $phoneDigits);
+            return sprintf('rf.m%d.p%s%s', $match->id, $phoneDigits, $suffix);
         }
 
         $hash = substr(hash('sha256', $match->id.'|'.$name.'|'.$rowIndex), 0, 20);
 
-        return sprintf('rf.m%d.n%s@import.invalid', $match->id, $hash);
+        return sprintf('rf.m%d.n%s%s', $match->id, $hash, $suffix);
     }
 }

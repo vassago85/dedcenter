@@ -86,7 +86,7 @@ new #[Layout('components.layouts.scoreboard')]
         }
 
         $shooterQuery = $this->match->shooters()
-            ->with(['squad', 'division']);
+            ->with(['squad', 'division', 'user:id,email,name']);
 
         if (!$isPrs) {
             $shooterQuery->withCount([
@@ -419,13 +419,13 @@ new #[Layout('components.layouts.scoreboard')]
             })->sortByDesc('total_score')->values();
         }
 
-        // Unclaimed-results count: shooters with no linked user account who
-        // aren't DQ/no-show. Drives the "Claim your result" banner + per-row
-        // chips on all scoreboard tabs. Imported matches start with every row
-        // unclaimed (user_id null), so without this prompt members had no
-        // visible path to link the result to their profile.
+        // Unclaimed-results count: shooters whose row hasn't been claimed by
+        // a real DeadCenter account yet (walk-ins with no user_id AND
+        // imported rows linked to an @import.invalid placeholder user) and
+        // who aren't DQ/no-show. Drives the "Claim your result" banner +
+        // per-row chips on all scoreboard tabs. See Shooter::isUnclaimedResult().
         $unclaimedCount = $shooters
-            ->filter(fn ($s) => empty($s->user_id) && ! in_array($s->status ?? 'active', ['dq', 'no_show'], true))
+            ->filter(fn ($s) => $s->isUnclaimedResult() && ! in_array($s->status ?? 'active', ['dq', 'no_show'], true))
             ->count();
 
         return [
@@ -660,7 +660,7 @@ new #[Layout('components.layouts.scoreboard')]
                     $isExpanded = $expandedShooterId === $entry->shooter->id;
                 @endphp
                 @php
-                    $canClaimEntry = empty($entry->shooter->user_id)
+                    $canClaimEntry = $entry->shooter->isUnclaimedResult()
                         && ! $isOfflineRow
                         && ($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active);
                 @endphp
@@ -1059,12 +1059,19 @@ new #[Layout('components.layouts.scoreboard')]
                     <tr class="{{ $rowClass }} transition-colors">
                         <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl" @if($isNoShowRow) title="Did not attend" @endif>{{ $rankLabel }}</td>
                         <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
-                            @if($shooter->user_id)
+                            @php
+                                $shooterUnclaimed = $shooter->isUnclaimedResult();
+                                $shooterIsRealUser = ! $shooterUnclaimed && $shooter->user_id;
+                                $canClaimRow = $shooterUnclaimed
+                                    && ! $isOfflineRow
+                                    && ($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active);
+                            @endphp
+                            @if($shooterIsRealUser)
                                 <a href="{{ route('shooter.profile', $shooter->user_id) }}" class="line-clamp-2 text-primary hover:underline sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</a>
                             @else
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <span class="line-clamp-2 text-primary sm:line-clamp-none" title="{{ $shooter->name }}">{{ $shooter->name }}</span>
-                                    @if($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active)
+                                    @if($canClaimRow)
                                         <a href="{{ app_url('/claim?match=' . $match->id . '&shooter=' . $shooter->id) }}"
                                            class="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent transition-colors hover:border-accent hover:bg-accent/20 hover:text-white sm:text-[10px]"
                                            title="Link this result to your DeadCenter account (admin approval required)">
@@ -1074,7 +1081,7 @@ new #[Layout('components.layouts.scoreboard')]
                                     @endif
                                 </div>
                             @endif
-                            @if($shooter->user_id)
+                            @if($shooterIsRealUser)
                                 <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :competitionType="$isPrs ? 'prs' : ($royalFlushEnabled ? 'royal_flush' : null)" :compact="true" />
                             @endif
                             @if(isset($customFieldMap[$shooter->id]))

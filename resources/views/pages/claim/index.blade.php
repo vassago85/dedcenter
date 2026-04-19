@@ -42,12 +42,12 @@ new #[Layout('components.layouts.app')]
 
         $shooterModel = Shooter::query()
             ->whereHas('squad', fn ($q) => $q->where('match_id', $matchParam))
-            ->whereNull('user_id')
+            ->unclaimedResult()
             ->find($shooterParam);
 
         if (! $shooterModel) {
             Flux::toast(
-                'That shooter entry is either already linked or not part of the match in the link.',
+                'That shooter entry is either already linked to a real account or not part of the match in the link.',
                 variant: 'warning',
             );
             return;
@@ -96,10 +96,10 @@ new #[Layout('components.layouts.app')]
             $match = ShootingMatch::find($this->selectedMatchId);
             if ($match) {
                 $availableShooters = $match->shooters()
-                    ->whereNull('user_id')
+                    ->unclaimedResult()
                     ->with('squad:id,name')
                     ->orderBy('name')
-                    ->get(['shooters.id', 'shooters.name', 'shooters.squad_id']);
+                    ->get(['shooters.id', 'shooters.name', 'shooters.squad_id', 'shooters.user_id']);
             }
         }
 
@@ -126,10 +126,10 @@ new #[Layout('components.layouts.app')]
             'evidence' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $shooter = Shooter::findOrFail($this->selectedShooterId);
+        $shooter = Shooter::with('user:id,email')->findOrFail($this->selectedShooterId);
 
-        if ($shooter->user_id !== null) {
-            Flux::toast('That shooter entry has already been linked to an account.', variant: 'danger');
+        if (! $shooter->isUnclaimedResult()) {
+            Flux::toast('That shooter entry has already been linked to a real account.', variant: 'danger');
             return;
         }
 

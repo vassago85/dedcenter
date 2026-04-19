@@ -15,6 +15,19 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * Email suffix used by importers (currently just
+     * RoyalFlushEquipmentImportService) when they auto-create a User row
+     * for an imported shooter whose real email isn't known. These users
+     * are unreachable — they can't log in, they can't receive email, and
+     * their profile page is meaningless — so for anything that asks
+     * "is this a real claimable identity?" we treat them as placeholders.
+     *
+     * Keep this in sync with importEmailForRow() in
+     * RoyalFlushEquipmentImportService.
+     */
+    public const IMPORT_PLACEHOLDER_EMAIL_SUFFIX = '@import.invalid';
+
     protected $fillable = [
         'name',
         'email',
@@ -104,6 +117,18 @@ class User extends Authenticatable
     public function isShooter(): bool
     {
         return $this->role === 'shooter';
+    }
+
+    /**
+     * True when this user was auto-created by an importer as a placeholder
+     * for a shooter whose real email wasn't known. These users cannot log
+     * in and aren't reachable, so the scoreboard + claim flows should
+     * treat shooters linked to them as unclaimed.
+     */
+    public function isImportPlaceholder(): bool
+    {
+        return is_string($this->email)
+            && str_ends_with(strtolower($this->email), self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX);
     }
 
     public function isOnboarded(): bool

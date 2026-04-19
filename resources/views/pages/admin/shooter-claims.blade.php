@@ -4,8 +4,8 @@ use App\Enums\ShooterClaimStatus;
 use App\Models\Shooter;
 use App\Models\ShooterAccountClaim;
 use App\Models\User;
+use App\Services\ShooterAccountClaimService;
 use Flux\Flux;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -33,48 +33,26 @@ new #[Layout('components.layouts.app')]
         ];
     }
 
-    public function approve(int $claimId): void
+    public function approve(int $claimId, ShooterAccountClaimService $claims): void
     {
-        $claim = ShooterAccountClaim::with('shooter')->findOrFail($claimId);
+        $claim = ShooterAccountClaim::findOrFail($claimId);
 
-        if (! $claim->isPending()) {
-            Flux::toast('Claim is not pending.', variant: 'warning');
-            return;
-        }
+        $outcome = $claims->approve(
+            $claim,
+            auth()->id(),
+            $this->reviewerNotes[$claim->id] ?? null,
+        );
 
-        if ($claim->shooter->user_id !== null && $claim->shooter->user_id !== $claim->user_id) {
-            Flux::toast('That shooter is already linked to another account. Rejecting claim.', variant: 'danger');
-            $claim->update([
-                'status' => ShooterClaimStatus::Rejected,
-                'reviewer_id' => auth()->id(),
-                'reviewed_at' => now(),
-                'reviewer_note' => 'Auto-rejected: shooter already linked to a different account.',
-            ]);
-            return;
-        }
-
-        DB::transaction(function () use ($claim) {
-            $claim->shooter->update(['user_id' => $claim->user_id]);
-            $claim->update([
-                'status' => ShooterClaimStatus::Approved,
-                'reviewer_id' => auth()->id(),
-                'reviewed_at' => now(),
-                'reviewer_note' => $this->reviewerNotes[$claim->id] ?? null,
-            ]);
-
-            // Reject any other pending claims for this shooter
-            ShooterAccountClaim::where('shooter_id', $claim->shooter_id)
-                ->where('id', '!=', $claim->id)
-                ->where('status', ShooterClaimStatus::Pending)
-                ->update([
-                    'status' => ShooterClaimStatus::Rejected,
-                    'reviewer_id' => auth()->id(),
-                    'reviewed_at' => now(),
-                    'reviewer_note' => 'Auto-rejected: another claim for this shooter was approved.',
-                ]);
-        });
-
-        Flux::toast('Claim approved. Shooter linked to account.', variant: 'success');
+        match ($outcome) {
+            ShooterAccountClaimService::NOT_PENDING =>
+                Flux::toast('Claim is not pending.', variant: 'warning'),
+            ShooterAccountClaimService::REJECTED_ALREADY_LINKED =>
+                Flux::toast('That shooter is already linked to another account. Rejecting claim.', variant: 'danger'),
+            ShooterAccountClaimService::APPROVED_IMPORTED =>
+                Flux::toast('Claim approved. Shooter and imported registration linked to the account.', variant: 'success'),
+            ShooterAccountClaimService::APPROVED_WALKIN =>
+                Flux::toast('Claim approved. Shooter linked to account.', variant: 'success'),
+        };
     }
 
     public function reject(int $claimId): void

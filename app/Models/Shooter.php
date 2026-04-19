@@ -49,6 +49,29 @@ class Shooter extends Model
         return $this->status === 'no_show';
     }
 
+    /**
+     * True when this row's result still needs to be claimed by a real
+     * DeadCenter account — either because no user is linked at all
+     * (walk-in entry), or because the "linked" user is an import
+     * placeholder (see User::isImportPlaceholder()) with no reachable
+     * email / login. Drives the "Claim your result" banner and chips
+     * on the scoreboard and the /claim page filters.
+     *
+     * Note: DQ / no-show status is orthogonal — callers decide whether
+     * to offer a claim for those rows. This method only answers
+     * "is the identity side of this row claimable?".
+     */
+    public function isUnclaimedResult(): bool
+    {
+        if ($this->user_id === null) {
+            return true;
+        }
+
+        $user = $this->relationLoaded('user') ? $this->user : $this->user()->first();
+
+        return $user === null || $user->isImportPlaceholder();
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
@@ -62,6 +85,24 @@ class Shooter extends Model
     public function scopePresent($query)
     {
         return $query->whereNotIn('status', ['no_show']);
+    }
+
+    /**
+     * Rows where the result hasn't been claimed by a real DeadCenter
+     * account yet — mirrors isUnclaimedResult() as a SQL predicate so
+     * the /claim page and admin tooling can filter efficiently.
+     *
+     *   user_id IS NULL
+     *   OR linked user has an @import.invalid placeholder email
+     */
+    public function scopeUnclaimedResult($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('shooters.user_id')
+                ->orWhereHas('user', function ($uq) {
+                    $uq->where('email', 'like', '%'.User::IMPORT_PLACEHOLDER_EMAIL_SUFFIX);
+                });
+        });
     }
 
     public function statusLabel(): string
