@@ -586,7 +586,7 @@ new #[Layout('components.layouts.app')]
         <div class="mb-4 flex min-w-0 flex-wrap gap-2">
             <button type="button" wire:click="setTab('main')"
                     class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'main' ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
-                Leaderboard
+                Scoreboard
             </button>
             @if($isStandard)
                 <button type="button" wire:click="setTab('detailed')"
@@ -684,8 +684,19 @@ new #[Layout('components.layouts.app')]
                          x-on:keydown.enter.prevent="$wire.toggleExpand({{ $entry->shooter->id }})"
                          x-on:keydown.space.prevent="$wire.toggleExpand({{ $entry->shooter->id }})"
                          class="flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface/50 focus:outline-none focus:ring-2 focus:ring-accent/50 sm:gap-4 sm:px-6 sm:py-4">
+                        @php
+                            $detailedMatchComplete = $match->status === \App\Enums\MatchStatus::Completed;
+                            $detailedShowPodium = $detailedMatchComplete && ! $isOfflineRow && $rank !== null && $rank <= 3;
+                            $detailedPodiumIcon = $rank === 1 ? 'medal-1' : ($rank === 2 ? 'medal-2' : 'medal-3');
+                            $detailedPodiumLabel = $rank === 1 ? 'Podium Gold' : ($rank === 2 ? 'Podium Silver' : 'Podium Bronze');
+                            $detailedCrestFamily = $isPrs ? 'prs' : ($royalFlushEnabled ? 'royal_flush' : 'prs');
+                        @endphp
                         @if($isOfflineRow)
                             <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center text-sm text-muted font-bold italic" title="{{ $isDqRow ? 'Disqualified' : 'Did not attend' }}">{{ $rankLabel }}</span>
+                        @elseif($detailedShowPodium)
+                            <span class="flex-shrink-0" title="{{ $detailedPodiumLabel }}">
+                                <x-badge-crest :icon="$detailedPodiumIcon" tier="earned" :family="$detailedCrestFamily" />
+                            </span>
                         @elseif($rank <= 3)
                             @php
                                 $medalClass = match($rank) {
@@ -713,9 +724,17 @@ new #[Layout('components.layouts.app')]
                                     </a>
                                 @endif
                             </div>
-                            <p class="text-sm text-muted">
-                                {{ $entry->shooter->squad?->name ?? '—' }}
-                                &middot; {{ $entry->total_hits }} hits &middot; {{ $entry->total_misses }} misses
+                            <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+                                <span>{{ $entry->shooter->squad?->name ?? '—' }}</span>
+                                <span class="opacity-50">&middot;</span>
+                                <span class="inline-flex items-center gap-1 text-green-400" title="{{ $entry->total_hits }} hits">
+                                    <x-icon name="check" class="h-3.5 w-3.5" />
+                                    <span class="tabular-nums">{{ $entry->total_hits }}</span>
+                                </span>
+                                <span class="inline-flex items-center gap-1 text-accent" title="{{ $entry->total_misses }} misses">
+                                    <x-icon name="x" class="h-3.5 w-3.5" />
+                                    <span class="tabular-nums">{{ $entry->total_misses }}</span>
+                                </span>
                             </p>
                         </div>
 
@@ -736,8 +755,14 @@ new #[Layout('components.layouts.app')]
                                                 <span class="ml-2 text-xs font-normal text-muted">&times;{{ number_format($ts->distance_multiplier ?? 1, 1) }} stage value</span>
                                             </span>
                                             <div class="flex items-center gap-4 text-sm">
-                                                <span class="text-green-400 font-medium">{{ $dist->hits }} hits</span>
-                                                <span class="text-accent font-medium">{{ $dist->misses }} miss</span>
+                                                <span class="inline-flex items-center gap-1.5 font-medium text-green-400" title="{{ $dist->hits }} hits">
+                                                    <x-icon name="check" class="h-4 w-4" />
+                                                    <span class="tabular-nums">{{ $dist->hits }}</span>
+                                                </span>
+                                                <span class="inline-flex items-center gap-1.5 font-medium text-accent" title="{{ $dist->misses }} misses">
+                                                    <x-icon name="x" class="h-4 w-4" />
+                                                    <span class="tabular-nums">{{ $dist->misses }}</span>
+                                                </span>
                                                 <span class="font-bold text-amber-400">{{ number_format($dist->subtotal, 1) }} pts</span>
                                             </div>
                                         </div>
@@ -750,9 +775,14 @@ new #[Layout('components.layouts.app')]
                                                         <span class="text-muted/60 text-xs">&times;{{ number_format($gong->multiplier, 1) }}</span>
                                                     </span>
                                                     @if($gong->is_hit === true)
-                                                        <span class="font-bold text-green-400">HIT +{{ number_format($gong->points, 1) }}</span>
+                                                        <span class="inline-flex items-center gap-1.5 font-bold text-green-400" title="Hit +{{ number_format($gong->points, 1) }}">
+                                                            <x-icon name="check" class="h-4 w-4" />
+                                                            <span class="tabular-nums">+{{ number_format($gong->points, 1) }}</span>
+                                                        </span>
                                                     @elseif($gong->is_hit === false)
-                                                        <span class="font-bold text-accent">MISS</span>
+                                                        <span class="inline-flex items-center gap-1 font-bold text-accent" title="Miss">
+                                                            <x-icon name="x" class="h-4 w-4" />
+                                                        </span>
                                                     @else
                                                         <span class="text-muted/50">&mdash;</span>
                                                     @endif
@@ -813,9 +843,24 @@ new #[Layout('components.layouts.app')]
                                 3 => 'text-orange-500 font-bold',
                                 default => 'text-muted font-medium',
                             };
+                            $rfMatchComplete = $match->status === \App\Enums\MatchStatus::Completed;
+                            $rfShowPodiumCrest = $rfMatchComplete && in_array($entry->rank, [1, 2, 3], true);
+                            $rfPodiumIcon = $entry->rank === 1 ? 'medal-1' : ($entry->rank === 2 ? 'medal-2' : 'medal-3');
+                            $rfPodiumLabel = $entry->rank === 1 ? 'Podium Gold' : ($entry->rank === 2 ? 'Podium Silver' : 'Podium Bronze');
                         @endphp
                         <tr class="{{ $rowClass }} transition-colors">
-                            <td class="px-3 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry->rank }}</td>
+                            <td class="px-3 py-2 sm:px-6 sm:py-4">
+                                @if($rfShowPodiumCrest)
+                                    <div class="flex items-center gap-2 sm:gap-3">
+                                        <span class="inline-flex shrink-0 scale-[0.72] sm:scale-90 lg:scale-100" title="{{ $rfPodiumLabel }}">
+                                            <x-badge-crest :icon="$rfPodiumIcon" tier="earned" family="royal_flush" />
+                                        </span>
+                                        <span class="text-lg {{ $rankClass }} sm:text-2xl lg:text-3xl">{{ $entry->rank }}</span>
+                                    </div>
+                                @else
+                                    <span class="text-lg {{ $rankClass }} sm:text-2xl lg:text-3xl">{{ $entry->rank }}</span>
+                                @endif
+                            </td>
                             <td class="max-w-[10rem] truncate px-3 py-2 text-sm font-semibold sm:max-w-none sm:px-6 sm:py-4 sm:text-xl lg:text-2xl" title="{{ $entry->name }}">
                                 @if($entry->user_id)
                                     <a href="{{ route('shooter.profile', $entry->user_id) }}" class="text-primary hover:underline">{{ $entry->name }}</a>
@@ -1007,7 +1052,7 @@ new #[Layout('components.layouts.app')]
     @if($isPrs)
     <div x-data="{ prsTab: 'leaderboard' }" class="min-w-0">
         <div class="mb-4 flex min-w-0 gap-1.5">
-            <button type="button" @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Leaderboard</button>
+            <button type="button" @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Scoreboard</button>
             <button type="button" @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Score Sheet</button>
             <button type="button" @click="prsTab = 'badges'" :class="prsTab === 'badges' ? 'bg-amber-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Badges Awarded</button>
             @if($isTeamEvent)
@@ -1026,8 +1071,18 @@ new #[Layout('components.layouts.app')]
                     @if($divisions->isNotEmpty())
                         <th class="px-2 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Div</th>
                     @endif
-                    <th class="px-2 py-2 text-center text-xs font-bold text-green-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Hits</th>
-                    <th class="px-2 py-2 text-center text-xs font-bold text-accent sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Miss</th>
+                    <th class="px-2 py-2 text-center text-xs font-bold text-green-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">
+                        <span class="inline-flex items-center justify-center gap-1.5">
+                            <x-icon name="check" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            Hits
+                        </span>
+                    </th>
+                    <th class="px-2 py-2 text-center text-xs font-bold text-accent sm:px-6 sm:py-4 sm:text-lg lg:text-xl">
+                        <span class="inline-flex items-center justify-center gap-1.5">
+                            <x-icon name="x" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            Miss
+                        </span>
+                    </th>
                     @if($isPrs)
                         <th class="px-2 py-2 text-center text-xs font-bold text-amber-400/60 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">N/T</th>
                     @endif
@@ -1066,8 +1121,25 @@ new #[Layout('components.layouts.app')]
                             default => $rank,
                         };
                     @endphp
+                    @php
+                        $matchComplete = $match->status === \App\Enums\MatchStatus::Completed;
+                        $showPodiumCrest = $matchComplete && ! $isOfflineRow && in_array($rank, [1, 2, 3], true);
+                        $podiumIcon = $rank === 1 ? 'medal-1' : ($rank === 2 ? 'medal-2' : 'medal-3');
+                        $podiumLabel = $rank === 1 ? 'Podium Gold' : ($rank === 2 ? 'Podium Silver' : 'Podium Bronze');
+                    @endphp
                     <tr class="{{ $rowClass }} transition-colors">
-                        <td class="px-2 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl" @if($isNoShowRow) title="Did not attend" @endif>{{ $rankLabel }}</td>
+                        <td class="px-2 py-2 sm:px-6 sm:py-4" @if($isNoShowRow) title="Did not attend" @endif>
+                            @if($showPodiumCrest)
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <span class="inline-flex shrink-0 scale-[0.72] sm:scale-90 lg:scale-100" title="{{ $podiumLabel }}">
+                                        <x-badge-crest :icon="$podiumIcon" tier="earned" family="prs" />
+                                    </span>
+                                    <span class="text-lg {{ $rankClass }} sm:text-2xl lg:text-3xl">{{ $rankLabel }}</span>
+                                </div>
+                            @else
+                                <span class="text-lg {{ $rankClass }} sm:text-2xl lg:text-3xl">{{ $rankLabel }}</span>
+                            @endif
+                        </td>
                         <td class="max-w-[7rem] px-2 py-2 text-sm font-semibold sm:max-w-[12rem] sm:px-6 sm:py-4 sm:text-xl lg:max-w-none lg:text-2xl">
                             @php
                                 $shooterUnclaimed = $shooter->isUnclaimedResult();
