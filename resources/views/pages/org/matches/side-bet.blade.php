@@ -85,22 +85,19 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
-        $squads = $this->match
-            ->squads()
-            ->with(['shooters' => fn ($q) => $q->orderBy('sort_order')])
-            ->orderBy('sort_order')
-            ->get();
-
-        $unassigned = $this->match
+        // Single flat A→Z list. MDs want to find "that one Johan guy" without
+        // first remembering which squad he's on — grouping by squad added
+        // friction for matches with 40+ shooters. The squad is still
+        // rendered inline on each row so the context isn't lost.
+        $shooters = $this->match
             ->shooters()
-            ->whereNull('squad_id')
-            ->orderBy('name')
+            ->with('squad:id,name')
+            ->orderByRaw('LOWER(shooters.name) asc')
             ->get();
 
         return [
-            'squads' => $squads,
-            'unassigned' => $unassigned,
-            'totalShooters' => $this->match->shooters()->count(),
+            'shooters' => $shooters,
+            'totalShooters' => $shooters->count(),
             'totalBoughtIn' => count($this->boughtIn),
             'locked' => $this->match->status === MatchStatus::Completed,
         ];
@@ -186,105 +183,115 @@ new #[Layout('components.layouts.app')]
                 <p class="text-sm text-muted">No shooters registered yet. Add shooters on the <a href="{{ route('org.matches.squadding', [$organization, $match]) }}" class="text-accent hover:underline">Squadding page</a>, then come back to tick buy-ins.</p>
             </div>
         @else
-            {{-- Squads --}}
-            @foreach($squads as $squad)
-                @php
-                    $squadShooterIds = $squad->shooters->pluck('id')->map(fn ($id) => (int) $id)->toArray();
-                    $squadInCount = count(array_intersect($squadShooterIds, $boughtIn));
-                    $squadTotal = $squad->shooters->count();
-                @endphp
-                <div wire:key="sb-squad-{{ $squad->id }}" class="rounded-xl border border-border bg-surface overflow-hidden">
-                    <div class="flex items-center justify-between border-b border-border px-4 py-3 bg-surface-2/40">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <h3 class="text-base font-semibold text-primary truncate">{{ $squad->name }}</h3>
-                            <span class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 whitespace-nowrap">
-                                {{ $squadInCount }} / {{ $squadTotal }} in
-                            </span>
-                        </div>
+            {{-- Flat alphabetical list with client-side search.
+                 Squad grouping was removed because it slowed MDs down on
+                 big matches; the squad name is still shown inline so the
+                 context isn't lost. Search runs in Alpine so every
+                 keystroke stays on the client — Livewire only fires when
+                 a buy-in is actually toggled. --}}
+            <div
+                x-data="{
+                    q: '',
+                    norm(s){ return (s ?? '').toString().toLowerCase(); },
+                    matches(haystack){ return this.q === '' || haystack.includes(this.norm(this.q)); },
+                    get visibleCount() {
+                        const needle = this.norm(this.q);
+                        if (!needle) return this.$root.dataset.total | 0;
+                        return (this.$root.dataset.haystacks || '')
+                            .split('|')
+                            .filter(h => h.includes(needle))
+                            .length;
+                    }
+                }"
+                data-total="{{ $totalShooters }}"
+                data-haystacks="{{ $shooters->map(fn($s) => trim(strtolower(implode(' ', array_filter([$s->name, $s->bib_number, $s->squad?->name]))))) ->implode('|') }}"
+                class="rounded-xl border border-border bg-surface overflow-hidden">
+                <div class="border-b border-border px-4 py-3 bg-surface-2/40">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-base font-semibold text-primary">Shooters</h3>
+                        <span class="text-xs text-muted">{{ $totalShooters }} registered &bull; sorted A→Z</span>
                     </div>
-
-                    @if($squad->shooters->isEmpty())
-                        <div class="px-4 py-6 text-center">
-                            <p class="text-sm text-muted">No shooters in this squad.</p>
-                        </div>
-                    @else
-                        <ul class="divide-y divide-border/40">
-                            @foreach($squad->shooters as $shooter)
-                                @php $isIn = in_array((int) $shooter->id, $boughtIn, true); @endphp
-                                <li wire:key="sb-shooter-{{ $shooter->id }}">
-                                    <button type="button"
-                                            @if(! $locked) wire:click="toggleShooter({{ $shooter->id }})" @else disabled @endif
-                                            class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors min-h-[56px]
-                                                {{ $isIn
-                                                    ? 'bg-amber-600/10 hover:bg-amber-600/15'
-                                                    : 'bg-transparent hover:bg-surface-2/50' }}
-                                                {{ $locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' }}">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            {{-- Big visual toggle --}}
-                                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors
-                                                {{ $isIn
-                                                    ? 'border-amber-500 bg-amber-500 text-white'
-                                                    : 'border-border bg-surface-2 text-transparent' }}">
-                                                <x-icon name="check" class="h-5 w-5" />
-                                            </span>
-                                            <div class="min-w-0">
-                                                <div class="text-sm font-semibold text-primary truncate">{{ $shooter->name }}</div>
-                                                @if($shooter->bib_number)
-                                                    <div class="text-xs text-muted">Bib {{ $shooter->bib_number }}</div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        @if($isIn)
-                                            <span class="rounded-full bg-amber-600/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 whitespace-nowrap">In the pot</span>
-                                        @else
-                                            <span class="text-[10px] uppercase tracking-wider text-muted whitespace-nowrap">Tap to add</span>
-                                        @endif
-                                    </button>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
+                    <div class="relative mt-3">
+                        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">
+                            <x-icon name="search" class="h-4 w-4" />
+                        </span>
+                        <input
+                            type="text"
+                            x-model="q"
+                            placeholder="Search by name, bib number, or squad…"
+                            aria-label="Search shooters"
+                            class="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-primary placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent min-h-[40px]"
+                        />
+                        <button
+                            type="button"
+                            x-show="q.length > 0"
+                            x-cloak
+                            @click="q = ''"
+                            aria-label="Clear search"
+                            class="absolute inset-y-0 right-2 flex items-center text-muted hover:text-primary"
+                        >
+                            <x-icon name="x" class="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
-            @endforeach
 
-            @if($unassigned->isNotEmpty())
-                <div wire:key="sb-unassigned" class="rounded-xl border border-border bg-surface overflow-hidden">
-                    <div class="border-b border-border px-4 py-3 bg-surface-2/40">
-                        <h3 class="text-base font-semibold text-primary">Unassigned shooters</h3>
-                        <p class="text-xs text-muted">Shooters not yet in a squad.</p>
-                    </div>
-                    <ul class="divide-y divide-border/40">
-                        @foreach($unassigned as $shooter)
-                            @php $isIn = in_array((int) $shooter->id, $boughtIn, true); @endphp
-                            <li wire:key="sb-unassigned-{{ $shooter->id }}">
-                                <button type="button"
-                                        @if(! $locked) wire:click="toggleShooter({{ $shooter->id }})" @else disabled @endif
-                                        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors min-h-[56px]
-                                            {{ $isIn ? 'bg-amber-600/10 hover:bg-amber-600/15' : 'bg-transparent hover:bg-surface-2/50' }}
-                                            {{ $locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' }}">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors
-                                            {{ $isIn ? 'border-amber-500 bg-amber-500 text-white' : 'border-border bg-surface-2 text-transparent' }}">
-                                            <x-icon name="check" class="h-5 w-5" />
-                                        </span>
-                                        <div class="min-w-0">
-                                            <div class="text-sm font-semibold text-primary truncate">{{ $shooter->name }}</div>
+                <ul class="divide-y divide-border/40">
+                    @foreach($shooters as $shooter)
+                        @php
+                            $isIn = in_array((int) $shooter->id, $boughtIn, true);
+                            $squadLabel = $shooter->squad?->name;
+                            // Pre-compose the haystack server-side so Alpine
+                            // only has to lowercase it once per keystroke.
+                            // Stored on `data-haystack` rather than inlined
+                            // into the Alpine expression, so apostrophes in
+                            // names (e.g. "O'Brien") can't break the JS.
+                            $haystack = trim(strtolower(implode(' ', array_filter([
+                                $shooter->name,
+                                $shooter->bib_number,
+                                $squadLabel,
+                            ]))));
+                        @endphp
+                        <li wire:key="sb-shooter-{{ $shooter->id }}"
+                            data-haystack="{{ $haystack }}"
+                            x-show="matches($el.dataset.haystack)"
+                            x-cloak>
+                            <button type="button"
+                                    @if(! $locked) wire:click="toggleShooter({{ $shooter->id }})" @else disabled @endif
+                                    class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors min-h-[56px]
+                                        {{ $isIn ? 'bg-amber-600/10 hover:bg-amber-600/15' : 'bg-transparent hover:bg-surface-2/50' }}
+                                        {{ $locked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' }}">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors
+                                        {{ $isIn ? 'border-amber-500 bg-amber-500 text-white' : 'border-border bg-surface-2 text-transparent' }}">
+                                        <x-icon name="check" class="h-5 w-5" />
+                                    </span>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold text-primary truncate">{{ $shooter->name }}</div>
+                                        <div class="flex items-center gap-2 text-xs text-muted">
                                             @if($shooter->bib_number)
-                                                <div class="text-xs text-muted">Bib {{ $shooter->bib_number }}</div>
+                                                <span class="whitespace-nowrap">Bib {{ $shooter->bib_number }}</span>
+                                                <span aria-hidden="true">&bull;</span>
                                             @endif
+                                            <span class="truncate">{{ $squadLabel ?? '—' }}</span>
                                         </div>
                                     </div>
-                                    @if($isIn)
-                                        <span class="rounded-full bg-amber-600/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 whitespace-nowrap">In the pot</span>
-                                    @else
-                                        <span class="text-[10px] uppercase tracking-wider text-muted whitespace-nowrap">Tap to add</span>
-                                    @endif
-                                </button>
-                            </li>
-                        @endforeach
-                    </ul>
+                                </div>
+                                @if($isIn)
+                                    <span class="rounded-full bg-amber-600/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 whitespace-nowrap">In the pot</span>
+                                @else
+                                    <span class="text-[10px] uppercase tracking-wider text-muted whitespace-nowrap">Tap to add</span>
+                                @endif
+                            </button>
+                        </li>
+                    @endforeach
+                </ul>
+
+                {{-- No-matches sentinel. Reactive: visibleCount is a
+                     getter that recomputes whenever `q` changes. --}}
+                <div x-show="q.length > 0 && visibleCount === 0" x-cloak class="px-4 py-8 text-center">
+                    <p class="text-sm text-muted">No shooters match &ldquo;<span class="text-primary font-medium" x-text="q"></span>&rdquo;.</p>
                 </div>
-            @endif
+            </div>
         @endif
     @endif
 </div>
