@@ -200,6 +200,11 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    {{-- Royal Flush Highlights — same panel the org hub uses. Passing no
+         $organization makes the component resolve admin routes for the
+         action buttons. --}}
+    <x-royal-flush-highlights :match="$match" />
+
     {{-- Attendance management — post-match control so a shooter scored as a wall
          of misses can be flipped to "No-Show" and pulled out of field stats. --}}
     @if($allShooters->isNotEmpty())

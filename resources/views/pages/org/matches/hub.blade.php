@@ -344,6 +344,11 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    {{-- Royal Flush Highlights — sweeps per distance + Perfect Hand callouts.
+         Auto-hides for non-RF or non-completed matches, so no guard needed
+         at the call site. --}}
+    <x-royal-flush-highlights :match="$match" :organization="$organization" />
+
     {{-- Attendance management — post-match control so a shooter scored as a wall
          of misses can be flipped to "No-Show" and pulled out of field stats. --}}
     @if($allShooters->isNotEmpty())

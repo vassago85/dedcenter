@@ -12,6 +12,7 @@ use App\Models\UserAchievement;
 use App\Services\MatchReportService;
 use App\Services\MatchStandingsService;
 use App\Services\PdfDocumentRenderer;
+use App\Services\RoyalFlushHighlightsService;
 use App\Services\Scoring\ELRScoringService;
 use App\Services\SponsorPlacementResolver;
 use Illuminate\Support\Facades\DB;
@@ -781,64 +782,14 @@ class MatchExportController extends Controller
         }
 
         // ─── Royal Flushes per distance ───
-        // An RF = a ranked shooter hit every gong at one distance (target set).
-        // We walk the heatmap per-distance column groups and count full-sweep
-        // rows. Only meaningful for Royal Flush matches, so we skip the
-        // computation otherwise and let the blade hide the section.
-        $royalFlushesByDistance = [];
-        $royalFlushShootersByDistance = [];
-        $perfectHandShooters = [];
-
-        if ((bool) ($match->royal_flush_enabled ?? false)) {
-            // Flatten distance column counts so we can slice cells[] per distance.
-            $distColCounts = [];
-            foreach ($distanceTables as $dt) {
-                $distColCounts[(int) $dt['distance_meters']] = count($dt['gongs']);
-            }
-
-            foreach ($heatmap as $row) {
-                if (! isset($rankedNames[$row['name']])) {
-                    continue;
-                }
-
-                $offset = 0;
-                $flushesThisShooter = 0;
-                $distancesCompleted = 0;
-                foreach ($distColCounts as $distM => $n) {
-                    $slice = array_slice($row['cells'], $offset, $n);
-                    $offset += $n;
-                    if ($n === 0) {
-                        continue;
-                    }
-                    $hitCount = 0;
-                    foreach ($slice as $c) {
-                        if ($c['state'] === 'hit') {
-                            $hitCount++;
-                        }
-                    }
-                    if ($hitCount === $n) {
-                        $royalFlushesByDistance[$distM] = ($royalFlushesByDistance[$distM] ?? 0) + 1;
-                        $royalFlushShootersByDistance[$distM][] = $row['display_name'];
-                        $flushesThisShooter++;
-                        $distancesCompleted++;
-                    }
-                }
-
-                // Perfect Hand = flushed every distance (all cells across the
-                // match are hits). Only count shooters who actually shot every
-                // distance — a shooter missing a whole distance block shouldn't
-                // be awarded just because the cells they did shoot all hit.
-                if ($flushesThisShooter === count($distColCounts) && count($distColCounts) > 0) {
-                    $perfectHandShooters[] = $row['display_name'];
-                }
-            }
-
-            // Ensure every distance has a zero-baseline entry, in leaderboard order.
-            foreach ($distColCounts as $distM => $_) {
-                $royalFlushesByDistance[$distM] = $royalFlushesByDistance[$distM] ?? 0;
-                $royalFlushShootersByDistance[$distM] = $royalFlushShootersByDistance[$distM] ?? [];
-            }
-        }
+        // Single-source-of-truth lives in RoyalFlushHighlightsService so the
+        // same numbers feed the Match Hub UI panel and this PDF. The service
+        // returns empty arrays for non-RF matches and our view layer hides
+        // the section when has_any is false.
+        $highlights = app(RoyalFlushHighlightsService::class)->build($match);
+        $royalFlushesByDistance = $highlights['flushes_by_distance'];
+        $royalFlushShootersByDistance = $highlights['shooters_by_distance'];
+        $perfectHandShooters = $highlights['perfect_hand_shooters'];
 
         // ─── Match-wide "cool facts" ───
         // Small set of compact, human-readable highlights. All of these are
