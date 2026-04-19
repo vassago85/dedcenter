@@ -30,6 +30,7 @@ class Organization extends Model
         'portal_entitled',
         'portal_ad_rights',
         'best_of',
+        'uses_relative_scoring',
         'entry_fee_default',
         'bank_name',
         'bank_account_holder',
@@ -44,6 +45,7 @@ class Organization extends Model
     {
         return [
             'best_of' => 'integer',
+            'uses_relative_scoring' => 'boolean',
             'entry_fee_default' => 'decimal:2',
             'portal_enabled' => 'boolean',
             'portal_entitled' => 'boolean',

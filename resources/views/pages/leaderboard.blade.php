@@ -30,7 +30,7 @@ new #[Layout('components.layouts.app')]
             ->orderBy('date')
             ->get();
 
-        $standings = (new SeasonStandingsService())->calculateForOrganizations($orgIds);
+        $standings = (new SeasonStandingsService())->calculateForOrganizations($orgIds->all());
 
         $standings = collect($standings)->map(function ($entry) {
             $byMatch = [];
@@ -41,17 +41,22 @@ new #[Layout('components.layouts.app')]
             return $entry;
         })->values();
 
+        $bestOf = $org->best_of > 0 ? (int) $org->best_of : SeasonStandingsService::DEFAULT_BEST_OF;
+        $usesRelative = (bool) $org->uses_relative_scoring;
+
         $seasonCap = $matches
             ->pluck('leaderboard_points')
             ->map(fn ($v) => (int) ($v ?? 100))
             ->sortDesc()
-            ->take(3)
+            ->take($bestOf)
             ->sum();
 
         return [
             'leaderboard' => $standings,
             'matches' => $matches,
-            'seasonCap' => $seasonCap ?: 300,
+            'seasonCap' => $seasonCap ?: ($bestOf * 100),
+            'bestOf' => $bestOf,
+            'usesRelative' => $usesRelative,
         ];
     }
 }; ?>
@@ -61,7 +66,9 @@ new #[Layout('components.layouts.app')]
         <div>
             <x-app-page-header
                 :title="$organization->name . ' Standings'"
-                subtitle="Best 3 match scores counted. Regular matches = 100 points, season final = 200."
+                :subtitle="$usesRelative
+                    ? 'Best ' . $bestOf . ' of ' . $matches->count() . ' match' . ($matches->count() === 1 ? '' : 'es') . ' counted. Regular matches = 100 points, season final = 200.'
+                    : 'Best ' . $bestOf . ' of ' . $matches->count() . ' match' . ($matches->count() === 1 ? '' : 'es') . ' counted (raw weighted totals, rounded).'"
                 :crumbs="[
                     ['label' => 'Shooter Mode', 'href' => route('dashboard')],
                     ['label' => 'Standings'],
@@ -83,7 +90,7 @@ new #[Layout('components.layouts.app')]
                         <tr class="border-b border-border text-left text-muted">
                             <th class="px-4 py-3 font-medium w-12">#</th>
                             <th class="px-4 py-3 font-medium">Shooter</th>
-                            <th class="px-4 py-3 font-medium text-right">Best 3 / {{ $seasonCap }}</th>
+                            <th class="px-4 py-3 font-medium text-right">Best {{ $bestOf }}{{ $usesRelative ? ' / ' . $seasonCap : '' }}</th>
                             <th class="px-4 py-3 font-medium text-right">Matches</th>
                             @foreach($matches as $match)
                                 @php $pv = (int) ($match->leaderboard_points ?? 100); @endphp
@@ -115,7 +122,7 @@ new #[Layout('components.layouts.app')]
                                         </div>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-right font-bold text-amber-400">{{ $entry['best3_total'] }}</td>
+                                <td class="px-4 py-3 text-right font-bold text-amber-400">{{ $entry['season_total'] ?? $entry['best3_total'] }}</td>
                                 <td class="px-4 py-3 text-right text-muted">
                                     {{ $entry['counting_results'] }}/{{ $entry['matches_played'] }}
                                 </td>
@@ -136,8 +143,10 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <div class="text-xs text-muted space-y-1">
-            <p>* Green values count toward the best-3 total. Struck-through values are dropped.</p>
-            <p>* Season-final matches (worth 200 points) are highlighted in amber.</p>
+            <p>* Green values count toward the best-{{ $bestOf }} total. Struck-through values are dropped.</p>
+            @if($usesRelative)
+                <p>* Season-final matches (worth 200 points) are highlighted in amber.</p>
+            @endif
         </div>
     @endif
 </div>

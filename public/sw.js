@@ -2,7 +2,7 @@ if (typeof ServiceWorkerGlobalScope === 'undefined') {
     // Loaded as a regular page script — do nothing
 } else {
 
-const CACHE_NAME = 'deadcenter-v14';
+const CACHE_NAME = 'deadcenter-v15';
 const STATIC_ASSETS = [
     '/offline.html',
     '/manifest.json',

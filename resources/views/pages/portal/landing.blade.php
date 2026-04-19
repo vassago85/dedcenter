@@ -4,6 +4,7 @@ use App\Models\Organization;
 use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
 use App\Enums\MatchStatus;
+use App\Services\SeasonStandingsService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -48,30 +49,18 @@ new #[Layout('components.layouts.portal')]
             ->where('status', MatchStatus::RegistrationOpen)
             ->count();
 
-        // Top 5 for leaderboard preview
-        $matchIds = ShootingMatch::whereIn('organization_id', $orgIds)
-            ->where('status', MatchStatus::Completed)
-            ->pluck('id');
-
-        $topShooters = collect();
-        if ($matchIds->isNotEmpty()) {
-            $topShooters = DB::table('shooters')
-                ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-                ->join('scores', 'scores.shooter_id', '=', 'shooters.id')
-                ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-                ->whereIn('squads.match_id', $matchIds)
-                ->where('scores.is_hit', true)
-                ->select(
-                    'shooters.name as shooter_name',
-                    'shooters.user_id',
-                    DB::raw('SUM(gongs.multiplier) as total_score'),
-                    DB::raw('COUNT(DISTINCT squads.match_id) as match_count')
-                )
-                ->groupBy('shooters.name', 'shooters.user_id')
-                ->orderByDesc('total_score')
-                ->limit(5)
-                ->get();
-        }
+        // Top 5 for leaderboard preview — use the same service the full
+        // leaderboard uses so the preview and the full page always agree.
+        $standings = app(SeasonStandingsService::class)->calculateForOrganizations($orgIds->all());
+        $topShooters = collect(array_slice($standings, 0, 5))->map(function ($row) {
+            return (object) [
+                'shooter_name' => $row['name'],
+                'user_id' => $row['user_id'],
+                'total_score' => (int) $row['season_total'],
+                'match_count' => (int) $row['matches_played'],
+            ];
+        });
+        $bestOf = $org->best_of > 0 ? (int) $org->best_of : SeasonStandingsService::DEFAULT_BEST_OF;
 
         return [
             'upcomingMatches' => $upcomingMatches,
@@ -80,6 +69,8 @@ new #[Layout('components.layouts.portal')]
             'totalMatches' => ShootingMatch::whereIn('organization_id', $orgIds)->count(),
             'recentResults' => $recentResults,
             'registrationsOpen' => $registrationsOpen,
+            'bestOf' => $bestOf,
+            'totalSeasonMatches' => $completedCount,
         ];
     }
 }; ?>
@@ -248,16 +239,17 @@ new #[Layout('components.layouts.portal')]
                                 </td>
                                 <td class="px-6 py-3 font-medium text-primary">{{ $shooter->shooter_name }}</td>
                                 <td class="px-6 py-3 text-right text-muted">{{ $shooter->match_count }}</td>
-                                <td class="px-6 py-3 text-right font-bold text-primary">{{ number_format($shooter->total_score, 2) }}</td>
+                                <td class="px-6 py-3 text-right font-bold text-primary">{{ $shooter->total_score }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
 
-            @if($organization->best_of)
-                <p class="mt-2 text-xs text-muted">Best {{ $organization->best_of }} scores counted. <a href="{{ route('portal.leaderboard', $organization) }}" class="portal-primary hover:underline">See full breakdown.</a></p>
-            @endif
+            <p class="mt-2 text-xs text-muted">
+                Best {{ $bestOf }} of {{ $totalSeasonMatches }} match{{ $totalSeasonMatches === 1 ? '' : 'es' }} counted{{ $organization->uses_relative_scoring ? ' (relative, out of 100 per match)' : '' }}.
+                <a href="{{ route('portal.leaderboard', $organization) }}" class="portal-primary hover:underline">See full breakdown.</a>
+            </p>
         </section>
         @endif
 

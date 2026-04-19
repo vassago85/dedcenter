@@ -2,42 +2,59 @@
 
 namespace App\Services;
 
+use App\Models\Organization;
 use App\Models\Season;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use Illuminate\Support\Collection;
 
 /**
  * Season leaderboard.
  *
+ * Relative scoring (default — `organizations.uses_relative_scoring = true`):
  *   match relative score = round( shooter_total / match_winner_total × match.leaderboard_points )
- *   season total         = sum of a shooter's BEST 3 relative scores across the season
+ *   season total         = sum of a shooter's BEST N relative scores across the season
  *
- * - Regular match: leaderboard_points = 100  (scores out of 100)
- * - Season final:  leaderboard_points = 200  (scores out of 200)
- * - Max season total is therefore season-dependent: 300 for all-regular,
- *   400 if the season has a finale (100 + 100 + 200).
+ * Absolute scoring (`organizations.uses_relative_scoring = false`):
+ *   match relative score = round(shooter_total)   (just the weighted raw total, rounded)
+ *   season total         = sum of a shooter's BEST N raw-rounded scores
+ *
+ * N defaults to 3 but is configurable per organisation via `organizations.best_of`.
+ * A `best_of` of NULL or 0 counts every match the shooter played.
+ *
+ * Regular match: leaderboard_points = 100  (scores out of 100)
+ * Season final:  leaderboard_points = 200  (scores out of 200)
  */
 class SeasonStandingsService
 {
+    /** Default number of "best" scores to count when an org has no best_of preference. */
+    public const DEFAULT_BEST_OF = 3;
+
     public function calculate(Season $season): array
     {
         $matches = $season->matches()
             ->whereIn('status', ['active', 'completed'])
-            ->with(['targetSets.gongs', 'squads.shooters'])
+            ->with(['targetSets.gongs', 'squads.shooters', 'organization'])
             ->orderBy('date')
             ->get();
 
-        return $this->standingsFromMatches($matches);
+        // Season standings follow the owning organisation's preferences.
+        $org = $season->organization ?? $matches->first()?->organization;
+
+        return $this->standingsFromMatches($matches, $org);
     }
 
     /**
      * Org-scoped (no-season) standings for the public portal leaderboard.
-     * Aggregates every completed match in the given org ids using the same
-     * best-3-scaled logic as season standings.
+     * Aggregates every active/completed match in the given org ids using the
+     * host organisation's scoring preferences.
      *
-     * @param  \Illuminate\Support\Collection<int>|array<int>  $orgIds
-     * @return array<int, array<string, mixed>>
+     * When $orgIds refers to a league that merges child clubs, we use the
+     * FIRST id as the "host" (that's the league itself in practice — the
+     * portal always calls this with the viewing org first in the list).
+     *
+     * @param  Collection<int>|array<int>  $orgIds
      */
     public function calculateForOrganizations($orgIds): array
     {
@@ -46,24 +63,29 @@ class SeasonStandingsService
             return [];
         }
 
-        $matches = \App\Models\ShootingMatch::query()
+        $matches = ShootingMatch::query()
             ->whereIn('organization_id', $ids)
             ->whereIn('status', ['active', 'completed'])
-            ->with(['targetSets.gongs', 'squads.shooters'])
+            ->with(['targetSets.gongs', 'squads.shooters', 'organization'])
             ->orderBy('date')
             ->get();
 
-        return $this->standingsFromMatches($matches);
+        $hostOrg = Organization::find($ids[0]);
+
+        return $this->standingsFromMatches($matches, $hostOrg);
     }
 
     /**
      * Shared core used by both season and org-scoped calculations.
      */
-    private function standingsFromMatches(\Illuminate\Support\Collection $matches): array
+    private function standingsFromMatches(Collection $matches, ?Organization $hostOrg = null): array
     {
         if ($matches->isEmpty()) {
             return [];
         }
+
+        $usesRelative = $hostOrg ? (bool) $hostOrg->uses_relative_scoring : true;
+        $bestOf = $hostOrg && $hostOrg->best_of > 0 ? (int) $hostOrg->best_of : self::DEFAULT_BEST_OF;
 
         $userScores = [];
 
@@ -87,8 +109,11 @@ class SeasonStandingsService
                     ];
                 }
 
-                // Round to nearest integer (user spec).
-                $relScore = (int) round(($entry['total_score'] / $winnerScore) * $pointsValue);
+                // Integer score per match. Relative mode scales to the match's
+                // points cap; absolute mode keeps the raw weighted total.
+                $relScore = $usesRelative
+                    ? (int) round(($entry['total_score'] / $winnerScore) * $pointsValue)
+                    : (int) round($entry['total_score']);
 
                 $userScores[$key]['match_results'][] = [
                     'match_id' => $match->id,
@@ -99,44 +124,45 @@ class SeasonStandingsService
                     'relative_score' => $relScore,
                     'hits' => $entry['hits'],
                     'misses' => $entry['misses'],
-                    'counted' => false, // set below after we pick best 3
+                    'counted' => false, // set below after we pick best N
                 ];
             }
         }
 
-        $standings = collect($userScores)->map(function ($entry) {
+        $standings = collect($userScores)->map(function ($entry) use ($bestOf) {
             $results = collect($entry['match_results']);
 
-            // Pick best 3 (by relative_score, ties don't matter for the sum).
+            // Pick best N (by relative_score, ties don't matter for the sum).
             $topKeys = $results
                 ->sortByDesc('relative_score')
-                ->take(3)
+                ->take($bestOf)
                 ->keys()
                 ->all();
             $keySet = array_flip($topKeys);
 
             // Flag counted results + compute season total.
-            $best3Total = 0;
-            $entry['match_results'] = $results->map(function ($r, $k) use ($keySet, &$best3Total) {
+            $seasonTotal = 0;
+            $entry['match_results'] = $results->map(function ($r, $k) use ($keySet, &$seasonTotal) {
                 $counted = isset($keySet[$k]);
                 if ($counted) {
-                    $best3Total += (int) $r['relative_score'];
+                    $seasonTotal += (int) $r['relative_score'];
                 }
                 $r['counted'] = $counted;
                 return $r;
             })->values()->all();
 
             $entry['matches_played'] = count($entry['match_results']);
-            $entry['counting_results'] = min(3, $entry['matches_played']);
-            $entry['best3_total'] = $best3Total;
+            $entry['counting_results'] = min($bestOf, $entry['matches_played']);
+            $entry['best3_total'] = $seasonTotal; // kept for backwards-compat with existing view code
+            $entry['season_total'] = $seasonTotal;
             $entry['total_hits'] = collect($entry['match_results'])->sum('hits');
             $entry['total_misses'] = collect($entry['match_results'])->sum('misses');
 
             return $entry;
         })
-        // Composite sort: best3_total desc, then matches_played desc as a tiebreaker.
+        // Composite sort: season_total desc, matches_played desc as a tiebreaker.
         ->sortBy(function ($e) {
-            return sprintf('%09d|%04d', 999999999 - (int) $e['best3_total'], 9999 - (int) $e['matches_played']);
+            return sprintf('%09d|%04d', 999999999 - (int) $e['season_total'], 9999 - (int) $e['matches_played']);
         })
         ->values()
         ->map(function ($entry, $index) {

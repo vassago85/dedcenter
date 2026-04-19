@@ -30,7 +30,7 @@ new #[Layout('components.layouts.portal')]
             ->orderBy('date')
             ->get();
 
-        $standings = (new SeasonStandingsService())->calculateForOrganizations($orgIds);
+        $standings = (new SeasonStandingsService())->calculateForOrganizations($orgIds->all());
 
         // Flatten per-match results into an index keyed by match_id for the column view.
         $standings = collect($standings)->map(function ($entry) {
@@ -42,18 +42,24 @@ new #[Layout('components.layouts.portal')]
             return $entry;
         })->values();
 
-        // Season cap = top-3 leaderboard_points values summed (300 for all-regular, 400 w/ finale).
+        $bestOf = $org->best_of > 0 ? (int) $org->best_of : SeasonStandingsService::DEFAULT_BEST_OF;
+        $usesRelative = (bool) $org->uses_relative_scoring;
+
+        // Season cap = top-N leaderboard_points values summed (relative mode only; for absolute
+        // mode there's no meaningful cap so we hide it in the UI).
         $seasonCap = $matches
             ->pluck('leaderboard_points')
             ->map(fn ($v) => (int) ($v ?? 100))
             ->sortDesc()
-            ->take(3)
+            ->take($bestOf)
             ->sum();
 
         return [
             'leaderboard' => $standings,
             'matches' => $matches,
-            'seasonCap' => $seasonCap ?: 300,
+            'seasonCap' => $seasonCap ?: ($bestOf * 100),
+            'bestOf' => $bestOf,
+            'usesRelative' => $usesRelative,
         ];
     }
 }; ?>
@@ -63,11 +69,17 @@ new #[Layout('components.layouts.portal')]
         <div>
             <h1 class="text-3xl font-bold text-primary">Season Leaderboard</h1>
             <p class="mt-1 text-sm text-muted">
-                {{ $organization->name }} — best 3 match scores counted, out of {{ $seasonCap }}.
+                {{ $organization->name }} — best {{ $bestOf }} of {{ $matches->count() }} match{{ $matches->count() === 1 ? '' : 'es' }} counted{{ $usesRelative ? ', out of ' . $seasonCap : '' }}.
             </p>
-            <p class="mt-1 text-xs text-muted/70">
-                Each match scored out of its own points value (regular = 100, season final = 200). Scaled score = round(shooter ÷ winner × points).
-            </p>
+            @if($usesRelative)
+                <p class="mt-1 text-xs text-muted/70">
+                    Each match scored out of its own points value (regular = 100, season final = 200). Scaled score = round(shooter ÷ winner × points).
+                </p>
+            @else
+                <p class="mt-1 text-xs text-muted/70">
+                    Raw weighted totals are rounded and summed; the shooter's best {{ $bestOf }} results count toward the season total.
+                </p>
+            @endif
         </div>
         <x-powered-by-block feature="leaderboard" variant="block" />
     </div>
@@ -86,7 +98,7 @@ new #[Layout('components.layouts.portal')]
                         <tr class="border-b border-white/10 text-left text-muted">
                             <th class="px-4 py-3 font-medium w-12">#</th>
                             <th class="px-4 py-3 font-medium">Shooter</th>
-                            <th class="px-4 py-3 font-medium text-right">Best 3 / {{ $seasonCap }}</th>
+                            <th class="px-4 py-3 font-medium text-right">Best {{ $bestOf }}{{ $usesRelative ? ' / ' . $seasonCap : '' }}</th>
                             <th class="px-4 py-3 font-medium text-right">Matches</th>
                             @foreach($matches as $match)
                                 @php $pv = (int) ($match->leaderboard_points ?? 100); @endphp
@@ -105,7 +117,7 @@ new #[Layout('components.layouts.portal')]
                                     {{ $rank }}
                                 </td>
                                 <td class="px-4 py-3 font-medium text-primary">{{ $entry['name'] }}</td>
-                                <td class="px-4 py-3 text-right font-bold text-amber-400">{{ $entry['best3_total'] }}</td>
+                                <td class="px-4 py-3 text-right font-bold text-amber-400">{{ $entry['season_total'] ?? $entry['best3_total'] }}</td>
                                 <td class="px-4 py-3 text-right text-muted">
                                     {{ $entry['counting_results'] }}/{{ $entry['matches_played'] }}
                                 </td>
@@ -126,8 +138,10 @@ new #[Layout('components.layouts.portal')]
         </div>
 
         <div class="text-xs text-muted space-y-1">
-            <p>* Bold values count toward the best-3 total. Struck-through values are dropped.</p>
-            <p>* Season final matches (worth 200) are highlighted in amber in the column header.</p>
+            <p>* Bold values count toward the best-{{ $bestOf }} total. Struck-through values are dropped.</p>
+            @if($usesRelative)
+                <p>* Season final matches (worth 200) are highlighted in amber in the column header.</p>
+            @endif
         </div>
     @endif
 </div>

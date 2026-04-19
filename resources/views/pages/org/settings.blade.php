@@ -20,6 +20,7 @@ new #[Layout('components.layouts.app')]
     public string $name = '';
     public string $description = '';
     public string $best_of = '';
+    public bool $uses_relative_scoring = true;
     public string $entry_fee_default = '';
     public string $primary_color = '#dc2626';
     public string $secondary_color = '#1e293b';
@@ -43,6 +44,7 @@ new #[Layout('components.layouts.app')]
         $this->name = $organization->name;
         $this->description = $organization->description ?? '';
         $this->best_of = $organization->best_of ? (string) $organization->best_of : '';
+        $this->uses_relative_scoring = (bool) ($organization->uses_relative_scoring ?? true);
         $this->entry_fee_default = $organization->entry_fee_default ? (string) $organization->entry_fee_default : '';
         $this->primary_color = $organization->primary_color ?? '#dc2626';
         $this->secondary_color = $organization->secondary_color ?? '#1e293b';
@@ -94,6 +96,7 @@ new #[Layout('components.layouts.app')]
             'name' => $validated['name'],
             'description' => $validated['description'] ?: null,
             'best_of' => $this->best_of !== '' ? (int) $this->best_of : null,
+            'uses_relative_scoring' => (bool) $this->uses_relative_scoring,
             'entry_fee_default' => $this->entry_fee_default !== '' ? (float) $this->entry_fee_default : null,
             'primary_color' => $validated['primary_color'],
             'secondary_color' => $validated['secondary_color'],
@@ -169,6 +172,15 @@ new #[Layout('components.layouts.app')]
             <div class="max-w-xs">
                 <flux:input wire:model="best_of" label="Best-of (X scores)" type="number" min="1" placeholder="Leave empty to count all" />
                 <p class="mt-1 text-xs text-muted">Leaderboard will rank shooters by their top X match scores. Leave empty to sum all scores.</p>
+            </div>
+
+            <div class="flex items-start gap-3 rounded-lg border border-border bg-surface-2/30 p-4">
+                <input type="checkbox" wire:model="uses_relative_scoring" id="uses_relative_scoring"
+                       class="mt-1 rounded border-border bg-surface-2 text-accent focus:ring-red-500">
+                <div>
+                    <label for="uses_relative_scoring" class="text-sm font-medium text-secondary">Relative (out-of-100) scoring</label>
+                    <p class="mt-1 text-xs text-muted">On: each match is normalised — the match winner gets the match's point value (100 for regulars, 200 for finals) and everyone else is scaled against them to the closest whole number. Off: raw weighted totals are rounded and summed as-is.</p>
+                </div>
             </div>
 
             <div class="flex items-start gap-3 rounded-lg border border-border bg-surface-2/30 p-4">
