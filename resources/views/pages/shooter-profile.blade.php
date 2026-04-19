@@ -8,7 +8,7 @@ use App\Http\Controllers\BadgeGalleryController;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.scoreboard')]
+new #[Layout('components.layouts.app')]
     class extends Component {
     public User $user;
 

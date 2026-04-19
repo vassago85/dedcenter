@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.scoreboard')]
+new #[Layout('components.layouts.app')]
     class extends Component {
     public ShootingMatch $match;
     public ?int $activeDivision = null;

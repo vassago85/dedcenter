@@ -64,6 +64,27 @@
         }
     @endphp
 
+    @guest
+        {{-- Anonymous viewers: drop the whole sidebar shell and render a
+             slim top bar so the scoreboard / event detail / past-results
+             still read as "public" without feeling logged-out-broken. --}}
+        <div class="flex min-h-screen flex-col">
+            <header class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-app/95 px-4 backdrop-blur lg:px-8">
+                <a href="/" class="group inline-flex min-h-[44px] items-center rounded-lg focus:outline-none focus:ring-2 focus:ring-accent">
+                    <x-app-logo size="md" class="opacity-90 transition-opacity group-hover:opacity-100" />
+                </a>
+                <div class="flex-1"></div>
+                <a href="{{ route('login') }}" class="inline-flex min-h-[40px] items-center rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-secondary transition-colors hover:border-accent hover:text-accent">Sign In</a>
+                <a href="{{ route('register') }}" class="inline-flex min-h-[40px] items-center rounded-lg bg-accent px-3 text-sm font-semibold text-white transition-colors hover:bg-accent/90">Register</a>
+            </header>
+            <main class="min-w-0 flex-1 overflow-x-hidden px-4 py-6 lg:px-8">
+                <div class="min-w-0">{{ $slot }}</div>
+            </main>
+            <flux:toast />
+            @fluxScripts
+            <x-pwa-nav />
+        </div>
+    @else
     <div x-data="{ sidebarOpen: false, adminOpen: false }" class="flex min-h-screen">
         <div x-cloak x-show="sidebarOpen" x-transition:enter="transition-opacity ease-linear duration-200"
              x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
@@ -151,5 +172,6 @@
     @fluxScripts
     <x-pwa-nav />
     <x-install-prompt />
+    @endguest
 </body>
 </html>

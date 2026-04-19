@@ -4,7 +4,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.marketing')]
+new #[Layout('components.layouts.app')]
     #[Title('Events — DeadCenter')]
     class extends Component {
 }; ?>

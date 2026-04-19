@@ -2,8 +2,21 @@
 
     {{-- Page header --}}
     <div class="mb-6">
-        <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">Find a Match</h1>
-        <p class="mt-1 text-base text-muted">Browse competitions, register for events, and view results.</p>
+        @auth
+            @if($tab === 'my_events')
+                <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">My Matches</h1>
+                <p class="mt-1 text-base text-muted">Matches you've registered for — upcoming and past, most recent first.</p>
+            @elseif($tab === 'past')
+                <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">Recent Results</h1>
+                <p class="mt-1 text-base text-muted">Browse completed competitions and open any scoreboard.</p>
+            @else
+                <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">Find a Match</h1>
+                <p class="mt-1 text-base text-muted">Browse competitions, register for events, and view results.</p>
+            @endif
+        @else
+            <h1 class="text-2xl font-bold tracking-tight text-primary sm:text-3xl">Find a Match</h1>
+            <p class="mt-1 text-base text-muted">Browse competitions, register for events, and view results.</p>
+        @endauth
     </div>
 
     {{-- Tabs --}}

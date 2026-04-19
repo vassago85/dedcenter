@@ -23,7 +23,7 @@
     <div class="px-3 pt-2">
         <p class="text-[10px] font-semibold uppercase tracking-wider text-muted/70">Results</p>
     </div>
-    <a href="{{ route('events', ['tab' => 'past']) }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('events') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Recent Results</a>
+    <a href="{{ route('events', ['tab' => 'my_events']) }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('events') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Recent Results</a>
     <a href="{{ $primaryOrg ? route('leaderboard', $primaryOrg) : route('organizations') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('leaderboard') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
         Standings
         @if(! $primaryOrg)
