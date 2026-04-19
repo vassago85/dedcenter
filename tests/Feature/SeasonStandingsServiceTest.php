@@ -182,3 +182,128 @@ it('handles shooters with fewer than 3 matches', function () {
         ->and($meRow['counting_results'])->toBe(1)
         ->and($meRow['best3_total'])->toBe(100);
 });
+
+it('honours organization.best_of when aggregating a season', function () {
+    $org = App\Models\Organization::factory()->create(['best_of' => 2, 'uses_relative_scoring' => true]);
+    $user = User::factory()->create();
+
+    // 3 matches: relative 50, 70, 90. best_of=2 → 90 + 70 = 160.
+    foreach ([50, 70, 90] as $i => $rel) {
+        $owner = User::factory()->create();
+        $m = ShootingMatch::factory()->create([
+            'created_by' => $owner->id,
+            'scoring_type' => 'standard',
+            'status' => 'completed',
+            'organization_id' => $org->id,
+            'leaderboard_points' => 100,
+        ]);
+        $ts = TargetSet::create([
+            'match_id' => $m->id, 'label' => '500m',
+            'distance_meters' => 500, 'distance_multiplier' => 5.0, 'sort_order' => 1,
+        ]);
+        $gs = collect(range(1, 100))->map(fn ($n) => ($this->mkGong)($ts, $n));
+        $sq = Squad::create(['match_id' => $m->id, 'name' => 'A']);
+        $me = Shooter::create(['name' => 'Me', 'squad_id' => $sq->id, 'status' => 'active', 'user_id' => $user->id]);
+        $w  = Shooter::create(['name' => "W{$i}", 'squad_id' => $sq->id, 'status' => 'active']);
+        foreach ($gs->take($rel) as $g) ($this->hit)($me, $g);
+        foreach ($gs as $g) ($this->hit)($w, $g);
+    }
+
+    $standings = (new SeasonStandingsService())->calculateForOrganizations([$org->id]);
+    $meRow = collect($standings)->firstWhere('user_id', $user->id);
+
+    expect($meRow['matches_played'])->toBe(3)
+        ->and($meRow['counting_results'])->toBe(2)
+        ->and($meRow['season_total'])->toBe(160)
+        ->and($meRow['best3_total'])->toBe(160); // alias still populated
+});
+
+it('uses absolute scoring when organization.uses_relative_scoring is false', function () {
+    $org = App\Models\Organization::factory()->create([
+        'best_of' => 3,
+        'uses_relative_scoring' => false,
+    ]);
+    $user = User::factory()->create();
+
+    // 2 matches — raw weighted totals: match1 = 60 gongs × (dist 5 × gong 1) = 300,
+    // match2 = 80 × 5 = 400. Summed raw (rounded): 300 + 400 = 700.
+    foreach ([60, 80] as $i => $hits) {
+        $owner = User::factory()->create();
+        $m = ShootingMatch::factory()->create([
+            'created_by' => $owner->id,
+            'scoring_type' => 'standard',
+            'status' => 'completed',
+            'organization_id' => $org->id,
+            'leaderboard_points' => 100,
+        ]);
+        $ts = TargetSet::create([
+            'match_id' => $m->id, 'label' => '500m',
+            'distance_meters' => 500, 'distance_multiplier' => 5.0, 'sort_order' => 1,
+        ]);
+        $gs = collect(range(1, 100))->map(fn ($n) => ($this->mkGong)($ts, $n));
+        $sq = Squad::create(['match_id' => $m->id, 'name' => 'A']);
+        $me = Shooter::create(['name' => 'Me', 'squad_id' => $sq->id, 'status' => 'active', 'user_id' => $user->id]);
+        $w  = Shooter::create(['name' => "W{$i}", 'squad_id' => $sq->id, 'status' => 'active']);
+        foreach ($gs->take($hits) as $g) ($this->hit)($me, $g);
+        foreach ($gs as $g) ($this->hit)($w, $g);
+    }
+
+    $standings = (new SeasonStandingsService())->calculateForOrganizations([$org->id]);
+    $meRow = collect($standings)->firstWhere('user_id', $user->id);
+
+    expect($meRow)->not->toBeNull()
+        ->and($meRow['matches_played'])->toBe(2)
+        ->and($meRow['season_total'])->toBe(700); // 300 + 400 raw weighted
+
+    // Individual match rows hold the raw rounded total as relative_score,
+    // NOT a 0-100 normalisation.
+    $scores = collect($meRow['match_results'])->pluck('relative_score')->sort()->values()->all();
+    expect($scores)->toBe([300, 400]);
+});
+
+it('worked example — JD=165, others scaled to nearest integer with relative mode', function () {
+    // Re-creates the user's example: JD is the match winner, others are
+    // scaled against his raw total.
+    $org = App\Models\Organization::factory()->create([
+        'best_of' => 3,
+        'uses_relative_scoring' => true,
+    ]);
+    $owner = User::factory()->create();
+    $m = ShootingMatch::factory()->create([
+        'created_by' => $owner->id,
+        'scoring_type' => 'standard',
+        'status' => 'completed',
+        'organization_id' => $org->id,
+        'leaderboard_points' => 100,
+    ]);
+    // distance_multiplier 1.0 so each hit = exactly 1 raw point;
+    // hit counts then become the raw totals.
+    $ts = TargetSet::create([
+        'match_id' => $m->id, 'label' => '500m',
+        'distance_meters' => 500, 'distance_multiplier' => 1.0, 'sort_order' => 1,
+    ]);
+    $gs = collect(range(1, 200))->map(fn ($n) => ($this->mkGong)($ts, $n));
+    $sq = Squad::create(['match_id' => $m->id, 'name' => 'A']);
+
+    $shooters = [
+        'JD'      => 165, // winner → 100
+        'Steven'  => 155, // round(155/165*100) = 94
+        'Danie'   => 155, // 94
+        'Gerhard' => 149, // round(149/165*100) = 90
+        'Alex'    => 147, // round(147/165*100) = 89
+    ];
+    foreach ($shooters as $name => $hits) {
+        $s = Shooter::create(['name' => $name, 'squad_id' => $sq->id, 'status' => 'active']);
+        foreach ($gs->take($hits) as $g) ($this->hit)($s, $g);
+    }
+
+    $standings = (new SeasonStandingsService())->calculateForOrganizations([$org->id]);
+
+    $scoreFor = fn (string $n) => collect($standings)->firstWhere('name', $n)['season_total'] ?? null;
+
+    expect($scoreFor('JD'))->toBe(100)
+        ->and($scoreFor('Steven'))->toBe(94)
+        ->and($scoreFor('Danie'))->toBe(94)
+        ->and($scoreFor('Gerhard'))->toBe(90)
+        ->and($scoreFor('Alex'))->toBe(89);
+});
