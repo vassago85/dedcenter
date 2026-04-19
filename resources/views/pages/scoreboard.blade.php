@@ -563,11 +563,21 @@ new #[Layout('components.layouts.scoreboard')]
                     </p>
                 </div>
             </div>
-            <div class="flex shrink-0 items-center gap-2 self-start rounded-full bg-app/60 px-3 py-1 ring-1 ring-border sm:self-center">
-                <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
-                <span class="text-[10px] font-semibold uppercase tracking-wider text-muted sm:text-xs">
-                    {{ $unclaimedCount }} {{ $unclaimedCount === 1 ? 'result' : 'results' }} awaiting {{ $unclaimedCount === 1 ? 'a claim' : 'claims' }}
-                </span>
+            <div class="flex shrink-0 flex-wrap items-center gap-2 self-start sm:self-center">
+                <div class="flex items-center gap-2 rounded-full bg-app/60 px-3 py-1 ring-1 ring-border">
+                    <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-muted sm:text-xs">
+                        {{ $unclaimedCount }} {{ $unclaimedCount === 1 ? 'result' : 'results' }} awaiting {{ $unclaimedCount === 1 ? 'a claim' : 'claims' }}
+                    </span>
+                </div>
+                @auth
+                    @if(auth()->user()->isAdmin())
+                        <a href="{{ route('admin.shooter-claims') }}"
+                           class="inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-accent-hover sm:text-xs">
+                            Review claims <x-icon name="chevron-right" class="h-3 w-3" />
+                        </a>
+                    @endif
+                @endauth
             </div>
         </div>
     @endif

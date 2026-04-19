@@ -15,6 +15,13 @@
         @endif
     </a>
     <a href="{{ route('admin.members') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.members') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">Members</a>
+    <a href="{{ route('admin.shooter-claims') }}" class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.shooter-claims') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+        Shooter Claims
+        @php $pendingClaims = \App\Models\ShooterAccountClaim::where('status', \App\Enums\ShooterClaimStatus::Pending)->count(); @endphp
+        @if($pendingClaims > 0)
+            <span class="ml-auto inline-flex items-center justify-center rounded-full bg-amber-600 px-2 py-0.5 text-xs font-bold text-primary">{{ $pendingClaims }}</span>
+        @endif
+    </a>
 
     <div class="px-3 pt-2">
         <p class="text-[10px] font-semibold uppercase tracking-wider text-muted/70">Matches</p>

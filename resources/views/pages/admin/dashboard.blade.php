@@ -5,7 +5,9 @@ use App\Models\Shooter;
 use App\Models\User;
 use App\Models\Organization;
 use App\Models\MatchRegistration;
+use App\Models\ShooterAccountClaim;
 use App\Enums\MatchStatus;
+use App\Enums\ShooterClaimStatus;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -22,6 +24,7 @@ new #[Layout('components.layouts.app')]
             'pendingRegistrations' => MatchRegistration::where('payment_status', 'proof_submitted')->count(),
             'pendingOrgs' => Organization::pending()->count(),
             'totalOrgs' => Organization::count(),
+            'pendingClaims' => ShooterAccountClaim::where('status', ShooterClaimStatus::Pending)->count(),
             'recentMatches' => ShootingMatch::with('organization')
                 ->withCount(['squads', 'shooters', 'registrations'])
                 ->latest('date')
@@ -49,6 +52,22 @@ new #[Layout('components.layouts.app')]
             <span class="sm:hidden">New</span>
         </a>
     </div>
+
+    @if($pendingClaims > 0)
+        <a href="{{ route('admin.shooter-claims') }}"
+           class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/60 bg-amber-500/10 px-5 py-4 transition-colors hover:bg-amber-500/15">
+            <div class="flex items-start gap-3">
+                <x-icon name="circle-alert" class="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                    <p class="text-sm font-semibold text-amber-300">{{ $pendingClaims }} shooter {{ $pendingClaims === 1 ? 'claim is' : 'claims are' }} waiting for review</p>
+                    <p class="text-xs text-amber-200/80">Imported shooters without email accounts have asked to link their results to a real account. Review and approve them.</p>
+                </div>
+            </div>
+            <span class="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-black">
+                Review now <x-icon name="chevron-right" class="h-3.5 w-3.5" />
+            </span>
+        </a>
+    @endif
 
     {{-- Stats --}}
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 sm:gap-4">
