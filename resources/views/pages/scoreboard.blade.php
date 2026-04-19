@@ -419,6 +419,15 @@ new #[Layout('components.layouts.scoreboard')]
             })->sortByDesc('total_score')->values();
         }
 
+        // Unclaimed-results count: shooters with no linked user account who
+        // aren't DQ/no-show. Drives the "Claim your result" banner + per-row
+        // chips on all scoreboard tabs. Imported matches start with every row
+        // unclaimed (user_id null), so without this prompt members had no
+        // visible path to link the result to their profile.
+        $unclaimedCount = $shooters
+            ->filter(fn ($s) => empty($s->user_id) && ! in_array($s->status ?? 'active', ['dq', 'no_show'], true))
+            ->count();
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
@@ -435,6 +444,7 @@ new #[Layout('components.layouts.scoreboard')]
             'customFieldMap' => $customFieldMap,
             'isTeamEvent' => $isTeamEvent,
             'teamLeaderboard' => $teamLeaderboard,
+            'unclaimedCount' => $unclaimedCount,
         ];
     }
 }; ?>
@@ -534,6 +544,34 @@ new #[Layout('components.layouts.scoreboard')]
         </div>
     @endif
 
+    {{-- Claim-your-result banner — shown on every tab whenever there are
+         imported/unclaimed shooters AND the match is live or complete. This
+         is the primary path for members to link a result to their account
+         until we move registrations fully through DeadCenter. --}}
+    @if($unclaimedCount > 0 && ($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active))
+        <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-accent/30 bg-gradient-to-r from-accent/10 to-accent/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-5 sm:py-4">
+            <div class="flex items-start gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/15 ring-1 ring-accent/30 sm:h-10 sm:w-10">
+                    <x-icon name="user-plus" class="h-4 w-4 text-accent sm:h-5 sm:w-5" />
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-bold text-primary sm:text-base">
+                        Shoot this match? <span class="text-accent">Claim your result.</span>
+                    </p>
+                    <p class="mt-0.5 text-xs text-muted sm:text-sm">
+                        Find your name below and tap <span class="font-semibold text-primary">Claim</span>. After the match director approves it, the result and any badges appear on your profile.
+                    </p>
+                </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2 self-start rounded-full bg-app/60 px-3 py-1 ring-1 ring-border sm:self-center">
+                <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-muted sm:text-xs">
+                    {{ $unclaimedCount }} {{ $unclaimedCount === 1 ? 'result' : 'results' }} awaiting {{ $unclaimedCount === 1 ? 'a claim' : 'claims' }}
+                </span>
+            </div>
+        </div>
+    @endif
+
     @if($isStandard || $royalFlushEnabled || $isTeamEvent)
         <div class="mb-4 flex min-w-0 flex-wrap gap-2">
             <button type="button" wire:click="setTab('main')"
@@ -621,9 +659,21 @@ new #[Layout('components.layouts.scoreboard')]
                     $rankLabel = $isDqRow ? 'DQ' : ($isNoShowRow ? 'N/S' : $rank);
                     $isExpanded = $expandedShooterId === $entry->shooter->id;
                 @endphp
+                @php
+                    $canClaimEntry = empty($entry->shooter->user_id)
+                        && ! $isOfflineRow
+                        && ($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active);
+                @endphp
                 <div class="overflow-hidden rounded-2xl border border-border bg-app {{ $isOfflineRow ? 'opacity-60' : '' }}">
-                    <button type="button" wire:click="toggleExpand({{ $entry->shooter->id }})"
-                            class="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface/50 sm:gap-4 sm:px-6 sm:py-4">
+                    {{-- Expand trigger is a div (not a button) so we can nest
+                         the Claim anchor inside without producing invalid
+                         <a>-inside-<button> HTML. Keyboard-accessible via
+                         role + tabindex + Enter/Space handlers. --}}
+                    <div role="button" tabindex="0"
+                         wire:click="toggleExpand({{ $entry->shooter->id }})"
+                         x-on:keydown.enter.prevent="$wire.toggleExpand({{ $entry->shooter->id }})"
+                         x-on:keydown.space.prevent="$wire.toggleExpand({{ $entry->shooter->id }})"
+                         class="flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface/50 focus:outline-none focus:ring-2 focus:ring-accent/50 sm:gap-4 sm:px-6 sm:py-4">
                         @if($isOfflineRow)
                             <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center text-sm text-muted font-bold italic" title="{{ $isDqRow ? 'Disqualified' : 'Did not attend' }}">{{ $rankLabel }}</span>
                         @elseif($rank <= 3)
@@ -640,7 +690,19 @@ new #[Layout('components.layouts.scoreboard')]
                         @endif
 
                         <div class="min-w-0 flex-1">
-                            <p class="truncate text-xl font-semibold text-primary">{{ $entry->shooter->name }}</p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <p class="truncate text-xl font-semibold text-primary">{{ $entry->shooter->name }}</p>
+                                @if($canClaimEntry)
+                                    <a href="{{ app_url('/claim?match=' . $match->id . '&shooter=' . $entry->shooter->id) }}"
+                                       wire:click.stop
+                                       x-on:click.stop
+                                       class="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent transition-colors hover:border-accent hover:bg-accent/20 hover:text-white sm:text-xs"
+                                       title="Link this result to your DeadCenter account (admin approval required)">
+                                        <span class="h-1 w-1 rounded-full bg-accent"></span>
+                                        Claim
+                                    </a>
+                                @endif
+                            </div>
                             <p class="text-sm text-muted">
                                 {{ $entry->shooter->squad?->name ?? '—' }}
                                 &middot; {{ $entry->total_hits }} hits &middot; {{ $entry->total_misses }} misses
@@ -650,7 +712,7 @@ new #[Layout('components.layouts.scoreboard')]
                         <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ number_format($entry->total_score, 1) }}</span>
 
                         <x-icon name="chevron-down" class="h-5 w-5 flex-shrink-0 text-muted transition-transform sm:h-6 sm:w-6 {{ $isExpanded ? 'rotate-180' : '' }}" />
-                    </button>
+                    </div>
 
                     @if($isExpanded)
                         <div class="border-t border-border">
