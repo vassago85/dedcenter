@@ -12,6 +12,7 @@ use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use App\Models\TargetSet;
 use App\Services\NotificationService;
+use App\Services\RoyalFlushShotStatusService;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -143,7 +144,44 @@ class ScoreController extends Controller
             }
         }
 
-        return ScoreResource::collection($savedScores);
+        // Enrich the response with Royal-Flush "armed" status for every
+        // shooter touched by this batch, so the scoring app can show the
+        // "ROYAL FLUSH SHOT" banner before the next tap at that distance
+        // without a second round-trip. Backwards compatible: existing
+        // callers that just read `data` (the ScoreResource collection) are
+        // unaffected — royal_flush is an added sibling key.
+        $touchedShooterIds = array_values(array_unique(array_merge(
+            $savedScores->pluck('shooter_id')->all(),
+            collect($validated['deleted_scores'] ?? [])->pluck('shooter_id')->all(),
+        )));
+
+        $rfStatus = [];
+        if (! empty($touchedShooterIds)) {
+            $touchedShooters = Shooter::whereIn('id', $touchedShooterIds)->get();
+            $rfStatus = app(RoyalFlushShotStatusService::class)
+                ->forShooters($match, $touchedShooters)
+                ->all();
+        }
+
+        return ScoreResource::collection($savedScores)
+            ->additional(['royal_flush' => $rfStatus]);
+    }
+
+    /**
+     * GET /api/matches/{match}/shooters/{shooter}/royal-flush-status
+     *
+     * Stateless "is the next shot the Royal Flush shot?" query the scoring
+     * app (or the web scoring pad) calls before rendering the hit/miss
+     * buttons for a shooter at a distance. Returns the full per-distance
+     * breakdown; the banner trigger is `royal_flush_shot === true`.
+     */
+    public function royalFlushStatus(ShootingMatch $match, Shooter $shooter, RoyalFlushShotStatusService $service)
+    {
+        if (! $match->shooters()->whereKey($shooter->id)->exists()) {
+            abort(404);
+        }
+
+        return response()->json($service->forShooter($match, $shooter));
     }
 
     public function updateShooterStatus(ShootingMatch $match, Shooter $shooter, Request $request)

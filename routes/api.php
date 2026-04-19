@@ -107,6 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
     Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
+    Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
     Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
     Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
 
