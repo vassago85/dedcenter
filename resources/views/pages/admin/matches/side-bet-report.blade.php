@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\ShootingMatch;
-use Illuminate\Support\Facades\DB;
+use App\Services\SideBetStandingsService;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -12,111 +12,29 @@ new #[Layout('components.layouts.app')]
     public function with(): array
     {
         if (!$this->match->side_bet_enabled || !$this->match->royal_flush_enabled) {
-            return ['entries' => collect(), 'enabled' => false];
+            return ['entries' => collect(), 'enabled' => false, 'gong_labels' => []];
         }
 
-        $sideBetIds = $this->match->sideBetShooters()->pluck('shooters.id')->toArray();
-        if (empty($sideBetIds)) {
-            return ['entries' => collect(), 'enabled' => true];
-        }
+        $result = app(SideBetStandingsService::class)->build($this->match);
 
-        $targetSets = $this->match->targetSets()
-            ->orderByDesc('distance_meters')
-            ->with(['gongs' => fn ($q) => $q->orderByDesc('multiplier')])
-            ->get();
-
-        $gongRankMap = [];
-        $maxRanks = 0;
-        foreach ($targetSets as $ts) {
-            $rank = 0;
-            foreach ($ts->gongs as $gong) {
-                $gongRankMap[$gong->id] = ['rank' => $rank, 'distance' => $ts->distance_meters];
-                $rank++;
-            }
-            $maxRanks = max($maxRanks, $rank);
-        }
-
-        $gongIds = array_keys($gongRankMap);
-        if (empty($gongIds)) {
-            return ['entries' => collect(), 'enabled' => true];
-        }
-
-        $shooters = $this->match->shooters()
-            ->with('squad')
-            ->whereIn('shooters.id', $sideBetIds)
-            ->get();
-
-        $shooterIds = $shooters->pluck('id')->toArray();
-
-        $hits = \App\Models\Score::whereIn('gong_id', $gongIds)
-            ->whereIn('shooter_id', $shooterIds)
-            ->where('is_hit', true)
-            ->select('shooter_id', 'gong_id')
-            ->get();
-
-        $totalScores = DB::table('scores')
-            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
-            ->whereIn('scores.shooter_id', $shooterIds)
-            ->where('scores.is_hit', true)
-            ->groupBy('scores.shooter_id')
-            ->selectRaw('scores.shooter_id, COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total_score')
-            ->pluck('total_score', 'scores.shooter_id')
-            ->toArray();
-
-        $profiles = [];
-        foreach ($shooters as $s) {
-            $profiles[$s->id] = ['shooter' => $s, 'total_score' => round((float) ($totalScores[$s->id] ?? 0), 2), 'ranks' => []];
-            for ($r = 0; $r < $maxRanks; $r++) {
-                $profiles[$s->id]['ranks'][$r] = ['count' => 0, 'distances' => []];
-            }
-        }
-
-        foreach ($hits as $hit) {
-            if (!isset($gongRankMap[$hit->gong_id], $profiles[$hit->shooter_id])) continue;
-            $info = $gongRankMap[$hit->gong_id];
-            $profiles[$hit->shooter_id]['ranks'][$info['rank']]['count']++;
-            $profiles[$hit->shooter_id]['ranks'][$info['rank']]['distances'][] = $info['distance'];
-        }
-
-        foreach ($profiles as &$p) {
-            for ($r = 0; $r < $maxRanks; $r++) rsort($p['ranks'][$r]['distances']);
-        }
-        unset($p);
-
-        $profileList = array_values($profiles);
-        usort($profileList, function ($a, $b) use ($maxRanks) {
-            for ($r = 0; $r < $maxRanks; $r++) {
-                if ($a['ranks'][$r]['count'] !== $b['ranks'][$r]['count']) return $b['ranks'][$r]['count'] <=> $a['ranks'][$r]['count'];
-                $ad = $a['ranks'][$r]['distances']; $bd = $b['ranks'][$r]['distances'];
-                for ($i = 0; $i < max(count($ad), count($bd)); $i++) {
-                    if (($ad[$i] ?? 0) !== ($bd[$i] ?? 0)) return ($bd[$i] ?? 0) <=> ($ad[$i] ?? 0);
-                }
-            }
-            return $b['total_score'] <=> $a['total_score'];
-        });
-
-        $entries = collect($profileList)->map(fn ($p, $i) => (object) [
-            'rank' => $i + 1,
-            'name' => $p['shooter']->name,
-            'squad_name' => $p['shooter']->squad?->name ?? '—',
-            'small_gong_hits' => $p['ranks'][0]['count'] ?? 0,
-            'distances' => $p['ranks'][0]['distances'] ?? [],
-            'total_score' => $p['total_score'],
-        ]);
-
-        return ['entries' => $entries, 'enabled' => true];
+        return [
+            'entries' => collect($result['entries']),
+            'enabled' => true,
+            'gong_labels' => $result['gong_labels'],
+        ];
     }
 }; ?>
 
 <x-page-shell>
+    <x-match-hub-tabs :match="$match" />
+
     <x-app-page-header
         eyebrow="Royal Flush · Side Bet"
         title="Side Bet Report"
         :subtitle="$match->name.' — '.($match->date?->format('d M Y') ?? '')"
         :crumbs="[
             ['label' => 'Matches', 'href' => route('admin.matches.index')],
-            ['label' => $match->name, 'href' => route('admin.matches.edit', $match)],
+            ['label' => $match->name, 'href' => route('admin.matches.hub', $match)],
             ['label' => 'Side Bet Report'],
         ]"
     >
@@ -171,38 +89,53 @@ new #[Layout('components.layouts.app')]
                 <th>Squad</th>
                 <th class="text-center">Small Gong Hits</th>
                 <th>Distances</th>
+                <th>Tiebreaker</th>
                 <th class="text-right">Match Score</th>
             </x-slot:columns>
 
             <x-slot:rows>
                 @foreach($entries as $entry)
                     @php
-                        $rowClass = match($entry->rank) {
+                        $rowClass = match($entry['rank']) {
                             1 => 'bg-amber-500/10 [&>td:first-child]:border-l-4 [&>td:first-child]:border-l-amber-400',
                             2 => 'bg-slate-400/5 [&>td:first-child]:border-l-4 [&>td:first-child]:border-l-slate-400',
                             3 => 'bg-orange-500/5 [&>td:first-child]:border-l-4 [&>td:first-child]:border-l-orange-600',
                             default => '',
                         };
-                        $rankClass = match($entry->rank) {
+                        $rankClass = match($entry['rank']) {
                             1 => 'text-amber-400 font-black',
                             2 => 'text-secondary font-bold',
                             3 => 'text-orange-500 font-bold',
                             default => 'text-muted font-medium',
                         };
+                        $reason = $entry['tiebreaker_reason'];
+                        $isLast = $entry['rank'] === $entries->count();
                     @endphp
                     <tr class="{{ $rowClass }}">
-                        <td class="text-center text-lg {{ $rankClass }}">{{ $entry->rank }}</td>
-                        <td class="font-semibold text-primary">{{ $entry->name }}</td>
-                        <td class="text-muted">{{ $entry->squad_name }}</td>
-                        <td class="text-center text-lg font-bold text-amber-400 tabular-nums">{{ $entry->small_gong_hits }}</td>
+                        <td class="text-center text-lg {{ $rankClass }}">{{ $entry['rank'] }}</td>
+                        <td class="font-semibold text-primary">{{ $entry['name'] }}</td>
+                        <td class="text-muted">{{ $entry['squad_name'] }}</td>
+                        <td class="text-center text-lg font-bold text-amber-400 tabular-nums">{{ $entry['small_gong_hits'] }}</td>
                         <td class="text-secondary">
-                            @if(!empty($entry->distances))
-                                {{ implode('m, ', $entry->distances) }}m
+                            @if(!empty($entry['distances']))
+                                {{ implode('m, ', $entry['distances']) }}m
                             @else
                                 —
                             @endif
                         </td>
-                        <td class="text-right font-bold tabular-nums text-primary">{{ $entry->total_score }}</td>
+                        <td class="text-meta text-secondary">
+                            @if($isLast)
+                                <span class="text-muted">—</span>
+                            @elseif($reason)
+                                <span class="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-surface-2/40 px-2 py-1 font-medium">
+                                    <x-icon name="trophy" class="h-3.5 w-3.5 text-amber-400" />
+                                    {{ $reason }}
+                                </span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td class="text-right font-bold tabular-nums text-primary">{{ $entry['total_score'] }}</td>
                     </tr>
                 @endforeach
             </x-slot:rows>
@@ -210,6 +143,7 @@ new #[Layout('components.layouts.app')]
             <x-slot:footer>
                 <p class="text-meta text-muted">
                     Ranked by smallest-gong hits first; ties break on furthest distance at that gong, then cascade down through every gong size.
+                    The <strong class="text-secondary">Tiebreaker</strong> column shows the decisive step that placed each shooter above the one directly below them.
                     &bull; {{ $entries->count() }} participants &bull; Generated {{ now()->format('d M Y H:i') }}
                 </p>
             </x-slot:footer>

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PlacementKey;
-use App\Models\ElrShot;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
+use App\Models\UserAchievement;
+use App\Services\MatchReportService;
+use App\Services\MatchStandingsService;
 use App\Services\PdfDocumentRenderer;
 use App\Services\Scoring\ELRScoringService;
 use App\Services\SponsorPlacementResolver;
@@ -143,7 +145,7 @@ class MatchExportController extends Controller
 
                 foreach ($ts->gongs as $g) {
                     $score = $scores->get($g->id);
-                    if (!$score) {
+                    if (! $score) {
                         $cells[] = '-';
                     } elseif ($score->is_hit) {
                         $cells[] = 'H';
@@ -200,7 +202,7 @@ class MatchExportController extends Controller
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->leftJoin('match_registrations', function ($j) use ($match) {
                 $j->on('match_registrations.user_id', '=', 'shooters.user_id')
-                  ->where('match_registrations.match_id', '=', $match->id);
+                    ->where('match_registrations.match_id', '=', $match->id);
             })
             ->where('squads.match_id', $match->id)
             ->orderBy('squads.sort_order')
@@ -284,6 +286,7 @@ class MatchExportController extends Controller
 
         $entries = $shooters->map(function ($s) use ($shooterTimes, $tbHits, $tbTimes, $divisionNames, $totalTargets) {
             $sid = (int) $s->shooter_id;
+
             return [
                 'sid' => $sid, 'name' => $s->name, 'squad' => $s->squad,
                 'division' => $divisionNames[$sid] ?? '',
@@ -294,9 +297,16 @@ class MatchExportController extends Controller
                 'tb_time' => round($tbTimes[$sid] ?? 0.0, 2),
             ];
         })->sort(function ($a, $b) {
-            if ($a['hits'] !== $b['hits']) return $b['hits'] <=> $a['hits'];
-            if ($a['tb_hits'] !== $b['tb_hits']) return $b['tb_hits'] <=> $a['tb_hits'];
-            if ($a['tb_time'] !== $b['tb_time']) return $a['tb_time'] <=> $b['tb_time'];
+            if ($a['hits'] !== $b['hits']) {
+                return $b['hits'] <=> $a['hits'];
+            }
+            if ($a['tb_hits'] !== $b['tb_hits']) {
+                return $b['tb_hits'] <=> $a['tb_hits'];
+            }
+            if ($a['tb_time'] !== $b['tb_time']) {
+                return $a['tb_time'] <=> $b['tb_time'];
+            }
+
             return $a['total_time'] <=> $b['total_time'];
         })->values();
 
@@ -364,7 +374,7 @@ class MatchExportController extends Controller
             foreach ($targetSets as $ts) {
                 foreach ($ts->gongs as $g) {
                     $score = $scores->get($g->id);
-                    if (!$score) {
+                    if (! $score) {
                         $cells[] = '-';
                     } elseif ($score->is_hit) {
                         $cells[] = 'H';
@@ -380,6 +390,7 @@ class MatchExportController extends Controller
             }
 
             $sid = $shooter->id;
+
             return [
                 'name' => $shooter->name, 'squad' => $shooter->squad_name,
                 'division' => $divisionNames[$sid] ?? '',
@@ -391,9 +402,16 @@ class MatchExportController extends Controller
                 'tb_time' => round($tbTimes[$sid] ?? 0.0, 2),
             ];
         })->sort(function ($a, $b) {
-            if ($a['hits'] !== $b['hits']) return $b['hits'] <=> $a['hits'];
-            if ($a['tb_hits'] !== $b['tb_hits']) return $b['tb_hits'] <=> $a['tb_hits'];
-            if ($a['tb_time'] !== $b['tb_time']) return $a['tb_time'] <=> $b['tb_time'];
+            if ($a['hits'] !== $b['hits']) {
+                return $b['hits'] <=> $a['hits'];
+            }
+            if ($a['tb_hits'] !== $b['tb_hits']) {
+                return $b['tb_hits'] <=> $a['tb_hits'];
+            }
+            if ($a['tb_time'] !== $b['tb_time']) {
+                return $a['tb_time'] <=> $b['tb_time'];
+            }
+
             return $a['total_time'] <=> $b['total_time'];
         })->values();
 
@@ -410,7 +428,7 @@ class MatchExportController extends Controller
 
     private function elrStandings(ShootingMatch $match, $out): void
     {
-        $data = (new ELRScoringService())->calculateStandings($match);
+        $data = (new ELRScoringService)->calculateStandings($match);
 
         fputcsv($out, ['Rank', 'Name', 'Squad', 'Total Points', 'Total Hits', '1st Round Hits', '2nd Round Hits', 'Furthest Hit (m)']);
 
@@ -426,7 +444,7 @@ class MatchExportController extends Controller
 
     private function elrDetailed(ShootingMatch $match, $out): void
     {
-        $data = (new ELRScoringService())->calculateStandings($match);
+        $data = (new ELRScoringService)->calculateStandings($match);
         $stages = $data['stages'];
 
         $header = ['Rank', 'Name', 'Squad'];
@@ -536,23 +554,28 @@ class MatchExportController extends Controller
     }
 
     /**
-     * Individual shooter report — 3-page A4 portrait: hero, stages, badges + insights.
+     * Individual shooter report — A4 portrait, styled identically to the
+     * in-app/email match report (stat cards, per-stage tick/cross chips,
+     * Best & Worst, field comparison, fun facts, badges).
+     *
+     * Renders `exports.pdf-match-report` using `MatchReportService` so the
+     * download, the preview URL, and the emailed attachment all stay
+     * visually in lock-step.
      */
-    public function pdfShooterReport(ShootingMatch $match, Shooter $shooter, PdfDocumentRenderer $renderer)
+    public function pdfShooterReport(ShootingMatch $match, Shooter $shooter, PdfDocumentRenderer $renderer, MatchReportService $reportService)
     {
         $this->authorizeExport($match);
 
-        // Guard: shooter must belong to this match (via squad).
         abort_unless(
             $shooter->squad && $shooter->squad->match_id === $match->id,
             404,
             'Shooter does not belong to this match.',
         );
 
-        $slug = Str::slug($match->name . '-' . $shooter->name);
-        $data = $this->buildShooterReportData($match, $shooter);
+        $slug = Str::slug($match->name.'-'.$shooter->name);
+        $report = $reportService->generateReport($match, $shooter);
 
-        return $renderer->stream('exports.pdf-shooter-report', $data, "{$slug}-shooter-report.pdf");
+        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf");
     }
 
     /**
@@ -567,7 +590,7 @@ class MatchExportController extends Controller
      * a result later, the link is updated via ShooterAccountClaim approval
      * and this endpoint starts working for them — no config change needed.
      */
-    public function pdfMyShooterReport(ShootingMatch $match, PdfDocumentRenderer $renderer)
+    public function pdfMyShooterReport(ShootingMatch $match, PdfDocumentRenderer $renderer, MatchReportService $reportService)
     {
         $user = auth()->user();
         abort_unless($user, 403);
@@ -583,10 +606,10 @@ class MatchExportController extends Controller
             'We couldn’t find your shooter record for this match. If you shot under a different name, claim that result first.',
         );
 
-        $slug = Str::slug($match->name . '-' . $shooter->name);
-        $data = $this->buildShooterReportData($match, $shooter);
+        $slug = Str::slug($match->name.'-'.$shooter->name);
+        $report = $reportService->generateReport($match, $shooter);
 
-        return $renderer->stream('exports.pdf-shooter-report', $data, "{$slug}-shooter-report.pdf");
+        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf");
     }
 
     /**
@@ -616,7 +639,7 @@ class MatchExportController extends Controller
             foreach ($dt['gongs'] as $g) {
                 $heatmapColumns[] = [
                     'distance_meters' => $dt['distance_meters'],
-                    'distance_label' => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
+                    'distance_label' => $dt['label'] ?? ($dt['distance_meters'].'m'),
                     'distance_multiplier' => $dt['distance_multiplier'],
                     'gong_number' => $g['number'],
                     'gong_multiplier' => $g['multiplier'],
@@ -642,6 +665,7 @@ class MatchExportController extends Controller
                     foreach ($dt['gongs'] as $_) {
                         $cells[] = ['state' => 'none', 'points' => null];
                     }
+
                     continue;
                 }
                 foreach ($row['cells'] as $cell) {
@@ -652,7 +676,7 @@ class MatchExportController extends Controller
             $heatmap[] = [
                 'rank' => $standing->rank,
                 'name' => $standing->name,
-                'display_name' => \Illuminate\Support\Str::before($standing->name, ' — ') ?: $standing->name,
+                'display_name' => Str::before($standing->name, ' — ') ?: $standing->name,
                 'caliber' => $this->caliberFromShooterName($standing->name),
                 'squad' => $standing->squad,
                 'status' => $standing->status,
@@ -714,7 +738,7 @@ class MatchExportController extends Controller
             }
             $distanceStats[] = [
                 'distance_meters' => $dt['distance_meters'],
-                'label' => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
+                'label' => $dt['label'] ?? ($dt['distance_meters'].'m'),
                 'multiplier' => $dt['distance_multiplier'],
                 'gong_count' => count($dt['gongs']),
                 'shots' => $shots,
@@ -764,7 +788,7 @@ class MatchExportController extends Controller
             $maxDistancePoints = $dt['distance_multiplier'] * collect($dt['gongs'])->sum('multiplier');
             $myDistances[] = [
                 'distance_meters' => $dt['distance_meters'],
-                'label' => $dt['label'] ?? ($dt['distance_meters'] . 'm'),
+                'label' => $dt['label'] ?? ($dt['distance_meters'].'m'),
                 'distance_multiplier' => $dt['distance_multiplier'],
                 'gongs' => $dt['gongs'],
                 'cells' => $row['cells'],
@@ -819,9 +843,9 @@ class MatchExportController extends Controller
             if ($bestDistance && $bestDistance['hit_rate'] > 0) {
                 $insights[] = [
                     'label' => 'Best Distance',
-                    'value' => $bestDistance['label'] . ' — ' . $bestDistance['hits'] . '/' . ($bestDistance['hits'] + $bestDistance['misses']),
-                    'sub' => $bestDistance['hit_rate'] . '% hit rate'
-                        . ($bestDistance['is_clean_sweep'] ? ' · clean sweep' : ''),
+                    'value' => $bestDistance['label'].' — '.$bestDistance['hits'].'/'.($bestDistance['hits'] + $bestDistance['misses']),
+                    'sub' => $bestDistance['hit_rate'].'% hit rate'
+                        .($bestDistance['is_clean_sweep'] ? ' · clean sweep' : ''),
                 ];
             }
 
@@ -829,7 +853,7 @@ class MatchExportController extends Controller
             if ($cleanSweeps->isNotEmpty()) {
                 $insights[] = [
                     'label' => 'Clean Sweeps',
-                    'value' => $cleanSweeps->count() . ' distance' . ($cleanSweeps->count() === 1 ? '' : 's'),
+                    'value' => $cleanSweeps->count().' distance'.($cleanSweeps->count() === 1 ? '' : 's'),
                     'sub' => $cleanSweeps->pluck('label')->implode(' · '),
                 ];
             }
@@ -859,7 +883,7 @@ class MatchExportController extends Controller
                                 'difficulty' => $difficulty,
                                 'distance_multiplier' => $distM,
                                 'gong_multiplier' => $gongM,
-                                'label' => $dist['label'] . ' · G' . $gong['number'],
+                                'label' => $dist['label'].' · G'.$gong['number'],
                                 'points' => $cell['points'],
                             ];
                         }
@@ -875,7 +899,7 @@ class MatchExportController extends Controller
                                 'difficulty' => $difficulty,
                                 'distance_multiplier' => $distM,
                                 'gong_multiplier' => $gongM,
-                                'label' => $dist['label'] . ' · G' . $gong['number'],
+                                'label' => $dist['label'].' · G'.$gong['number'],
                                 'points_forfeited' => $difficulty,
                             ];
                         }
@@ -887,7 +911,7 @@ class MatchExportController extends Controller
                 $insights[] = [
                     'label' => 'Hardest Gong Cleared',
                     'value' => $hardestGongHit['label'],
-                    'sub' => '+' . number_format($hardestGongHit['points'], 1) . ' pts',
+                    'sub' => '+'.number_format($hardestGongHit['points'], 1).' pts',
                 ];
             }
 
@@ -900,7 +924,7 @@ class MatchExportController extends Controller
                 $insights[] = [
                     'label' => 'Toughest Miss',
                     'value' => $toughestMiss['label'],
-                    'sub' => '−' . number_format($toughestMiss['points_forfeited'], 1) . ' pts forfeited',
+                    'sub' => '−'.number_format($toughestMiss['points_forfeited'], 1).' pts forfeited',
                 ];
             } elseif ($fieldSize >= 2) {
                 // Clean match. Show the gap to the next shooter (or to the
@@ -911,10 +935,10 @@ class MatchExportController extends Controller
                     $gap = $myScore - $runnerScore;
                     $insights[] = [
                         'label' => 'Match Margin',
-                        'value' => '+' . number_format($gap, 1) . ' pts',
-                        'sub' => 'ahead of ' . (
+                        'value' => '+'.number_format($gap, 1).' pts',
+                        'sub' => 'ahead of '.(
                             $runnerUp
-                                ? (\Illuminate\Support\Str::before($runnerUp->name, ' — ') ?: $runnerUp->name)
+                                ? (Str::before($runnerUp->name, ' — ') ?: $runnerUp->name)
                                 : 'runner-up'
                         ),
                     ];
@@ -924,10 +948,10 @@ class MatchExportController extends Controller
                     $gap = $leaderScore - $myScore;
                     $insights[] = [
                         'label' => 'Gap to Leader',
-                        'value' => ($gap > 0 ? '−' : '') . number_format($gap, 1) . ' pts',
-                        'sub' => 'behind ' . (
+                        'value' => ($gap > 0 ? '−' : '').number_format($gap, 1).' pts',
+                        'sub' => 'behind '.(
                             $leader
-                                ? (\Illuminate\Support\Str::before($leader->name, ' — ') ?: $leader->name)
+                                ? (Str::before($leader->name, ' — ') ?: $leader->name)
                                 : 'leader'
                         ),
                     ];
@@ -937,7 +961,7 @@ class MatchExportController extends Controller
                 $insights[] = [
                     'label' => 'Points per Shot',
                     'value' => number_format($myScore / max(1, $totalShots), 2),
-                    'sub' => 'avg across ' . $totalShots . ' shots',
+                    'sub' => 'avg across '.$totalShots.' shots',
                 ];
             }
         }
@@ -945,7 +969,7 @@ class MatchExportController extends Controller
         // Badges earned in this match.
         $badges = [];
         if ($shooter->user_id) {
-            $badges = \App\Models\UserAchievement::query()
+            $badges = UserAchievement::query()
                 ->where('user_id', $shooter->user_id)
                 ->where('match_id', $match->id)
                 ->with('achievement')
@@ -986,7 +1010,7 @@ class MatchExportController extends Controller
     private function buildPostMatchReportData(ShootingMatch $match): array
     {
         $match->load('organization');
-        $standingsService = new \App\Services\MatchStandingsService();
+        $standingsService = new MatchStandingsService;
 
         $standings = $standingsService->standardStandings($match);
 
@@ -1006,7 +1030,7 @@ class MatchExportController extends Controller
 
         // Preload user_id for every shooter in the match so report views can
         // decide whether to render a "Claim this result" chip per row.
-        $shooterUserIds = \App\Models\Shooter::query()
+        $shooterUserIds = Shooter::query()
             ->whereIn('id', $shooterIds)
             ->pluck('user_id', 'id')
             ->all();
@@ -1027,6 +1051,7 @@ class MatchExportController extends Controller
                     $score = $shooterScores->get($g->id);
                     if (! $score) {
                         $cells[] = ['state' => 'none', 'points' => null];
+
                         continue;
                     }
                     if ($score->is_hit) {
@@ -1123,6 +1148,7 @@ class MatchExportController extends Controller
                 if ($aMax !== $bMax) {
                     return $bMax <=> $aMax;
                 }
+
                 return $b->total_score <=> $a->total_score;
             });
 
@@ -1161,6 +1187,7 @@ class MatchExportController extends Controller
             if (str_contains($name, $sep)) {
                 $parts = explode($sep, $name, 2);
                 $tail = trim($parts[1] ?? '');
+
                 return $tail !== '' ? $tail : null;
             }
         }
@@ -1229,6 +1256,7 @@ class MatchExportController extends Controller
                     return $bHits <=> $aHits;
                 }
             }
+
             return 0;
         })->values();
 

@@ -10,7 +10,6 @@ use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
-use App\Models\TargetSet;
 use App\Services\NotificationService;
 use App\Services\RoyalFlushShotStatusService;
 use App\Services\ScoreAuditService;
@@ -29,6 +28,17 @@ class ScoreController extends Controller
 
         if (! $canScore) {
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
+        }
+
+        // Lock writes on a Completed match. Prevents a stale offline tablet
+        // from syncing scores into a match that has already been finalised,
+        // badges awarded, and post-match emails sent. MDs must explicitly
+        // re-open the match (Completed → Active) to accept corrections.
+        if ($match->status === MatchStatus::Completed) {
+            return response()->json([
+                'message' => 'Match already scored. Re-open the match to edit scores.',
+                'status' => 'completed',
+            ], 423);
         }
 
         $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
@@ -187,7 +197,7 @@ class ScoreController extends Controller
     public function updateShooterStatus(ShootingMatch $match, Shooter $shooter, Request $request)
     {
         $matchShooterIds = $match->shooters()->pluck('shooters.id');
-        if (!$matchShooterIds->contains($shooter->id)) {
+        if (! $matchShooterIds->contains($shooter->id)) {
             abort(404);
         }
 

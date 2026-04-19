@@ -52,7 +52,23 @@
                                 <h3 class="font-semibold text-white">{{ match.name }}</h3>
                                 <p class="mt-1 text-sm text-slate-400">{{ match.location }}</p>
                             </div>
-                            <span class="ml-2 shrink-0 rounded-full bg-green-600/20 px-2.5 py-0.5 text-xs font-medium text-green-400">
+                            <span
+                                v-if="match.status === 'completed'"
+                                class="ml-2 shrink-0 rounded-full bg-slate-600/30 px-2.5 py-0.5 text-xs font-medium text-slate-300"
+                                title="Match already scored"
+                            >
+                                Completed
+                            </span>
+                            <span
+                                v-else-if="match.status === 'ready'"
+                                class="ml-2 shrink-0 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400"
+                            >
+                                Ready
+                            </span>
+                            <span
+                                v-else
+                                class="ml-2 shrink-0 rounded-full bg-green-600/20 px-2.5 py-0.5 text-xs font-medium text-green-400"
+                            >
                                 Active
                             </span>
                         </div>

@@ -237,7 +237,7 @@ class MatchReportService
             ],
             'fun_facts' => $this->generateStandardFunFacts(
                 $shooter, $rank, $allShooters->count(), $totalScore, $totalHits,
-                $totalGongCount, $stages, $ranked, $gongHitRates, $shooterScores, $allGongs, $fieldHitRates, $gongDistanceMap
+                $totalGongCount, $stages, $ranked, $gongHitRates, $shooterScores, $allGongs, $fieldHitRates, $gongDistanceMap, $targetSets
             ),
             'badges' => $this->shooterBadges($match, $shooter),
         ];
@@ -996,7 +996,7 @@ class MatchReportService
         Shooter $shooter, int $rank, int $total, float $totalScore, int $totalHits,
         int $totalGongCount, array $stages, Collection $ranked, array $gongHitRates,
         Collection $shooterScores, Collection $allGongs, Collection $fieldHitRates,
-        array $gongDistanceMap = []
+        array $gongDistanceMap = [], ?Collection $targetSets = null
     ): array {
         $facts = [];
         $percentile = $total > 0 ? round(($rank / $total) * 100, 1) : 0;
@@ -1030,9 +1030,11 @@ class MatchReportService
             $facts[] = "The hardest gong was {$hardest['label']} ({$hardest['hit_rate']}% hit rate) — {$verb}";
         }
 
-        $streak = $this->longestHitStreak($shooterScores, $allGongs);
+        $streak = $targetSets !== null
+            ? $this->longestHitStreak($shooterScores, $targetSets)
+            : $this->longestHitStreakFlat($shooterScores, $allGongs);
         if ($streak >= 3) {
-            $facts[] = "Your longest hit streak was {$streak} consecutive hits";
+            $facts[] = "Your longest hit streak was {$streak} consecutive hits on a single stage";
         }
 
         return array_slice($facts, 0, 6);
@@ -1156,7 +1158,39 @@ class MatchReportService
         return false;
     }
 
-    private function longestHitStreak(Collection $shooterScores, Collection $allGongs): int
+    /**
+     * Longest run of consecutive hits constrained to a single stage (target set).
+     * The streak does NOT carry across distance/stage boundaries — e.g. a hit
+     * on the last 400 m gong followed by a hit on the first 500 m gong is NOT
+     * a streak of 2, it's two independent streaks of 1.
+     */
+    private function longestHitStreak(Collection $shooterScores, Collection $targetSets): int
+    {
+        $maxStreak = 0;
+
+        foreach ($targetSets as $ts) {
+            $currentStreak = 0;
+
+            $gongs = $ts->gongs ?? collect();
+            foreach ($gongs as $g) {
+                $score = $shooterScores->get($g->id);
+                if ($score && $score->is_hit) {
+                    $currentStreak++;
+                    $maxStreak = max($maxStreak, $currentStreak);
+                } else {
+                    $currentStreak = 0;
+                }
+            }
+        }
+
+        return $maxStreak;
+    }
+
+    /**
+     * Fallback used only when target sets are not threaded through to the fun-facts
+     * generator. Iterates the flat gong list with no stage boundaries.
+     */
+    private function longestHitStreakFlat(Collection $shooterScores, Collection $allGongs): int
     {
         $maxStreak = 0;
         $currentStreak = 0;

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MatchStatus;
 use App\Enums\PrsShotResult;
 use App\Http\Controllers\Controller;
+use App\Jobs\SendPostMatchNotifications;
 use App\Models\CorrectionLog;
 use App\Models\ElrShot;
 use App\Models\PrsShotScore;
@@ -11,9 +13,12 @@ use App\Models\PrsStageResult;
 use App\Models\Score;
 use App\Models\ScoreAuditLog;
 use App\Models\ShootingMatch;
+use App\Services\AchievementService;
+use App\Services\NotificationService;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class ScoreManagementController extends Controller
@@ -45,10 +50,14 @@ class ScoreManagementController extends Controller
                 default => null,
             };
 
-            if (!$model) continue;
+            if (! $model) {
+                continue;
+            }
 
             $oldShooterId = $model->shooter_id;
-            if ($oldShooterId === $validated['new_shooter_id']) continue;
+            if ($oldShooterId === $validated['new_shooter_id']) {
+                continue;
+            }
 
             ScoreAuditService::logReassigned(
                 $match->id,
@@ -72,7 +81,7 @@ class ScoreManagementController extends Controller
         }
 
         return response()->json([
-            'message' => count($reassigned) . ' score(s) reassigned.',
+            'message' => count($reassigned).' score(s) reassigned.',
             'reassigned_ids' => $reassigned,
         ]);
     }
@@ -102,7 +111,9 @@ class ScoreManagementController extends Controller
                 default => null,
             };
 
-            if (!$model) continue;
+            if (! $model) {
+                continue;
+            }
 
             $model->update([
                 'is_reshoot' => true,
@@ -115,7 +126,7 @@ class ScoreManagementController extends Controller
         }
 
         return response()->json([
-            'message' => count($marked) . ' score(s) marked as reshoot.',
+            'message' => count($marked).' score(s) marked as reshoot.',
             'reshoot_ids' => $marked,
         ]);
     }
@@ -139,7 +150,7 @@ class ScoreManagementController extends Controller
             $shooterId = (int) $request->query('shooter_id');
             $query->where(function ($q) use ($shooterId) {
                 $q->whereJsonContains('old_values->shooter_id', $shooterId)
-                  ->orWhereJsonContains('new_values->shooter_id', $shooterId);
+                    ->orWhereJsonContains('new_values->shooter_id', $shooterId);
             });
         }
 
@@ -163,16 +174,16 @@ class ScoreManagementController extends Controller
 
         if ($validated['published']) {
             try {
-                \App\Services\AchievementService::evaluateMatchCompletion($match);
+                AchievementService::evaluateMatchCompletion($match);
                 if ($match->royal_flush_enabled) {
-                    \App\Services\AchievementService::evaluateRoyalFlushCompletion($match);
+                    AchievementService::evaluateRoyalFlushCompletion($match);
                 }
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+                Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
             }
 
-            if ($match->status === \App\Enums\MatchStatus::Completed) {
-                \App\Jobs\SendPostMatchNotifications::dispatch($match)->delay(now()->addHour());
+            if ($match->status === MatchStatus::Completed) {
+                SendPostMatchNotifications::dispatch($match)->delay(now()->addHour());
             }
         }
 
@@ -297,7 +308,7 @@ class ScoreManagementController extends Controller
     {
         $this->authorizeMatchDirector($request, $match);
 
-        if ($match->status !== \App\Enums\MatchStatus::Active) {
+        if ($match->status !== MatchStatus::Active) {
             return response()->json(['message' => 'Match is not active.'], 422);
         }
 
@@ -316,26 +327,52 @@ class ScoreManagementController extends Controller
         }
 
         $oldStatus = $match->status;
-        $match->update(['status' => \App\Enums\MatchStatus::Completed]);
+        $match->update(['status' => MatchStatus::Completed]);
 
         try {
-            app(\App\Services\NotificationService::class)->onStatusChange($match, $oldStatus, \App\Enums\MatchStatus::Completed);
+            app(NotificationService::class)->onStatusChange($match, $oldStatus, MatchStatus::Completed);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
+            Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
         }
 
         try {
-            \App\Services\AchievementService::evaluateMatchCompletion($match);
+            AchievementService::evaluateMatchCompletion($match);
             if ($match->royal_flush_enabled) {
-                \App\Services\AchievementService::evaluateRoyalFlushCompletion($match);
+                AchievementService::evaluateRoyalFlushCompletion($match);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+            Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
         }
 
         return response()->json([
             'message' => 'Match completed.',
             'status' => 'completed',
+        ]);
+    }
+
+    public function reopenMatch(Request $request, ShootingMatch $match)
+    {
+        $this->authorizeMatchDirector($request, $match);
+
+        if ($match->status !== MatchStatus::Completed) {
+            return response()->json([
+                'message' => 'Only a completed match can be re-opened.',
+                'status' => $match->status->value,
+            ], 422);
+        }
+
+        $oldStatus = $match->status;
+        $match->update(['status' => MatchStatus::Active]);
+
+        try {
+            app(NotificationService::class)->onStatusChange($match, $oldStatus, MatchStatus::Active);
+        } catch (\Throwable $e) {
+            Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'message' => 'Match re-opened for editing.',
+            'status' => 'active',
         ]);
     }
 
@@ -347,7 +384,7 @@ class ScoreManagementController extends Controller
             || $match->created_by === $user->id
             || ($match->organization && $user->isOrgAdmin($match->organization));
 
-        if (!$authorized) {
+        if (! $authorized) {
             abort(403, 'Only the match director or admin can perform this action.');
         }
     }

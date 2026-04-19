@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\ElrShotResult;
+use App\Enums\MatchStatus;
 use App\Http\Controllers\Controller;
 use App\Models\ElrShot;
 use App\Models\ElrTarget;
@@ -26,6 +27,13 @@ class ElrScoreController extends Controller
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
         }
 
+        if ($match->status === MatchStatus::Completed) {
+            return response()->json([
+                'message' => 'Match already scored. Re-open the match to edit scores.',
+                'status' => 'completed',
+            ], 423);
+        }
+
         $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
         $validTargetIds = ElrTarget::query()
             ->whereIn('elr_stage_id', $match->elrStages()->pluck('id'))
@@ -46,7 +54,9 @@ class ElrScoreController extends Controller
 
         foreach ($validated['shots'] as $shotData) {
             $target = ElrTarget::with('stage.scoringProfile', 'stage.match.elrScoringProfile')->find($shotData['elr_target_id']);
-            if (! $target) continue;
+            if (! $target) {
+                continue;
+            }
 
             $result = ElrShotResult::from($shotData['result']);
             $pointsAwarded = 0;
@@ -108,7 +118,7 @@ class ElrScoreController extends Controller
             return response()->json(['message' => 'Shooter not found in this match'], 404);
         }
 
-        $service = new ELRScoringService();
+        $service = new ELRScoringService;
         $stages = $match->elrStages()->with(['targets', 'scoringProfile'])->get();
 
         $progress = $stages->map(fn ($stage) => [

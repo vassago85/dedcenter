@@ -96,5 +96,8 @@ onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
         await matchStore.fetchMatch(props.matchId);
     }
+    if (matchStore.currentMatch?.status === 'completed') {
+        router.replace({ name: 'match-overview', params: { matchId: props.matchId } });
+    }
 });
 </script>

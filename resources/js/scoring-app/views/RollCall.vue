@@ -242,5 +242,8 @@ onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== matchId.value) {
         await matchStore.fetchMatch(matchId.value);
     }
+    if (matchStore.currentMatch?.status === 'completed') {
+        router.replace({ name: 'match-overview', params: { matchId: matchId.value } });
+    }
 });
 </script>

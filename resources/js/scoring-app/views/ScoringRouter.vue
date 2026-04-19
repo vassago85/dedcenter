@@ -7,6 +7,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import ScoringFlow from './ScoringFlow.vue';
 import PrsScoringFlow from './PrsScoringFlow.vue';
@@ -16,6 +17,7 @@ const props = defineProps({
     matchId: { type: Number, required: true },
 });
 
+const router = useRouter();
 const matchStore = useMatchStore();
 const ready = ref(false);
 
@@ -33,6 +35,13 @@ const scoringComponent = computed(() => {
 onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
         await matchStore.fetchMatch(props.matchId);
+    }
+    // Bounce deep-links into a live scoring flow back to the overview when the
+    // match is already scored — UI makes the state obvious, banner explains why,
+    // and MDs still get the 'Re-open' path.
+    if (matchStore.currentMatch?.status === 'completed') {
+        router.replace({ name: 'match-overview', params: { matchId: props.matchId } });
+        return;
     }
     ready.value = true;
 });

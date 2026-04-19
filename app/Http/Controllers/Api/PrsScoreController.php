@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\PrsShotResult;
+use App\Enums\MatchStatus;
 use App\Http\Controllers\Controller;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
+use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\TargetSet;
+use App\Services\AchievementService;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,16 +37,28 @@ class PrsScoreController extends Controller
 
         if (! $canScore) {
             Log::warning('PRS score rejected: not authorized', ['user_id' => $user->id, 'match_id' => $match->id]);
+
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
+        }
+
+        if ($match->status === MatchStatus::Completed) {
+            Log::warning('PRS score rejected: match already scored', ['match_id' => $match->id]);
+
+            return response()->json([
+                'message' => 'Match already scored. Re-open the match to edit scores.',
+                'status' => 'completed',
+            ], 423);
         }
 
         if (! $match->isPrs()) {
             Log::warning('PRS score rejected: not a PRS match', ['match_id' => $match->id, 'scoring_type' => $match->scoring_type]);
+
             return response()->json(['message' => 'This match is not a PRS match.'], 422);
         }
 
         if ($stage->match_id !== $match->id) {
             Log::warning('PRS score rejected: stage mismatch', ['stage_match_id' => $stage->match_id, 'match_id' => $match->id]);
+
             return response()->json(['message' => 'Stage does not belong to this match.'], 422);
         }
 
@@ -95,7 +109,7 @@ class PrsScoreController extends Controller
 
                 if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shot['result']) {
                     ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, null, $request);
-                } elseif (!$existingShot) {
+                } elseif (! $existingShot) {
                     ScoreAuditService::logCreated($match->id, $savedShot, $request);
                 }
 
@@ -156,9 +170,9 @@ class PrsScoreController extends Controller
         ]);
 
         try {
-            $shooter = \App\Models\Shooter::find($stageResult->shooter_id);
+            $shooter = Shooter::find($stageResult->shooter_id);
             if ($shooter) {
-                \App\Services\AchievementService::evaluateStageCompletion($match, $stage, $shooter, $stageResult);
+                AchievementService::evaluateStageCompletion($match, $stage, $shooter, $stageResult);
             }
         } catch (\Throwable $e) {
             Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);

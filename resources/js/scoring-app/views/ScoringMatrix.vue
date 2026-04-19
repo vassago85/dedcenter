@@ -215,6 +215,11 @@ function openCell(squadId, tsId) {
 onMounted(async () => {
     await matchStore.fetchMatch(matchId.value);
 
+    if (matchStore.currentMatch?.status === 'completed') {
+        router.replace({ name: 'match-overview', params: { matchId: matchId.value } });
+        return;
+    }
+
     const serverScores = matchStore.currentMatch?.scores ?? [];
     await scoringStore.initForMatch(matchId.value, serverScores);
     const merged = [];

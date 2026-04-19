@@ -1,24 +1,34 @@
 <?php
 
+use App\Enums\PrsShotResult;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DisqualificationController;
 use App\Http\Controllers\Api\ElrScoreController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MemberMatchController;
 use App\Http\Controllers\Api\PrsScoreController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
-use App\Http\Controllers\Api\DisqualificationController;
 use App\Http\Controllers\Api\ScoreManagementController;
 use App\Http\Controllers\Api\SeasonController;
+use App\Http\Controllers\Api\SyncController;
 use App\Http\Middleware\EnforceDeviceLock;
+use App\Models\PrsShotScore;
+use App\Models\PrsStageResult;
+use App\Models\Score;
+use App\Models\ShootingMatch;
+use App\Models\StageTime;
+use App\Models\UserAchievement;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login']);
 
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
 
-Route::get('matches/{match}/badges', function (\App\Models\ShootingMatch $match) {
-    $badges = \App\Models\UserAchievement::where('match_id', $match->id)
+Route::get('matches/{match}/badges', function (ShootingMatch $match) {
+    $badges = UserAchievement::where('match_id', $match->id)
         ->with('achievement:id,slug,label,description,category')
         ->get()
         ->groupBy('user_id')
@@ -31,25 +41,27 @@ Route::get('matches/{match}/badges', function (\App\Models\ShootingMatch $match)
     return response()->json(['badges' => $badges]);
 });
 
-Route::get('matches/{match}/prs-backfill', function (App\Models\ShootingMatch $match) {
+Route::get('matches/{match}/prs-backfill', function (ShootingMatch $match) {
     if (! $match->isPrs()) {
         return response()->json(['message' => 'Not a PRS match'], 422);
     }
 
-    $shots = App\Models\PrsShotScore::where('match_id', $match->id)->get();
+    $shots = PrsShotScore::where('match_id', $match->id)->get();
     $grouped = $shots->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
     $created = 0;
 
     foreach ($grouped as $key => $stageShots) {
         [$shooterId, $stageId] = explode('-', $key);
-        $existing = App\Models\PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stageId)->first();
-        if ($existing) continue;
+        $existing = PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stageId)->first();
+        if ($existing) {
+            continue;
+        }
 
-        $hits = $stageShots->where('result', App\Enums\PrsShotResult::Hit)->count();
-        $misses = $stageShots->where('result', App\Enums\PrsShotResult::Miss)->count();
-        $notTaken = $stageShots->where('result', App\Enums\PrsShotResult::NotTaken)->count();
+        $hits = $stageShots->where('result', PrsShotResult::Hit)->count();
+        $misses = $stageShots->where('result', PrsShotResult::Miss)->count();
+        $notTaken = $stageShots->where('result', PrsShotResult::NotTaken)->count();
 
-        App\Models\PrsStageResult::create([
+        PrsStageResult::create([
             'match_id' => $match->id,
             'shooter_id' => (int) $shooterId,
             'stage_id' => (int) $stageId,
@@ -76,8 +88,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('member/matches', [MemberMatchController::class, 'index']);
 
-    Route::get('member/achievements', function (\Illuminate\Http\Request $request) {
-        $badges = \App\Models\UserAchievement::where('user_id', $request->user()->id)
+    Route::get('member/achievements', function (Request $request) {
+        $badges = UserAchievement::where('user_id', $request->user()->id)
             ->with(['achievement:id,slug,label,description,category,scope,is_repeatable', 'match:id,name,date'])
             ->orderByDesc('awarded_at')
             ->get()
@@ -122,17 +134,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
     Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
     Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
+    Route::post('matches/{match}/reopen', [ScoreManagementController::class, 'reopenMatch']);
 
     // Disqualifications (MD only)
     Route::get('matches/{match}/disqualifications', [DisqualificationController::class, 'index']);
     Route::post('matches/{match}/disqualifications', [DisqualificationController::class, 'store']);
     Route::delete('matches/{match}/disqualifications/{disqualification}', [DisqualificationController::class, 'destroy']);
 
-    Route::get('matches/{match}/scores/sync', [\App\Http\Controllers\Api\SyncController::class, 'scores']);
+    Route::get('matches/{match}/scores/sync', [SyncController::class, 'scores']);
 
-    Route::get('matches/{match}/prs-diagnostic', function (App\Models\ShootingMatch $match) {
-        $stageResults = App\Models\PrsStageResult::where('match_id', $match->id)->get();
-        $shotScores = App\Models\PrsShotScore::where('match_id', $match->id)->count();
+    Route::get('matches/{match}/prs-diagnostic', function (ShootingMatch $match) {
+        $stageResults = PrsStageResult::where('match_id', $match->id)->get();
+        $shotScores = PrsShotScore::where('match_id', $match->id)->count();
         $stages = $match->targetSets()->get(['id', 'label', 'is_timed_stage', 'total_shots']);
         $gongCounts = $stages->mapWithKeys(fn ($s) => [$s->id => $s->gongs()->count()]);
 
@@ -156,15 +169,15 @@ Route::middleware('auth:sanctum')->group(function () {
                 'updated_at' => $r->updated_at?->toIso8601String(),
             ]),
             'total_prs_shot_scores' => $shotScores,
-            'standard_scores_count' => App\Models\Score::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
-            'stage_times_count' => App\Models\StageTime::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
+            'standard_scores_count' => Score::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
+            'stage_times_count' => StageTime::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
         ]);
     });
 
-    Route::post('push/subscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'subscribe']);
-    Route::delete('push/unsubscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'unsubscribe']);
+    Route::post('push/subscribe', [PushSubscriptionController::class, 'subscribe']);
+    Route::delete('push/unsubscribe', [PushSubscriptionController::class, 'unsubscribe']);
 
-    Route::get('notifications', function (\Illuminate\Http\Request $request) {
+    Route::get('notifications', function (Request $request) {
         return response()->json([
             'notifications' => $request->user()->notifications()->latest()->take(30)->get()->map(fn ($n) => [
                 'id' => $n->id,
@@ -176,12 +189,14 @@ Route::middleware('auth:sanctum')->group(function () {
             'unread_count' => $request->user()->unreadNotifications()->count(),
         ]);
     });
-    Route::post('notifications/{id}/read', function (\Illuminate\Http\Request $request, string $id) {
+    Route::post('notifications/{id}/read', function (Request $request, string $id) {
         $request->user()->notifications()->where('id', $id)->first()?->markAsRead();
+
         return response()->json(['success' => true]);
     });
-    Route::post('notifications/read-all', function (\Illuminate\Http\Request $request) {
+    Route::post('notifications/read-all', function (Request $request) {
         $request->user()->unreadNotifications->markAsRead();
+
         return response()->json(['success' => true]);
     });
 });

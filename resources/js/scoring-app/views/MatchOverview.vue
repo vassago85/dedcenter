@@ -255,8 +255,71 @@
 
                     <!-- Action buttons -->
                     <div class="grid grid-cols-1 gap-3 pt-2">
+                        <!-- Match already scored (Completed) -->
+                        <template v-if="matchStore.currentMatch.status === 'completed'">
+                            <div class="rounded-xl border border-slate-600 bg-slate-800 p-4">
+                                <div class="flex items-start gap-3">
+                                    <svg class="mt-0.5 h-6 w-6 shrink-0 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                    </svg>
+                                    <div class="min-w-0 flex-1">
+                                        <h3 class="text-base font-bold text-white">Match already scored</h3>
+                                        <p class="mt-1 text-sm text-slate-400">
+                                            Scores have been finalised, badges awarded, and post-match emails sent. New scores can't be captured until the match is re-opened.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <router-link
+                                :to="{ name: 'scoreboard', params: { matchId: props.matchId } }"
+                                class="flex items-center justify-center gap-2 rounded-xl bg-red-600 py-4 text-lg font-bold text-white shadow-lg transition-colors hover:bg-red-700 active:bg-red-800"
+                            >
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                                </svg>
+                                View Scoreboard
+                            </router-link>
+
+                            <template v-if="matchStore.canManage">
+                                <button
+                                    v-if="!showReopenConfirm"
+                                    @click="showReopenConfirm = true"
+                                    class="flex items-center justify-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 py-3 font-semibold text-amber-300 transition-colors hover:bg-amber-900/40"
+                                >
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                                    </svg>
+                                    Re-open match to edit
+                                </button>
+
+                                <div v-else class="rounded-xl border border-amber-600/40 bg-slate-800 p-4 space-y-3">
+                                    <p class="text-sm font-semibold text-amber-400">Re-open this match?</p>
+                                    <p class="text-xs text-slate-400">
+                                        Scoring will go live again so you can fix scores. Badges already awarded and emails already sent stay in place. When you're done, complete the match again to re-finalise.
+                                    </p>
+                                    <p v-if="reopenError" class="text-xs text-red-400">{{ reopenError }}</p>
+                                    <div class="flex gap-2">
+                                        <button
+                                            @click="confirmReopenMatch"
+                                            :disabled="reopenLoading"
+                                            class="flex-1 rounded-lg bg-amber-600 py-2 text-sm font-bold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+                                        >
+                                            {{ reopenLoading ? 'Re-opening...' : 'Yes, Re-open' }}
+                                        </button>
+                                        <button
+                                            @click="showReopenConfirm = false"
+                                            class="flex-1 rounded-lg border border-slate-600 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-700"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+
                         <!-- PRS / ELR: single Start Scoring button that goes through ScoringRouter -->
-                        <template v-if="matchStore.currentMatch.scoring_type === 'prs' || matchStore.currentMatch.scoring_type === 'elr'">
+                        <template v-else-if="matchStore.currentMatch.scoring_type === 'prs' || matchStore.currentMatch.scoring_type === 'elr'">
                             <router-link
                                 :to="{ name: 'scoring', params: { matchId: props.matchId } }"
                                 class="flex items-center justify-center gap-2 rounded-xl bg-red-600 py-4 text-lg font-bold text-white shadow-lg transition-colors hover:bg-red-700 active:bg-red-800"
@@ -313,6 +376,7 @@
                             </template>
                         </template>
                         <router-link
+                            v-if="matchStore.currentMatch.status !== 'completed'"
                             :to="{ name: 'scoreboard', params: { matchId: props.matchId } }"
                             class="flex items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 py-3 font-semibold text-white transition-colors hover:bg-slate-700"
                         >
@@ -320,7 +384,7 @@
                         </router-link>
 
                         <!-- Complete Match (MD only) -->
-                        <template v-if="matchStore.canManage">
+                        <template v-if="matchStore.canManage && matchStore.currentMatch.status !== 'completed'">
                             <button
                                 v-if="!showCompleteConfirm"
                                 @click="prepareCompleteMatch"
@@ -386,6 +450,9 @@ const showDeviceSettings = ref(false);
 const showCompleteConfirm = ref(false);
 const completeLoading = ref(false);
 const completeInfo = ref({ warnings: [], total_shooters: 0, scored_shooters: 0 });
+const showReopenConfirm = ref(false);
+const reopenLoading = ref(false);
+const reopenError = ref('');
 const pinVerified = ref(false);
 const pinInput = ref('');
 const pinError = ref('');
@@ -504,6 +571,19 @@ async function confirmCompleteMatch() {
         alert(e.response?.data?.message || 'Failed to complete match.');
     } finally {
         completeLoading.value = false;
+    }
+}
+
+async function confirmReopenMatch() {
+    reopenLoading.value = true;
+    reopenError.value = '';
+    try {
+        await matchStore.reopenMatch(props.matchId);
+        showReopenConfirm.value = false;
+    } catch (e) {
+        reopenError.value = e.response?.data?.message || 'Failed to re-open match.';
+    } finally {
+        reopenLoading.value = false;
     }
 }
 

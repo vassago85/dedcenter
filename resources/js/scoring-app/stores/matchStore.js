@@ -298,6 +298,18 @@ export const useMatchStore = defineStore('match', {
             return data;
         },
 
+        async reopenMatch(matchId) {
+            const { data } = await axios.post(`/api/matches/${matchId}/reopen`);
+            if (this.currentMatch?.id === matchId) {
+                this.currentMatch.status = 'active';
+            }
+            const listEntry = this.matches.find((m) => m.id === matchId);
+            if (listEntry) {
+                listEntry.status = 'active';
+            }
+            return data;
+        },
+
         async revokeDisqualification(matchId, dqId) {
             const { data } = await axios.delete(`/api/matches/${matchId}/disqualifications/${dqId}`);
 
