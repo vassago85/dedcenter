@@ -199,11 +199,25 @@ html.dark [data-flux-button][class*='bg-emerald'] {
     border-color: var(--color-border) !important;
 }
 
-/* ── Toast ── */
-:where([data-flux-toast]) {
+/* ── Toast ──
+   The Flux toast dialog uses [data-flux-toast-dialog] and wraps its
+   body copy in [data-flux-heading] / [data-flux-subheading] /
+   [data-flux-description]. Other rules in this file clamp those tags
+   to muted blue-greys for the app chrome, which makes toast body text
+   near-invisible against the dark surface. Re-scope so descendants of
+   a toast card are explicitly readable regardless of inner markup. */
+html.dark [data-flux-toast-dialog] {
     color: #ffffff !important;
     background: var(--color-surface) !important;
     border-color: var(--color-border) !important;
+}
+html.dark [data-flux-toast-dialog] [data-flux-heading],
+html.dark [data-flux-toast-dialog] [data-flux-subheading],
+html.dark [data-flux-toast-dialog] [data-flux-description],
+html.dark [data-flux-toast-dialog] [data-flux-text],
+html.dark [data-flux-toast-dialog] p,
+html.dark [data-flux-toast-dialog] span:not([data-flux-badge]) {
+    color: #ffffff !important;
 }
 ui-toast:not(:popover-open) {
     display: none !important;
