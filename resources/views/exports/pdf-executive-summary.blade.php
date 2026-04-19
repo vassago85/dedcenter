@@ -1,6 +1,13 @@
 @php
     /**
-     * Executive Summary PDF (A4 Landscape, single page).
+     * Executive Summary PDF (A4 Portrait, multi-page when roster is deep).
+     *
+     * Converted from the old single-page landscape sheet so the report reads
+     * like the rest of the shooter-facing reports: navy edge-to-edge, podium
+     * + stat cards up top, then a tick/cross heatmap that flows across pages
+     * with a repeating header. Orphans/widows guards keep the last page from
+     * stranding a single shooter at the top, matching the user's ask for a
+     * clean, even page break.
      *
      * @var \App\Models\ShootingMatch $match
      * @var array $heatmap                Rows of shooter + cells
@@ -46,34 +53,33 @@
     <title>{{ $match->name }} — Executive Summary</title>
     @include('exports.partials.pdf-styles-dark')
     <style>
-        /* Landscape page size */
-        @page { size: A4 landscape; margin: 0; }
-        body { width: 297mm; background: #071327; }
+        /* Portrait A4 edge-to-edge in navy (matches pdf-match-report). */
+        @page { size: A4 portrait; margin: 0; background: #071327; }
+        body { width: 210mm; background: #071327; }
 
-        /* Generous top/bottom gutters so the match-report table and the
-           footer breathe — the previous 12–14px gap made the first and last
-           shooter rows fuse against the page edges on print. The pdf-footer
-           brings its own 16px top margin, so the bottom gutter can stay
-           modest while still feeling intentional. */
-        .wrap { padding: 20px 16px 16px; background: #071327; }
+        /* Page gutter. Tight enough to fit the heatmap at portrait width,
+           generous enough that rows don't kiss the paper edge when Chromium
+           walks the table across pages. */
+        .wrap { padding: 14px 12px 12px; background: #071327; orphans: 3; widows: 3; }
 
-        /* ─── Top row: podium + stat cards ─── */
-        .top-row { width: 100%; border-collapse: collapse; margin-top: 4px; }
-        .top-row > tbody > tr > td { vertical-align: top; padding: 0; }
-        .top-row .podium-col { width: 58%; padding-right: 10px; }
-        .top-row .stats-col  { width: 42%; }
+        /* ─── Top block: podium above stat cards (stacked for portrait).
+             Each block is page-break-inside:avoid so page 1 always ships a
+             complete header without a split podium or split stat strip. ─── */
+        .podium { page-break-inside: avoid; }
 
-        /* Stat cards — dark tiles */
+        /* Stat cards — dark tiles. Full-width 4-up strip under the podium. */
         .stats-grid {
             width: 100%;
             border-collapse: separate;
             border-spacing: 6px 0;
             table-layout: fixed;
+            margin-top: 8px;
+            page-break-inside: avoid;
         }
         .stats-grid td {
             border: 1px solid #31486d;
             border-radius: 5px;
-            padding: 12px 14px;
+            padding: 8px 10px;
             vertical-align: top;
             width: 25%;
             background: #0c1a33;
@@ -86,12 +92,12 @@
             letter-spacing: 0.2em;
         }
         .stats-grid .val {
-            font-size: 18pt;
+            font-size: 15pt;
             font-weight: 800;
             color: #f8fafc;
             font-variant-numeric: tabular-nums;
             line-height: 1;
-            margin-top: 6px;
+            margin-top: 5px;
             letter-spacing: -0.02em;
         }
         .stats-grid .val .sub {
@@ -115,18 +121,22 @@
             border-radius: 2px;
         }
 
-        /* ─── Distance chips (sub-header strip) ─── */
+        /* ─── Distance chips (sub-header strip). Kept on page 1 via the
+             parent .wrap orphans/widows, and page-break-inside:avoid so it
+             never splits across pages. ─── */
         .dist-strip {
             width: 100%;
             border-collapse: separate;
-            border-spacing: 6px 0;
-            margin-top: 12px;
+            border-spacing: 5px 0;
+            margin-top: 10px;
+            page-break-inside: avoid;
+            page-break-after: avoid;
         }
         .dist-strip td {
             border: 1px solid #31486d;
             border-radius: 5px;
             background: #1d2d4a;
-            padding: 9px 10px 8px;
+            padding: 6px 8px 5px;
             text-align: center;
         }
         .dist-strip .d-label {
@@ -149,70 +159,78 @@
             letter-spacing: 0.06em;
         }
 
-        /* Match Report title — extra top gutter so the dense 25-row table
-           doesn't sit flush against the distance chips strip. */
-        .section-title-report { margin-top: 16px; margin-bottom: 8px; }
+        /* Match Report title. page-break-after:avoid keeps the heading
+           glued to the table below so you never get a floating title at
+           the bottom of a page. */
+        .section-title-report { margin-top: 12px; margin-bottom: 6px; page-break-after: avoid; }
 
-        /* ─── Heatmap grid ─── */
+        /* ─── Heatmap grid ───
+           Chromium/Gotenberg repeat <thead> on every page automatically for
+           overflowing tables (display:table-header-group is the default). We
+           let the table itself break via page-break-inside:auto, and every
+           <tr> gets page-break-inside:avoid so a shooter's row is never
+           split across a page boundary. ─── */
         .grid {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 6px;
+            margin-top: 4px;
             table-layout: fixed;
             border: 1px solid #31486d;
             border-radius: 5px;
-            overflow: hidden;
             background: #0c1a33;
+            page-break-inside: auto;
         }
+        .grid tr { page-break-inside: avoid; page-break-after: auto; }
+        .grid thead { display: table-header-group; }
+        .grid tfoot { display: table-footer-group; }
         .grid thead th {
             background: #243757;
             color: #f8fafc;
             font-weight: 700;
-            padding: 5px 2px;
+            padding: 4px 1px;
             text-align: center;
-            font-size: 6.5pt;
+            font-size: 6pt;
             border-right: 1px solid #31486d;
             letter-spacing: 0.04em;
         }
         .grid thead th.dist-head {
             background: #1d2d4a;
             color: #f8fafc;
-            letter-spacing: 0.14em;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            font-size: 7pt;
+            font-size: 6.5pt;
             font-weight: 800;
         }
-        .grid thead th.pos-head  { width: 22px; }
-        .grid thead th.name-head { width: 150px; text-align: left; padding-left: 8px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
-        .grid thead th.cal-head  { width: 110px; text-align: left; padding-left: 6px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
+        /* Portrait widths: usable ~186mm. Fixed-width framing columns leave
+           the rest to divvy up among ~20 shot cells. */
+        .grid thead th.pos-head  { width: 20px; }
+        .grid thead th.name-head { width: 110px; text-align: left; padding-left: 6px; letter-spacing: 0.12em; text-transform: uppercase; font-size: 5.5pt; }
+        .grid thead th.cal-head  { width: 78px; text-align: left; padding-left: 4px; letter-spacing: 0.12em; text-transform: uppercase; font-size: 5.5pt; }
         .grid thead th.score-head,
         .grid thead th.rate-head {
             background: #1d2d4a;
-            letter-spacing: 0.14em;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            font-size: 6pt;
-            width: 38px;
+            font-size: 5.5pt;
+            width: 32px;
         }
-        .grid thead th.score-head { color: #f8fafc; width: 44px; }
+        .grid thead th.score-head { color: #f8fafc; width: 38px; }
         .grid thead th.rate-head  { color: #94a3b8; }
 
-        /* Shot cells — narrow fixed width. 20 of these sit side-by-side; every
-           pixel saved here is given back to the Shooter / Caliber columns so
-           full names and long calibers (e.g. "6.5 Creedmoor", "30 Sherman Max")
-           are no longer truncated. An 11px SVG glyph + a hairline of padding
-           fits comfortably in 24px. */
+        /* Shot cells — narrower for portrait. Glyph still sits at ~9px so
+           tick/cross stay legible. */
         .grid thead th.shot-head,
         .grid td.hm-hit,
         .grid td.hm-miss,
-        .grid td.hm-none { width: 24px; }
+        .grid td.hm-none { width: 14px; }
 
-        .grid thead .gong-num  { font-size: 6.5pt; color: #f8fafc; font-weight: 700; }
-        .grid thead .gong-mult { display: block; font-size: 5.5pt; color: #94a3b8; font-weight: 600; margin-top: 2px; letter-spacing: 0.04em; }
+        .grid thead .gong-num  { font-size: 5.5pt; color: #f8fafc; font-weight: 700; }
+        .grid thead .gong-mult { display: block; font-size: 4.5pt; color: #94a3b8; font-weight: 600; margin-top: 1px; letter-spacing: 0.04em; }
 
         /* Royal Flush card-face header — 10 / J / Q / K / A. Typeset crisp
            but compact so it reads like a scorecard, not a spreadsheet. */
         .grid thead .card-face {
-            font-size: 8pt;
+            font-size: 6.5pt;
             color: #f8fafc;
             font-weight: 800;
             letter-spacing: 0.02em;
@@ -223,22 +241,22 @@
         }
         .grid thead .card-mult {
             display: block;
-            font-size: 5pt;
+            font-size: 4.5pt;
             color: #94a3b8;
             font-weight: 600;
-            margin-top: 3px;
+            margin-top: 2px;
             letter-spacing: 0.04em;
         }
 
         .grid tbody td {
             padding: 0;
-            font-size: 6.5pt;
+            font-size: 6pt;
             border-bottom: 1px solid #1e293b;
             border-right: 1px solid #1e293b;
             vertical-align: middle;
             text-align: center;
             line-height: 1;
-            height: 15px;
+            height: 14px;
             color: #cbd5e1;
         }
         /* First and last row get a hair of extra padding so the block
@@ -280,39 +298,38 @@
 
         .grid td.name {
             text-align: left;
-            padding: 2px 4px 2px 8px;
+            padding: 2px 4px 2px 6px;
             font-weight: 700;
             color: #f8fafc;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            font-size: 7pt;
+            font-size: 6.5pt;
+            max-width: 110px;
             letter-spacing: -0.005em;
         }
         .grid td.cal {
             text-align: left;
-            padding: 2px 8px 2px 6px;
+            padding: 2px 6px 2px 4px;
             color: #94a3b8;
-            font-size: 6.5pt;
+            font-size: 6pt;
             white-space: nowrap;
-            /* Soft clip for extreme-length calibers, but most common strings
-             * (e.g. "30 Sherman Max", "6.5 Creedmoor", "6.5 PRCW") now fit. */
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 110px;
+            max-width: 78px;
             letter-spacing: 0.02em;
         }
         .grid td.score {
             font-weight: 800;
             color: #f8fafc;
             font-variant-numeric: tabular-nums;
-            font-size: 8pt;
+            font-size: 7pt;
             letter-spacing: -0.01em;
         }
         .grid tr.top1 td.score { color: #fbbf24; }
         .grid td.rate {
             color: #cbd5e1;
-            font-size: 7pt;
+            font-size: 6.5pt;
             font-variant-numeric: tabular-nums;
         }
 
@@ -343,12 +360,12 @@
 
         .shot {
             display: inline-block;
-            width: 11px;
-            height: 11px;
+            width: 9px;
+            height: 9px;
             line-height: 0;
             vertical-align: middle;
         }
-        .shot svg { display: block; width: 11px; height: 11px; }
+        .shot svg { display: block; width: 9px; height: 9px; }
 
         /* Distance boundary — slightly firmer vertical separator on dark */
         .grid td.dist-end,
@@ -378,68 +395,62 @@
     @include('exports.partials.pdf-header', ['subtitle' => 'Executive Summary'])
 
     <div class="wrap">
-        {{-- ─── Top: Podium + Stat cards ─── --}}
-        <table class="top-row">
+        {{-- ─── Top: Podium (stacked for portrait) ─── --}}
+        <table class="podium">
             <tr>
-                <td class="podium-col">
-                    <table class="podium">
-                        <tr>
-                            @if($podium['first'])
-                                <td class="p1">
-                                    <div class="rk">1st · Winner</div>
-                                    <div class="nm">{{ \Illuminate\Support\Str::before($podium['first']->name, ' — ') ?: $podium['first']->name }}</div>
-                                    @php $cal1 = \Illuminate\Support\Str::contains($podium['first']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['first']->name, ' — ')) : null; @endphp
-                                    @if($cal1)<div class="cal">{{ $cal1 }}</div>@endif
-                                    <div class="sc">{{ $fmt($podium['first']->total_score) }}</div>
-                                    <div class="sub">{{ $podium['first']->hits }} hits · {{ $podium['first']->squad }}</div>
-                                </td>
-                            @endif
-                            @if($podium['second'])
-                                <td class="p2">
-                                    <div class="rk">2nd</div>
-                                    <div class="nm">{{ \Illuminate\Support\Str::before($podium['second']->name, ' — ') ?: $podium['second']->name }}</div>
-                                    @php $cal2 = \Illuminate\Support\Str::contains($podium['second']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['second']->name, ' — ')) : null; @endphp
-                                    @if($cal2)<div class="cal">{{ $cal2 }}</div>@endif
-                                    <div class="sc">{{ $fmt($podium['second']->total_score) }}</div>
-                                    <div class="sub">{{ $podium['second']->hits }} hits</div>
-                                </td>
-                            @endif
-                            @if($podium['third'])
-                                <td class="p3">
-                                    <div class="rk">3rd</div>
-                                    <div class="nm">{{ \Illuminate\Support\Str::before($podium['third']->name, ' — ') ?: $podium['third']->name }}</div>
-                                    @php $cal3 = \Illuminate\Support\Str::contains($podium['third']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['third']->name, ' — ')) : null; @endphp
-                                    @if($cal3)<div class="cal">{{ $cal3 }}</div>@endif
-                                    <div class="sc">{{ $fmt($podium['third']->total_score) }}</div>
-                                    <div class="sub">{{ $podium['third']->hits }} hits</div>
-                                </td>
-                            @endif
-                        </tr>
-                    </table>
+                @if($podium['first'])
+                    <td class="p1">
+                        <div class="rk">1st · Winner</div>
+                        <div class="nm">{{ \Illuminate\Support\Str::before($podium['first']->name, ' — ') ?: $podium['first']->name }}</div>
+                        @php $cal1 = \Illuminate\Support\Str::contains($podium['first']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['first']->name, ' — ')) : null; @endphp
+                        @if($cal1)<div class="cal">{{ $cal1 }}</div>@endif
+                        <div class="sc">{{ $fmt($podium['first']->total_score) }}</div>
+                        <div class="sub">{{ $podium['first']->hits }} hits · {{ $podium['first']->squad }}</div>
+                    </td>
+                @endif
+                @if($podium['second'])
+                    <td class="p2">
+                        <div class="rk">2nd</div>
+                        <div class="nm">{{ \Illuminate\Support\Str::before($podium['second']->name, ' — ') ?: $podium['second']->name }}</div>
+                        @php $cal2 = \Illuminate\Support\Str::contains($podium['second']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['second']->name, ' — ')) : null; @endphp
+                        @if($cal2)<div class="cal">{{ $cal2 }}</div>@endif
+                        <div class="sc">{{ $fmt($podium['second']->total_score) }}</div>
+                        <div class="sub">{{ $podium['second']->hits }} hits</div>
+                    </td>
+                @endif
+                @if($podium['third'])
+                    <td class="p3">
+                        <div class="rk">3rd</div>
+                        <div class="nm">{{ \Illuminate\Support\Str::before($podium['third']->name, ' — ') ?: $podium['third']->name }}</div>
+                        @php $cal3 = \Illuminate\Support\Str::contains($podium['third']->name, ' — ') ? trim(\Illuminate\Support\Str::after($podium['third']->name, ' — ')) : null; @endphp
+                        @if($cal3)<div class="cal">{{ $cal3 }}</div>@endif
+                        <div class="sc">{{ $fmt($podium['third']->total_score) }}</div>
+                        <div class="sub">{{ $podium['third']->hits }} hits</div>
+                    </td>
+                @endif
+            </tr>
+        </table>
+
+        {{-- ─── Stat cards (full-width strip under the podium) ─── --}}
+        <table class="stats-grid">
+            <tr>
+                <td>
+                    <div class="lbl">Shooters</div>
+                    <div class="val">{{ $statCards['totalShooters'] }}</div>
                 </td>
-                <td class="stats-col">
-                    <table class="stats-grid">
-                        <tr>
-                            <td>
-                                <div class="lbl">Shooters</div>
-                                <div class="val">{{ $statCards['totalShooters'] }}</div>
-                            </td>
-                            <td>
-                                <div class="lbl">Total Shots</div>
-                                <div class="val">{{ number_format($statCards['totalShots']) }}</div>
-                                <div class="bar"><span style="width: 100%;"></span></div>
-                            </td>
-                            <td>
-                                <div class="lbl">Hit Rate</div>
-                                <div class="val">{{ $statCards['hitRate'] }}<span class="sub">%</span></div>
-                                <div class="bar"><span style="width: {{ $statCards['hitRate'] }}%;"></span></div>
-                            </td>
-                            <td>
-                                <div class="lbl">Avg Score</div>
-                                <div class="val">{{ $fmt($statCards['avgScore']) }}</div>
-                            </td>
-                        </tr>
-                    </table>
+                <td>
+                    <div class="lbl">Total Shots</div>
+                    <div class="val">{{ number_format($statCards['totalShots']) }}</div>
+                    <div class="bar"><span style="width: 100%;"></span></div>
+                </td>
+                <td>
+                    <div class="lbl">Hit Rate</div>
+                    <div class="val">{{ $statCards['hitRate'] }}<span class="sub">%</span></div>
+                    <div class="bar"><span style="width: {{ $statCards['hitRate'] }}%;"></span></div>
+                </td>
+                <td>
+                    <div class="lbl">Avg Score</div>
+                    <div class="val">{{ $fmt($statCards['avgScore']) }}</div>
                 </td>
             </tr>
         </table>

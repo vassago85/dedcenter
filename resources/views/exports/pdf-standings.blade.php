@@ -5,13 +5,14 @@
     <title>{{ $match->name }} — Standings</title>
     @include('exports.partials.pdf-styles-dark')
     <style>
-        @page { size: A4 landscape; margin: 0; }
-        body { width: 297mm; background: #071327; }
-        .wrap { padding: 16px 18px; background: #071327; }
+        /* Portrait A4 edge-to-edge navy to match the shooter report. */
+        @page { size: A4 portrait; margin: 0; background: #071327; }
+        body { width: 210mm; background: #071327; }
+        .wrap { padding: 14px 14px 12px; background: #071327; orphans: 3; widows: 3; }
 
         /* Sponsor strip — tuned to dark */
         .sponsor {
-            margin: 10px 0 4px;
+            margin: 8px 0 2px;
             padding: 6px 10px;
             border: 1px solid #31486d;
             background: #0c1a33;
@@ -22,37 +23,42 @@
             font-size: 7.5pt;
             color: #94a3b8;
             letter-spacing: 0.02em;
+            page-break-inside: avoid;
         }
         .sponsor td { vertical-align: middle; padding: 0; }
         .sponsor img { height: 20px; max-width: 80px; object-fit: contain; margin-right: 8px; }
 
-        /* Standings table — overrides .tbl defaults for wider landscape fit */
+        /* Standings table — portrait-tuned. Table-level page-break-inside:auto
+           lets Chromium flow rows across pages; row-level avoid keeps no
+           shooter row from splitting; thead repeats via table-header-group. */
         .standings {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 8px;
             border: 1px solid #31486d;
             border-radius: 5px;
-            overflow: hidden;
             background: #0c1a33;
+            page-break-inside: auto;
         }
+        .standings tr { page-break-inside: avoid; page-break-after: auto; }
+        .standings thead { display: table-header-group; }
         .standings thead th {
             background: #243757;
             color: #f8fafc;
             text-align: left;
-            padding: 7px 10px;
+            padding: 6px 9px;
             font-weight: 700;
-            font-size: 7pt;
+            font-size: 6.5pt;
             text-transform: uppercase;
             letter-spacing: 0.16em;
             border-bottom: 1px solid #31486d;
         }
         .standings thead th.right { text-align: right; }
         .standings tbody td {
-            padding: 6px 10px;
+            padding: 5px 9px;
             border-bottom: 1px solid #1e293b;
             color: #cbd5e1;
-            font-size: 9pt;
+            font-size: 8.5pt;
         }
         .standings tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
         .standings tbody tr:nth-child(even) td { background: #0c1a33; }
