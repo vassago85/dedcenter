@@ -2,76 +2,120 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <title>{{ $match->name }} — Standings</title>
+    @include('exports.partials.pdf-styles-dark')
     <style>
-        @page { size: A4 landscape; margin: 15mm; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10pt; color: #1e293b; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #1e3a5f; }
-        .header h1 { font-size: 18pt; font-weight: 800; }
-        .header .meta { font-size: 9pt; color: #64748b; text-align: right; }
-        .sponsor { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 8pt; color: #64748b; }
-        .sponsor img { height: 20px; max-width: 80px; object-fit: contain; }
-        table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-        th { background: #1e3a5f; color: white; text-align: left; padding: 6px 8px; font-weight: 600; font-size: 8pt; text-transform: uppercase; }
-        th.right, td.right { text-align: right; }
-        td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-        tr:nth-child(even) { background: #f8fafc; }
-        .rank-1 { font-weight: 700; }
-        .rank-1 .rank-cell { color: #d97706; }
-        .rank-2 .rank-cell { color: #94a3b8; font-weight: 600; }
-        .rank-3 .rank-cell { color: #92400e; font-weight: 600; }
-        .footer { margin-top: 12px; text-align: center; font-size: 7pt; color: #94a3b8; }
+        @page { size: A4 landscape; margin: 0; }
+        body { width: 297mm; background: #071327; }
+        .wrap { padding: 16px 18px; background: #071327; }
+
+        /* Sponsor strip — tuned to dark */
+        .sponsor {
+            margin: 10px 0 4px;
+            padding: 6px 10px;
+            border: 1px solid #31486d;
+            background: #0c1a33;
+            border-radius: 4px;
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7.5pt;
+            color: #94a3b8;
+            letter-spacing: 0.02em;
+        }
+        .sponsor td { vertical-align: middle; padding: 0; }
+        .sponsor img { height: 20px; max-width: 80px; object-fit: contain; margin-right: 8px; }
+
+        /* Standings table — overrides .tbl defaults for wider landscape fit */
+        .standings {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            border: 1px solid #31486d;
+            border-radius: 5px;
+            overflow: hidden;
+            background: #0c1a33;
+        }
+        .standings thead th {
+            background: #243757;
+            color: #f8fafc;
+            text-align: left;
+            padding: 7px 10px;
+            font-weight: 700;
+            font-size: 7pt;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            border-bottom: 1px solid #31486d;
+        }
+        .standings thead th.right { text-align: right; }
+        .standings tbody td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #1e293b;
+            color: #cbd5e1;
+            font-size: 9pt;
+        }
+        .standings tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
+        .standings tbody tr:nth-child(even) td { background: #0c1a33; }
+        .standings tbody tr:nth-child(odd) td { background: #111f3c; }
+
+        /* Podium rows on dark — tinted background + coloured rank cell. */
+        .standings tr.rank-1 td { background: rgba(251,191,36,0.10) !important; font-weight: 700; }
+        .standings tr.rank-2 td { background: rgba(203,213,225,0.08) !important; }
+        .standings tr.rank-3 td { background: rgba(251,146,60,0.10) !important; }
+        .standings tr.rank-1 .rank-cell { color: #fbbf24; font-weight: 800; }
+        .standings tr.rank-2 .rank-cell { color: #cbd5e1; font-weight: 800; }
+        .standings tr.rank-3 .rank-cell { color: #fb923c; font-weight: 800; }
+
+        .standings .total { font-weight: 800; color: #f8fafc; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div>
-            <h1>{{ $match->name }}</h1>
-            <div class="meta">{{ $match->date?->format('d M Y') }}@if($match->location) — {{ $match->location }}@endif</div>
-        </div>
-        @if($match->organization?->logo_path)
-            <img src="{{ public_path('storage/' . $match->organization->logo_path) }}" style="height: 40px; max-width: 120px; object-fit: contain;" alt="">
-        @endif
-    </div>
+    @include('exports.partials.pdf-header', ['subtitle' => 'Standings'])
 
-    @if($sponsorAssignment && $sponsorAssignment->sponsor)
-        <div class="sponsor">
-            @if($sponsorAssignment->sponsor->logo_path)
-                <img src="{{ public_path('storage/' . $sponsorAssignment->sponsor->logo_path) }}" alt="">
-            @endif
-            <span>Results powered by {{ $sponsorAssignment->sponsor->name }}</span>
-        </div>
-    @endif
-
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 40px;">Rank</th>
-                <th>Name</th>
-                <th>Squad</th>
-                <th>Division</th>
-                <th class="right">Hits</th>
-                <th class="right">Misses</th>
-                <th class="right">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($shooters as $i => $s)
-                <tr class="{{ $i < 3 ? 'rank-' . ($i + 1) : '' }}">
-                    <td class="rank-cell right">{{ $i + 1 }}</td>
-                    <td>{{ $s->name }}</td>
-                    <td>{{ $s->squad }}</td>
-                    <td>{{ $s->division }}</td>
-                    <td class="right">{{ (int) $s->agg_hits }}</td>
-                    <td class="right">{{ (int) $s->agg_misses }}</td>
-                    <td class="right" style="font-weight: 700;">{{ number_format((float) $s->agg_total, 2) }}</td>
+    <div class="wrap">
+        @if(isset($sponsorAssignment) && $sponsorAssignment && $sponsorAssignment->sponsor)
+            <table class="sponsor">
+                <tr>
+                    <td style="width: 1%;">
+                        @if($sponsorAssignment->sponsor->logo_path)
+                            <img src="{{ public_path('storage/' . $sponsorAssignment->sponsor->logo_path) }}" alt="">
+                        @endif
+                    </td>
+                    <td>
+                        Results powered by {{ $sponsorAssignment->sponsor->name }}
+                    </td>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </table>
+        @endif
 
-    <div class="footer">
-        DeadCenter — Results generated {{ now()->format('d M Y H:i') }}
+        <table class="standings">
+            <thead>
+                <tr>
+                    <th style="width: 48px;" class="right">Rank</th>
+                    <th>Name</th>
+                    <th>Squad</th>
+                    <th>Division</th>
+                    <th class="right">Hits</th>
+                    <th class="right">Misses</th>
+                    <th class="right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($shooters as $i => $s)
+                    <tr class="{{ $i < 3 ? 'rank-' . ($i + 1) : '' }}">
+                        <td class="rank-cell right">{{ $i + 1 }}</td>
+                        <td>{{ $s->name }}</td>
+                        <td>{{ $s->squad }}</td>
+                        <td>{{ $s->division }}</td>
+                        <td class="right">{{ (int) $s->agg_hits }}</td>
+                        <td class="right">{{ (int) $s->agg_misses }}</td>
+                        <td class="right total">{{ number_format((float) $s->agg_total, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        @include('exports.partials.pdf-footer')
     </div>
 </body>
 </html>

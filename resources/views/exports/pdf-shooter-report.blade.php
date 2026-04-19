@@ -77,11 +77,11 @@
 <head>
     <meta charset="utf-8">
     <title>{{ $match->name }} — {{ $shooterDisplay }}</title>
-    @include('exports.partials.pdf-styles')
+    @include('exports.partials.pdf-styles-dark')
     <style>
         @page { size: A4 portrait; margin: 0; }
-        body  { width: 210mm; }
-        .wrap { padding: 10px 14px 10px; }
+        body  { width: 210mm; background: #071327; }
+        .wrap { padding: 10px 14px 10px; background: #071327; }
 
         /* Tighten the shared section-title spacing for a single-page layout. */
         .wrap .section-title {
@@ -93,12 +93,12 @@
 
         /* ─── HERO (compact) ─── */
         .hero {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-top: 2px solid #e10600;
             border-radius: 4px;
             padding: 10px 14px;
             margin-top: 4px;
-            background: #ffffff;
+            background: #0c1a33;
         }
         .hero-grid { width: 100%; border-collapse: collapse; }
         .hero-grid td { vertical-align: middle; }
@@ -108,32 +108,32 @@
         .hero .eyebrow {
             font-size: 6pt;
             font-weight: 800;
-            color: #e10600;
+            color: #ff2b2b;
             letter-spacing: 0.26em;
             text-transform: uppercase;
         }
         .hero .name {
             font-size: 17pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             line-height: 1.02;
             margin-top: 3px;
             letter-spacing: -0.02em;
         }
         .hero .meta-line {
             font-size: 8pt;
-            color: #475569;
+            color: #cbd5e1;
             margin-top: 4px;
             letter-spacing: 0.02em;
         }
         .hero .meta-line .sep {
-            color: #cbd5e1;
+            color: #475569;
             margin: 0 6px;
         }
 
         .hero-rank {
             display: inline-block;
-            background: #0b1220;
+            background: #1d2d4a;
             color: #f8fafc;
             padding: 7px 14px;
             line-height: 1;
@@ -171,13 +171,13 @@
             table-layout: fixed;
         }
         .kpi-row td {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 4px;
             padding: 7px 9px;
             vertical-align: top;
-            background: #ffffff;
+            background: #0c1a33;
         }
-        .kpi-row td.ctx { background: #fbfcfd; }
+        .kpi-row td.ctx { background: #1d2d4a; }
         .kpi-row .lbl {
             font-size: 5.5pt;
             font-weight: 700;
@@ -188,7 +188,7 @@
         .kpi-row .val {
             font-size: 13pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             font-variant-numeric: tabular-nums;
             line-height: 1;
             margin-top: 4px;
@@ -204,14 +204,14 @@
         .kpi-row .bar {
             margin-top: 4px;
             height: 2px;
-            background: #f5f7fa;
+            background: #1e293b;
             border-radius: 2px;
             overflow: hidden;
         }
         .kpi-row .bar > span {
             display: block;
             height: 2px;
-            background: #e10600;
+            background: #ff2b2b;
             border-radius: 2px;
         }
         .kpi-row .caption {
@@ -223,17 +223,18 @@
 
         /* ─── Combined stage breakdown (was two sections, now one) ─── */
         .stage-block {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 4px;
             overflow: hidden;
+            background: #0c1a33;
         }
         .stage-row {
             width: 100%;
             border-collapse: collapse;
-            border-bottom: 1px solid #eef2f7;
+            border-bottom: 1px solid #1e293b;
         }
         .stage-block .stage-row:last-child { border-bottom: none; }
-        .stage-block .stage-row.clean { background: #f6fcf8; }
+        .stage-block .stage-row.clean { background: rgba(34,197,94,0.06); }
 
         .stage-row > tbody > tr > td { vertical-align: middle; padding: 6px 8px; }
 
@@ -243,10 +244,10 @@
         .stage-row .s-label .nm {
             font-size: 10pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             letter-spacing: -0.01em;
         }
-        .stage-row.clean .s-label .nm { color: #15803d; }
+        .stage-row.clean .s-label .nm { color: #22c55e; }
         .stage-row .s-label .sub {
             font-size: 6pt;
             color: #94a3b8;
@@ -262,23 +263,23 @@
         .stage-row .s-summary {
             width: 14%;
             text-align: right;
-            border-left: 1px solid #eef2f7;
+            border-left: 1px solid #1e293b;
         }
         .stage-row .s-points {
             width: 14%;
             text-align: right;
-            border-left: 1px solid #eef2f7;
+            border-left: 1px solid #1e293b;
         }
         .stage-row .s-summary .big,
         .stage-row .s-points  .big {
             font-size: 11pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.01em;
             line-height: 1;
         }
-        .stage-row.clean .s-points .big { color: #15803d; }
+        .stage-row.clean .s-points .big { color: #22c55e; }
         .stage-row .s-summary .tiny,
         .stage-row .s-points  .tiny {
             font-size: 6pt;
@@ -291,7 +292,7 @@
             height: 3px;
             width: 100%;
             max-width: 70px;
-            background: #f5f7fa;
+            background: #1e293b;
             display: inline-block;
             margin-top: 4px;
             border-radius: 2px;
@@ -300,7 +301,7 @@
         .stage-row .rate-bar span {
             display: block;
             height: 3px;
-            background: #15803d;
+            background: #22c55e;
             border-radius: 2px;
         }
 
@@ -314,24 +315,24 @@
         .shot-strip td {
             padding: 3px 0;
             text-align: center;
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 3px;
             vertical-align: middle;
-            background: #ffffff;
+            background: #0c1a33;
             height: 26px;
         }
-        .shot-strip td.gong-hit  { background: #f0fdf4; border-color: #bbf7d0; }
-        .shot-strip td.gong-miss { background: #fef2f2; border-color: #fecaca; }
-        .shot-strip td.gong-none { background: #fbfcfd; border-color: #e8edf4; }
+        .shot-strip td.gong-hit  { background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.40); }
+        .shot-strip td.gong-miss { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.40); }
+        .shot-strip td.gong-none { background: #0c1a33; border-color: #1e293b; }
 
         .shot-strip .lbl-top {
             font-size: 6.5pt;
             font-weight: 800;
-            color: #475569;
+            color: #cbd5e1;
             letter-spacing: 0.04em;
             line-height: 1;
         }
-        .shot-strip .lbl-top.special { color: #b91c1c; }
+        .shot-strip .lbl-top.special { color: #fecaca; }
         .shot-strip .icon {
             display: inline-block;
             width: 10px;
@@ -349,14 +350,14 @@
             display: block;
             font-size: 6pt;
             font-weight: 700;
-            color: #15803d;
+            color: #22c55e;
             margin-top: 1px;
             font-variant-numeric: tabular-nums;
             letter-spacing: 0.02em;
             line-height: 1;
         }
         .shot-strip .pts.miss  { color: #94a3b8; font-weight: 600; }
-        .shot-strip .pts.empty { color: #cbd5e1; font-weight: 600; }
+        .shot-strip .pts.empty { color: #475569; font-weight: 600; }
 
         /* ─── Bottom row: insights (left) + badges/RF (right) ─── */
         .bottom-grid {
@@ -380,24 +381,24 @@
             table-layout: fixed;
         }
         .insights-tbl td {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 4px;
             padding: 7px 9px;
             vertical-align: top;
-            background: #ffffff;
+            background: #0c1a33;
             width: 50%;
         }
         .insights-tbl .lbl {
             font-size: 5.5pt;
             font-weight: 800;
-            color: #e10600;
+            color: #ff2b2b;
             text-transform: uppercase;
             letter-spacing: 0.24em;
         }
         .insights-tbl .val {
             font-size: 9pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             margin-top: 4px;
             line-height: 1.2;
             letter-spacing: -0.01em;
@@ -411,10 +412,10 @@
 
         /* RF awards strip (compact) */
         .rf-awards {
-            background: #0b1220;
+            background: #1d2d4a;
             color: #f8fafc;
             padding: 8px 12px;
-            border-left: 3px solid #e10600;
+            border-left: 3px solid #ff2b2b;
             border-radius: 4px;
             margin-bottom: 6px;
         }
@@ -453,12 +454,12 @@
             border-spacing: 4px 4px;
         }
         .badge-cell {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 5px;
             padding: 6px 7px;
             vertical-align: top;
             width: 33.33%;
-            background: #ffffff;
+            background: #0c1a33;
         }
         .badge-cell .b-row { width: 100%; border-collapse: collapse; }
         .badge-cell .b-row td { vertical-align: middle; padding: 0; }
@@ -498,33 +499,33 @@
             font-weight: 700;
         }
 
-        /* Family + tier crests (flat print-safe equivalents of the platform
-         * gradient tokens). PRS = sky, Royal Flush = amber, tiers drop
-         * saturation as prestige drops.  */
-        .badge-cell.fam-prs.tier-featured  .b-crest { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
-        .badge-cell.fam-prs.tier-elite     .b-crest { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; }
-        .badge-cell.fam-prs.tier-milestone .b-crest { background: #f0f9ff; border-color: #bae6fd; color: #0284c7; }
-        .badge-cell.fam-prs.tier-earned    .b-crest { background: #f8fafc; border-color: #e2e8f0; color: #0369a1; }
+        /* Family + tier crests — re-derived for dark surfaces.
+         * PRS family uses a sky/cyan tint, Royal Flush uses an amber tint;
+         * tiers drop in saturation as prestige drops.
+         * DomPDF renders rgba() reliably on solid parents, so these tints
+         * sit cleanly on top of the navy badge card. */
+        .badge-cell.fam-prs.tier-featured  .b-crest { background: rgba(14,165,233,0.18); border-color: rgba(14,165,233,0.45); color: #7dd3fc; }
+        .badge-cell.fam-prs.tier-elite     .b-crest { background: rgba(14,165,233,0.14); border-color: rgba(14,165,233,0.35); color: #bae6fd; }
+        .badge-cell.fam-prs.tier-milestone .b-crest { background: rgba(14,165,233,0.10); border-color: rgba(14,165,233,0.28); color: #bae6fd; }
+        .badge-cell.fam-prs.tier-earned    .b-crest { background: rgba(14,165,233,0.06); border-color: rgba(14,165,233,0.20); color: #bae6fd; }
 
-        .badge-cell.fam-rf.tier-featured   .b-crest { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
-        .badge-cell.fam-rf.tier-elite      .b-crest { background: #fef3c7; border-color: #fde68a; color: #b45309; }
-        .badge-cell.fam-rf.tier-milestone  .b-crest { background: #fefce8; border-color: #fde68a; color: #a16207; }
-        .badge-cell.fam-rf.tier-earned     .b-crest { background: #fffbeb; border-color: #fef3c7; color: #b45309; }
+        .badge-cell.fam-rf.tier-featured   .b-crest { background: rgba(217,119,6,0.20); border-color: rgba(217,119,6,0.55); color: #fcd34d; }
+        .badge-cell.fam-rf.tier-elite      .b-crest { background: rgba(217,119,6,0.16); border-color: rgba(217,119,6,0.45); color: #fde68a; }
+        .badge-cell.fam-rf.tier-milestone  .b-crest { background: rgba(217,119,6,0.12); border-color: rgba(217,119,6,0.32); color: #fde68a; }
+        .badge-cell.fam-rf.tier-earned     .b-crest { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.24); color: #fde68a; }
 
-        /* Medal overrides (podium-gold / silver / bronze). Same three tiers
-         * the platform uses: amber, slate, orange. */
-        .badge-cell.ico-medal-1 .b-crest { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
-        .badge-cell.ico-medal-2 .b-crest { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
-        .badge-cell.ico-medal-3 .b-crest { background: #ffedd5; border-color: #fdba74; color: #9a3412; }
+        /* Medal overrides (podium gold / silver / bronze). */
+        .badge-cell.ico-medal-1 .b-crest { background: rgba(251,191,36,0.14); border-color: rgba(251,191,36,0.45); color: #fbbf24; }
+        .badge-cell.ico-medal-2 .b-crest { background: rgba(203,213,225,0.12); border-color: rgba(203,213,225,0.36); color: #e2e8f0; }
+        .badge-cell.ico-medal-3 .b-crest { background: rgba(251,146,60,0.14); border-color: rgba(251,146,60,0.45); color: #fb923c; }
 
-        /* Distance overrides (hot → cool, matching dist-* tokens). */
-        .badge-cell.ico-dist-700 .b-crest { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
-        .badge-cell.ico-dist-600 .b-crest { background: #ffedd5; border-color: #fdba74; color: #c2410c; }
-        .badge-cell.ico-dist-500 .b-crest { background: #fef9c3; border-color: #fde68a; color: #a16207; }
-        .badge-cell.ico-dist-400 .b-crest { background: #dcfce7; border-color: #86efac; color: #15803d; }
+        /* Distance overrides (hot → cool ramp, saturation-shifted for dark). */
+        .badge-cell.ico-dist-700 .b-crest { background: rgba(239,68,68,0.14);  border-color: rgba(239,68,68,0.45);  color: #fca5a5; }
+        .badge-cell.ico-dist-600 .b-crest { background: rgba(251,146,60,0.14); border-color: rgba(251,146,60,0.45); color: #fdba74; }
+        .badge-cell.ico-dist-500 .b-crest { background: rgba(234,179,8,0.14);  border-color: rgba(234,179,8,0.45);  color: #fde68a; }
+        .badge-cell.ico-dist-400 .b-crest { background: rgba(34,197,94,0.14);  border-color: rgba(34,197,94,0.45);  color: #86efac; }
 
-        /* Optional thin accent bar along the top so the competition family
-         * reads at a glance even in monochrome print. */
+        /* Top accent bar so competition family is legible even in B&W. */
         .badge-cell.fam-prs { border-top: 2px solid #0ea5e9; }
         .badge-cell.fam-rf  { border-top: 2px solid #d97706; }
 
@@ -532,7 +533,7 @@
         .badge-cell .b-label {
             font-size: 7.5pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             line-height: 1.15;
             letter-spacing: -0.01em;
         }
@@ -548,11 +549,12 @@
         .no-badges {
             padding: 12px;
             text-align: center;
-            border: 1px dashed #cbd5e1;
+            border: 1px dashed #31486d;
             border-radius: 4px;
             color: #94a3b8;
             font-size: 7.5pt;
             letter-spacing: 0.02em;
+            background: #0c1a33;
         }
     </style>
 </head>
@@ -670,14 +672,14 @@
                                         @if($cell['state'] === 'hit')
                                             <span class="icon">
                                                 <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                                                 </svg>
                                             </span>
                                             <span class="pts">+{{ $fmt($cell['points']) }}</span>
                                         @elseif($cell['state'] === 'miss')
                                             <span class="icon">
                                                 <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#b91c1c" stroke-width="1.6" stroke-linecap="round"/>
+                                                    <path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round"/>
                                                 </svg>
                                             </span>
                                             <span class="pts miss">miss</span>

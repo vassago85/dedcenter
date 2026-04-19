@@ -117,6 +117,7 @@
         .glass {
             background: var(--lp-surface);
             border: 1px solid var(--lp-border);
+            -webkit-backdrop-filter: blur(6px);
             backdrop-filter: blur(6px);
         }
         .glass-2 {
@@ -236,28 +237,27 @@
             border: 1px solid rgba(225, 6, 0, 0.28);
         }
 
-        /* Action bar — hidden on print */
+        /* Action bar — hidden on print. Print retains the dark theme for
+           visual parity with PDF exports; users pick up the tradeoffs (toner,
+           background-graphics default) at the print dialog. */
         @media print {
             .no-print { display: none !important; }
             .claim-chip, .claim-banner { display: none !important; }
-            .rf-shell {
-                background: #ffffff !important;
-                color: #0b1220 !important;
+            html, body, .rf-shell {
+                background: #071327 !important;
+                color: #f8fafc !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             .glass, .glass-2 {
-                background: #ffffff !important;
-                border-color: #e8edf4 !important;
+                background: #0c1a33 !important;
+                border-color: #1d2d4a !important;
+                -webkit-backdrop-filter: none !important;
                 backdrop-filter: none !important;
             }
-            .gong-hit  { background: #15803d !important; color: #fff !important; border-color: #15803d !important; }
-            .gong-miss { background: #fce8e8 !important; color: #b91c1c !important; border-color: #f3c4c4 !important; }
-            .gong-none { background: #f5f7fa !important; color: #94a3b8 !important; border-color: #e8edf4 !important; }
-            .medal-1 { color: #b45309 !important; }
-            .medal-2 { color: #475569 !important; }
-            .medal-3 { color: #9a3412 !important; }
-            body  { background: #fff !important; }
-            .text-white\/90 { color: #0b1220 !important; }
-            a { color: #0b1220 !important; text-decoration: none !important; }
+            .gong-hit  { background: rgba(34, 197, 94, 0.18) !important; color: #86efac !important; border-color: rgba(34, 197, 94, 0.32) !important; }
+            .gong-miss { background: rgba(239, 68, 68, 0.16) !important; color: #fca5a5 !important; border-color: rgba(239, 68, 68, 0.35) !important; }
+            .gong-none { background: rgba(255, 255, 255, 0.03) !important; color: #94a3b8 !important; border-color: rgba(255, 255, 255, 0.06) !important; }
             @page { size: A4 portrait; margin: 10mm; }
         }
     </style>
@@ -265,7 +265,7 @@
 <body class="rf-shell antialiased">
 
 {{-- ════════════ Action bar (screen only) ════════════ --}}
-<div class="no-print sticky top-0 z-50 border-b" style="background: rgba(7, 19, 39, 0.85); border-color: var(--lp-border); backdrop-filter: blur(20px) saturate(1.4);">
+<div class="no-print sticky top-0 z-50 border-b" style="background: rgba(7, 19, 39, 0.85); border-color: var(--lp-border); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);">
     <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
         <a href="{{ route('scoreboard', $match) }}" class="inline-flex items-center gap-2 text-sm font-medium" style="color: var(--lp-text-muted);">
             <span>←</span> Back to scoreboard

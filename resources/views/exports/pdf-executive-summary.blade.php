@@ -44,18 +44,18 @@
 <head>
     <meta charset="utf-8">
     <title>{{ $match->name }} — Executive Summary</title>
-    @include('exports.partials.pdf-styles')
+    @include('exports.partials.pdf-styles-dark')
     <style>
         /* Landscape page size */
         @page { size: A4 landscape; margin: 0; }
-        body { width: 297mm; }
+        body { width: 297mm; background: #071327; }
 
         /* Generous top/bottom gutters so the match-report table and the
            footer breathe — the previous 12–14px gap made the first and last
            shooter rows fuse against the page edges on print. The pdf-footer
            brings its own 16px top margin, so the bottom gutter can stay
            modest while still feeling intentional. */
-        .wrap { padding: 20px 16px 16px; }
+        .wrap { padding: 20px 16px 16px; background: #071327; }
 
         /* ─── Top row: podium + stat cards ─── */
         .top-row { width: 100%; border-collapse: collapse; margin-top: 4px; }
@@ -63,7 +63,7 @@
         .top-row .podium-col { width: 58%; padding-right: 10px; }
         .top-row .stats-col  { width: 42%; }
 
-        /* Stat cards — DeadCenter refined tiles */
+        /* Stat cards — dark tiles */
         .stats-grid {
             width: 100%;
             border-collapse: separate;
@@ -71,12 +71,12 @@
             table-layout: fixed;
         }
         .stats-grid td {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 5px;
             padding: 12px 14px;
             vertical-align: top;
             width: 25%;
-            background: #ffffff;
+            background: #0c1a33;
         }
         .stats-grid .lbl {
             font-size: 6pt;
@@ -88,7 +88,7 @@
         .stats-grid .val {
             font-size: 18pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             font-variant-numeric: tabular-nums;
             line-height: 1;
             margin-top: 6px;
@@ -104,14 +104,14 @@
         .stats-grid .bar {
             margin-top: 8px;
             height: 3px;
-            background: #f5f7fa;
+            background: #1e293b;
             border-radius: 2px;
             overflow: hidden;
         }
         .stats-grid .bar > span {
             display: block;
             height: 3px;
-            background: #e10600;
+            background: #ff2b2b;
             border-radius: 2px;
         }
 
@@ -123,16 +123,16 @@
             margin-top: 12px;
         }
         .dist-strip td {
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 5px;
-            background: #fbfcfd;
+            background: #1d2d4a;
             padding: 9px 10px 8px;
             text-align: center;
         }
         .dist-strip .d-label {
             font-size: 10pt;
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             letter-spacing: -0.01em;
         }
         .dist-strip .d-meta {
@@ -143,7 +143,7 @@
         }
         .dist-strip .d-rate {
             font-size: 7pt;
-            color: #334155;
+            color: #cbd5e1;
             font-weight: 700;
             margin-top: 3px;
             letter-spacing: 0.06em;
@@ -159,22 +159,23 @@
             border-collapse: collapse;
             margin-top: 6px;
             table-layout: fixed;
-            border: 1px solid #e8edf4;
+            border: 1px solid #31486d;
             border-radius: 5px;
             overflow: hidden;
+            background: #0c1a33;
         }
         .grid thead th {
-            background: #0b1220;
+            background: #243757;
             color: #f8fafc;
             font-weight: 700;
             padding: 5px 2px;
             text-align: center;
             font-size: 6.5pt;
-            border-right: 1px solid #121a2b;
+            border-right: 1px solid #31486d;
             letter-spacing: 0.04em;
         }
         .grid thead th.dist-head {
-            background: #121a2b;
+            background: #1d2d4a;
             color: #f8fafc;
             letter-spacing: 0.14em;
             text-transform: uppercase;
@@ -186,7 +187,7 @@
         .grid thead th.cal-head  { width: 110px; text-align: left; padding-left: 6px; letter-spacing: 0.14em; text-transform: uppercase; font-size: 6pt; }
         .grid thead th.score-head,
         .grid thead th.rate-head {
-            background: #1e293b;
+            background: #1d2d4a;
             letter-spacing: 0.14em;
             text-transform: uppercase;
             font-size: 6pt;
@@ -232,30 +233,37 @@
         .grid tbody td {
             padding: 0;
             font-size: 6.5pt;
-            border-bottom: 1px solid #eef2f7;
-            border-right: 1px solid #f5f7fa;
+            border-bottom: 1px solid #1e293b;
+            border-right: 1px solid #1e293b;
             vertical-align: middle;
             text-align: center;
             line-height: 1;
             height: 15px;
+            color: #cbd5e1;
         }
         /* First and last row get a hair of extra padding so the block
            doesn't fuse against the table's own border edges. Only 2px
            each to preserve the single-page-landscape vertical budget. */
         .grid tbody tr:first-child td { padding-top: 2px; }
         .grid tbody tr:last-child  td { padding-bottom: 2px; }
-        .grid tbody tr:nth-child(even) td { background: #fbfcfd; }
-        .grid tbody tr.top1 td { background: #fef7e0 !important; }
-        .grid tbody tr.top2 td { background: #f1f4f9 !important; }
-        .grid tbody tr.top3 td { background: #fef2e7 !important; }
-        .grid tbody tr.dq   td { background: #fce8e8 !important; color: #94a3b8; font-style: italic; }
+        .grid tbody tr:nth-child(even) td { background: #0c1a33; }
+        /* Podium row tints — flat rgba on dark so they print true. A thin
+           2px left rail on the position cell carries the family signal even
+           in mono print. */
+        .grid tbody tr.top1 td { background: rgba(251,191,36,0.08) !important; }
+        .grid tbody tr.top2 td { background: rgba(203,213,225,0.06) !important; }
+        .grid tbody tr.top3 td { background: rgba(251,146,60,0.08) !important; }
+        .grid tbody tr.top1 td.pos { border-left: 2px solid #d97706; }
+        .grid tbody tr.top2 td.pos { border-left: 2px solid #64748b; }
+        .grid tbody tr.top3 td.pos { border-left: 2px solid #c2410c; }
+        .grid tbody tr.dq   td { background: rgba(239,68,68,0.08) !important; color: #64748b; font-style: italic; }
         /* No-show: shooter did not attend — dim the whole row and lighten the
            shot cells so the executive eye skips past it instead of mistaking
            the zeros for poor performance. */
-        .grid tbody tr.ns   td { background: #f4f4f5 !important; color: #a1a1aa; font-style: italic; }
+        .grid tbody tr.ns   td { background: #0c1a33 !important; color: #64748b; font-style: italic; }
         .grid tbody tr.ns td.cal,
-        .grid tbody tr.ns td.name { color: #71717a; }
-        .grid tbody tr.ns .hm-miss { background: #e4e4e7 !important; }
+        .grid tbody tr.ns td.name { color: #64748b; }
+        .grid tbody tr.ns .hm-miss { background: #0c1a33 !important; }
         .grid tbody tr.ns .hm-miss .shot,
         .grid tbody tr.ns .hm-hit .shot { opacity: 0.55; }
 
@@ -266,15 +274,15 @@
             padding: 1px 0;
             letter-spacing: 0.02em;
         }
-        .grid tr.top1 td.pos { color: #b45309; }
-        .grid tr.top2 td.pos { color: #475569; }
-        .grid tr.top3 td.pos { color: #9a3412; }
+        .grid tr.top1 td.pos { color: #fbbf24; }
+        .grid tr.top2 td.pos { color: #cbd5e1; }
+        .grid tr.top3 td.pos { color: #fb923c; }
 
         .grid td.name {
             text-align: left;
             padding: 2px 4px 2px 8px;
             font-weight: 700;
-            color: #0b1220;
+            color: #f8fafc;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -296,14 +304,14 @@
         }
         .grid td.score {
             font-weight: 800;
-            color: #0b1220;
+            color: #f8fafc;
             font-variant-numeric: tabular-nums;
             font-size: 8pt;
             letter-spacing: -0.01em;
         }
-        .grid tr.top1 td.score { color: #b45309; }
+        .grid tr.top1 td.score { color: #fbbf24; }
         .grid td.rate {
-            color: #475569;
+            color: #cbd5e1;
             font-size: 7pt;
             font-variant-numeric: tabular-nums;
         }
@@ -316,22 +324,22 @@
         .grid td.hm-miss,
         .grid td.hm-none {
             padding: 1px 0;
-            background: #ffffff !important;
+            background: #0c1a33 !important;
         }
-        .grid td.hm-hit  { background: #f0fdf4 !important; }
-        .grid td.hm-miss { background: #fef2f2 !important; }
-        .grid td.hm-none { background: #fbfcfd !important; }
+        .grid td.hm-hit  { background: rgba(34,197,94,0.12) !important; }
+        .grid td.hm-miss { background: rgba(239,68,68,0.12) !important; }
+        .grid td.hm-none { background: #0c1a33 !important; }
 
         /* Keep podium-row tint present but softer so the icons stay readable. */
-        .grid tr.top1 td.hm-hit  { background: #f0fdf4 !important; }
-        .grid tr.top1 td.hm-miss { background: #fef6e7 !important; }
-        .grid tr.top1 td.hm-none { background: #fef7e0 !important; }
-        .grid tr.top2 td.hm-hit  { background: #f0fdf4 !important; }
-        .grid tr.top2 td.hm-miss { background: #f1f4f9 !important; }
-        .grid tr.top2 td.hm-none { background: #f1f4f9 !important; }
-        .grid tr.top3 td.hm-hit  { background: #f0fdf4 !important; }
-        .grid tr.top3 td.hm-miss { background: #fef2e7 !important; }
-        .grid tr.top3 td.hm-none { background: #fef2e7 !important; }
+        .grid tr.top1 td.hm-hit  { background: rgba(34,197,94,0.14) !important; }
+        .grid tr.top1 td.hm-miss { background: rgba(239,68,68,0.14) !important; }
+        .grid tr.top1 td.hm-none { background: rgba(251,191,36,0.08) !important; }
+        .grid tr.top2 td.hm-hit  { background: rgba(34,197,94,0.14) !important; }
+        .grid tr.top2 td.hm-miss { background: rgba(239,68,68,0.14) !important; }
+        .grid tr.top2 td.hm-none { background: rgba(203,213,225,0.06) !important; }
+        .grid tr.top3 td.hm-hit  { background: rgba(34,197,94,0.14) !important; }
+        .grid tr.top3 td.hm-miss { background: rgba(239,68,68,0.14) !important; }
+        .grid tr.top3 td.hm-none { background: rgba(251,146,60,0.08) !important; }
 
         .shot {
             display: inline-block;
@@ -342,15 +350,15 @@
         }
         .shot svg { display: block; width: 11px; height: 11px; }
 
-        /* Distance boundary — softer vertical separator */
+        /* Distance boundary — slightly firmer vertical separator on dark */
         .grid td.dist-end,
-        .grid th.dist-end { border-right: 1.5px solid #cbd5e1; }
+        .grid th.dist-end { border-right: 1.5px solid #31486d; }
 
         /* ─── Legend ─── */
         .legend {
             margin-top: 14px;
             padding: 10px 2px 6px;
-            border-top: 1px solid #e8edf4;
+            border-top: 1px solid #1e293b;
             font-size: 6.5pt;
             color: #94a3b8;
             letter-spacing: 0.06em;
@@ -363,7 +371,7 @@
             margin-right: 4px;
         }
         .legend .icon svg { display: block; width: 11px; height: 11px; }
-        .legend .sep { margin: 0 12px; color: #cbd5e1; }
+        .legend .sep { margin: 0 12px; color: #475569; }
     </style>
 </head>
 <body>
@@ -540,13 +548,13 @@
                                 @if($cell['state'] === 'hit')
                                     <span class="shot" title="Hit">
                                         <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                                         </svg>
                                     </span>
                                 @elseif($cell['state'] === 'miss')
                                     <span class="shot" title="Miss">
                                         <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#b91c1c" stroke-width="1.6" stroke-linecap="round"/>
+                                            <path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round"/>
                                         </svg>
                                     </span>
                                 @else
@@ -567,11 +575,11 @@
 
         <div class="legend">
             <span class="icon">
-                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M2.4 6.4 L5 9 L9.8 3.5" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>Hit
             <span class="sep">·</span>
             <span class="icon">
-                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#b91c1c" stroke-width="1.6" stroke-linecap="round"/></svg>
+                <svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path d="M3 3 L9 9 M9 3 L3 9" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round"/></svg>
             </span>Miss
             <span class="sep">·</span>
             <span class="icon">

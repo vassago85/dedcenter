@@ -14,8 +14,8 @@
     $isPrs       = $scoringType === 'prs';
     $isElr       = $scoringType === 'elr';
 
-    $accentColor   = $isPrs ? '#F59E0B' : '#E10600';
-    $accentDark    = $isPrs ? '#D97706' : '#B91C1C';
+    $accentColor   = $isPrs ? '#F59E0B' : '#ff2b2b';
+    $accentDark    = $isPrs ? '#D97706' : '#e10600';
     $scoreLabel    = $isPrs ? 'Hits' : ($isElr ? 'Points' : 'Score');
     $typeLabel     = strtoupper($scoringType);
 @endphp
@@ -26,10 +26,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Match Report</title>
 </head>
-<body style="margin:0;padding:0;background-color:#040C1A;font-family:Arial,Helvetica,sans-serif;">
+<body style="margin:0;padding:0;background-color:#071327;font-family:Arial,Helvetica,sans-serif;">
 
 {{-- Wrapper --}}
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#040C1A;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#071327;">
 <tr><td align="center" style="padding:20px 10px;">
 
 {{-- Main container --}}
@@ -57,7 +57,7 @@
          MATCH INFO
     ============================================================= --}}
     <tr>
-        <td bgcolor="#0D1B33" style="padding:28px 30px 20px;">
+        <td bgcolor="#0c1a33" style="padding:28px 30px 20px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:22px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;padding-bottom:8px;">
@@ -108,7 +108,7 @@
          SHOOTER NAME
     ============================================================= --}}
     <tr>
-        <td bgcolor="#0D1B33" style="padding:20px 30px 6px;">
+        <td bgcolor="#0c1a33" style="padding:20px 30px 6px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:16px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
@@ -126,7 +126,7 @@
          MATCH SUMMARY — stat cards
     ============================================================= --}}
     <tr>
-        <td bgcolor="#0D1B33" style="padding:14px 30px 24px;">
+        <td bgcolor="#0c1a33" style="padding:14px 30px 24px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 {{-- Section heading --}}
                 <tr>
@@ -140,7 +140,7 @@
                     <td width="25%" align="center" style="padding:0 4px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
                             <tr>
-                                <td bgcolor="#111D35" align="center" style="padding:16px 6px 10px;">
+                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
                                     <div style="font-size:28px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
                                         #{{ $placement['rank'] ?? '—' }}
                                     </div>
@@ -155,7 +155,7 @@
                     <td width="25%" align="center" style="padding:0 4px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
                             <tr>
-                                <td bgcolor="#111D35" align="center" style="padding:16px 6px 10px;">
+                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
                                     <div style="font-size:28px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
                                         {{ number_format($summary['hit_rate'] ?? 0, 0) }}%
                                     </div>
@@ -170,7 +170,7 @@
                     <td width="25%" align="center" style="padding:0 4px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
                             <tr>
-                                <td bgcolor="#111D35" align="center" style="padding:16px 6px 10px;">
+                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
                                     <div style="font-size:28px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
                                         {{ $summary['hits'] ?? 0 }}
                                     </div>
@@ -185,7 +185,7 @@
                     <td width="25%" align="center" style="padding:0 4px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
                             <tr>
-                                <td bgcolor="#111D35" align="center" style="padding:16px 6px 10px;">
+                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
                                     <div style="font-size:28px;font-weight:bold;color:#ef4444;font-family:Arial,Helvetica,sans-serif;">
                                         {{ $summary['misses'] ?? 0 }}
                                     </div>
@@ -249,7 +249,7 @@
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:{{ $idx < count($stages) - 1 ? '16px' : '0' }};">
                 {{-- Stage card --}}
                 <tr>
-                    <td bgcolor="#0D1B33" style="border-radius:8px;padding:16px 18px;">
+                    <td bgcolor="#0c1a33" style="border-radius:8px;padding:16px 18px;">
                         {{-- Stage title row --}}
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-bottom:12px;">
                             <tr>
@@ -330,7 +330,7 @@
     ============================================================= --}}
     @if($bestStage || $worstStage)
     <tr>
-        <td bgcolor="#0D1B33" style="padding:24px 30px;">
+        <td bgcolor="#0c1a33" style="padding:24px 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
@@ -341,7 +341,7 @@
             @if($bestStage)
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:10px;">
                 <tr>
-                    <td bgcolor="#111D35" style="border-radius:8px;padding:14px 18px;border-left:4px solid #22c55e;">
+                    <td bgcolor="#1d2d4a" style="border-radius:8px;padding:14px 18px;border-left:4px solid #22c55e;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
@@ -362,7 +362,7 @@
             @if($worstStage)
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                    <td bgcolor="#111D35" style="border-radius:8px;padding:14px 18px;border-left:4px solid #ef4444;">
+                    <td bgcolor="#1d2d4a" style="border-radius:8px;padding:14px 18px;border-left:4px solid #ef4444;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
@@ -402,7 +402,7 @@
                 {{-- Field Avg Score --}}
                 @if(isset($fieldStats['avg_score']))
                 <tr>
-                    <td bgcolor="#0D1B33" style="border-radius:6px;padding:12px 18px;{{ isset($fieldStats['avg_hit_rate']) || isset($fieldStats['winner_name']) || isset($fieldStats['hardest_gong']) || isset($fieldStats['easiest_gong']) ? 'margin-bottom:6px;' : '' }}">
+                    <td bgcolor="#0c1a33" style="border-radius:6px;padding:12px 18px;{{ isset($fieldStats['avg_hit_rate']) || isset($fieldStats['winner_name']) || isset($fieldStats['hardest_gong']) || isset($fieldStats['easiest_gong']) ? 'margin-bottom:6px;' : '' }}">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:13px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
@@ -421,7 +421,7 @@
                 {{-- Field Avg Hit Rate --}}
                 @if(isset($fieldStats['avg_hit_rate']))
                 <tr>
-                    <td bgcolor="#0D1B33" style="border-radius:6px;padding:12px 18px;">
+                    <td bgcolor="#0c1a33" style="border-radius:6px;padding:12px 18px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:13px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
@@ -440,7 +440,7 @@
                 {{-- Winner --}}
                 @if(!empty($fieldStats['winner_name']))
                 <tr>
-                    <td bgcolor="#0D1B33" style="border-radius:6px;padding:12px 18px;">
+                    <td bgcolor="#0c1a33" style="border-radius:6px;padding:12px 18px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:13px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
@@ -459,7 +459,7 @@
                 {{-- Hardest Gong --}}
                 @if(!empty($fieldStats['hardest_gong']))
                 <tr>
-                    <td bgcolor="#0D1B33" style="border-radius:6px;padding:12px 18px;">
+                    <td bgcolor="#0c1a33" style="border-radius:6px;padding:12px 18px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:13px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
@@ -479,7 +479,7 @@
                 {{-- Easiest Gong --}}
                 @if(!empty($fieldStats['easiest_gong']))
                 <tr>
-                    <td bgcolor="#0D1B33" style="border-radius:6px;padding:12px 18px;">
+                    <td bgcolor="#0c1a33" style="border-radius:6px;padding:12px 18px;">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td style="font-size:13px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
@@ -504,7 +504,7 @@
     ============================================================= --}}
     @if(count($funFacts) > 0)
     <tr>
-        <td bgcolor="#0D1B33" style="padding:24px 30px;">
+        <td bgcolor="#0c1a33" style="padding:24px 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
@@ -516,7 +516,7 @@
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 @foreach($funFacts as $fact)
                 <tr>
-                    <td bgcolor="#111D35" style="border-radius:6px;padding:12px 18px;{{ !$loop->last ? 'margin-bottom:6px;' : '' }}">
+                    <td bgcolor="#1d2d4a" style="border-radius:6px;padding:12px 18px;{{ !$loop->last ? 'margin-bottom:6px;' : '' }}">
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 <td width="24" valign="top" style="font-size:14px;color:{{ $accentColor }};font-family:Arial,Helvetica,sans-serif;padding-right:8px;">
@@ -568,7 +568,7 @@
                     @if($badgesByCategory->has($cat))
                         @foreach($badgesByCategory->get($cat) as $badge)
                         <tr>
-                            <td bgcolor="#0D1B33" style="border-radius:8px;padding:14px 18px;border-left:4px solid {{ $categoryColors[$cat] ?? '#38BDF8' }};{{ !$loop->last || !$loop->parent->last ? 'margin-bottom:6px;' : '' }}">
+                            <td bgcolor="#0c1a33" style="border-radius:8px;padding:14px 18px;border-left:4px solid {{ $categoryColors[$cat] ?? '#38BDF8' }};{{ !$loop->last || !$loop->parent->last ? 'margin-bottom:6px;' : '' }}">
                                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                                     <tr>
                                         <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">

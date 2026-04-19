@@ -15,7 +15,7 @@
     $isPrs       = $scoringType === 'prs';
     $isElr       = $scoringType === 'elr';
 
-    $accent      = $isPrs ? '#F59E0B' : '#E10600';
+    $accent      = $isPrs ? '#F59E0B' : '#ff2b2b';
     $accentBg    = $isPrs ? '#78350F' : '#7F1D1D';
     $scoreLabel  = $isPrs ? 'Hits' : ($isElr ? 'Points' : 'Score');
     $typeLabel   = strtoupper($scoringType);
@@ -27,7 +27,7 @@
     <style>
         @page { size: A4 portrait; margin: 12mm 14mm 16mm 14mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9pt; color: #e2e8f0; background: #040C1A; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 9pt; color: #e2e8f0; background: #071327; }
 
         .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 3px solid {{ $accent }}; margin-bottom: 14px; }
         .brand { font-size: 20pt; font-weight: 800; letter-spacing: 3px; color: {{ $accent }}; }
@@ -46,7 +46,7 @@
         .section-title { font-size: 8pt; font-weight: 700; color: {{ $accent }}; text-transform: uppercase; letter-spacing: 2px; margin: 16px 0 8px; }
 
         .stat-cards { display: flex; gap: 8px; margin-bottom: 10px; }
-        .stat-card { flex: 1; background: #111D35; border-radius: 6px; padding: 12px 6px; text-align: center; }
+        .stat-card { flex: 1; background: #1d2d4a; border-radius: 6px; padding: 12px 6px; text-align: center; }
         .stat-value { font-size: 20pt; font-weight: 800; color: #ffffff; }
         .stat-value.green { color: #22c55e; }
         .stat-value.red { color: #ef4444; }
@@ -57,7 +57,7 @@
         .summary-line strong { color: #ffffff; }
         .summary-line .hl { color: {{ $accent }}; font-weight: 700; }
 
-        .stage-card { background: #0D1B33; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; page-break-inside: avoid; }
+        .stage-card { background: #0c1a33; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; page-break-inside: avoid; }
         .stage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .stage-name { font-size: 10pt; font-weight: 700; color: #ffffff; }
         .stage-name .dist { font-weight: 400; color: #64748b; font-size: 9pt; }
@@ -72,7 +72,7 @@
         .stage-stats { font-size: 8.5pt; color: #94a3b8; display: flex; justify-content: space-between; }
         .stage-stats .pts { font-size: 10pt; font-weight: 700; color: #ffffff; }
 
-        .bw-card { background: #111D35; border-radius: 6px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .bw-card { background: #1d2d4a; border-radius: 6px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
         .bw-card.best { border-left: 3px solid #22c55e; }
         .bw-card.worst { border-left: 3px solid #ef4444; }
         .bw-label { font-size: 9pt; color: #e2e8f0; }
@@ -81,14 +81,14 @@
         .bw-label .worst-tag { color: #ef4444; }
         .bw-pts { font-size: 10pt; font-weight: 700; }
 
-        .field-row { background: #0D1B33; border-radius: 5px; padding: 8px 14px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .field-row { background: #0c1a33; border-radius: 5px; padding: 8px 14px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
         .field-row .label { font-size: 8.5pt; color: #94a3b8; }
         .field-row .value { font-size: 10pt; font-weight: 700; color: #ffffff; }
 
-        .fact-item { background: #111D35; border-radius: 5px; padding: 8px 14px; margin-bottom: 4px; font-size: 8.5pt; color: #cbd5e1; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px; }
+        .fact-item { background: #1d2d4a; border-radius: 5px; padding: 8px 14px; margin-bottom: 4px; font-size: 8.5pt; color: #cbd5e1; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px; }
         .fact-bullet { color: {{ $accent }}; font-size: 9pt; flex-shrink: 0; margin-top: 1px; }
 
-        .badge-card { background: #0D1B33; border-radius: 6px; padding: 8px 14px; margin-bottom: 4px; page-break-inside: avoid; }
+        .badge-card { background: #0c1a33; border-radius: 6px; padding: 8px 14px; margin-bottom: 4px; page-break-inside: avoid; }
         .badge-name { font-size: 9pt; font-weight: 700; }
         .badge-desc { font-size: 8pt; color: #94a3b8; margin-top: 2px; }
         .badge-cat { font-size: 7pt; color: #64748b; margin-left: 6px; }

@@ -195,6 +195,58 @@ Kebab overflow menu for secondary row/page actions.
 ### `<x-app-context-bar>`
 Mode/context banner under the top bar. Already wired in the authenticated layout (`components/layouts/app.blade.php`) — you generally don't call it directly.
 
+## Reports — dark token system
+
+All exportable reports (PDFs), the transactional email, and the public HTML
+`/reports/royal-flush/...` page share a single dark palette so output feels like
+one product.
+
+### Sources of truth
+
+- `resources/views/exports/partials/pdf-styles-dark.blade.php` — canonical dark
+  token block for every PDF. Uses hardcoded hex values because DomPDF (the
+  fallback renderer) doesn't resolve CSS custom properties. Gotenberg
+  (Chromium) is the primary renderer; DomPDF is only the fallback.
+- `resources/views/exports/partials/pdf-header.blade.php` /
+  `pdf-footer.blade.php` — shared header + footer, included into every PDF.
+- `resources/css/app.css` (`--lp-*` custom properties) — native dark palette
+  used by the public Royal Flush HTML report.
+- `resources/views/emails/shooter-match-report.blade.php` — email client uses
+  inline hex values matching the app-native navy + red; no CSS variables
+  (email clients strip them).
+
+### Palette anchors (PDF / email)
+
+| Token | Hex | Use |
+|---|---|---|
+| `page-bg` | `#071327` | Body, page canvas, header strip |
+| `surface-1` | `#0c1a33` | Primary card/table surface |
+| `surface-2` | `#1d2d4a` | Elevated rows, striped alternates |
+| `ink-primary` | `#f8fafc` | Primary text, headings |
+| `ink-secondary` | `#cbd5e1` | Body copy |
+| `ink-muted` | `#94a3b8` | Labels, meta |
+| `accent` (UI) | `#ff2b2b` | Interactive accents (dashboards, emails) |
+| `accent` (PDF) | `#e10600` | PDF header rule, brand lockup |
+| `positive` | `#22c55e` / `#86efac` | Hits |
+| `negative` | `#ef4444` / `#fca5a5` | Misses |
+| `gold` | `#fbbf24` | 1st place |
+| `silver` | `#cbd5e1` | 2nd place |
+| `bronze` | `#fb923c` | 3rd place |
+
+### Rules
+
+1. **Do not hardcode other colors in report templates.** If you need a new
+   token, add it to `pdf-styles-dark.blade.php` and this table.
+2. **Gradients are banned in PDFs** — DomPDF ignores them. Use flat `rgba()`
+   tints over `surface-1` for podium / highlight rows.
+3. **SVGs inside PDFs** must use hex `fill` / `stroke` (no `currentColor`,
+   no `var(...)`). Spade/club in `pdf-header` must stay `#f8fafc` for
+   contrast on `#071327`.
+4. **Print fallbacks** on HTML reports (`@media print`) keep the dark theme
+   so "Save as PDF" from the browser matches the server-rendered PDF.
+5. **The matchbook editor + its PDF output are opt-out** of this system —
+   they use their own printable-page typography.
+
 ## When you need something new
 
 1. Look at the standard §14 first — is there already a primitive for this?
