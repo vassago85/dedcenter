@@ -673,6 +673,11 @@ new #[Layout('components.layouts.app')]
                                 </span>
                             </div>
                             <div class="flex items-center gap-2">
+                                <a href="{{ route('admin.matches.squad-correction', [$match, $squad]) }}"
+                                   class="inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-2 py-1 text-[10px] font-medium text-muted transition-colors hover:border-accent hover:text-accent min-h-[36px]"
+                                   title="Post-squad score correction — fix hits/misses after the squad leaves the line">
+                                    Correct scores
+                                </a>
                                 <input type="number" min="1" placeholder="Cap" value="{{ $squad->max_capacity }}"
                                        wire:change="updateSquadCapacity({{ $squad->id }}, $event.target.value)"
                                        class="w-16 rounded border border-border bg-surface-2 px-2 py-1 text-xs text-primary text-center focus:border-accent min-h-[36px]" title="Max capacity override" />

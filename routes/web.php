@@ -118,6 +118,7 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Volt::route('/matches/{match}', 'org.matches.hub')->name('matches.hub');
     Volt::route('/matches/{match}/edit', 'org.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'org.matches.squadding')->name('matches.squadding');
+    Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
@@ -160,6 +161,7 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/matches/{match}', 'admin.matches.hub')->name('matches.hub');
     Volt::route('/matches/{match}/edit', 'admin.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'admin.matches.squadding')->name('matches.squadding');
+    Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
