@@ -8,29 +8,29 @@
     Usage
     ─────
         <x-data-table :count="$matches->count()">
-            <x-slot:toolbar>      {{-- optional: filter bar, search, bulk --}}
+            <x-slot:toolbar>          (optional: filter bar, search, bulk)
                 <x-filter-bar ... />
             </x-slot:toolbar>
 
-            <x-slot:columns>      {{-- table <thead> cells --}}
+            <x-slot:columns>          (table thead cells)
                 <th>Match</th>
                 <th class="hidden md:table-cell">Date</th>
                 <th>Status</th>
-                <th class="w-0 text-right"></th> {{-- action column --}}
+                <th class="w-0 text-right"></th>   (action column)
             </x-slot:columns>
 
-            <x-slot:rows>         {{-- table <tbody> rows --}}
+            <x-slot:rows>             (table tbody rows)
                 @foreach($matches as $match)
                     <tr>...</tr>
                 @endforeach
             </x-slot:rows>
 
-            <x-slot:empty>        {{-- optional empty state --}}
+            <x-slot:empty>            (optional empty state)
                 <x-empty-state ... />
             </x-slot:empty>
 
-            <x-slot:footer>       {{-- optional pagination --}}
-                {{ $matches->links() }}
+            <x-slot:footer>           (optional pagination)
+                @{{ $matches->links() }}
             </x-slot:footer>
         </x-data-table>
 
@@ -38,8 +38,14 @@
     ─────
     count    int       Row count. When 0 the `empty` slot is rendered
                        instead of the table body.
-    sticky   bool      Sticky <thead>. Default true.
+    sticky   bool      Sticky thead. Default true.
     dense    bool      Tighter row padding for admin/dense tables. Default false.
+
+    NOTE: don't nest blade-style comments inside this block — Blade's
+    comment parser is non-greedy, and a nested closing sequence ends the
+    outer comment early, turning the rest of the docblock into live
+    template code (which then fails to compile because tags no longer
+    balance). Stick to plain parentheticals above.
 --}}
 @props([
     'count' => 1,
