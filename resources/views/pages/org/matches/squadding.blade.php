@@ -19,6 +19,7 @@ new #[Layout('components.layouts.app')]
 
     public string $walkinName = '';
     public string $walkinBib = '';
+    public string $walkinCaliber = '';
     public ?int $walkinRelayId = null;
     public string $walkinSearch = '';
     public ?int $walkinUserId = null;
@@ -484,6 +485,7 @@ new #[Layout('components.layouts.app')]
         $this->validate([
             'walkinName' => 'required|string|max:255',
             'walkinBib' => 'nullable|string|max:50',
+            'walkinCaliber' => 'nullable|string|max:64',
             'walkinRelayId' => 'required|integer',
         ]);
 
@@ -501,10 +503,22 @@ new #[Layout('components.layouts.app')]
             }
         }
 
+        // Persist caliber alongside the name using the platform-standard
+        // "Firstname Lastname — Caliber" suffix so reports and scoreboards
+        // that parse caliber via caliberFromShooterName() pick it up without
+        // any extra lookup. Strip any caliber the user already typed into
+        // the name to avoid double-suffixing.
+        $caliber = trim($this->walkinCaliber);
+        $baseName = trim($this->walkinName);
+        if ($caliber !== '' && str_contains($baseName, ' — ')) {
+            $baseName = trim(\Illuminate\Support\Str::before($baseName, ' — '));
+        }
+        $displayName = $caliber !== '' ? "{$baseName} — {$caliber}" : $baseName;
+
         $maxSort = Shooter::where('squad_id', $squad->id)->max('sort_order') ?? 0;
         $shooter = Shooter::create([
             'squad_id' => $squad->id,
-            'name' => $this->walkinName,
+            'name' => $displayName,
             'bib_number' => $this->walkinBib ?: null,
             'user_id' => $this->walkinUserId,
             'sort_order' => $maxSort + 1,
@@ -513,7 +527,7 @@ new #[Layout('components.layouts.app')]
 
         if ($this->walkinUserId) {
             $walkinUser = User::find($this->walkinUserId);
-            MatchRegistration::firstOrCreate(
+            $registration = MatchRegistration::firstOrCreate(
                 ['match_id' => $this->match->id, 'user_id' => $this->walkinUserId],
                 [
                     'payment_status' => 'confirmed',
@@ -521,11 +535,19 @@ new #[Layout('components.layouts.app')]
                     'amount' => $this->match->entry_fee ?? 0,
                     'is_free_entry' => ($this->match->entry_fee ?? 0) == 0,
                     'admin_notes' => 'Walk-in added by MD on match day',
+                    'caliber' => $caliber !== '' ? $caliber : null,
                 ]
             );
+
+            // firstOrCreate skips attribute updates if the row already
+            // existed — backfill caliber if a registration was there but
+            // empty so reports see the captured value.
+            if ($caliber !== '' && empty($registration->caliber)) {
+                $registration->update(['caliber' => $caliber]);
+            }
         }
 
-        $this->reset('walkinName', 'walkinBib', 'walkinRelayId', 'walkinUserId', 'walkinSearch');
+        $this->reset('walkinName', 'walkinBib', 'walkinCaliber', 'walkinRelayId', 'walkinUserId', 'walkinSearch');
         Flux::toast("{$shooter->name} added to {$squad->name}.", variant: 'success');
     }
 
@@ -1014,7 +1036,7 @@ new #[Layout('components.layouts.app')]
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <div>
                 <h2 class="text-lg font-semibold text-primary">Match Day Attendance</h2>
-                <p class="text-sm text-muted mt-1">Mark shooters as present or no-show. No-shows are excluded from scoring but kept on record. You can reinstate them at any time.</p>
+                <p class="text-sm text-muted mt-1">Mark shooters as present or no-show (i.e. absent from their relay). No-shows are kept on record but excluded from rankings and field-average stats so the numbers stay accurate. You can reinstate them at any time.</p>
             </div>
 
             <div class="flex flex-wrap gap-2">
@@ -1161,12 +1183,18 @@ new #[Layout('components.layouts.app')]
             </div>
 
             {{-- Walk-in details --}}
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                     <label class="block text-sm font-medium text-secondary mb-1">Name <span class="text-accent">*</span></label>
                     <input type="text" wire:model="walkinName" placeholder="Shooter name"
                            class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary placeholder-muted focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]"
                            {{ $walkinUserId ? 'readonly' : '' }} />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary mb-1">Caliber <span class="text-muted font-normal">(recommended)</span></label>
+                    <input type="text" wire:model="walkinCaliber" placeholder="e.g. 6.5 Creedmoor"
+                           list="dl-walkin-calibers-org"
+                           class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary placeholder-muted focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]" />
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary mb-1">Bib # <span class="text-muted font-normal">(optional)</span></label>
@@ -1184,6 +1212,15 @@ new #[Layout('components.layouts.app')]
                     </select>
                 </div>
             </div>
+
+            {{-- Same curated caliber list used by the member equipment form
+                 and regular registration, so walk-ins match the rest of the
+                 platform's suggestion set. --}}
+            <datalist id="dl-walkin-calibers-org">
+                @foreach(array_unique(array_merge(config('equipment-suggestions.calibers', []), config('equipment-suggestions.caliber_aliases', []))) as $v)
+                    <option value="{{ $v }}">
+                @endforeach
+            </datalist>
 
             <flux:button wire:click="addWalkin" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]">
                 <x-icon name="user-plus" class="mr-1.5 h-4 w-4" />

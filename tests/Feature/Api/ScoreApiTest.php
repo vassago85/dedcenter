@@ -116,3 +116,36 @@ it('requires all score fields', function () {
     $this->actingAs($this->creator)->postJson("/api/matches/{$this->match->id}/scores", ['scores' => [[]]])
         ->assertUnprocessable();
 });
+
+// The mobile scoring app calls this endpoint to mark a shooter who's absent
+// for their relay. Without no_show in the allowed statuses, absent shooters
+// stayed 'active' and got scored as a wall of misses, polluting field stats.
+it('accepts no_show as a valid shooter status (absent-for-relay from scoring app)', function () {
+    $this->actingAs($this->creator)
+        ->patchJson("/api/matches/{$this->match->id}/shooters/{$this->shooter->id}/status", [
+            'status' => 'no_show',
+        ])
+        ->assertOk()
+        ->assertJson(['status' => 'no_show']);
+
+    expect($this->shooter->fresh()->status)->toBe('no_show');
+});
+
+it('still accepts active / withdrawn / dq as valid shooter statuses', function () {
+    foreach (['withdrawn', 'dq', 'active'] as $status) {
+        $this->actingAs($this->creator)
+            ->patchJson("/api/matches/{$this->match->id}/shooters/{$this->shooter->id}/status", [
+                'status' => $status,
+            ])
+            ->assertOk()
+            ->assertJson(['status' => $status]);
+    }
+});
+
+it('rejects unknown shooter statuses', function () {
+    $this->actingAs($this->creator)
+        ->patchJson("/api/matches/{$this->match->id}/shooters/{$this->shooter->id}/status", [
+            'status' => 'teleported',
+        ])
+        ->assertUnprocessable();
+});

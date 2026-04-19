@@ -153,7 +153,12 @@ class ScoreController extends Controller
             abort(404);
         }
 
-        $request->validate(['status' => 'required|in:active,withdrawn,dq']);
+        // no_show is the match-day equivalent of "absent for their relay" —
+        // the scoring app must be able to flag it from the field so the
+        // shooter is excluded from rankings + field stats (see
+        // MatchStandingsService::NON_RANKED_STATUSES). Without this,
+        // absent shooters remained 'active' and got scored as all-misses.
+        $request->validate(['status' => 'required|in:active,withdrawn,dq,no_show']);
         $shooter->update(['status' => $request->status]);
 
         return response()->json(['status' => $shooter->status]);
