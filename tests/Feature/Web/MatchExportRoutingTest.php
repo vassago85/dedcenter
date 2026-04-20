@@ -134,6 +134,25 @@ test('admin full-match-report HTML view does NOT 404 with org-mismatch', functio
     expect($res->status())->not->toBe(404);
 });
 
+/**
+ * Regression: the admin HTML Full Match Report view resolved the
+ * Download PDF target via `$organization ? org-route : admin-route`.
+ * Because Laravel's ControllerDispatcher injects an empty Organization
+ * instance (truthy, but with a null slug) on admin routes that have
+ * no `{organization}` segment, the ternary fell into the org branch
+ * and blew up with "Missing parameter: organization" — a 500, not a
+ * 404. Fix: treat only a persisted Organization (`exists === true`)
+ * as a real org binding.
+ */
+test('admin full-match-report HTML view does NOT 500 from download-url generation', function () {
+    $res = $this->actingAs($this->admin)
+        ->get(route('admin.matches.full-match-report', [
+            'match' => $this->match,
+        ]));
+
+    expect($res->status())->not->toBe(500);
+});
+
 test('admin pdf-standings does NOT 404 with org-mismatch', function () {
     $res = $this->actingAs($this->admin)
         ->get(route('admin.matches.export.pdf-standings', [

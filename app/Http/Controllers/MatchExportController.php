@@ -595,7 +595,11 @@ class MatchExportController extends Controller
         $this->authorizeExport($match);
         $data = $this->buildExecutiveSummaryData($match);
 
-        $downloadUrl = $organization
+        // Same Laravel-injects-an-empty-Organization gotcha as ensureOrgMatch:
+        // on the admin route (no `{organization}` segment) `$organization`
+        // is a slug-less, unsaved model — truthy but unusable. Treat only a
+        // persisted Organization as a real org binding.
+        $downloadUrl = ($organization && $organization->exists)
             ? route('org.matches.export.pdf-executive-summary', [$organization, $match])
             : route('admin.matches.export.pdf-executive-summary', $match);
 

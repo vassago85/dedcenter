@@ -35,10 +35,67 @@ class HomeController extends Controller
      * 60 seconds so the shooter home (hit on every nav back to `/`) stops
      * thrashing the DB. Scoring/live data still flows through its own
      * uncached pipeline elsewhere.
+     *
+     * Safety net: caching hydrated Eloquent models + Collections means
+     * that if the autoloader state on a worker drifts between deploys or
+     * an opcache reset, unserialize() can hand us a `__PHP_Incomplete_Class`
+     * and Blade then crashes with a 500 on the homepage. We detect that,
+     * nuke the poisoned entry, and rebuild from the DB so one bad cache
+     * write doesn't brick the landing page for 60 seconds.
      */
     private function shooterData(): array
     {
-        return Cache::remember('home:shooter-data:v1', now()->addSeconds(60), fn () => $this->buildShooterData());
+        $key = 'home:shooter-data:v1';
+
+        try {
+            $cached = Cache::get($key);
+            if ($cached !== null && $this->isUsableShooterData($cached)) {
+                return $cached;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        Cache::forget($key);
+        $fresh = $this->buildShooterData();
+
+        try {
+            Cache::put($key, $fresh, now()->addSeconds(60));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $fresh;
+    }
+
+    /**
+     * Reject any cached payload that contains PHP's incomplete-class
+     * sentinel. Walks one level down into each element (collections,
+     * arrays) — deep enough to catch the typical poisoned cache from a
+     * cross-deploy autoload drift without paying for a full recursive
+     * traversal on the hot path.
+     */
+    private function isUsableShooterData(mixed $data): bool
+    {
+        if (! is_array($data)) {
+            return false;
+        }
+
+        foreach ($data as $value) {
+            if ($value instanceof \__PHP_Incomplete_Class) {
+                return false;
+            }
+
+            if (is_iterable($value)) {
+                foreach ($value as $inner) {
+                    if ($inner instanceof \__PHP_Incomplete_Class) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     private function buildShooterData(): array
