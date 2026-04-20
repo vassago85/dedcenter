@@ -584,6 +584,17 @@
                 .podium tbody, .podium tr { display: contents; }
                 .podium td { display: block; }
             }
+
+            /* Header strip stacks vertically on phones so the org logo,
+               match title, and "Published on DeadCenter" credit don't get
+               crushed into ~80px columns. */
+            @media (max-width: 640px) {
+                .pdf-header-table, .pdf-header-table tbody, .pdf-header-table tr { display: block; width: 100%; }
+                .pdf-header-table td { display: block; width: 100%; text-align: center !important; padding: 4px 0; }
+                .brand-hero-logo { margin: 0 auto; max-height: 72px; max-width: 70vw; }
+                .published-by { margin: 0 auto; }
+                .brand-center .match-name { font-size: 16pt; }
+            }
         @endif
     </style>
 </head>
@@ -695,7 +706,7 @@
                 <tr>
                     <th class="pos-head" rowspan="2">#</th>
                     <th class="name-head" rowspan="2">Shooter</th>
-                    <th class="cal-head" rowspan="2">Caliber</th>
+                    <th class="cal-head" rowspan="2">Cartridge</th>
                     @foreach($columnsByDist as $distM => $distGroup)
                         <th class="dist-head dist-end" colspan="{{ count($distGroup['cols']) }}">
                             {{ $distGroup['label'] }} · {{ $mult($distGroup['multiplier']) }}

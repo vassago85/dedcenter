@@ -439,7 +439,7 @@
                                 <tr style="background: rgba(255, 255, 255, 0.02); border-bottom: 1px solid var(--lp-border);">
                                     <th class="px-4 py-2 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 9px;">#</th>
                                     <th class="px-3 py-2 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 9px;">Shooter</th>
-                                    <th class="px-3 py-2 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 9px;">Caliber</th>
+                                    <th class="px-3 py-2 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 9px;">Cartridge</th>
                                     @foreach($gongs as $g)
                                         <th class="px-1.5 py-2 text-center font-semibold" style="color: var(--lp-text-muted);">
                                             <div class="text-[9px] tracking-[0.12em] uppercase">G{{ $g['number'] }}</div>
@@ -517,7 +517,7 @@
                         <tr style="background: rgba(255, 255, 255, 0.02); border-bottom: 1px solid var(--lp-border);">
                             <th class="px-4 py-3 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 10px;">#</th>
                             <th class="px-3 py-3 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 10px;">Shooter</th>
-                            <th class="px-3 py-3 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 10px;">Caliber</th>
+                            <th class="px-3 py-3 text-left font-semibold uppercase tracking-[0.16em]" style="color: var(--lp-text-muted); font-size: 10px;">Cartridge</th>
                             @foreach($distanceTables as $dt)
                                 <th class="px-2 py-3 text-center font-semibold uppercase tracking-[0.14em]" style="color: var(--lp-text-muted); font-size: 10px;">
                                     {{ $dt['label'] ?? ($dt['distance_meters'] . 'm') }}

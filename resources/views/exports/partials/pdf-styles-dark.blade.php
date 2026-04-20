@@ -59,9 +59,23 @@
     .pdf-header-table { width: 100%; border-collapse: collapse; }
     .pdf-header-table td { vertical-align: middle; }
 
-    .brand-left  { width: 26%; }
-    .brand-center { width: 48%; text-align: center; }
-    .brand-right { width: 26%; text-align: right; }
+    .brand-left  { width: 28%; }
+    .brand-center { width: 44%; text-align: center; }
+    .brand-right { width: 28%; text-align: right; }
+
+    /* Hero logo — the organizing body's mark anchors the report. The
+       uploaded assets are typically on a near-black background which
+       blends cleanly with the navy header, so we don't impose any
+       frame or tint around the image. Max-height keeps the row a
+       consistent height regardless of logo aspect ratio. */
+    .brand-hero-logo {
+        display: block;
+        max-height: 58px;
+        max-width: 180px;
+        height: auto;
+        width: auto;
+        object-fit: contain;
+    }
 
     .brand-inner { border-collapse: collapse; }
     .brand-inner .brand-mark { padding-right: 10px; vertical-align: middle; }
@@ -97,23 +111,37 @@
     }
     .brand-center .match-meta .dot { margin: 0 6px; color: #475569; }
 
-    .rf-mark { margin-left: auto; border-collapse: collapse; }
-    .rf-mark .rf-suits { padding-right: 8px; vertical-align: middle; }
-    .rf-mark .rf-word { text-align: left; vertical-align: middle; line-height: 1; }
-    .rf-mark .rf-line1 {
-        font-size: 7pt;
+    /* "Published on DeadCenter" mini-lockup — small and muted so it
+       reads as a credit line, not as a second hero. Sits on the right
+       whenever the hero slot is occupied by the organization logo. */
+    .published-by {
+        margin-left: auto;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    .published-by .pb-label {
+        font-size: 6pt;
         font-weight: 700;
         color: #94a3b8;
-        letter-spacing: 0.28em;
         text-transform: uppercase;
+        letter-spacing: 0.22em;
+        padding-right: 8px;
+        vertical-align: middle;
+        text-align: right;
     }
-    .rf-mark .rf-line2 {
-        font-size: 11pt;
-        font-weight: 900;
-        color: #f8fafc;
-        letter-spacing: 0.12em;
-        margin-top: 2px;
+    .published-by .pb-mark {
+        padding-right: 5px;
+        vertical-align: middle;
     }
+    .published-by .pb-word {
+        font-size: 9.5pt;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        vertical-align: middle;
+        line-height: 1;
+    }
+    .published-by .pb-word .dead   { color: #f8fafc; }
+    .published-by .pb-word .center { color: #e10600; }
 
     /* ─── Footer ─── */
     .pdf-footer {
