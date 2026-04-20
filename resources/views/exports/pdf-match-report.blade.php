@@ -310,7 +310,7 @@
 
     {{-- BEST & WORST --}}
     @if($bestStage || $worstStage)
-        <div class="section-title">Best &amp; Worst Stage</div>
+        <div class="section-title">Best &amp; Worst Stage <span style="font-weight:normal;opacity:0.7;">(by Points)</span></div>
         @if($bestStage)
             <div class="bw-card best">
                 <div class="bw-label">

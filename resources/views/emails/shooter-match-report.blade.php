@@ -362,7 +362,7 @@
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
-                        Best &amp; Worst Stage
+                        Best &amp; Worst Stage <span style="color:#94a3b8;font-weight:normal;">(by Points)</span>
                     </td>
                 </tr>
             </table>
