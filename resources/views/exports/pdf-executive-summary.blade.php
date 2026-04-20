@@ -20,7 +20,12 @@
      * @var \Illuminate\Support\Collection $rfLeaderboard
      * @var \Carbon\Carbon $generatedAt
      */
-    $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
+    // $fmt renders a score as a whole number — every visible total / average
+    // on the Full Match Report is rounded to the closest integer so the
+    // reader doesn't have to parse decimal trailings. Multipliers keep their
+    // decimal precision via $mult since a 1.5× or 2.25× factor is meaningful
+    // at the sub-integer level and becomes useless when truncated.
+    $fmt = fn ($v) => (string) (int) round((float) $v);
     $mult = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') . '×';
 
     // Group columns by distance for the header row (colspan-like behaviour via sub-headers).
@@ -226,6 +231,7 @@
         .grid thead th.name-head { width: 110px; text-align: left; padding-left: 6px; letter-spacing: 0.12em; text-transform: uppercase; font-size: 5.5pt; }
         .grid thead th.cal-head  { width: 78px; text-align: left; padding-left: 4px; letter-spacing: 0.12em; text-transform: uppercase; font-size: 5.5pt; }
         .grid thead th.score-head,
+        .grid thead th.rel-head,
         .grid thead th.rate-head {
             background: #1d2d4a;
             letter-spacing: 0.12em;
@@ -234,6 +240,7 @@
             width: 32px;
         }
         .grid thead th.score-head { color: #f8fafc; width: 38px; }
+        .grid thead th.rel-head   { color: #fde68a; width: 32px; }
         .grid thead th.rate-head  { color: #94a3b8; }
 
         /* Shot cells — narrower for portrait. Glyph still sits at ~9px so
@@ -346,6 +353,15 @@
             letter-spacing: -0.01em;
         }
         .grid tr.top1 td.score { color: #fbbf24; }
+        .grid td.rel {
+            font-weight: 700;
+            color: #fde68a;
+            font-variant-numeric: tabular-nums;
+            font-size: 6.8pt;
+        }
+        .grid tr.top1 td.rel,
+        .grid tr.top2 td.rel,
+        .grid tr.top3 td.rel { color: #fbbf24; }
         .grid td.rate {
             color: #cbd5e1;
             font-size: 6.5pt;
@@ -568,7 +584,7 @@
                 padding: 0 4px;
             }
             .heatmap-scroll .grid {
-                min-width: 720px;
+                min-width: 760px;
             }
 
             /* Stat cards collapse to 2-up on phones, 4-up on tablets+. */
@@ -713,6 +729,7 @@
                         </th>
                     @endforeach
                     <th class="score-head" rowspan="2">Score</th>
+                    <th class="rel-head" rowspan="2" title="Score as a proportion of the winner (winner = 100)">Rel.</th>
                     <th class="rate-head" rowspan="2">Hit%</th>
                 </tr>
                 {{-- Gong / card-face row --}}
@@ -785,6 +802,7 @@
                             </td>
                         @endforeach
                         <td class="score">{{ $fmt($row['total_score']) }}</td>
+                        <td class="rel">{{ $row['relative_score'] !== null ? $row['relative_score'] : '—' }}</td>
                         <td class="rate">{{ $row['hit_rate'] }}%</td>
                     </tr>
                 @endforeach

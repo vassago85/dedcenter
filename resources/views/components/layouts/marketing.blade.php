@@ -42,39 +42,48 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @fluxAppearance
 </head>
-<body class="min-h-screen antialiased" style="background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-2) 100%); color: var(--lp-text);">
+<body class="min-h-screen antialiased overflow-x-hidden" style="background: linear-gradient(180deg, var(--lp-bg) 0%, var(--lp-bg-2) 100%); color: var(--lp-text);">
 
-    {{-- Navigation (mobile menu uses native <details> — Alpine is not bundled on marketing pages) --}}
+    {{-- Navigation (mobile menu uses native <details> — Alpine is not bundled on
+         marketing pages). Breakpoint is `lg:` rather than `md:` because the
+         shooter nav has 6 links ("Events / Organizations / Results / Standings /
+         About / Advertise") — at the old `md:` cutoff (768px) they collided
+         with the logo and the "Sign In / Get Started" pair, wrapping "Sign In"
+         onto two lines and pushing "Get Started" past the viewport. Switching
+         to `lg:` keeps the hamburger visible up to 1023px where the row
+         finally has room to breathe. --}}
     <nav class="sticky top-0 z-50" style="background: rgba(7, 19, 39, 0.85); border-bottom: 1px solid var(--lp-border); backdrop-filter: blur(20px) saturate(1.4);">
-        <div class="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <a href="{{ $ctx === 'md' ? md_url('/') : shooter_url('/') }}" class="opacity-90 hover:opacity-100 transition-opacity">
+        <div class="relative mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+            <a href="{{ $ctx === 'md' ? md_url('/') : shooter_url('/') }}" class="shrink-0 opacity-90 hover:opacity-100 transition-opacity">
                 <x-app-logo size="md" variant="dark" />
             </a>
 
-            {{-- Desktop nav --}}
-            <div class="hidden md:flex items-center gap-7 text-[13px] font-medium">
+            {{-- Desktop nav — hidden until lg so the 6-item shooter nav has
+                 room; gap tightens on smaller desktop widths so nothing gets
+                 squeezed against the logo or the auth CTAs. --}}
+            <div class="hidden lg:flex items-center gap-5 xl:gap-7 text-[13px] font-medium min-w-0">
                 @if($ctx === 'md')
-                    <a href="#features" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Features</a>
-                    <a href="#scoring-modes" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Scoring Modes</a>
-                    <a href="#how-it-works" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">How It Works</a>
-                    <a href="#for-clubs" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">For Clubs</a>
+                    <a href="#features" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Features</a>
+                    <a href="#scoring-modes" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Scoring Modes</a>
+                    <a href="#how-it-works" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">How It Works</a>
+                    <a href="#for-clubs" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">For Clubs</a>
                 @else
-                    <a href="{{ route('events') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('events') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Events</a>
-                    <a href="{{ route('home') }}#organizations" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Organizations</a>
-                    <a href="{{ route('home') }}#results" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Results</a>
-                    <a href="{{ route('home') }}#standings" class="transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
-                    <a href="{{ route('features') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('features') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">About</a>
-                    <a href="{{ route('advertise') }}" class="transition-colors duration-200 hover:!text-white {{ request()->routeIs('advertise') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Advertise</a>
+                    <a href="{{ route('events') }}" class="shrink-0 transition-colors duration-200 hover:!text-white {{ request()->routeIs('events') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Events</a>
+                    <a href="{{ route('home') }}#organizations" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Organizations</a>
+                    <a href="{{ route('home') }}#results" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Results</a>
+                    <a href="{{ route('home') }}#standings" class="shrink-0 transition-colors duration-200 hover:!text-white" style="color: var(--lp-text-muted);">Standings</a>
+                    <a href="{{ route('features') }}" class="shrink-0 transition-colors duration-200 hover:!text-white {{ request()->routeIs('features') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">About</a>
+                    <a href="{{ route('advertise') }}" class="shrink-0 transition-colors duration-200 hover:!text-white {{ request()->routeIs('advertise') ? '!text-white' : '' }}" style="color: var(--lp-text-muted);">Advertise</a>
                 @endif
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex shrink-0 items-center gap-2 sm:gap-3">
                 @auth
                     <a href="{{ app_url('/dashboard') }}" class="lp-cta-nav inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap sm:px-5">
                         Dashboard
                     </a>
                 @else
-                    <a href="{{ app_url('/login') }}" class="hidden sm:inline-block rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:!text-white lp-nav-text-muted">
+                    <a href="{{ app_url('/login') }}" class="hidden sm:inline-flex shrink-0 items-center whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:!text-white lp-nav-text-muted sm:px-4">
                         Sign In
                     </a>
                     <a href="{{ app_url('/register') }}" class="lp-cta-nav inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap sm:px-5">
@@ -83,7 +92,7 @@
                 @endauth
 
                 {{-- Mobile menu: native disclosure (closed by default; no Alpine on this bundle) --}}
-                <details class="marketing-nav-details md:hidden relative">
+                <details class="marketing-nav-details lg:hidden relative">
                     <summary class="marketing-nav-summary list-none flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors hover:bg-white/10 outline-none ring-0" aria-label="Toggle menu">
                         <x-icon name="menu" class="marketing-nav-icon-open h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" />
                         <x-icon name="x" class="marketing-nav-icon-close h-5 w-5 shrink-0" style="color: var(--lp-text-soft);" />

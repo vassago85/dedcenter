@@ -747,6 +747,13 @@ class MatchExportController extends Controller
             }
         }
 
+        // Relative score denominator = the top ranked competitor's total.
+        // Mirrors the public scoreboard API (ScoreboardController) so the
+        // report, the live scoreboard, and season standings all speak the
+        // same language: winner is always 100, the rest are a rounded
+        // integer proportion of that.
+        $winnerScoreForRelative = (float) ($rankedStandings->first()->total_score ?? 0);
+
         $heatmap = [];
         foreach ($standings as $standing) {
             $cells = [];
@@ -777,6 +784,9 @@ class MatchExportController extends Controller
                 'hit_rate' => (($standing->hits ?? 0) + ($standing->misses ?? 0)) > 0
                     ? round((($standing->hits ?? 0) / (($standing->hits ?? 0) + ($standing->misses ?? 0))) * 100)
                     : 0,
+                'relative_score' => $winnerScoreForRelative > 0 && $standing->rank !== null
+                    ? (int) round(((float) $standing->total_score / $winnerScoreForRelative) * 100)
+                    : null,
                 'cells' => $cells,
             ];
         }
@@ -806,7 +816,7 @@ class MatchExportController extends Controller
         $third = $rankedStandings->skip(2)->first();
 
         $avgScore = $rankedStandings->count() > 0
-            ? round($rankedStandings->avg('total_score'), 1)
+            ? (int) round($rankedStandings->avg('total_score'))
             : 0;
 
         // Per-distance hit rate for header ribbon — ranked competitors only.
@@ -921,9 +931,9 @@ class MatchExportController extends Controller
                 $facts[] = [
                     'tag' => 'Margin',
                     'text' => sprintf(
-                        '%s took it by %s %s ahead of %s.',
+                        '%s took it by %d %s ahead of %s.',
                         $winnerName,
-                        rtrim(rtrim(number_format($margin, 2, '.', ''), '0'), '.'),
+                        (int) round($margin),
                         $isRf ? 'points' : 'pts',
                         Str::before($runnerUp->name, ' — ') ?: $runnerUp->name,
                     ),
