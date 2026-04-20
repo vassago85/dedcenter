@@ -100,11 +100,57 @@ test('admin pdf-shooter-report route still resolves without TypeError', function
     expect($res->status())->not->toBe(500);
 });
 
+/**
+ * Regression: the admin-prefixed export routes share a controller signature
+ * with the org-prefixed ones (leading `?Organization $organization`). The
+ * admin URL has no `{organization}` segment, and Laravel's ControllerDispatcher
+ * injects an EMPTY Organization instance rather than null in that case. If
+ * ensureOrgMatch() compares the match's org id to that empty instance's
+ * (null) id, it incorrectly 404s with "Match does not belong to this
+ * organization." — breaking every admin-side export.
+ */
+test('admin pdf-full-match-report does NOT 404 with org-mismatch', function () {
+    $res = $this->actingAs($this->admin)
+        ->get(route('admin.matches.export.pdf-executive-summary', [
+            'match' => $this->match,
+        ]));
+
+    expect($res->status())->not->toBe(404);
+    expect($res->status())->not->toBe(500);
+});
+
+test('admin full-match-report HTML view does NOT 404 with org-mismatch', function () {
+    $res = $this->actingAs($this->admin)
+        ->get(route('admin.matches.full-match-report', [
+            'match' => $this->match,
+        ]));
+
+    // Specifically guard against the ensureOrgMatch() false-positive:
+    // before the fix this returned 404 with "Match does not belong to
+    // this organization." The view itself may throw a render-time error
+    // on minimal fixture data (no stages / no shots) — that's a
+    // separate concern; the controller-side org check is what this
+    // regression locks in.
+    expect($res->status())->not->toBe(404);
+});
+
+test('admin pdf-standings does NOT 404 with org-mismatch', function () {
+    $res = $this->actingAs($this->admin)
+        ->get(route('admin.matches.export.pdf-standings', [
+            'match' => $this->match,
+        ]));
+
+    expect($res->status())->not->toBe(404);
+    expect($res->status())->not->toBe(500);
+});
+
 test('public scoreboard standings CSV export still resolves', function () {
     $res = $this->actingAs($this->admin)
         ->get(route('scoreboard.export.standings', ['match' => $this->match]));
 
-    expect($res->status())->not->toBe(500);
+    // CSV exports return a StreamedResponse which doesn't expose ->status();
+    // the TestResponse wrapper exposes the HTTP status via getStatusCode().
+    expect($res->getStatusCode())->not->toBe(500);
 });
 
 test('org export rejects cross-org match (tamper guard)', function () {

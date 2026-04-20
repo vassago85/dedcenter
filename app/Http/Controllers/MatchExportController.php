@@ -1714,18 +1714,22 @@ class MatchExportController extends Controller
      * The org route group is prefixed with `/org/{organization}/...` so
      * Laravel injects an Organization as the first controller arg. When
      * the admin group or the public scoreboard routes (which don't have
-     * that prefix) call the same method, Laravel passes null — so this
-     * method is a noop in that case.
+     * that prefix) call the same method, Laravel's ControllerDispatcher
+     * has nothing to bind it to — and because `?Organization` without a
+     * `= null` default isn't treated as "defaulted" by the dispatcher,
+     * it falls through to the service container and injects an EMPTY
+     * Organization instance (not null). We treat an empty/unsaved
+     * Organization the same as null: no org context, no check.
      *
-     * When an organization IS bound, make sure the match actually belongs
-     * to it. Without this, a match director of Org A could craft a URL
-     * like /org/a/matches/42/export/... where match 42 belongs to Org B
-     * and slip past authorizeExport (since Org A membership lets them
-     * through the org.admin middleware).
+     * When an organization IS bound (has a primary key), make sure the
+     * match actually belongs to it. Without this, a match director of
+     * Org A could craft a URL like /org/a/matches/42/export/... where
+     * match 42 belongs to Org B and slip past authorizeExport (since
+     * Org A membership lets them through the org.admin middleware).
      */
     private function ensureOrgMatch(?Organization $organization, ShootingMatch $match): void
     {
-        if ($organization === null) {
+        if ($organization === null || ! $organization->exists) {
             return;
         }
 
