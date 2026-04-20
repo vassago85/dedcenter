@@ -59,13 +59,20 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | DeadCenter operates exclusively in South Africa. All matches, results,
+    | registrations, and schedule times are spoken about in SAST (UTC+2, no
+    | DST), so the application clock runs in Africa/Johannesburg and every
+    | Carbon / DB timestamp written by the app is local time — no per-view
+    | timezone conversion needed for users.
+    |
+    | The Docker containers already set TZ=Africa/Johannesburg at the OS
+    | level and APP_TIMEZONE=Africa/Johannesburg in the env; falling back
+    | to that env var here lets local dev override it (e.g. for a one-off
+    | UTC test run) without editing this file.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Africa/Johannesburg'),
 
     /*
     |--------------------------------------------------------------------------
