@@ -39,7 +39,7 @@ class ShooterMatchReport extends Mailable
     {
         try {
             $renderer = app(PdfDocumentRenderer::class);
-            $pdfBytes = $renderer->generate('exports.pdf-match-report', ['report' => $this->report]);
+            $pdfBytes = $renderer->generate('exports.pdf-match-report', ['report' => $this->report], null, true);
             $filename = Str::slug($this->report['match']['name'] ?? 'match') . '-report.pdf';
 
             return [

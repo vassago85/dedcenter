@@ -559,8 +559,10 @@ class MatchExportController extends Controller
     /**
      * Full Match Report PDF generation.
      *
-     * No customSize passed -> Gotenberg honours the template's CSS
-     * @page rule (size: 210mm auto), producing one tall continuous page.
+     * Passes singlePage=true so Gotenberg/Chromium flatten the entire
+     * document to a single tall page. The template's `@page { size: 210mm
+     * auto }` rule is a hint — Chromium still paginates to A4 unless the
+     * Gotenberg flag overrides it. The shooter report uses the same flag.
      */
     public function pdfFullMatchReport(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
@@ -573,6 +575,8 @@ class MatchExportController extends Controller
             'exports.pdf-executive-summary',
             $data,
             "{$slug}-full-match-report.pdf",
+            null,
+            true,
         );
     }
 
@@ -609,7 +613,7 @@ class MatchExportController extends Controller
         $slug = Str::slug($match->name.'-'.$shooter->name);
         $report = $reportService->generateReport($match, $shooter);
 
-        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf");
+        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf", null, true);
     }
 
     /**
@@ -643,7 +647,7 @@ class MatchExportController extends Controller
         $slug = Str::slug($match->name.'-'.$shooter->name);
         $report = $reportService->generateReport($match, $shooter);
 
-        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf");
+        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf", null, true);
     }
 
     /**

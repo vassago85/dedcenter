@@ -34,7 +34,7 @@ class MatchReportService
         $report = $this->generateReport($match, $shooter);
         $renderer = app(PdfDocumentRenderer::class);
 
-        return $renderer->generate('exports.pdf-match-report', ['report' => $report]);
+        return $renderer->generate('exports.pdf-match-report', ['report' => $report], null, true);
     }
 
     private function sponsorData(ShootingMatch $match): ?array

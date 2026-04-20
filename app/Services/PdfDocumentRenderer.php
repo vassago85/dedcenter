@@ -27,13 +27,14 @@ class PdfDocumentRenderer
      * Generate a PDF from a Blade template and return the raw PDF bytes.
      *
      * @param  array{width: float, height: float}|null  $customSize  Paper size in mm
+     * @param  bool  $singlePage  When true, asks Gotenberg to emit the entire document on a single tall page regardless of `@page`
      */
-    public function generate(string $template, array $data, ?array $customSize = null): string
+    public function generate(string $template, array $data, ?array $customSize = null, bool $singlePage = false): string
     {
         $html = view($template, $data)->render();
 
         // Strategy 1: Gotenberg
-        $pdfBytes = $this->tryGotenberg($html, $customSize);
+        $pdfBytes = $this->tryGotenberg($html, $customSize, $singlePage);
         if ($pdfBytes !== null) {
             return $pdfBytes;
         }
@@ -76,10 +77,10 @@ class PdfDocumentRenderer
     /**
      * Generate a PDF and stream it directly to the browser.
      */
-    public function stream(string $template, array $data, string $filename, ?array $customSize = null): \Symfony\Component\HttpFoundation\Response
+    public function stream(string $template, array $data, string $filename, ?array $customSize = null, bool $singlePage = false): \Symfony\Component\HttpFoundation\Response
     {
         try {
-            $pdfBytes = $this->generate($template, $data, $customSize);
+            $pdfBytes = $this->generate($template, $data, $customSize, $singlePage);
 
             return response($pdfBytes, 200, [
                 'Content-Type' => 'application/pdf',
@@ -92,7 +93,7 @@ class PdfDocumentRenderer
         }
     }
 
-    protected function tryGotenberg(string $html, ?array $customSize = null): ?string
+    protected function tryGotenberg(string $html, ?array $customSize = null, bool $singlePage = false): ?string
     {
         try {
             $multipart = [
@@ -109,6 +110,15 @@ class PdfDocumentRenderer
                 $multipart[] = ['name' => 'paperWidth', 'contents' => (string) round($customSize['width'] / 25.4, 2)];
                 $multipart[] = ['name' => 'paperHeight', 'contents' => (string) round($customSize['height'] / 25.4, 2)];
                 $multipart[6] = ['name' => 'preferCssPageSize', 'contents' => 'false'];
+            }
+
+            // `singlePage=true` forces Gotenberg/Chromium to render the full
+            // document as one tall page regardless of what the CSS @page rule
+            // says. Needed because `@page { size: 210mm auto }` is only
+            // honoured inconsistently across Chromium builds — the flag is
+            // the authoritative switch for digital-first reports.
+            if ($singlePage) {
+                $multipart[] = ['name' => 'singlePage', 'contents' => 'true'];
             }
 
             $response = Http::timeout(30)
