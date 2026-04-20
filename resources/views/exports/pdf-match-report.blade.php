@@ -27,8 +27,14 @@
     <style>
         /* Print the page edge-to-edge in dark navy so there is no white
            paper band around the content. Inner padding restores the
-           visual "margin" inside that dark canvas. */
-        @page { size: A4 portrait; margin: 0; background: #071327; }
+           visual "margin" inside that dark canvas.
+
+           Use `210mm auto` so Chromium (Gotenberg) renders the report on
+           a single continuous page rather than paginating into multiple
+           short A4 pages — the shooter report is a narrative document,
+           not a form, and reads better as one flowing page. DomPDF
+           falls back to its default A4 if it can't parse the height. */
+        @page { size: 210mm auto; margin: 0; background: #071327; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { background: #071327 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         body {
@@ -101,13 +107,71 @@
         .fact-item { background: #1d2d4a; border-radius: 4px; padding: 4px 9px; margin-bottom: 3px; font-size: 7.5pt; color: #cbd5e1; line-height: 1.35; display: flex; align-items: flex-start; gap: 5px; }
         .fact-bullet { color: {{ $accent }}; font-size: 8pt; flex-shrink: 0; margin-top: 1px; }
 
-        .badge-card { background: #0c1a33; border-radius: 5px; padding: 4px 10px; margin-bottom: 3px; page-break-inside: avoid; }
-        .badge-name { font-size: 8.5pt; font-weight: 700; }
-        .badge-desc { font-size: 7.5pt; color: #94a3b8; margin-top: 1px; }
-        .badge-cat { font-size: 6.5pt; color: #64748b; margin-left: 6px; }
-        .badge-special { color: #F59E0B; border-left: 3px solid #F59E0B; }
-        .badge-lifetime { color: #A855F7; border-left: 3px solid #A855F7; }
-        .badge-repeatable { color: #38BDF8; border-left: 3px solid #38BDF8; }
+        /* Badge row — icon crest on the left, text on the right. Each
+           category gets a tinted gradient crest + subtle glow so the PDF
+           matches the platform's shooter-badges component instead of
+           falling back to plain text rows. */
+        .badge-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #0c1a33;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            page-break-inside: avoid;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.35);
+        }
+        .badge-crest {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .badge-crest svg { width: 18px; height: 18px; }
+        .badge-body { flex: 1; min-width: 0; }
+        .badge-name { font-size: 9pt; font-weight: 700; }
+        .badge-desc { font-size: 7.5pt; color: #94a3b8; margin-top: 2px; line-height: 1.35; }
+        .badge-cat {
+            font-size: 6.5pt;
+            color: #64748b;
+            margin-left: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+        }
+
+        .badge-special { border-left: 3px solid #F59E0B; }
+        .badge-special .badge-crest {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.32) 0%, rgba(245, 158, 11, 0.08) 100%);
+            border-color: rgba(245, 158, 11, 0.55);
+            color: #FCD34D;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .badge-special .badge-name { color: #F59E0B; }
+
+        .badge-lifetime { border-left: 3px solid #A855F7; }
+        .badge-lifetime .badge-crest {
+            background: linear-gradient(180deg, rgba(168, 85, 247, 0.32) 0%, rgba(168, 85, 247, 0.08) 100%);
+            border-color: rgba(168, 85, 247, 0.55);
+            color: #D8B4FE;
+            box-shadow: 0 2px 6px rgba(168, 85, 247, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .badge-lifetime .badge-name { color: #A855F7; }
+
+        .badge-repeatable { border-left: 3px solid #38BDF8; }
+        .badge-repeatable .badge-crest {
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.32) 0%, rgba(56, 189, 248, 0.08) 100%);
+            border-color: rgba(56, 189, 248, 0.55);
+            color: #7DD3FC;
+            box-shadow: 0 2px 6px rgba(56, 189, 248, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .badge-repeatable .badge-name { color: #38BDF8; }
 
         .footer { margin-top: 8px; padding-top: 5px; border-top: 1px solid #1e293b; text-align: center; }
         .footer .brand-sm { font-size: 10pt; font-weight: 700; letter-spacing: 1.5px; color: {{ $accent }}; }
@@ -329,10 +393,15 @@
             @if($badgesByCategory->has($cat))
                 @foreach($badgesByCategory->get($cat) as $badge)
                     <div class="badge-card badge-{{ $cat }}">
-                        <div class="badge-name">{{ $badge['label'] }}<span class="badge-cat">{{ $categoryLabels[$cat] ?? '' }}</span></div>
-                        <div class="badge-desc">
-                            {{ $badge['description'] }}
-                            @if(!empty($badge['stage'])) &mdash; {{ $badge['stage'] }} @endif
+                        <div class="badge-crest">
+                            @include('exports.partials.badge-icon-inline', ['name' => $badge['icon'] ?? 'target'])
+                        </div>
+                        <div class="badge-body">
+                            <div class="badge-name">{{ $badge['label'] }}<span class="badge-cat">{{ $categoryLabels[$cat] ?? '' }}</span></div>
+                            <div class="badge-desc">
+                                {{ $badge['description'] }}
+                                @if(!empty($badge['stage'])) &mdash; {{ $badge['stage'] }} @endif
+                            </div>
                         </div>
                     </div>
                 @endforeach

@@ -29,7 +29,7 @@
                         Dashboard
                     </a>
                 @else
-                    <a href="{{ app_url('/login') }}" class="hidden sm:inline-block rounded-lg px-4 py-2 text-sm font-medium transition-colors lp-nav-text-muted">
+                    <a href="{{ app_url('/login') }}" class="hidden sm:inline-flex shrink-0 items-center whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors lp-nav-text-muted">
                         Sign In
                     </a>
                     <a href="{{ app_url('/register') }}" class="lp-cta-nav inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap sm:px-5">

@@ -19,7 +19,18 @@
 @php
     /** @var string $name */
     $name = $name ?? 'target';
+    $isDist = str_starts_with($name, 'dist-');
+    $distMeters = $isDist ? substr($name, 5) : null;
 @endphp
+@if($isDist)
+    {{-- Distance badges render the meters inside a ring, mirroring the web
+         component's text-based distance glyph. Sized by the enclosing
+         crest container via CSS. --}}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <text x="12" y="14" text-anchor="middle" font-size="7" font-weight="800" fill="currentColor" stroke="none" font-family="Helvetica, Arial, sans-serif">{{ $distMeters }}m</text>
+    </svg>
+@else
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 @switch($name)
     @case('target')
@@ -108,3 +119,4 @@
         <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
 @endswitch
 </svg>
+@endif
