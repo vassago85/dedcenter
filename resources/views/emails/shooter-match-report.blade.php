@@ -30,6 +30,34 @@
 
 {{-- Wrapper --}}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#071327;">
+
+{{-- ============================================================
+     ACTION BAR (browser preview only — hidden in emails)
+
+     $showActions is only set on the in-browser shooter-report
+     preview route. The email pipeline never sets it, so the block
+     is silently omitted and the message looks identical to before.
+     Download PDF is the only live action; rendered as a single-cell
+     table so it works on the same mobile/email clients without any
+     JS or Flexbox.
+============================================================= --}}
+@if(!empty($showActions ?? false))
+<tr><td align="center" style="padding:14px 10px 0;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;">
+        <tr>
+            <td style="padding:0 6px 14px;" align="right">
+                @if(!empty($downloadUrl ?? null))
+                    <a href="{{ $downloadUrl }}"
+                       style="display:inline-block;padding:10px 18px;background-color:{{ $accentColor }};color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;border-radius:8px;font-family:Arial,Helvetica,sans-serif;">
+                        Download PDF
+                    </a>
+                @endif
+            </td>
+        </tr>
+    </table>
+</td></tr>
+@endif
+
 <tr><td align="center" style="padding:20px 10px;">
 
 {{-- Main container --}}

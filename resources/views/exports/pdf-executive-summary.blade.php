@@ -48,10 +48,25 @@
         return 'G' . $gongNumber;
     };
 @endphp
+@php
+    /*
+     * $viewMode decides whether this template is being rendered for PDF
+     * generation (default — Gotenberg/DomPDF) or as a live HTML page in the
+     * browser. The HTML mode re-uses the exact same markup so we don't
+     * diverge content between the download and the on-screen version; it
+     * just layers a handful of responsive overrides and shows an action
+     * bar at the top with a Download PDF button.
+     */
+    $viewMode = $viewMode ?? 'pdf';
+    $isHtmlView = $viewMode === 'html';
+@endphp
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
+    @if($isHtmlView)
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @endif
     <title>{{ $match->name }} — Full Match Report</title>
     @include('exports.partials.pdf-styles-dark')
     <style>
@@ -478,9 +493,112 @@
             margin-right: 6px;
             vertical-align: baseline;
         }
+
+        @if($isHtmlView)
+            /* ═══════ BROWSER-ONLY OVERRIDES ═══════════════════════════════
+               These collapse the fixed A4-width PDF surface into something
+               that renders correctly across phones, tablets, and desktop.
+               The heatmap is allowed to overflow horizontally so the
+               typographic scale stays faithful to the PDF (shrinking it to
+               fit a phone screen just produces unreadable text). ─── */
+            html, body { min-height: 100%; }
+            body {
+                width: auto;
+                max-width: 100%;
+                margin: 0 auto;
+                font-size: 11pt;
+                overflow-x: hidden;
+            }
+            .wrap {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 16px clamp(12px, 3vw, 28px);
+            }
+            /* Sticky Download PDF bar. Placed inside <body> so all CSS
+               tokens resolve against the same cascade as the report. */
+            .report-actions {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 10px;
+                padding: 12px clamp(12px, 3vw, 28px);
+                background: rgba(7, 19, 39, 0.92);
+                backdrop-filter: blur(6px);
+                border-bottom: 1px solid rgba(49, 72, 109, 0.6);
+            }
+            .report-actions .title {
+                margin-right: auto;
+                font-size: 11pt;
+                font-weight: 700;
+                color: #f8fafc;
+                letter-spacing: 0.01em;
+            }
+            .report-actions a.btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 14px;
+                border-radius: 8px;
+                background: #ff2b2b;
+                color: #fff;
+                font-size: 11pt;
+                font-weight: 700;
+                text-decoration: none;
+                letter-spacing: 0.02em;
+            }
+            .report-actions a.btn:hover { background: #e10600; }
+            .report-actions a.btn.ghost {
+                background: transparent;
+                color: #cbd5e1;
+                border: 1px solid #31486d;
+            }
+            .report-actions a.btn.ghost:hover { border-color: #94a3b8; color: #fff; }
+
+            /* Wrap the wide heatmap so it scrolls horizontally on narrow
+               screens while the rest of the report stays flush with the
+               viewport. The grid's `table-layout: fixed` keeps columns
+               predictable; we just need to let it exceed the container. */
+            .heatmap-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -4px;
+                padding: 0 4px;
+            }
+            .heatmap-scroll .grid {
+                min-width: 720px;
+            }
+
+            /* Stat cards collapse to 2-up on phones, 4-up on tablets+. */
+            @media (max-width: 640px) {
+                .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-spacing: 0; }
+                .stats-grid tbody, .stats-grid tr { display: contents; }
+                .stats-grid td { display: block; width: auto; }
+            }
+
+            /* Podium wraps on very narrow viewports. */
+            @media (max-width: 520px) {
+                .podium { display: grid; grid-template-columns: 1fr; gap: 8px; border-spacing: 0; }
+                .podium tbody, .podium tr { display: contents; }
+                .podium td { display: block; }
+            }
+        @endif
     </style>
 </head>
 <body>
+    @if($isHtmlView)
+        <div class="report-actions">
+            <span class="title">{{ $match->name }} &mdash; Full Match Report</span>
+            @if(!empty($downloadUrl ?? null))
+                <a class="btn" href="{{ $downloadUrl }}">Download PDF</a>
+            @endif
+            @if(!empty($backUrl ?? null))
+                <a class="btn ghost" href="{{ $backUrl }}">Back</a>
+            @endif
+        </div>
+    @endif
     @include('exports.partials.pdf-header', ['subtitle' => 'Full Match Report'])
 
     <div class="wrap">
@@ -570,6 +688,7 @@
             </span>
         </div>
 
+        @if($isHtmlView)<div class="heatmap-scroll">@endif
         <table class="grid">
             <thead>
                 {{-- Distance header row --}}
@@ -660,6 +779,7 @@
                 @endforeach
             </tbody>
         </table>
+        @if($isHtmlView)</div>@endif
 
         <div class="legend">
             <span class="icon legend-dot legend-hit"></span>Hit

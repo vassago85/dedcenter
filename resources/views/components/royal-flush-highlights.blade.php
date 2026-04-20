@@ -43,12 +43,12 @@
         $distancesInOrder = array_keys($distanceLabels);
 
         if ($organization) {
-            $fullReportHref = route('org.matches.export.pdf-executive-summary', [$organization, $match]);
+            $fullReportHref = route('org.matches.full-match-report', [$organization, $match]);
             $sideBetHref = $match->side_bet_enabled
                 ? route('org.matches.side-bet-report', [$organization, $match])
                 : null;
         } else {
-            $fullReportHref = route('admin.matches.export.pdf-executive-summary', $match);
+            $fullReportHref = route('admin.matches.full-match-report', $match);
             $sideBetHref = $match->side_bet_enabled
                 ? route('admin.matches.side-bet-report', $match)
                 : null;

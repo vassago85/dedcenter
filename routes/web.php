@@ -58,6 +58,19 @@ Route::get('/score/{any?}', function () {
 })->where('any', '.*')->middleware(['auth', 'verified'])->name('score');
 
 Volt::route('/scoreboard/{match}', 'scoreboard')->name('scoreboard');
+
+// Public per-shooter HTML match report — linked from every scoreboard row so
+// spectators can read the full report responsively in the browser. The
+// Download PDF action inside the view is only wired up for staff and for the
+// shooter themself (MatchReportController resolves the correct URL).
+Route::get('/scoreboard/{match}/report/{shooter}', [MatchReportController::class, 'publicPreview'])
+    ->name('scoreboard.matches.report.view');
+
+// Public Full Match Report (HTML) — the same PDF surface rendered responsively
+// in the browser, with a Download PDF button visible to staff/admins only.
+Route::get('/scoreboard/{match}/full-match-report', [MatchExportController::class, 'publicFullMatchReport'])
+    ->name('scoreboard.matches.full-match-report');
+
 Route::middleware('auth')->group(function () {
     Route::get('/scoreboard/{match}/export/standings', [MatchExportController::class, 'standings'])->name('scoreboard.export.standings');
     Route::get('/scoreboard/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('scoreboard.export.detailed');
@@ -130,6 +143,7 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Route::get('/matches/{match}/export/pdf-post-match', [MatchExportController::class, 'pdfPostMatchReport'])->name('matches.export.pdf-post-match');
     Route::get('/matches/{match}/export/pdf-executive-summary', [MatchExportController::class, 'pdfExecutiveSummary'])->name('matches.export.pdf-executive-summary');
     Route::get('/matches/{match}/export/pdf-shooter-report/{shooter}', [MatchExportController::class, 'pdfShooterReport'])->name('matches.export.pdf-shooter-report');
+    Route::get('/matches/{match}/full-match-report', [MatchExportController::class, 'fullMatchReport'])->name('matches.full-match-report');
     Volt::route('/matches/{match}/side-bet', 'org.matches.side-bet')->name('matches.side-bet');
     Volt::route('/matches/{match}/side-bet-report', 'org.matches.side-bet-report')->name('matches.side-bet-report');
 
@@ -173,6 +187,7 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::get('/matches/{match}/export/pdf-post-match', [MatchExportController::class, 'pdfPostMatchReport'])->name('matches.export.pdf-post-match');
     Route::get('/matches/{match}/export/pdf-executive-summary', [MatchExportController::class, 'pdfExecutiveSummary'])->name('matches.export.pdf-executive-summary');
     Route::get('/matches/{match}/export/pdf-shooter-report/{shooter}', [MatchExportController::class, 'pdfShooterReport'])->name('matches.export.pdf-shooter-report');
+    Route::get('/matches/{match}/full-match-report', [MatchExportController::class, 'fullMatchReport'])->name('matches.full-match-report');
     Volt::route('/matches/{match}/side-bet-report', 'admin.matches.side-bet-report')->name('matches.side-bet-report');
 
     // ── Match Reports ──

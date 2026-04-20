@@ -495,18 +495,25 @@ new #[Layout('components.layouts.app')]
                     ? ($user->isAdmin() || ($match->organization_id && $user->isOrgMatchDirector($match->organization)))
                     : false;
             @endphp
-            @if($match->status === \App\Enums\MatchStatus::Completed && $canExport)
+            @if($match->status === \App\Enums\MatchStatus::Completed)
                 <div class="mt-3 flex flex-wrap gap-2">
-                    <a href="{{ route('scoreboard.export.standings', $match) }}"
-                       class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
-                        <x-icon name="download" class="h-3.5 w-3.5" />
-                        Standings CSV
+                    <a href="{{ route('scoreboard.matches.full-match-report', $match) }}"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-900/20 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition-colors hover:border-emerald-500 hover:text-emerald-100">
+                        <x-icon name="document-check" class="h-3.5 w-3.5" />
+                        Full Match Report
                     </a>
-                    <a href="{{ route('scoreboard.export.detailed', $match) }}"
-                       class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
-                        <x-icon name="download" class="h-3.5 w-3.5" />
-                        Full Results CSV
-                    </a>
+                    @if($canExport)
+                        <a href="{{ route('scoreboard.export.standings', $match) }}"
+                           class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                            <x-icon name="download" class="h-3.5 w-3.5" />
+                            Standings CSV
+                        </a>
+                        <a href="{{ route('scoreboard.export.detailed', $match) }}"
+                           class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                            <x-icon name="download" class="h-3.5 w-3.5" />
+                            Full Results CSV
+                        </a>
+                    @endif
                 </div>
             @endif
             @if($match->royal_flush_enabled && $canExport)
@@ -760,6 +767,20 @@ new #[Layout('components.layouts.app')]
                     </div>
 
                     @if($isExpanded)
+                        @php $matchCompleted = $match->status === \App\Enums\MatchStatus::Completed; @endphp
+                        @if($matchCompleted && ! $isOfflineRow)
+                            <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-surface/30 px-4 py-2.5 sm:px-6">
+                                <a href="{{ route('scoreboard.matches.report.view', [$match, $entry->shooter]) }}"
+                                   wire:click.stop
+                                   x-on:click.stop
+                                   target="_blank"
+                                   rel="noopener"
+                                   class="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/20 hover:text-white">
+                                    <x-icon name="document-check" class="h-3.5 w-3.5" />
+                                    View Match Report
+                                </a>
+                            </div>
+                        @endif
                         <div class="border-t border-border">
                             @foreach($targetSetDetails as $ts)
                                 @php $dist = $entry->distances[$ts->id] ?? null; @endphp

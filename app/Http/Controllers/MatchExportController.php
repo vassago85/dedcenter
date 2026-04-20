@@ -581,6 +581,59 @@ class MatchExportController extends Controller
     }
 
     /**
+     * Full Match Report — HTML view.
+     *
+     * Same template as the PDF (so content never drifts) but rendered with
+     * `$viewMode = 'html'`, which layers in responsive overrides and a
+     * sticky Download PDF action bar. Available to anyone authorized to
+     * see exports — org/admin routes are middleware-gated, but the method
+     * itself also runs authorizeExport() for belt-and-braces.
+     */
+    public function fullMatchReport(?Organization $organization, ShootingMatch $match)
+    {
+        $this->ensureOrgMatch($organization, $match);
+        $this->authorizeExport($match);
+        $data = $this->buildExecutiveSummaryData($match);
+
+        $downloadUrl = $organization
+            ? route('org.matches.export.pdf-executive-summary', [$organization, $match])
+            : route('admin.matches.export.pdf-executive-summary', $match);
+
+        return view('exports.pdf-executive-summary', $data + [
+            'viewMode' => 'html',
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+
+    /**
+     * Public Full Match Report — HTML view linked from the scoreboard.
+     *
+     * No authorizeExport(): any scoreboard viewer can read the HTML
+     * report for a completed match. The Download PDF button is hidden
+     * for unauthenticated viewers; authenticated staff/admins get the
+     * right export URL.
+     */
+    public function publicFullMatchReport(\Illuminate\Http\Request $request, ShootingMatch $match)
+    {
+        $data = $this->buildExecutiveSummaryData($match);
+
+        $downloadUrl = null;
+        $user = $request->user();
+        if ($user) {
+            if ($user->isAdmin()) {
+                $downloadUrl = route('admin.matches.export.pdf-executive-summary', $match);
+            } elseif ($match->organization_id && $user->isOrgMatchDirector($match->organization)) {
+                $downloadUrl = route('org.matches.export.pdf-executive-summary', [$match->organization, $match]);
+            }
+        }
+
+        return view('exports.pdf-executive-summary', $data + [
+            'viewMode' => 'html',
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+
+    /**
      * Backwards-compatible shim — some controllers/services still reference
      * this by its historical name. Delegates to pdfFullMatchReport so the
      * output is always the current template.

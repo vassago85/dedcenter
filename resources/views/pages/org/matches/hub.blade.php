@@ -312,17 +312,18 @@ new #[Layout('components.layouts.app')]
                 </div>
             </a>
 
-            {{-- Full Match Report PDF (all shooters, tick/cross heatmap, digital-first) --}}
+            {{-- Full Match Report — HTML view first (responsive, with
+                 Download PDF button inside the view). --}}
             @if($isCompleted)
-                <a href="{{ route('org.matches.export.pdf-executive-summary', [$organization, $match]) }}"
+                <a href="{{ route('org.matches.full-match-report', [$organization, $match]) }}"
                    class="group rounded-xl border border-emerald-600/40 bg-emerald-900/10 p-5 transition hover:border-emerald-500 hover:bg-emerald-900/20">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
                             <x-icon name="document-check" class="h-5 w-5" />
                         </div>
                         <div>
-                            <div class="font-semibold text-primary">Full Match Report (PDF)</div>
-                            <div class="text-xs text-muted">All shooters · podium · heatmap</div>
+                            <div class="font-semibold text-primary">Full Match Report</div>
+                            <div class="text-xs text-muted">All shooters · podium · heatmap · download PDF</div>
                         </div>
                     </div>
                 </a>
