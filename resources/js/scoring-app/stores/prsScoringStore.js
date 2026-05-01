@@ -156,7 +156,10 @@ export const usePrsScoringStore = defineStore('prsScoring', {
         },
 
         async completeStage(matchId, stageId, shooterId, squadId, stage) {
-            const timeRequired = stage.is_timed_stage || stage.is_tiebreaker;
+            // Per-shooter time is only required when the stage is BOTH timed
+            // AND a tiebreaker. A timed-only stage just has a par time clock
+            // for the shooter; no per-shooter time is recorded.
+            const timeRequired = !!(stage.is_timed_stage && stage.is_tiebreaker);
             const time = this.effectiveTime;
 
             if (timeRequired && (!time || time <= 0)) {
@@ -166,7 +169,7 @@ export const usePrsScoringStore = defineStore('prsScoring', {
             const payload = {
                 shooter_id: shooterId,
                 squad_id: squadId,
-                raw_time_seconds: time > 0 ? parseFloat(time.toFixed(2)) : null,
+                raw_time_seconds: timeRequired && time > 0 ? parseFloat(time.toFixed(2)) : null,
                 shots: this.shots.map(s => ({
                     shot_number: s.shot_number,
                     result: s.result,

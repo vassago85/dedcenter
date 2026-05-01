@@ -95,16 +95,23 @@ class SeasonStandingsService
             $pointsValue = max(1, (int) ($match->leaderboard_points ?? 100));
 
             foreach ($matchStandings as $entry) {
-                // Group by user_id when linked, else by a normalized name+caliber key
-                // so "Henri Klopper — 6x46" across matches still aggregates correctly.
+                // Shooters may use different rifles/cartridges in different
+                // matches. The shooter "name" field in legacy imports is
+                // stored as "Person — Cartridge" so we split that apart here:
+                // the display name (person only) is used for grouping, and
+                // the cartridge is retained per-match as context.
+                [$personName, $cartridge] = $this->splitNameAndCartridge((string) $entry['name']);
+
+                // Group by user_id when linked, else by a normalized person-
+                // name key so the same human aggregates across rifles.
                 $key = $entry['user_id']
                     ? 'uid:'.$entry['user_id']
-                    : 'name:'.strtolower(trim((string) $entry['name']));
+                    : 'name:'.strtolower(trim($personName));
 
                 if (! isset($userScores[$key])) {
                     $userScores[$key] = [
                         'user_id' => $entry['user_id'],
-                        'name' => $entry['name'],
+                        'name' => $personName,
                         'match_results' => [],
                     ];
                 }
@@ -124,6 +131,7 @@ class SeasonStandingsService
                     'relative_score' => $relScore,
                     'hits' => $entry['hits'],
                     'misses' => $entry['misses'],
+                    'cartridge' => $cartridge, // what they shot with in THIS match
                     'counted' => false, // set below after we pick best N
                 ];
             }
@@ -172,6 +180,22 @@ class SeasonStandingsService
         ->toArray();
 
         return $standings;
+    }
+
+    /**
+     * Split a shooter name of the form "Person — Cartridge" into the two
+     * pieces. Accepts em-dash (—), en-dash (–) or hyphen (-) with
+     * whitespace padding. Returns [person_name, cartridge|null].
+     *
+     * @return array{0:string,1:?string}
+     */
+    private function splitNameAndCartridge(string $raw): array
+    {
+        $raw = trim($raw);
+        if (preg_match('/^(.*?)\s+[—–-]\s+(.+)$/u', $raw, $m)) {
+            return [trim($m[1]), trim($m[2])];
+        }
+        return [$raw, null];
     }
 
     private function matchStandings(ShootingMatch $match): array

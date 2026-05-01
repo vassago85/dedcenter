@@ -130,9 +130,16 @@ new #[Layout('components.layouts.app')]
                                     @php
                                         $result = $entry['scores_by_match'][$match->id] ?? null;
                                         $counted = $result && $result['counted'];
+                                        $cartridge = $result['cartridge'] ?? null;
+                                        $cellTitle = $cartridge
+                                            ? $match->name . ' · ' . $cartridge
+                                            : $match->name;
                                     @endphp
-                                    <td class="px-3 py-3 text-right text-xs {{ $result === null ? 'text-slate-700' : ($counted ? 'text-green-400 font-medium' : 'text-muted line-through decoration-muted/50') }}">
+                                    <td class="px-3 py-3 text-right text-xs whitespace-nowrap {{ $result === null ? 'text-slate-700' : ($counted ? 'text-green-400 font-medium' : 'text-muted line-through decoration-muted/50') }}" title="{{ $cellTitle }}">
                                         {{ $result === null ? '—' : $result['relative_score'] }}
+                                        @if($cartridge)
+                                            <div class="mt-0.5 text-[10px] font-normal text-muted/70 truncate max-w-[110px] ml-auto" title="{{ $cartridge }}">{{ $cartridge }}</div>
+                                        @endif
                                     </td>
                                 @endforeach
                             </tr>

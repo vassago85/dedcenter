@@ -141,10 +141,14 @@
         <div v-else-if="prsStore.currentScreen === 'stage-select'" class="flex flex-1 flex-col px-4 py-6">
             <div class="mx-auto w-full max-w-2xl">
                 <h2 class="mb-2 text-xl font-bold">Select Stage</h2>
-                <p v-if="selectedSquadObj" class="mb-4 text-sm text-slate-400">{{ selectedSquadObj.name }}</p>
+                <p v-if="matchStore.hasStageLock" class="mb-4 flex items-center gap-2 text-sm text-amber-400">
+                    <svg class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                    This device is locked to <span class="font-bold">{{ matchStore.lockedStageName }}</span>. Other stages are hidden.
+                </p>
+                <p v-else-if="selectedSquadObj" class="mb-4 text-sm text-slate-400">{{ selectedSquadObj.name }}</p>
                 <div class="space-y-3">
                     <button
-                        v-for="ts in targetSets"
+                        v-for="ts in selectableStages"
                         :key="ts.id"
                         @click="selectStage(ts)"
                         class="flex w-full items-center justify-between rounded-xl border bg-slate-800 p-5 text-left transition-all active:scale-[0.98]"
@@ -189,8 +193,8 @@
                         <p class="text-sm text-slate-400">{{ selectedStageObj?.display_name || selectedStageObj?.label }}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button v-if="deviceLockMode !== 'locked_to_stage'" @click="prsStore.navigateTo('stage-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Stage</button>
-                        <button v-if="deviceLockMode === 'open'" @click="prsStore.navigateTo('squad-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Squad</button>
+                        <button v-if="!stageLocked" @click="prsStore.navigateTo('stage-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Stage</button>
+                        <button v-if="!squadLocked && !stageLocked" @click="prsStore.navigateTo('squad-select'); savePrsProgress()" class="rounded-lg border border-slate-600 px-3 py-2 text-xs font-medium hover:bg-slate-800">Change Squad</button>
                     </div>
                 </div>
 
@@ -220,12 +224,15 @@
                     </div>
                     <p class="font-bold text-green-400">All shooters scored at this stage!</p>
                     <button
-                        v-if="deviceLockMode !== 'locked_to_stage'"
+                        v-if="!stageLocked"
                         @click="prsStore.navigateTo('stage-select'); savePrsProgress()"
                         class="mt-3 w-full rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
                     >
                         Choose Next Stage
                     </button>
+                    <p v-else class="mt-3 text-xs text-slate-400">
+                        Device is locked to this stage. Clear the stage lock in Device Settings (PIN required) to score a different stage.
+                    </p>
                 </div>
 
                 <div class="space-y-2">
@@ -356,25 +363,28 @@
                         <button @click="undoShot" class="w-full rounded-xl border border-slate-600 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 active:scale-[0.98]">
                             Undo Last Shot
                         </button>
-                        <!-- Timer display (when app timer is active) -->
-                        <div v-if="prsStore.timerMode === 'app'" class="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                            <div class="flex items-center gap-3">
-                                <p class="flex-1 text-center font-mono text-3xl font-bold tracking-wider" :class="prsStore.isTimerRunning ? 'text-amber-400' : 'text-white'">
-                                    {{ formattedTime }}
-                                </p>
-                                <div class="flex gap-1.5">
-                                    <button @click="startTimer" :disabled="prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-green-600 text-white hover:bg-green-700'">Start</button>
-                                    <button @click="stopTimer" :disabled="!prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="!prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-red-600 text-white hover:bg-red-700'">Stop</button>
-                                    <button @click="resetTimer" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">Reset</button>
+                        <!-- Timer UI only on timed tiebreaker stages (where time is recorded per shooter). -->
+                        <template v-if="stageRequiresTime">
+                            <!-- Timer display (when app timer is active) -->
+                            <div v-if="prsStore.timerMode === 'app'" class="rounded-xl border border-slate-700 bg-slate-900 p-3">
+                                <div class="flex items-center gap-3">
+                                    <p class="flex-1 text-center font-mono text-3xl font-bold tracking-wider" :class="prsStore.isTimerRunning ? 'text-amber-400' : 'text-white'">
+                                        {{ formattedTime }}
+                                    </p>
+                                    <div class="flex gap-1.5">
+                                        <button @click="startTimer" :disabled="prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-green-600 text-white hover:bg-green-700'">Start</button>
+                                        <button @click="stopTimer" :disabled="!prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="!prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-red-600 text-white hover:bg-red-700'">Stop</button>
+                                        <button @click="resetTimer" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">Reset</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <!-- Time preview when already entered manually -->
-                        <div v-else-if="prsStore.rawTimeSeconds > 0" class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2">
-                            <span class="text-xs text-slate-400">Time:</span>
-                            <span class="font-mono text-lg font-bold text-white">{{ prsStore.rawTimeSeconds.toFixed(2) }}s</span>
-                            <button @click="clearTimeInput" class="ml-2 rounded bg-slate-700 px-2 py-1 text-[10px] font-bold text-slate-400 hover:bg-slate-600">Clear</button>
-                        </div>
+                            <!-- Time preview when already entered manually -->
+                            <div v-else-if="prsStore.rawTimeSeconds > 0" class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2">
+                                <span class="text-xs text-slate-400">Time:</span>
+                                <span class="font-mono text-lg font-bold text-white">{{ prsStore.rawTimeSeconds.toFixed(2) }}s</span>
+                                <button @click="clearTimeInput" class="ml-2 rounded bg-slate-700 px-2 py-1 text-[10px] font-bold text-slate-400 hover:bg-slate-600">Clear</button>
+                            </div>
+                        </template>
 
                         <!-- Complete Stage -->
                         <button @click="handleCompleteStage" class="w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition-all hover:bg-red-700 active:scale-[0.98]">
@@ -414,7 +424,10 @@
             <div v-if="showTimeModal" class="fixed inset-0 z-50 flex flex-col bg-black/70 px-4 pt-8 pb-4 overflow-y-auto">
                 <div class="w-full max-w-sm mx-auto rounded-2xl bg-slate-800 p-5 shadow-2xl flex-shrink-0">
                     <h3 class="mb-1 text-lg font-bold text-white">Enter Stage Time</h3>
-                    <p class="mb-3 text-sm text-slate-400">Time is required for this stage.</p>
+                    <p v-if="modalTimeAutoFilled" class="mb-3 text-sm text-amber-300">
+                        Shots left on the clock — pre-filled with the stage par time. Edit if you recorded a different time.
+                    </p>
+                    <p v-else class="mb-3 text-sm text-slate-400">Time is required for this tiebreaker stage.</p>
 
                     <input
                         ref="modalTimeInput"
@@ -611,6 +624,7 @@ const showTimeModal = ref(false);
 const modalTimeDigits = ref('');
 const modalTimeSeconds = ref(0);
 const modalTimeLowWarning = ref(false);
+const modalTimeAutoFilled = ref(false);
 const modalTimeInput = ref(null);
 
 let timerInterval = null;
@@ -652,6 +666,25 @@ const selectableSquads = computed(() => {
     }
     return squads.value;
 });
+
+// Same idea for stages. If this device is locked to a stage (client-side
+// lock, optionally PIN-protected), only that stage is selectable — the
+// stage-select screen, the "Change Stage" button, and the "Choose Next
+// Stage" button all respect this so the scorer cannot drift off the stage
+// they were assigned to without clearing the lock in Device Settings (which
+// is itself PIN-gated).
+const selectableStages = computed(() => {
+    if (matchStore.lockedStageId) {
+        return targetSets.value.filter(ts => ts.id === matchStore.lockedStageId);
+    }
+    return targetSets.value;
+});
+
+// Convenience flags. These combine the server-side device_lock_mode with
+// the client-side locks set via Device Settings on this tablet. If either
+// says "locked", the scorer should not be able to navigate freely.
+const squadLocked = computed(() => deviceLockMode.value === 'locked_to_squad' || matchStore.hasSquadLock);
+const stageLocked = computed(() => deviceLockMode.value === 'locked_to_stage' || matchStore.hasStageLock);
 
 const lockedStageName = computed(() => {
     const lock = readStageLock(props.matchId);
@@ -728,8 +761,14 @@ const activeCorrectStageName = computed(() => {
     return ts?.display_name || ts?.label || 'Stage';
 });
 
+// A stage only needs a per-shooter recorded time when it is both timed and
+// a tiebreaker. A timed-only stage just has a par clock on the range (tells
+// the shooter to stop shooting); no per-shooter time is recorded. Only a
+// timed tiebreaker uses the recorded time to break ties on the leaderboard.
 const stageRequiresTime = computed(() => {
-    return selectedStageObj.value?.is_timed_stage || selectedStageObj.value?.is_tiebreaker;
+    const ts = selectedStageObj.value;
+    if (!ts) return false;
+    return !!(ts.is_timed_stage && ts.is_tiebreaker);
 });
 
 const allShootersDoneAtStage = computed(() => {
@@ -761,8 +800,13 @@ function restorePrsProgress() {
         if (state.matchId !== props.matchId) return false;
         const validScreens = ['squad-select', 'stage-select', 'shooter-list'];
         if (!validScreens.includes(state.screen)) return false;
-        if (state.squadId) prsStore.selectSquad(state.squadId);
-        if (state.stageId) prsStore.selectStage(state.stageId);
+        // If the device is locked to a squad/stage, honour that over whatever
+        // was saved — prevents a stale saved state from pointing the scorer
+        // at the wrong squad or stage after a PIN + lock were set.
+        const squadId = matchStore.lockedSquadId ?? state.squadId;
+        const stageId = matchStore.lockedStageId ?? state.stageId;
+        if (squadId) prsStore.selectSquad(squadId);
+        if (stageId) prsStore.selectStage(stageId);
         prsStore.navigateTo(state.screen);
         return true;
     } catch { return false; }
@@ -840,6 +884,12 @@ function selectSquad(squad) {
 }
 
 function selectStage(ts) {
+    // Guardrail: if this device is locked to a specific stage, refuse to
+    // switch to a different stage even if the UI (or a restored navigation
+    // state) somehow tries to. The lock is PIN-protected in Device Settings.
+    if (matchStore.lockedStageId && ts.id !== matchStore.lockedStageId) {
+        return;
+    }
     prsStore.selectStage(ts.id);
     prsStore.navigateTo('shooter-list');
     savePrsProgress();
@@ -953,8 +1003,13 @@ function moveFromActionModal() {
 function goBack() {
     const s = prsStore.currentScreen;
     if (s === 'scoring') prsStore.navigateTo('shooter-list');
-    else if (s === 'shooter-list') prsStore.navigateTo('stage-select');
-    else if (s === 'stage-select') prsStore.navigateTo('squad-select');
+    // If locked to a stage, going "back" from the shooter-list should jump
+    // past the (forbidden) stage-select screen straight to match-home so
+    // the user isn't stuck bouncing between equivalent locked screens.
+    else if (s === 'shooter-list') prsStore.navigateTo(stageLocked.value ? 'match-home' : 'stage-select');
+    // Same for squad: if locked there's only ever one squad, no point going
+    // to the squad picker.
+    else if (s === 'stage-select') prsStore.navigateTo(squadLocked.value ? 'match-home' : 'squad-select');
     else if (s === 'squad-select') prsStore.navigateTo('match-home');
     else if (s === 'match-home') {
         router.push({ name: 'match-overview', params: { matchId: props.matchId } });
@@ -972,11 +1027,29 @@ async function handleCompleteStage() {
 
     const time = prsStore.effectiveTime;
     if (stageRequiresTime.value && (!time || time <= 0)) {
-        modalTimeDigits.value = '';
-        modalTimeSeconds.value = 0;
-        modalTimeLowWarning.value = false;
+        // If the shooter didn't complete every shot (ran out of time on a
+        // timed tiebreaker), prefill the modal with the stage par time so
+        // the scorer can just confirm. They're still free to edit it.
+        const ts = selectedStageObj.value;
+        const parTime = parseFloat(ts?.par_time_seconds) || 0;
+        const hasUntakenShots = prsStore.shots.some(s => s.result === 'not_taken');
+        if (hasUntakenShots && parTime > 0) {
+            const formatted = parTime.toFixed(2);
+            modalTimeDigits.value = formatted;
+            modalTimeSeconds.value = parTime;
+            modalTimeLowWarning.value = false;
+            modalTimeAutoFilled.value = true;
+        } else {
+            modalTimeDigits.value = '';
+            modalTimeSeconds.value = 0;
+            modalTimeLowWarning.value = false;
+            modalTimeAutoFilled.value = false;
+        }
         showTimeModal.value = true;
-        nextTick(() => modalTimeInput.value?.focus());
+        nextTick(() => {
+            modalTimeInput.value?.focus();
+            if (modalTimeAutoFilled.value) modalTimeInput.value?.select();
+        });
         return;
     }
 
@@ -990,6 +1063,7 @@ function onModalTimeInput(e) {
     const val = parseFloat(cleaned);
     modalTimeSeconds.value = isNaN(val) ? 0 : val;
     modalTimeLowWarning.value = modalTimeSeconds.value > 0 && modalTimeSeconds.value < 10;
+    modalTimeAutoFilled.value = false;
 }
 
 function confirmTimeAndComplete() {

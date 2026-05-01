@@ -157,23 +157,30 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
-    <div class="rounded-xl border border-dashed border-border bg-surface/50 p-6 space-y-4">
-        <h3 class="text-sm font-medium text-secondary">Add Team Member</h3>
-        <p class="text-xs text-muted">Enter the email of a registered user and choose their role(s).</p>
-        <form wire:submit="addStaff" class="space-y-3">
-            <div class="flex gap-3 items-end">
+    <div class="rounded-xl border border-dashed border-border bg-surface/50 p-6 space-y-5">
+        <div class="space-y-1">
+            <h3 class="text-sm font-medium text-secondary">Add Team Member</h3>
+            <p class="text-xs text-muted">Enter the email of a registered user and choose their role(s).</p>
+        </div>
+        <form wire:submit="addStaff" class="space-y-5">
+            <div class="space-y-2">
+                <span class="block text-xs font-medium uppercase tracking-wide text-muted">Roles</span>
+                <div class="flex flex-wrap gap-2">
+                    @foreach(['is_match_director' => 'Match Director', 'is_range_officer' => 'Range Officer', 'is_shooter' => 'Shooter'] as $key => $label)
+                        <label class="cursor-pointer select-none">
+                            <input type="checkbox" wire:model="newRoles.{{ $key }}" class="sr-only peer" @checked(! empty($newRoles[$key]))>
+                            <span class="inline-flex items-center whitespace-nowrap rounded-full border border-border bg-surface-2 px-3.5 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface peer-checked:border-accent peer-checked:bg-accent peer-checked:text-white">
+                                {{ $label }}
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div class="flex-1">
                     <flux:input wire:model="email" label="Email" type="email" placeholder="user@example.com" required />
                 </div>
-                <flux:button type="submit" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add</flux:button>
-            </div>
-            <div class="flex gap-1.5 flex-wrap">
-                @foreach(['is_match_director' => 'Match Director', 'is_range_officer' => 'Range Officer', 'is_shooter' => 'Shooter'] as $key => $label)
-                    <label class="cursor-pointer">
-                        <input type="checkbox" wire:model="newRoles.{{ $key }}" class="sr-only peer" @checked(! empty($newRoles[$key]))>
-                        <span class="inline-block rounded-full px-3 py-1 text-xs font-medium transition-colors border peer-checked:bg-accent peer-checked:text-primary peer-checked:border-accent bg-surface-2 text-secondary border-border hover:bg-surface-2">{{ $label }}</span>
-                    </label>
-                @endforeach
+                <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover sm:w-auto w-full">Add Member</flux:button>
             </div>
         </form>
     </div>

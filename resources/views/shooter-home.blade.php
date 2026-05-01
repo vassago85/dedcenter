@@ -270,9 +270,14 @@
                     @endforeach
                 </div>
             @else
-                <div class="rounded-2xl p-12 text-center" style="border: 1px dashed var(--lp-border); background: var(--lp-surface);">
+                <div class="flex flex-col items-center justify-center gap-5 rounded-2xl p-12 text-center" style="border: 1px dashed var(--lp-border); background: var(--lp-surface);">
                     <p class="text-sm" style="color: var(--lp-text-muted);">Featured events will appear here as they are announced.</p>
-                    <a href="{{ app_url('/register') }}" class="mt-4 inline-block text-sm font-medium" style="color: var(--lp-red);">Register to get notified &rarr;</a>
+                    <a href="{{ app_url('/register') }}"
+                       class="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+                       style="background: var(--lp-red);">
+                        Register to get notified
+                        <x-icon name="arrow-right" class="h-4 w-4" />
+                    </a>
                 </div>
             @endif
         </div>
