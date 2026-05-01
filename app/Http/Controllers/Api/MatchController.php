@@ -15,33 +15,51 @@ class MatchController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $orgIds = $user->organizations()->pluck('organizations.id');
 
-        // Include Ready so the scoring app can pre-download the match the
-        // night before or on match morning. Ready is the "tablets-can-pull"
-        // checkpoint — SquaddingOpen / SquaddingClosed are still admin-only
-        // prep phases and are intentionally excluded. Active is obviously
-        // included (match is live). Completed is included too so RO can
-        // review/fix scores after the match.
-        $importableStatuses = [
-            MatchStatus::Ready,
-            MatchStatus::Active,
-            MatchStatus::Completed,
-        ];
+        // Scoring devices should not be invited to cache finished matches —
+        // that was the #1 source of phantom rows in the local Room DB
+        // ("old match still showing up on the hub client").
+        //
+        // Default behaviour (no query param): return only statuses a scoring
+        // device can meaningfully work with:
+        //   - Ready     (match prepped, tablets can pre-download)
+        //   - Active    (match in progress)
+        //
+        // Admins who legitimately need to re-download a completed match for
+        // post-match review can opt back in with `?include_completed=1`.
+        $includeCompleted = $request->boolean('include_completed', false);
 
-        $matches = ShootingMatch::whereIn('status', $importableStatuses)
-            ->where(function ($q) use ($user, $orgIds) {
-                $q->where('created_by', $user->id)
-                  ->orWhereIn('organization_id', $orgIds);
-            })
+        $importableStatuses = $includeCompleted
+            ? [MatchStatus::Ready, MatchStatus::Active, MatchStatus::Completed]
+            : [MatchStatus::Ready, MatchStatus::Active];
+
+        // Visibility is enforced by ShootingMatch::scopeVisibleToScoringUser:
+        // creator OR in the owning organisation OR nominated as match staff
+        // (platform owners / match directors see everything for support).
+        $matches = ShootingMatch::query()
+            ->visibleToScoringUser($user)
+            ->whereIn('status', $importableStatuses)
             ->orderBy('date')
             ->get();
 
         return MatchResource::collection($matches);
     }
 
-    public function show(ShootingMatch $match)
+    public function show(Request $request, ShootingMatch $match)
     {
+        $user = $request->user();
+
+        // Prevent direct-access bypass of the index-level visibility filter —
+        // without this, anyone with a valid token could fetch any match by id.
+        $visible = ShootingMatch::query()
+            ->visibleToScoringUser($user)
+            ->whereKey($match->id)
+            ->exists();
+
+        if (! $visible) {
+            abort(403, 'You do not have access to this match.');
+        }
+
         $eagerLoads = [
             'squads' => fn ($q) => $q->orderBy('sort_order'),
             'squads.shooters' => fn ($q) => $q->orderBy('sort_order'),

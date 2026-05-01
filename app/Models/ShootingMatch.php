@@ -364,6 +364,41 @@ class ShootingMatch extends Model
             ->whereDate('date', today());
     }
 
+    /**
+     * Matches the given user is authorised to see on a scoring device.
+     *
+     * Access is granted via exactly one of these channels:
+     *   1. They created the match (`created_by`).
+     *   2. They belong to the organisation that owns the match.
+     *   3. They are nominated as match staff (`match_staff` pivot — MD / RO etc.).
+     *
+     * Platform owners and match directors (role-level admins) see everything;
+     * this is intentional so they can help debug / rescore any match in the
+     * system from their own device.
+     *
+     * Note: this is specifically the "can this user operate a scoring device
+     * for this match" scope. It is NOT a general "can the user read public
+     * match info" filter — shooter browsing goes through other endpoints.
+     */
+    public function scopeVisibleToScoringUser(Builder $query, ?User $user): Builder
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->isOwner() || $user->isMatchDirector()) {
+            return $query;
+        }
+
+        $orgIds = $user->organizations()->pluck('organizations.id');
+
+        return $query->where(function (Builder $q) use ($user, $orgIds) {
+            $q->where('created_by', $user->id)
+              ->orWhereIn('organization_id', $orgIds)
+              ->orWhereHas('staff', fn (Builder $sq) => $sq->where('users.id', $user->id));
+        });
+    }
+
     public function userCanEditInOrg(?User $user): bool
     {
         if (! $user) {
