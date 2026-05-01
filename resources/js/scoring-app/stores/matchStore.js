@@ -28,15 +28,6 @@ function readStageLock(matchId) {
     return readLock(STAGE_LOCK_KEY, matchId);
 }
 
-function readPin(matchId) {
-    try {
-        const raw = localStorage.getItem(`dc_lock_pin_${matchId}`);
-        return raw ?? null;
-    } catch {
-        return null;
-    }
-}
-
 export const useMatchStore = defineStore('match', {
     state: () => ({
         matches: [],
@@ -47,7 +38,6 @@ export const useMatchStore = defineStore('match', {
         lockedSquadName: null,
         lockedStageId: null,
         lockedStageName: null,
-        hasPin: false,
         cachedMatchIds: new Set(),
         cachingMatchId: null,
     }),
@@ -170,8 +160,6 @@ export const useMatchStore = defineStore('match', {
                 this.lockedStageId = null;
                 this.lockedStageName = null;
             }
-
-            this.hasPin = !!readPin(matchId);
         },
 
         lockSquad(matchId, squadId, squadName) {
@@ -198,25 +186,9 @@ export const useMatchStore = defineStore('match', {
             localStorage.removeItem(STAGE_LOCK_KEY);
         },
 
-        setPin(matchId, pin) {
-            localStorage.setItem(`dc_lock_pin_${matchId}`, pin);
-            this.hasPin = true;
-        },
-
-        verifyPin(matchId, pin) {
-            const stored = readPin(matchId);
-            return stored === pin;
-        },
-
-        clearPin(matchId) {
-            localStorage.removeItem(`dc_lock_pin_${matchId}`);
-            this.hasPin = false;
-        },
-
-        clearAllLocks(matchId) {
+        clearAllLocks() {
             this.unlockSquad();
             this.unlockStage();
-            this.clearPin(matchId);
         },
 
         async cacheMatch(match) {

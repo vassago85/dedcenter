@@ -231,7 +231,7 @@
                         Choose Next Stage
                     </button>
                     <p v-else class="mt-3 text-xs text-slate-400">
-                        Device is locked to this stage. Clear the stage lock in Device Settings (PIN required) to score a different stage.
+                        Device is locked to this stage. Clear the stage lock in Device Settings to score a different stage.
                     </p>
                 </div>
 
@@ -395,29 +395,6 @@
                 </div>
             </div>
         </template>
-
-        <!-- PIN Modal -->
-        <Teleport to="body">
-            <div v-if="showPinModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="closePinModal">
-                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
-                    <h3 class="mb-4 text-lg font-bold text-white">Enter Corrections PIN</h3>
-                    <input
-                        v-model="pinInput"
-                        type="password"
-                        inputmode="numeric"
-                        maxlength="6"
-                        placeholder="4-6 digit PIN"
-                        class="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-center text-xl font-mono text-white placeholder-slate-600 tracking-widest focus:border-amber-500 focus:outline-none"
-                        @keydown.enter="submitPin"
-                    />
-                    <p v-if="pinError" class="mt-2 text-center text-sm text-red-400">{{ pinError }}</p>
-                    <div class="mt-4 flex gap-3">
-                        <button @click="closePinModal" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
-                        <button @click="submitPin" class="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white hover:bg-amber-700">Submit</button>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
 
         <!-- Time Entry Modal -->
         <Teleport to="body">
@@ -634,9 +611,6 @@ let syncInterval = null;
 const showCorrections = ref(false);
 const correctionStageId = ref(null);
 const activeCorrectStageId = ref(null);
-const showPinModal = ref(false);
-const pinInput = ref('');
-const pinError = ref('');
 const showReassignModal = ref(false);
 const showMoveModal = ref(false);
 const showCorrectionLogs = ref(false);
@@ -646,8 +620,6 @@ const reassignTargetId = ref(null);
 const moveTargetStageId = ref(null);
 const correctionError = ref('');
 const correctionLogEntries = ref([]);
-let pendingAction = null;
-let pendingReshootExecutor = null;
 
 // Already-scored shooter action panel
 const showShooterActionModal = ref(false);
@@ -667,12 +639,11 @@ const selectableSquads = computed(() => {
     return squads.value;
 });
 
-// Same idea for stages. If this device is locked to a stage (client-side
-// lock, optionally PIN-protected), only that stage is selectable — the
-// stage-select screen, the "Change Stage" button, and the "Choose Next
-// Stage" button all respect this so the scorer cannot drift off the stage
-// they were assigned to without clearing the lock in Device Settings (which
-// is itself PIN-gated).
+// Same idea for stages. If this device is locked to a stage, only that
+// stage is selectable — the stage-select screen, the "Change Stage" button,
+// and the "Choose Next Stage" button all respect this so the scorer cannot
+// drift off the stage they were assigned to without clearing the lock in
+// Device Settings.
 const selectableStages = computed(() => {
     if (matchStore.lockedStageId) {
         return targetSets.value.filter(ts => ts.id === matchStore.lockedStageId);
@@ -726,8 +697,6 @@ const currentShooters = computed(() => {
     const active = selectedSquadObj.value.shooters.filter(s => s.status === 'active');
     return shooterOrderReversed.value ? [...active].reverse() : active;
 });
-
-const correctionsPin = computed(() => matchStore.currentMatch?.corrections_pin ?? null);
 
 const allActiveShooters = computed(() => {
     return squads.value.flatMap(sq => sq.shooters?.filter(s => s.status === 'active') ?? []);
@@ -802,7 +771,7 @@ function restorePrsProgress() {
         if (!validScreens.includes(state.screen)) return false;
         // If the device is locked to a squad/stage, honour that over whatever
         // was saved — prevents a stale saved state from pointing the scorer
-        // at the wrong squad or stage after a PIN + lock were set.
+        // at the wrong squad or stage after a lock was set.
         const squadId = matchStore.lockedSquadId ?? state.squadId;
         const stageId = matchStore.lockedStageId ?? state.stageId;
         if (squadId) prsStore.selectSquad(squadId);
@@ -886,7 +855,7 @@ function selectSquad(squad) {
 function selectStage(ts) {
     // Guardrail: if this device is locked to a specific stage, refuse to
     // switch to a different stage even if the UI (or a restored navigation
-    // state) somehow tries to. The lock is PIN-protected in Device Settings.
+    // state) somehow tries to. The lock is set in Device Settings.
     if (matchStore.lockedStageId && ts.id !== matchStore.lockedStageId) {
         return;
     }
@@ -898,8 +867,7 @@ function selectStage(ts) {
 function openScoring(shooter) {
     // Block direct re-scoring of a shooter who already has a completed stage
     // result. Force the MD to pick an explicit corrective action (reshoot,
-    // reassign, or move) — every path is gated by the corrections PIN and
-    // leaves an audit trail.
+    // reassign, or move) — every path leaves an audit trail.
     const existing = getShooterCompletion(shooter.id);
     if (existing && !shooterActionInProgress(shooter.id)) {
         shooterActionTarget.value = {
@@ -916,7 +884,7 @@ function openScoring(shooter) {
 }
 
 /** Track in-flight reshoot for a shooter so we don't re-trigger the action
- *  panel after PIN verification has already cleared it. */
+ *  panel while the reshoot is being set up. */
 const reshootInProgressFor = ref(new Set());
 function shooterActionInProgress(shooterId) {
     return reshootInProgressFor.value.has(shooterId);
@@ -937,53 +905,37 @@ function closeShooterActionModal() {
     shooterActionTarget.value = null;
 }
 
-/** Reshoot this shooter at this stage. Gated by corrections PIN (if one is
- *  configured). Clears the local completion, logs a `reshoot` correction,
- *  and drops the user straight into the scoring screen. The subsequent
- *  completeStage call overwrites the existing PrsStageResult row server-side
- *  (PrsScoreController uses updateOrCreate). */
-function startReshootForShooter() {
+/** Reshoot this shooter at this stage. Clears the local completion, logs a
+ *  `reshoot` correction, and drops the user straight into the scoring
+ *  screen. The subsequent completeStage call overwrites the existing
+ *  PrsStageResult row server-side (PrsScoreController uses updateOrCreate). */
+async function startReshootForShooter() {
     const target = shooterActionTarget.value;
     if (!target) return;
-
-    const runReshoot = async () => {
-        const { shooter, stageId } = target;
-        try {
-            if (correctionsPin.value) {
-                await axios.post(`/api/matches/${props.matchId}/correction-logs`, {
-                    logs: [{
-                        action: 'reshoot',
-                        stage_id: stageId,
-                        shooter_id: shooter.id,
-                        details: {
-                            previous_hits: target.completion?.hits ?? null,
-                            previous_time: target.completion?.time ?? null,
-                            initiated_from: 'scoring-app',
-                        },
-                        performed_at: new Date().toISOString(),
-                    }],
-                });
-            }
-        } catch {
-            // Log failure shouldn't block the reshoot — MD is right there.
-        }
-
-        prsStore.stageCompletions.delete(`${shooter.id}-${stageId}`);
-        reshootInProgressFor.value.add(shooter.id);
-        closeShooterActionModal();
-        startFreshScoring(shooter);
-        setTimeout(() => reshootInProgressFor.value.delete(shooter.id), 500);
-    };
-
-    if (correctionsPin.value) {
-        pendingAction = 'reshoot';
-        pendingReshootExecutor = runReshoot;
-        pinInput.value = '';
-        pinError.value = '';
-        showPinModal.value = true;
-    } else {
-        runReshoot();
+    const { shooter, stageId } = target;
+    try {
+        await axios.post(`/api/matches/${props.matchId}/correction-logs`, {
+            logs: [{
+                action: 'reshoot',
+                stage_id: stageId,
+                shooter_id: shooter.id,
+                details: {
+                    previous_hits: target.completion?.hits ?? null,
+                    previous_time: target.completion?.time ?? null,
+                    initiated_from: 'scoring-app',
+                },
+                performed_at: new Date().toISOString(),
+            }],
+        });
+    } catch {
+        // Log failure shouldn't block the reshoot — MD is right there.
     }
+
+    prsStore.stageCompletions.delete(`${shooter.id}-${stageId}`);
+    reshootInProgressFor.value.add(shooter.id);
+    closeShooterActionModal();
+    startFreshScoring(shooter);
+    setTimeout(() => reshootInProgressFor.value.delete(shooter.id), 500);
 }
 
 function reassignFromActionModal() {
@@ -1188,14 +1140,7 @@ function openReassignModal(shooter, stageId) {
     activeCorrectStageId.value = stageId || correctionStageId.value;
     reassignTargetId.value = null;
     correctionError.value = '';
-    if (correctionsPin.value) {
-        pendingAction = 'reassign';
-        pinInput.value = '';
-        pinError.value = '';
-        showPinModal.value = true;
-    } else {
-        showReassignModal.value = true;
-    }
+    showReassignModal.value = true;
 }
 
 function openMoveModal(shooter, stageId) {
@@ -1203,38 +1148,7 @@ function openMoveModal(shooter, stageId) {
     activeCorrectStageId.value = stageId || correctionStageId.value;
     moveTargetStageId.value = null;
     correctionError.value = '';
-    if (correctionsPin.value) {
-        pendingAction = 'move';
-        pinInput.value = '';
-        pinError.value = '';
-        showPinModal.value = true;
-    } else {
-        showMoveModal.value = true;
-    }
-}
-
-function closePinModal() {
-    showPinModal.value = false;
-    pinInput.value = '';
-    pinError.value = '';
-    pendingAction = null;
-}
-
-function submitPin() {
-    if (pinInput.value !== correctionsPin.value) {
-        pinError.value = 'Incorrect PIN';
-        return;
-    }
-    showPinModal.value = false;
-    if (pendingAction === 'reassign') showReassignModal.value = true;
-    else if (pendingAction === 'move') showMoveModal.value = true;
-    else if (pendingAction === 'reshoot' && typeof pendingReshootExecutor === 'function') {
-        const exec = pendingReshootExecutor;
-        pendingReshootExecutor = null;
-        exec();
-    }
-    pendingAction = null;
-    pinInput.value = '';
+    showMoveModal.value = true;
 }
 
 async function executeReassign() {
@@ -1247,7 +1161,6 @@ async function executeReassign() {
             {
                 shooter_id: reassignShooter.value.id,
                 new_shooter_id: reassignTargetId.value,
-                pin: correctionsPin.value ? pinInput.value : undefined,
             }
         );
         if (resp.data?.success) {
@@ -1270,7 +1183,6 @@ async function executeMove() {
             {
                 shooter_id: moveShooter.value.id,
                 new_stage_id: moveTargetStageId.value,
-                pin: correctionsPin.value ? pinInput.value : undefined,
             }
         );
         if (resp.data?.success) {

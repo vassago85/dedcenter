@@ -47,7 +47,6 @@ new #[Layout('components.layouts.app')]
     public bool $self_squadding_enabled = true;
     public bool $team_event = false;
     public int $team_size = 3;
-    public string $corrections_pin = '';
 
     public array $registrationFieldsConfig = [
         'rifle' => 'hidden',
@@ -158,7 +157,6 @@ new #[Layout('components.layouts.app')]
             $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
             $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
-            $this->corrections_pin = $match->corrections_pin ?? '';
             $this->self_squadding_enabled = (bool) ($match->self_squadding_enabled ?? true);
             $this->team_event = (bool) $match->team_event;
             $this->team_size = $match->team_size ?? 3;
@@ -183,7 +181,6 @@ new #[Layout('components.layouts.app')]
             'entry_fee' => 'nullable|numeric|min:0',
             'registration_closes_at' => 'nullable|date',
             'scoring_type' => 'required|in:standard,prs,elr',
-            'corrections_pin' => 'nullable|string|min:4|max:6|regex:/^\d+$/',
             'coverImage' => 'nullable|image|max:4096',
         ]);
 
@@ -196,7 +193,6 @@ new #[Layout('components.layouts.app')]
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
-        $validated['corrections_pin'] = $this->corrections_pin !== '' ? $this->corrections_pin : null;
         $validated['self_squadding_enabled'] = $this->self_squadding_enabled;
         $validated['team_event'] = $this->team_event;
         $validated['team_size'] = max(2, $this->team_size);
@@ -1698,12 +1694,6 @@ new #[Layout('components.layouts.app')]
                     </div>
                 </div>
             @endif
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                    <flux:input wire:model="corrections_pin" label="Corrections PIN" type="text" maxlength="6" placeholder="4-6 digits (optional)" />
-                    <p class="mt-1 text-xs text-muted">If set, this PIN is required for score corrections (reassign/move) on all scoring devices. Leave empty for no PIN requirement.</p>
-                </div>
-            </div>
             <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes — not shown on the public portal..." rows="3" />
             <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Short description for shooters — shown on the match page and portal..." rows="3" />
 

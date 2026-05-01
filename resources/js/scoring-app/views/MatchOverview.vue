@@ -48,80 +48,6 @@
                         </div>
 
                         <div class="p-4 space-y-4">
-                            <!-- PIN Setup / Gate -->
-                            <div v-if="!pinVerified && matchStore.hasPin" class="space-y-3">
-                                <template v-if="!showLoginOverride">
-                                    <p class="text-sm text-slate-400">Enter PIN to modify device settings</p>
-                                    <div class="flex gap-2">
-                                        <input
-                                            v-model="pinInput"
-                                            type="password"
-                                            inputmode="numeric"
-                                            maxlength="6"
-                                            placeholder="Enter PIN"
-                                            class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-center font-mono text-lg tracking-[0.3em] text-white placeholder-slate-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                            @keyup.enter="verifyPin"
-                                        />
-                                        <button @click="verifyPin" class="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700">Unlock</button>
-                                    </div>
-                                    <p v-if="pinError" class="text-xs text-red-400">{{ pinError }}</p>
-                                    <button @click="showLoginOverride = true" class="text-xs text-slate-500 underline hover:text-slate-400">Forgot PIN? Log in instead</button>
-                                </template>
-
-                                <template v-else>
-                                    <p class="text-sm text-slate-400">Log in with your DeadCenter account to override the PIN</p>
-                                    <div class="space-y-2">
-                                        <input
-                                            v-model="overrideEmail"
-                                            type="email"
-                                            placeholder="Email"
-                                            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                            @keyup.enter="loginOverride"
-                                        />
-                                        <input
-                                            v-model="overridePassword"
-                                            type="password"
-                                            placeholder="Password"
-                                            class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                            @keyup.enter="loginOverride"
-                                        />
-                                        <div class="flex gap-2">
-                                            <button
-                                                @click="loginOverride"
-                                                :disabled="loginLoading || !overrideEmail || !overridePassword"
-                                                class="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-700 disabled:bg-slate-700 disabled:text-slate-500"
-                                            >
-                                                <span v-if="loginLoading">Verifying...</span>
-                                                <span v-else>Log In & Unlock</span>
-                                            </button>
-                                            <button @click="showLoginOverride = false" class="rounded-lg bg-slate-700 px-3 py-2.5 text-sm font-bold text-slate-300 hover:bg-slate-600">Back</button>
-                                        </div>
-                                    </div>
-                                    <p v-if="pinError" class="text-xs text-red-400">{{ pinError }}</p>
-                                </template>
-                            </div>
-
-                            <template v-else>
-                                <!-- PIN Setup -->
-                                <div v-if="!matchStore.hasPin" class="space-y-2">
-                                    <label class="text-xs font-medium text-slate-400">Set a PIN to protect settings</label>
-                                    <div class="flex gap-2">
-                                        <input
-                                            v-model="newPin"
-                                            type="password"
-                                            inputmode="numeric"
-                                            maxlength="6"
-                                            placeholder="4-6 digit PIN"
-                                            class="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-center font-mono text-lg tracking-[0.3em] text-white placeholder-slate-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                        />
-                                        <button
-                                            @click="savePin"
-                                            :disabled="!newPin || newPin.length < 4"
-                                            class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-amber-700 disabled:bg-slate-700 disabled:text-slate-500"
-                                        >Set PIN</button>
-                                    </div>
-                                </div>
-
                                 <!-- Squad Lock -->
                                 <div class="space-y-2">
                                     <label class="text-xs font-medium text-slate-400">Lock to Squad</label>
@@ -176,13 +102,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Remove PIN -->
-                                <button
-                                    v-if="matchStore.hasPin"
-                                    @click="removePin"
-                                    class="w-full rounded-lg border border-red-700/50 bg-red-900/10 py-2 text-xs font-bold text-red-400 hover:bg-red-900/20"
-                                >Remove PIN Protection</button>
-                            </template>
                         </div>
                     </div>
 
@@ -433,7 +352,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceRoleChip from '../components/DeviceRoleChip.vue';
@@ -453,69 +371,11 @@ const completeInfo = ref({ warnings: [], total_shooters: 0, scored_shooters: 0 }
 const showReopenConfirm = ref(false);
 const reopenLoading = ref(false);
 const reopenError = ref('');
-const pinVerified = ref(false);
-const pinInput = ref('');
-const pinError = ref('');
-const newPin = ref('');
 const selectedSquadId = ref(null);
 const selectedStageId = ref(null);
-const showLoginOverride = ref(false);
-const overrideEmail = ref('');
-const overridePassword = ref('');
-const loginLoading = ref(false);
 
 function toggleDeviceSettings() {
     showDeviceSettings.value = !showDeviceSettings.value;
-    if (showDeviceSettings.value && !matchStore.hasPin) {
-        pinVerified.value = true;
-    }
-    showLoginOverride.value = false;
-    pinError.value = '';
-    overrideEmail.value = '';
-    overridePassword.value = '';
-}
-
-function verifyPin() {
-    pinError.value = '';
-    if (matchStore.verifyPin(props.matchId, pinInput.value)) {
-        pinVerified.value = true;
-        pinInput.value = '';
-    } else {
-        pinError.value = 'Incorrect PIN';
-    }
-}
-
-async function loginOverride() {
-    pinError.value = '';
-    loginLoading.value = true;
-    try {
-        await axios.post('/api/login', {
-            email: overrideEmail.value,
-            password: overridePassword.value,
-        });
-        pinVerified.value = true;
-        matchStore.clearPin(props.matchId);
-        overrideEmail.value = '';
-        overridePassword.value = '';
-        showLoginOverride.value = false;
-    } catch (e) {
-        const msg = e.response?.data?.message || 'Invalid credentials';
-        pinError.value = msg;
-    } finally {
-        loginLoading.value = false;
-    }
-}
-
-function savePin() {
-    if (newPin.value.length >= 4) {
-        matchStore.setPin(props.matchId, newPin.value);
-        newPin.value = '';
-    }
-}
-
-function removePin() {
-    matchStore.clearPin(props.matchId);
-    pinVerified.value = true;
 }
 
 function applySquadLock() {
@@ -545,7 +405,7 @@ function clearStageLock() {
 }
 
 function clearAllLocks() {
-    matchStore.clearAllLocks(props.matchId);
+    matchStore.clearAllLocks();
 }
 
 async function prepareCompleteMatch() {

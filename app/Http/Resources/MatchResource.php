@@ -136,10 +136,6 @@ class MatchResource extends JsonResource
                 || $this->created_by === $request->user()->id
                 || ($this->organization && $request->user()->isOrgAdmin($this->organization))
             ),
-            'corrections_pin' => $this->when(
-                $request->user() && ($request->user()->isOwner() || $this->created_by === $request->user()->id || ($this->organization && $request->user()->isOrgRangeOfficer($this->organization))),
-                $this->corrections_pin
-            ),
             'prs_stage_results' => $this->whenLoaded('prsResults', fn () => $this->prsResults->map(fn ($r) => [
                 'shooter_id' => $r->shooter_id,
                 'stage_id' => $r->stage_id,
