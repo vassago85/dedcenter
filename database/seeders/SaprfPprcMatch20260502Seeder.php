@@ -50,21 +50,45 @@ class SaprfPprcMatch20260502Seeder extends Seeder
             return;
         }
 
-        // PPRC hosts the event. Fall back to Royal Flush / Paul's first org
-        // so this still seeds cleanly on a fresh DB without PPRC set up.
-        $org = Organization::where('slug', 'like', 'pprc%')->orderBy('id')->first()
-            ?? Organization::where('slug', 'like', 'pretoria%')->orderBy('id')->first()
-            ?? Organization::where('slug', 'like', 'royal-flush%')->orderBy('id')->first()
-            ?? $paul->organizations()->orderBy('organizations.id')->first()
-            ?? Organization::where('status', 'active')->orderBy('id')->first()
-            ?? Organization::orderBy('id')->first();
+        // Pretoria Precision Rifle Club hosts the event. Create the org if
+        // it doesn't exist yet — the seeder used to fall back to Royal Flush
+        // when no PPRC record existed, which is wrong: this is a SAPRF
+        // Gauteng provincial + PPRC club match, not a Royal Flush event.
+        $org = Organization::firstOrCreate(
+            ['slug' => 'pretoria-precision-rifle-club'],
+            [
+                'name' => 'Pretoria Precision Rifle Club',
+                'type' => 'club',
+                'status' => 'active',
+                'created_by' => $paul->id,
+                'province' => 'Gauteng',
+                'description' => 'PRS club based in Pretoria. Hosts SAPRF Gauteng provincials and PPRC club matches.',
+            ]
+        );
 
-        if (! $org) {
-            $this->command->error('No organization found; aborting.');
-            return;
-        }
+        // Make sure Paul is an admin / owner of PPRC so he can manage the
+        // match from the org dashboard. Idempotent thanks to syncWithoutDetaching.
+        $org->admins()->syncWithoutDetaching([
+            $paul->id => [
+                'is_owner' => true,
+                'is_match_director' => true,
+                'is_range_officer' => true,
+                'is_shooter' => true,
+            ],
+        ]);
 
-        $matchName = 'SAPRF Provincial + PPRC Club Match — 2 May 2026';
+        $matchName = 'SAPRF Gauteng Provincial + PPRC Club Match — 2 May 2026';
+
+        // Migrate any legacy copy of the match that was seeded against the
+        // wrong org (Royal Flush etc.) to the PPRC org so we don't end up
+        // with two duplicate matches for the same event.
+        ShootingMatch::where('date', '2026-05-02')
+            ->where(function ($q) {
+                $q->where('name', 'like', 'SAPRF%PPRC%')
+                  ->orWhere('name', 'like', '%Provincial%PPRC%');
+            })
+            ->where('organization_id', '!=', $org->id)
+            ->update(['organization_id' => $org->id]);
 
         DB::transaction(function () use ($paul, $org, $matchName) {
             $match = ShootingMatch::firstOrNew([
@@ -72,10 +96,23 @@ class SaprfPprcMatch20260502Seeder extends Seeder
                 'name' => $matchName,
             ]);
 
+            // Older seed runs may have committed the match under the
+            // previous name — find and reuse it rather than create a duplicate.
+            if (! $match->exists) {
+                $legacy = ShootingMatch::where('organization_id', $org->id)
+                    ->where('date', '2026-05-02')
+                    ->where('name', 'like', 'SAPRF%PPRC%')
+                    ->first();
+                if ($legacy) {
+                    $match = $legacy;
+                    $match->name = $matchName;
+                }
+            }
+
             $isNew = ! $match->exists;
 
             $match->date = '2026-05-02';
-            $match->location = 'PPRC Range';
+            $match->location = 'Pretoria Precision Rifle Club Range';
             $match->status = MatchStatus::Active;
             $match->scoring_type = 'prs';
             $match->scores_published = true;
@@ -85,7 +122,7 @@ class SaprfPprcMatch20260502Seeder extends Seeder
             $match->self_squadding_enabled = false;
             $match->royal_flush_enabled = false;
             $match->side_bet_enabled = false;
-            $match->notes = '6 stages — only Stage 1 (tiebreaker) is timed, the rest are untimed. Provincial: 10 shots/stage = 60 rounds. Club: 7 shots/stage = 42 rounds. Testing alongside PractiScore with squads 1, 2, 4.';
+            $match->notes = 'Hosted by Pretoria Precision Rifle Club (PPRC). Combined SAPRF Gauteng Provincial + PPRC Club Match. 6 stages — only Stage 1 (tiebreaker) is timed, the rest are untimed. Provincial shooters: 10 shots/stage = 60 rounds. Club shooters: 7 shots/stage = 42 rounds. Testing alongside PractiScore with squads 1, 2, 4.';
             $match->created_by = $paul->id;
             $match->save();
 
