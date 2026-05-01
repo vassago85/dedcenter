@@ -199,19 +199,19 @@
                 </div>
 
                 <!--
-                    Order-reversed notice. Only shown on stages where the
-                    squad order is flipped, so the RO / squad can see at a
-                    glance that bib #1 is NOT up next — the shooter at the
-                    top of the list is.
+                    Rotation notice. Shown on every stage after stage 1 so the
+                    RO / squad can see at a glance that the shooting order has
+                    shifted — the shooter at the top of the list is up first,
+                    not bib #1.
                 -->
-                <div v-if="shooterOrderReversed && currentShooters.length > 1 && !allShootersDoneAtStage"
+                <div v-if="shooterOrderRotated && !allShootersDoneAtStage"
                      class="mb-4 flex items-start gap-2 rounded-xl border border-amber-700/40 bg-amber-900/15 px-3 py-2 text-xs text-amber-200">
                     <svg class="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                     </svg>
                     <div class="leading-snug">
-                        <span class="font-semibold">Order reversed for this stage.</span>
-                        Shooting back-to-front so the front runners get to spot wind too.
+                        <span class="font-semibold">Shooting order rotated.</span>
+                        Each stage the last shooter moves to the front, so everyone shoots first once across the match. <span class="text-amber-300">{{ currentShooters[0]?.name ?? '' }}</span> is up first.
                     </div>
                 </div>
 
@@ -676,26 +676,40 @@ const selectedShooterObj = computed(() => {
     return selectedSquadObj.value.shooters.find(s => s.id === prsStore.selectedShooterId);
 });
 
-// PRS boustrophedon rotation: on every stage change the shooting order
-// flips end-to-end — so the shooter who led Stage 1 shoots last on Stage 2,
-// then first again on Stage 3, and so on. This spreads the "first up,
-// nothing to spot" burden across the squad instead of letting the bib-#1
-// shooter be the wind bitch all day. We pivot on the stage's position in
-// the target-set list (not on stage_number) so it still behaves correctly
-// if stage numbering is non-contiguous (e.g. stages renumbered after
-// deletion). Odd position = original order, even position = reversed.
+// PRS back-to-front rotation: on every stage change the last shooter of
+// the previous stage moves to the front of the order, and everyone else
+// shifts back by one. With N shooters this means every shooter shoots
+// first exactly once across N stages, spreading the "first up, nothing to
+// spot" burden evenly. For a squad [A B C D E F]:
+//   Stage 1 → A B C D E F (shift 0)
+//   Stage 2 → F A B C D E (shift 1 — last of stage 1 leads)
+//   Stage 3 → E F A B C D (shift 2)
+//   Stage 4 → D E F A B C
+//   ...
+// We pivot on the stage's position in the target-set list (not on
+// stage_number) so non-contiguous numbering still works. Shift is modulo
+// the active-shooter count so matches with more stages than shooters keep
+// cycling cleanly.
 const selectedStageIndex = computed(() => {
     if (!prsStore.selectedStageId) return 0;
     const idx = targetSets.value.findIndex(ts => ts.id === prsStore.selectedStageId);
     return idx < 0 ? 0 : idx;
 });
 
-const shooterOrderReversed = computed(() => selectedStageIndex.value % 2 === 1);
-
 const currentShooters = computed(() => {
     if (!selectedSquadObj.value) return [];
     const active = selectedSquadObj.value.shooters.filter(s => s.status === 'active');
-    return shooterOrderReversed.value ? [...active].reverse() : active;
+    if (active.length === 0) return [];
+    const shift = selectedStageIndex.value % active.length;
+    if (shift === 0) return active;
+    return [...active.slice(-shift), ...active.slice(0, -shift)];
+});
+
+const shooterOrderRotated = computed(() => {
+    if (!selectedSquadObj.value) return false;
+    const active = selectedSquadObj.value.shooters.filter(s => s.status === 'active');
+    if (active.length <= 1) return false;
+    return (selectedStageIndex.value % active.length) !== 0;
 });
 
 const allActiveShooters = computed(() => {
