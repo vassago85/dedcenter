@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ShootingMatch;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -62,6 +63,69 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logged out']);
+    }
+
+    /**
+     * Re-authenticate the currently logged-in user by password.
+     *
+     * Used as a speed-bump for destructive actions (match complete, reopen,
+     * corrections) when the match has no corrections_pin configured.
+     *
+     * Optionally verifies the user can manage a specific match (MD / owner /
+     * org admin) when `match_id` is provided.
+     *
+     * POST /api/auth/verify-password
+     * Body: { password: string, match_id?: int }
+     *   200: { ok: true, user: { id, name, email } }
+     *   401: { ok: false, error: 'Incorrect password' }
+     *   403: { ok: false, error: 'You cannot manage this match' }
+     */
+    public function verifyPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+            'match_id' => ['nullable', 'integer'],
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Incorrect password.',
+            ], 401);
+        }
+
+        if (! empty($validated['match_id'])) {
+            $match = ShootingMatch::find($validated['match_id']);
+
+            if (! $match) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'Match not found.',
+                ], 404);
+            }
+
+            $canManage = $user->isOwner()
+                || $match->created_by === $user->id
+                || ($match->organization && $user->isOrgAdmin($match->organization));
+
+            if (! $canManage) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'You are not the match director or owner of this match.',
+                ], 403);
+            }
+        }
+
+        return response()->json([
+            'ok' => true,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+        ]);
     }
 
     /**

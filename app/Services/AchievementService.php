@@ -71,6 +71,95 @@ class AchievementService
     }
 
     /**
+     * Re-evaluate every badge tied to this match from a clean slate.
+     *
+     * Use this at the end of a match (complete, publish, auto-close, or any
+     * post-correction finalisation) so badges always reflect the CURRENT
+     * scores after any reshoot / reassign / move-stage / reopen-edit-complete
+     * cycle. Without this step, `evaluateMatchCompletion()` only ever ADDS
+     * badges — stale podiums, iron-shooter, etc. accumulate whenever scores
+     * change.
+     *
+     * Two-phase clean rebuild:
+     *   1. Delete every `UserAchievement` row stamped with `match_id = $match->id`.
+     *      Both match-scoped (podium, iron-shooter, complete-shooter, deadcenter,
+     *      rf-podium-*, per-stage repeatables) AND lifetime rows whose "triggered
+     *      by" match was this one (first-win, first-podium, first-full-send,
+     *      first-impact-chain, rf-lifetime-*). Lifetime rows tied to OTHER
+     *      matches are untouched — they remain valid history.
+     *   2. Re-run `evaluateMatchCompletion()` and (if RF-enabled)
+     *      `evaluateRoyalFlushCompletion()`. Stage-scoped repeatables are also
+     *      re-derived by calling `evaluateStageCompletion()` for every
+     *      completed PRS stage result.
+     *
+     * Lifetime semantics after a revoke: if user X had `first-win` triggered
+     * by this match and corrections move the gold to user Y, user X's
+     * `first-win` row here is deleted. If X has a podium-gold on another
+     * previously-completed match, re-running THIS match won't re-fire X's
+     * lifetime (we don't touch other matches). The `badges:reevaluate`
+     * command should be used across the full season if deeper consistency
+     * is needed.
+     *
+     * @return array<string, mixed>  { revoked: int, awarded: int, match_id: int }
+     */
+    public static function reevaluateForMatch(ShootingMatch $match): array
+    {
+        return DB::transaction(function () use ($match) {
+            $revoked = UserAchievement::where('match_id', $match->id)->count();
+            UserAchievement::where('match_id', $match->id)->delete();
+
+            $awardedMatch = self::evaluateMatchCompletion($match);
+            $awardedRf = $match->royal_flush_enabled
+                ? self::evaluateRoyalFlushCompletion($match)
+                : [];
+
+            // Re-derive stage-scoped repeatables (prs-full-send, no-drop-stage,
+            // impact-chain, high-efficiency). evaluateMatchCompletion() only
+            // awards MATCH-scoped badges — stage repeatables are normally
+            // awarded incrementally by PrsScoreController::store. After a
+            // clean wipe we have to replay them here.
+            $awardedStage = [];
+            if ($match->isPrs()) {
+                $stages = $match->targetSets()->get()->keyBy('id');
+                $shooters = $match->shooters()
+                    ->where('shooters.status', 'active')
+                    ->whereNotNull('shooters.user_id')
+                    ->get()
+                    ->keyBy('id');
+
+                $results = PrsStageResult::where('match_id', $match->id)
+                    ->whereNotNull('completed_at')
+                    ->get();
+
+                foreach ($results as $r) {
+                    $stage = $stages->get($r->stage_id);
+                    $shooter = $shooters->get($r->shooter_id);
+                    if ($stage && $shooter) {
+                        $awardedStage = array_merge(
+                            $awardedStage,
+                            self::evaluateStageCompletion($match, $stage, $shooter, $r),
+                        );
+                    }
+                }
+            }
+
+            $awarded = count($awardedMatch) + count($awardedRf) + count($awardedStage);
+
+            Log::info('Badges reevaluated for match', [
+                'match_id' => $match->id,
+                'revoked' => $revoked,
+                'awarded' => $awarded,
+            ]);
+
+            return [
+                'match_id' => $match->id,
+                'revoked' => $revoked,
+                'awarded' => $awarded,
+            ];
+        });
+    }
+
+    /**
      * Evaluate match-scoped badges after the match is finalized.
      * Call this when scores are published or match is marked completed.
      *
@@ -79,6 +168,9 @@ class AchievementService
      *     first-win, first-podium) — PRS matches only.
      *   - Royal Flush podium (rf-podium-*) and Royal Flush lifetime badges are awarded
      *     exclusively by evaluateRoyalFlushCompletion() to keep disciplines separate.
+     *
+     * ADDITIVE only — use `reevaluateForMatch()` after corrections to wipe
+     * stale awards first.
      */
     public static function evaluateMatchCompletion(ShootingMatch $match): array
     {

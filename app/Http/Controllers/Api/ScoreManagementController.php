@@ -174,12 +174,15 @@ class ScoreManagementController extends Controller
 
         if ($validated['published']) {
             try {
-                AchievementService::evaluateMatchCompletion($match);
-                if ($match->royal_flush_enabled) {
-                    AchievementService::evaluateRoyalFlushCompletion($match);
-                }
+                // Clean rebuild so the published leaderboard, podiums, and
+                // per-shooter badge lists always match the final scores even
+                // if the MD corrected something and re-published.
+                AchievementService::reevaluateForMatch($match);
             } catch (\Throwable $e) {
-                Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+                Log::warning('Achievement evaluation failed', [
+                    'match_id' => $match->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
 
             if ($match->status === MatchStatus::Completed) {
@@ -336,12 +339,17 @@ class ScoreManagementController extends Controller
         }
 
         try {
-            AchievementService::evaluateMatchCompletion($match);
-            if ($match->royal_flush_enabled) {
-                AchievementService::evaluateRoyalFlushCompletion($match);
-            }
+            // Clean-slate re-evaluation: wipes badges stamped against this match
+            // and re-awards from the CURRENT scores. Needed because corrections
+            // (reshoot / reassign / move-stage) or a reopen→edit→complete cycle
+            // can shift the podium and mid-match badges — additive evaluation
+            // alone would leave stale awards.
+            AchievementService::reevaluateForMatch($match);
         } catch (\Throwable $e) {
-            Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
+            Log::warning('Achievement evaluation failed', [
+                'match_id' => $match->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return response()->json([

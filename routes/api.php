@@ -82,6 +82,7 @@ Route::get('seasons/{season}/standings', [SeasonController::class, 'standings'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('user', [AuthController::class, 'user']);
     Route::post('logout', [AuthController::class, 'logout']);
+    Route::post('auth/verify-password', [AuthController::class, 'verifyPassword']);
 
     Route::get('matches', [MatchController::class, 'index']);
     Route::get('matches/{match}', [MatchController::class, 'show']);

@@ -117,10 +117,14 @@
         <div v-else-if="prsStore.currentScreen === 'squad-select'" class="flex flex-1 flex-col px-4 py-6">
             <div class="mx-auto w-full max-w-2xl">
                 <h2 class="mb-2 text-xl font-bold">Select Squad</h2>
-                <p class="mb-4 text-sm text-slate-400">Choose the squad you are scoring</p>
+                <p v-if="matchStore.hasSquadLock" class="mb-4 flex items-center gap-2 text-sm text-amber-400">
+                    <svg class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                    This device is locked to <span class="font-bold">{{ matchStore.lockedSquadName }}</span>. Other squads are hidden.
+                </p>
+                <p v-else class="mb-4 text-sm text-slate-400">Choose the squad you are scoring</p>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <button
-                        v-for="squad in squads"
+                        v-for="squad in selectableSquads"
                         :key="squad.id"
                         @click="selectSquad(squad)"
                         class="flex flex-col gap-1 rounded-xl border border-slate-700 bg-slate-800 p-5 text-left transition-all hover:border-amber-600 hover:bg-slate-700/80 active:scale-[0.98]"
@@ -212,12 +216,18 @@
                         v-for="shooter in currentShooters"
                         :key="shooter.id"
                         @click="openScoring(shooter)"
-                        class="flex w-full flex-col gap-2 rounded-xl border border-slate-700 bg-slate-800 p-4 text-left transition-all hover:border-amber-600 active:scale-[0.98]"
+                        class="flex w-full flex-col gap-2 rounded-xl border p-4 text-left transition-all active:scale-[0.98]"
+                        :class="getShooterCompletion(shooter.id)
+                            ? 'border-green-700/40 bg-green-900/10 hover:border-green-500'
+                            : 'border-slate-700 bg-slate-800 hover:border-amber-600'"
                     >
                         <div class="flex w-full items-center justify-between">
                             <div class="min-w-0 flex-1 mr-3">
                                 <span class="text-base font-bold block truncate">{{ shooter.name }}</span>
                                 <span v-if="shooter.bib_number" class="text-xs text-slate-500">#{{ shooter.bib_number }}</span>
+                                <span v-if="getShooterCompletion(shooter.id)" class="mt-0.5 block text-[11px] text-slate-400">
+                                    Tap for reshoot / reassign / move
+                                </span>
                             </div>
                             <div class="flex items-center gap-2 flex-shrink-0">
                                 <span v-if="getShooterCompletion(shooter.id)" class="text-sm font-bold text-green-400 whitespace-nowrap">
@@ -463,6 +473,71 @@
             </div>
         </Teleport>
 
+        <!-- Already-Scored Shooter Action Panel: blocks accidental over-scoring.
+             Tapping a completed shooter on the shooter-list opens this panel
+             so the MD must pick an explicit corrective action. -->
+        <Teleport to="body">
+            <div v-if="showShooterActionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="closeShooterActionModal">
+                <div class="w-full max-w-sm rounded-2xl bg-slate-800 p-6 shadow-2xl">
+                    <div class="mb-4 flex items-start gap-3">
+                        <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+                            <svg class="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-lg font-bold text-white truncate">{{ shooterActionTarget?.shooter?.name }}</h3>
+                            <p class="text-xs text-slate-400">Already scored at {{ shooterActionTarget?.stageName }}</p>
+                            <p v-if="shooterActionTarget?.completion" class="mt-1 text-sm font-bold text-green-400">
+                                {{ shooterActionTarget.completion.hits }}/{{ shooterActionTarget.totalShots }} hits
+                                <span v-if="shooterActionTarget.completion.time" class="ml-2 font-normal text-slate-400">
+                                    &middot; {{ Number(shooterActionTarget.completion.time).toFixed(2) }}s
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <p class="mb-4 text-sm text-slate-300">
+                        This shooter already has a score. Direct re-scoring is blocked — choose an action below. All actions are logged.
+                    </p>
+                    <div class="space-y-2">
+                        <button
+                            @click="startReshootForShooter"
+                            class="flex w-full items-center gap-3 rounded-xl border border-red-700/40 bg-red-900/20 px-4 py-3 text-left hover:border-red-500 hover:bg-red-900/40"
+                        >
+                            <svg class="h-5 w-5 flex-shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-white">Reshoot</div>
+                                <div class="text-xs text-slate-400">Same shooter, same stage — previous score is replaced.</div>
+                            </div>
+                        </button>
+                        <button
+                            @click="reassignFromActionModal"
+                            class="flex w-full items-center gap-3 rounded-xl border border-amber-700/40 bg-amber-900/10 px-4 py-3 text-left hover:border-amber-500 hover:bg-amber-900/30"
+                        >
+                            <svg class="h-5 w-5 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-white">Reassign to another shooter</div>
+                                <div class="text-xs text-slate-400">Score was recorded against the wrong shooter.</div>
+                            </div>
+                        </button>
+                        <button
+                            @click="moveFromActionModal"
+                            class="flex w-full items-center gap-3 rounded-xl border border-blue-700/40 bg-blue-900/10 px-4 py-3 text-left hover:border-blue-500 hover:bg-blue-900/30"
+                        >
+                            <svg class="h-5 w-5 flex-shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3" /></svg>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-white">Move to another stage</div>
+                                <div class="text-xs text-slate-400">Score was recorded against the wrong stage.</div>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="mt-4 flex">
+                        <button @click="closeShooterActionModal" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
         <!-- Corrections Log Modal -->
         <Teleport to="body">
             <div v-if="showCorrectionLogs" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" @click.self="showCorrectionLogs = false">
@@ -541,10 +616,25 @@ const moveTargetStageId = ref(null);
 const correctionError = ref('');
 const correctionLogEntries = ref([]);
 let pendingAction = null;
+let pendingReshootExecutor = null;
+
+// Already-scored shooter action panel
+const showShooterActionModal = ref(false);
+const shooterActionTarget = ref(null); // { shooter, stageId, stageName, completion, totalShots }
 
 const squads = computed(() => matchStore.currentMatch?.squads ?? []);
 const targetSets = computed(() => matchStore.currentMatch?.target_sets ?? []);
 const deviceLockMode = computed(() => matchStore.currentMatch?.device_lock_mode ?? 'open');
+
+// Only the locked squad is selectable when a squad lock is active on this
+// device. Other squads are hidden entirely so the scorer can't accidentally
+// pick a squad they aren't running.
+const selectableSquads = computed(() => {
+    if (matchStore.lockedSquadId) {
+        return squads.value.filter(s => s.id === matchStore.lockedSquadId);
+    }
+    return squads.value;
+});
 
 const lockedStageName = computed(() => {
     const lock = readStageLock(props.matchId);
@@ -701,6 +791,9 @@ function startScoring() {
 }
 
 function selectSquad(squad) {
+    if (matchStore.lockedSquadId && squad.id !== matchStore.lockedSquadId) {
+        return;
+    }
     prsStore.selectSquad(squad.id);
     const stageLock = readStageLock(props.matchId);
     if (deviceLockMode.value === 'locked_to_stage' && stageLock) {
@@ -719,6 +812,33 @@ function selectStage(ts) {
 }
 
 function openScoring(shooter) {
+    // Block direct re-scoring of a shooter who already has a completed stage
+    // result. Force the MD to pick an explicit corrective action (reshoot,
+    // reassign, or move) — every path is gated by the corrections PIN and
+    // leaves an audit trail.
+    const existing = getShooterCompletion(shooter.id);
+    if (existing && !shooterActionInProgress(shooter.id)) {
+        shooterActionTarget.value = {
+            shooter,
+            stageId: prsStore.selectedStageId,
+            stageName: selectedStageObj.value?.display_name || selectedStageObj.value?.label || 'Stage',
+            completion: existing,
+            totalShots: selectedStageObj.value?.total_shots || selectedStageObj.value?.gongs?.length || 0,
+        };
+        showShooterActionModal.value = true;
+        return;
+    }
+    startFreshScoring(shooter);
+}
+
+/** Track in-flight reshoot for a shooter so we don't re-trigger the action
+ *  panel after PIN verification has already cleared it. */
+const reshootInProgressFor = ref(new Set());
+function shooterActionInProgress(shooterId) {
+    return reshootInProgressFor.value.has(shooterId);
+}
+
+function startFreshScoring(shooter) {
     prsStore.selectShooter(shooter.id);
     const totalShots = selectedStageObj.value?.total_shots || selectedStageObj.value?.gongs?.length || 10;
     prsStore.initStage(totalShots);
@@ -726,6 +846,74 @@ function openScoring(shooter) {
     completeError.value = '';
     showTimeModal.value = false;
     prsStore.navigateTo('scoring');
+}
+
+function closeShooterActionModal() {
+    showShooterActionModal.value = false;
+    shooterActionTarget.value = null;
+}
+
+/** Reshoot this shooter at this stage. Gated by corrections PIN (if one is
+ *  configured). Clears the local completion, logs a `reshoot` correction,
+ *  and drops the user straight into the scoring screen. The subsequent
+ *  completeStage call overwrites the existing PrsStageResult row server-side
+ *  (PrsScoreController uses updateOrCreate). */
+function startReshootForShooter() {
+    const target = shooterActionTarget.value;
+    if (!target) return;
+
+    const runReshoot = async () => {
+        const { shooter, stageId } = target;
+        try {
+            if (correctionsPin.value) {
+                await axios.post(`/api/matches/${props.matchId}/correction-logs`, {
+                    logs: [{
+                        action: 'reshoot',
+                        stage_id: stageId,
+                        shooter_id: shooter.id,
+                        details: {
+                            previous_hits: target.completion?.hits ?? null,
+                            previous_time: target.completion?.time ?? null,
+                            initiated_from: 'scoring-app',
+                        },
+                        performed_at: new Date().toISOString(),
+                    }],
+                });
+            }
+        } catch {
+            // Log failure shouldn't block the reshoot — MD is right there.
+        }
+
+        prsStore.stageCompletions.delete(`${shooter.id}-${stageId}`);
+        reshootInProgressFor.value.add(shooter.id);
+        closeShooterActionModal();
+        startFreshScoring(shooter);
+        setTimeout(() => reshootInProgressFor.value.delete(shooter.id), 500);
+    };
+
+    if (correctionsPin.value) {
+        pendingAction = 'reshoot';
+        pendingReshootExecutor = runReshoot;
+        pinInput.value = '';
+        pinError.value = '';
+        showPinModal.value = true;
+    } else {
+        runReshoot();
+    }
+}
+
+function reassignFromActionModal() {
+    const target = shooterActionTarget.value;
+    if (!target) return;
+    closeShooterActionModal();
+    openReassignModal(target.shooter, target.stageId);
+}
+
+function moveFromActionModal() {
+    const target = shooterActionTarget.value;
+    if (!target) return;
+    closeShooterActionModal();
+    openMoveModal(target.shooter, target.stageId);
 }
 
 function goBack() {
@@ -932,6 +1120,11 @@ function submitPin() {
     showPinModal.value = false;
     if (pendingAction === 'reassign') showReassignModal.value = true;
     else if (pendingAction === 'move') showMoveModal.value = true;
+    else if (pendingAction === 'reshoot' && typeof pendingReshootExecutor === 'function') {
+        const exec = pendingReshootExecutor;
+        pendingReshootExecutor = null;
+        exec();
+    }
     pendingAction = null;
     pinInput.value = '';
 }

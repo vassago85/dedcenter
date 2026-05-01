@@ -21,15 +21,18 @@ use Illuminate\Support\Facades\Log;
  *  - Awards missing correct badges via AchievementService.
  *
  * Usage:
- *    php artisan badges:reevaluate                  # every Completed match
- *    php artisan badges:reevaluate 42               # just match #42
+ *    php artisan badges:reevaluate                  # every Completed match (podium diff only)
+ *    php artisan badges:reevaluate 42               # just match #42 (podium diff only)
  *    php artisan badges:reevaluate --dry-run        # show diffs, don't mutate
+ *    php artisan badges:reevaluate --full           # clean wipe+rebuild via AchievementService::reevaluateForMatch
+ *                                                   #   (deeper — also rebuilds iron-shooter,
+ *                                                   #    complete-shooter, deadcenter, stage repeatables)
  */
 class ReevaluateBadges extends Command
 {
-    protected $signature = 'badges:reevaluate {match? : Optional match id. If omitted, all completed matches are re-evaluated.} {--dry-run : Log what would change without persisting}';
+    protected $signature = 'badges:reevaluate {match? : Optional match id. If omitted, all completed matches are re-evaluated.} {--dry-run : Log what would change without persisting} {--full : Full clean rebuild per match (wipes all match-scoped badges then re-awards).}';
 
-    protected $description = 'Recompute podium/rf-podium badges for completed matches using the correct weighted standings. Revokes wrong awards and awards missing correct ones.';
+    protected $description = 'Recompute podium/rf-podium badges for completed matches using the correct weighted standings. Revokes wrong awards and awards missing correct ones. Pass --full for a deeper clean-rebuild that also covers non-podium badges.';
 
     private const PODIUM_SLUGS = [
         1 => 'podium-gold',
@@ -47,6 +50,11 @@ class ReevaluateBadges extends Command
     {
         $matchArg = $this->argument('match');
         $dryRun = (bool) $this->option('dry-run');
+        $full = (bool) $this->option('full');
+
+        if ($full && $dryRun) {
+            $this->warn('--dry-run is ignored when --full is used (clean rebuild runs inside a transaction and reports actuals).');
+        }
 
         $query = ShootingMatch::query()->where('status', MatchStatus::Completed);
         if ($matchArg !== null) {
@@ -67,6 +75,22 @@ class ReevaluateBadges extends Command
 
         foreach ($matches as $match) {
             $this->line("Match #{$match->id}: {$match->name}");
+
+            if ($full) {
+                try {
+                    $result = AchievementService::reevaluateForMatch($match);
+                    $totalRevoked += (int) $result['revoked'];
+                    $totalAwarded += (int) $result['awarded'];
+                    $this->line(sprintf('  revoked=%d  awarded=%d  [full rebuild]', $result['revoked'], $result['awarded']));
+                } catch (\Throwable $e) {
+                    $this->error("  failed: {$e->getMessage()}");
+                    Log::warning('badges:reevaluate --full failed', [
+                        'match_id' => $match->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+                continue;
+            }
 
             $result = $this->reevaluateMatch($match, $service, $dryRun);
 

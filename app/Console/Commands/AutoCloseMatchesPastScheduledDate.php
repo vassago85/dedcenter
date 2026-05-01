@@ -38,10 +38,7 @@ class AutoCloseMatchesPastScheduledDate extends Command
             }
 
             try {
-                AchievementService::evaluateMatchCompletion($match);
-                if ($match->royal_flush_enabled) {
-                    AchievementService::evaluateRoyalFlushCompletion($match);
-                }
+                AchievementService::reevaluateForMatch($match);
             } catch (\Throwable $e) {
                 Log::warning('Auto-close achievement evaluation failed', ['match_id' => $match->id, 'error' => $e->getMessage()]);
             }
