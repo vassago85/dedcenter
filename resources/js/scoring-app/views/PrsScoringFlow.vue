@@ -194,6 +194,23 @@
                     </div>
                 </div>
 
+                <!--
+                    Order-reversed notice. Only shown on stages where the
+                    squad order is flipped, so the RO / squad can see at a
+                    glance that bib #1 is NOT up next — the shooter at the
+                    top of the list is.
+                -->
+                <div v-if="shooterOrderReversed && currentShooters.length > 1 && !allShootersDoneAtStage"
+                     class="mb-4 flex items-start gap-2 rounded-xl border border-amber-700/40 bg-amber-900/15 px-3 py-2 text-xs text-amber-200">
+                    <svg class="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                    </svg>
+                    <div class="leading-snug">
+                        <span class="font-semibold">Order reversed for this stage.</span>
+                        Shooting back-to-front so the front runners get to spot wind too.
+                    </div>
+                </div>
+
                 <!-- All shooters completed banner -->
                 <div v-if="allShootersDoneAtStage" class="mb-4 rounded-xl border border-green-700/50 bg-green-900/20 p-4 text-center">
                     <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-600/20">
@@ -655,9 +672,26 @@ const selectedShooterObj = computed(() => {
     return selectedSquadObj.value.shooters.find(s => s.id === prsStore.selectedShooterId);
 });
 
+// PRS boustrophedon rotation: on every stage change the shooting order
+// flips end-to-end — so the shooter who led Stage 1 shoots last on Stage 2,
+// then first again on Stage 3, and so on. This spreads the "first up,
+// nothing to spot" burden across the squad instead of letting the bib-#1
+// shooter be the wind bitch all day. We pivot on the stage's position in
+// the target-set list (not on stage_number) so it still behaves correctly
+// if stage numbering is non-contiguous (e.g. stages renumbered after
+// deletion). Odd position = original order, even position = reversed.
+const selectedStageIndex = computed(() => {
+    if (!prsStore.selectedStageId) return 0;
+    const idx = targetSets.value.findIndex(ts => ts.id === prsStore.selectedStageId);
+    return idx < 0 ? 0 : idx;
+});
+
+const shooterOrderReversed = computed(() => selectedStageIndex.value % 2 === 1);
+
 const currentShooters = computed(() => {
     if (!selectedSquadObj.value) return [];
-    return selectedSquadObj.value.shooters.filter(s => s.status === 'active');
+    const active = selectedSquadObj.value.shooters.filter(s => s.status === 'active');
+    return shooterOrderReversed.value ? [...active].reverse() : active;
 });
 
 const correctionsPin = computed(() => matchStore.currentMatch?.corrections_pin ?? null);

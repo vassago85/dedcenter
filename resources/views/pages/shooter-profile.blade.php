@@ -26,9 +26,19 @@ new #[Layout('components.layouts.app')]
 
         $byCompetition = $earned->groupBy(fn ($b) => $b->achievement->competition_type ?? 'prs');
 
-        $matchesShot = Shooter::where('user_id', $userId)
+        // All Shooter rows for this user where the match has finished — we
+        // render these as tappable cards linking to each per-shooter match
+        // report (/scoreboard/{match}/report/{shooter}). The report route
+        // is public, so spectators reading the profile can still open it.
+        $shooterMatches = Shooter::where('user_id', $userId)
             ->whereHas('squad.match', fn ($q) => $q->where('status', MatchStatus::Completed))
-            ->count();
+            ->with(['squad.match' => fn ($q) => $q->select('id', 'name', 'date', 'location', 'scoring_type', 'status')])
+            ->get()
+            ->filter(fn ($s) => $s->squad && $s->squad->match)
+            ->sortByDesc(fn ($s) => $s->squad->match->date)
+            ->values();
+
+        $matchesShot = $shooterMatches->count();
 
         $totalBadges = $earned->count();
         $uniqueCount = $uniqueBadges->count();
@@ -40,7 +50,7 @@ new #[Layout('components.layouts.app')]
         return compact(
             'earned', 'uniqueBadges', 'byCompetition',
             'matchesShot', 'totalBadges', 'uniqueCount', 'podiums',
-            'badgeConfig'
+            'shooterMatches', 'badgeConfig'
         );
     }
 }; ?>
@@ -78,6 +88,66 @@ new #[Layout('components.layouts.app')]
 
         <div class="mt-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
     </header>
+
+    {{-- ============================================================
+         MY MATCHES — tappable cards linking to each shooter's
+         per-match report (/scoreboard/{match}/report/{shooter}).
+         The report route is public, so this section renders for any
+         visitor of the profile, not just the shooter themself.
+    ============================================================= --}}
+    @if($shooterMatches->isNotEmpty())
+        <section class="mb-14">
+            <div class="mb-6 flex items-center gap-3">
+                <div class="grid h-9 w-9 place-items-center rounded-xl border border-white/8 bg-white/4">
+                    <x-badge-icon name="flag" class="h-4 w-4 text-white/60" />
+                </div>
+                <h2 class="text-lg font-semibold tracking-tight text-white/90 sm:text-xl">Match History</h2>
+                <span class="ml-auto rounded-full border border-white/8 bg-white/4 px-3 py-0.5 text-[11px] tabular-nums text-zinc-400">
+                    {{ $shooterMatches->count() }} {{ \Illuminate\Support\Str::plural('match', $shooterMatches->count()) }}
+                </span>
+            </div>
+            <div class="mb-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+            <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @foreach($shooterMatches as $sm)
+                    @php
+                        $m = $sm->squad->match;
+                        $typeLabel = strtoupper($m->scoring_type ?? 'standard');
+                        $typeClasses = match (strtolower($m->scoring_type ?? '')) {
+                            'prs'      => 'bg-amber-500/10 text-amber-300 ring-amber-500/30',
+                            'elr'      => 'bg-sky-500/10 text-sky-300 ring-sky-500/30',
+                            default    => 'bg-rose-500/10 text-rose-300 ring-rose-500/30',
+                        };
+                    @endphp
+                    <li>
+                        <a href="{{ route('scoreboard.matches.report.view', [$m, $sm]) }}"
+                           class="group flex h-full flex-col justify-between gap-3 rounded-2xl border border-white/8 bg-zinc-950/80 p-4 transition-colors hover:border-rose-400/40 hover:bg-zinc-900/80">
+                            <div>
+                                <div class="flex items-start justify-between gap-3">
+                                    <h3 class="text-sm font-semibold leading-snug text-white group-hover:text-rose-100 sm:text-base">
+                                        {{ $m->name }}
+                                    </h3>
+                                    <span class="shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset {{ $typeClasses }}">
+                                        {{ $typeLabel }}
+                                    </span>
+                                </div>
+                                <p class="mt-1 text-xs text-zinc-400">
+                                    {{ optional($m->date)->format('d M Y') ?? '' }}
+                                    @if(!empty($m->location))
+                                        &bull; {{ $m->location }}
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-zinc-500 group-hover:text-rose-200/80">
+                                <span>View Match Report</span>
+                                <span aria-hidden="true">&rarr;</span>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 
     @if($earned->isEmpty())
         <div class="flex flex-col items-center justify-center rounded-3xl border border-white/8 bg-zinc-950/80 px-6 py-16 text-center">

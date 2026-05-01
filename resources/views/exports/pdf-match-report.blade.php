@@ -15,10 +15,16 @@
     $isPrs       = $scoringType === 'prs';
     $isElr       = $scoringType === 'elr';
 
-    $accent      = $isPrs ? '#F59E0B' : '#ff2b2b';
-    $accentBg    = $isPrs ? '#78350F' : '#7F1D1D';
-    $scoreLabel  = $isPrs ? 'Hits' : ($isElr ? 'Points' : 'Score');
-    $typeLabel   = strtoupper($scoringType);
+    // Keep the full report aligned with the brand colour — the section
+    // headings, brand wordmark and placement callouts used to be orange on
+    // PRS reports, which clashed with the rest of the platform. The PRS
+    // type-chip retains its own orange so the discipline is still readable
+    // at a glance.
+    $accent        = '#e10600';
+    $accentBg      = '#7F1D1D';
+    $typeChipColor = $isPrs ? '#F59E0B' : ($isElr ? '#38BDF8' : '#ff2b2b');
+    $scoreLabel    = $isPrs ? 'Hits' : ($isElr ? 'Points' : 'Score');
+    $typeLabel     = strtoupper($scoringType);
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -55,6 +61,7 @@
         .match-meta { font-size: 7.5pt; color: #94a3b8; margin-bottom: 6px; }
         .badge-tag { display: inline-block; font-size: 7pt; font-weight: 700; padding: 1px 7px; border-radius: 3px; letter-spacing: 0.5px; }
         .badge-accent { background: {{ $accent }}; color: #fff; }
+        .badge-type { background: {{ $typeChipColor }}; color: #fff; }
         .badge-muted { background: #1e293b; color: #cbd5e1; }
 
         .shooter-name { font-size: 11pt; color: #e2e8f0; margin: 8px 0 2px; }
@@ -62,6 +69,12 @@
 
         .section-title { font-size: 7.5pt; font-weight: 700; color: {{ $accent }}; text-transform: uppercase; letter-spacing: 1.5px; margin: 9px 0 4px; }
 
+        /* The Summary panel wraps the 4 stat tiles plus the score /
+           placement / total-time text so the whole block reads as one card
+           — same width, same rounded corners, same bg as each .stage-card
+           below. Previously the tiles floated on the dark page background
+           and read as a lighter strip than the per-stage cards. */
+        .summary-panel { background: #0c1a33; border-radius: 6px; padding: 8px 10px 6px; margin-bottom: 6px; page-break-inside: avoid; }
         .stat-cards { display: flex; gap: 6px; margin-bottom: 6px; }
         .stat-card { flex: 1; background: #1d2d4a; border-radius: 5px; padding: 7px 4px; text-align: center; }
         .stat-value { font-size: 15pt; font-weight: 800; color: #ffffff; line-height: 1; }
@@ -200,7 +213,7 @@
         @if(!empty($match['location'])) &bull; {{ $match['location'] }} @endif
     </div>
     <div style="margin-bottom: 4px;">
-        <span class="badge-tag badge-accent">{{ $typeLabel }}</span>
+        <span class="badge-tag badge-type">{{ $typeLabel }}</span>
         @if(!empty($shooter['division']))
             <span class="badge-tag badge-muted">{{ $shooter['division'] }}</span>
         @endif
@@ -217,46 +230,49 @@
         @endif
     </div>
 
-    {{-- SUMMARY CARDS --}}
+    {{-- SUMMARY CARDS — wrapped in a single .summary-panel so the card
+         matches the width & chrome of each per-stage card below. --}}
     <div class="section-title">Match Summary</div>
-    <div class="stat-cards">
-        <div class="stat-card">
-            <div class="stat-value">#{{ $placement['rank'] ?? '—' }}</div>
-            <div class="stat-label">Rank</div>
+    <div class="summary-panel">
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="stat-value">#{{ $placement['rank'] ?? '—' }}</div>
+                <div class="stat-label">Rank</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value green">{{ number_format($summary['hit_rate'] ?? 0, 0) }}%</div>
+                <div class="stat-label">Hit Rate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value green">{{ $summary['hits'] ?? 0 }}</div>
+                <div class="stat-label">Hits</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value red">{{ $summary['misses'] ?? 0 }}</div>
+                <div class="stat-label">Misses</div>
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value green">{{ number_format($summary['hit_rate'] ?? 0, 0) }}%</div>
-            <div class="stat-label">Hit Rate</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value green">{{ $summary['hits'] ?? 0 }}</div>
-            <div class="stat-label">Hits</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value red">{{ $summary['misses'] ?? 0 }}</div>
-            <div class="stat-label">Misses</div>
-        </div>
-    </div>
 
-    <div class="summary-line">
-        <span style="color:#64748b;">{{ $scoreLabel }}:</span>
-        <strong>{{ number_format($summary['total_score'] ?? 0, 1) }}</strong>
-        <span style="color:#475569;">/ {{ number_format($summary['max_possible'] ?? 0, 1) }}</span>
+        <div class="summary-line">
+            <span style="color:#64748b;">{{ $scoreLabel }}:</span>
+            <strong>{{ number_format($summary['total_score'] ?? 0, 1) }}</strong>
+            <span style="color:#475569;">/ {{ number_format($summary['max_possible'] ?? 0, 1) }}</span>
+        </div>
+        @if(!empty($placement['rank']) && !empty($placement['total']))
+            <div class="summary-line">
+                Placement: {{ $placement['rank'] }}{{ match((int)$placement['rank']) { 1 => 'st', 2 => 'nd', 3 => 'rd', default => 'th' } }} of {{ $placement['total'] }}
+                @if(!empty($placement['percentile']))
+                    <span class="hl">(top {{ number_format($placement['percentile'], 0) }}%)</span>
+                @endif
+            </div>
+        @endif
+        @if($isPrs && !empty($summary['total_time']))
+            <div class="summary-line">
+                <span style="color:#64748b;">Total Time:</span>
+                <strong style="color:{{ $accent }};">{{ number_format($summary['total_time'], 1) }}s</strong>
+            </div>
+        @endif
     </div>
-    @if(!empty($placement['rank']) && !empty($placement['total']))
-        <div class="summary-line">
-            Placement: {{ $placement['rank'] }}{{ match((int)$placement['rank']) { 1 => 'st', 2 => 'nd', 3 => 'rd', default => 'th' } }} of {{ $placement['total'] }}
-            @if(!empty($placement['percentile']))
-                <span class="hl">(top {{ number_format($placement['percentile'], 0) }}%)</span>
-            @endif
-        </div>
-    @endif
-    @if($isPrs && !empty($summary['total_time']))
-        <div class="summary-line">
-            <span style="color:#64748b;">Total Time:</span>
-            <strong style="color:{{ $accent }};">{{ number_format($summary['total_time'], 1) }}s</strong>
-        </div>
-    @endif
 
     {{-- STAGE BREAKDOWN --}}
     @if(count($stages) > 0)

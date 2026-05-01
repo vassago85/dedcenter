@@ -85,7 +85,7 @@ class SaprfPprcMatch20260502Seeder extends Seeder
             $match->self_squadding_enabled = false;
             $match->royal_flush_enabled = false;
             $match->side_bet_enabled = false;
-            $match->notes = '6 stages (Stage 1 is the tiebreaker). Provincial: 10 shots/stage = 60 rounds. Club: 7 shots/stage = 42 rounds. Testing alongside PractiScore with squads 1, 2, 4.';
+            $match->notes = '6 stages — only Stage 1 (tiebreaker) is timed, the rest are untimed. Provincial: 10 shots/stage = 60 rounds. Club: 7 shots/stage = 42 rounds. Testing alongside PractiScore with squads 1, 2, 4.';
             $match->created_by = $paul->id;
             $match->save();
 
@@ -126,43 +126,51 @@ class SaprfPprcMatch20260502Seeder extends Seeder
                 $existing->delete();
             }
 
-            // 6 stages × 10 shots. Distances are placeholder — the actual PRS
-            // stage design lives on the range book; these are only used by
-            // the scoring app to render the shot grid. MD can tune in admin.
+            // 6 stages × 10 shots. Only Stage 1 (the tiebreaker) is timed —
+            // the rest are untimed, so par_time_seconds is null and
+            // is_timed_stage is false. Distances are placeholder — the actual
+            // PRS stage design lives on the range book; these are only used
+            // by the scoring app to render the shot grid. MD can tune in admin.
             $stageDefs = [
                 [
                     'label' => 'Stage 1 — Tiebreaker',
+                    'timed' => true,
                     'par' => 60.0,
                     'tiebreaker' => true,
                     'distances' => [300, 300, 400, 400, 500, 500, 600, 600, 700, 700],
                 ],
                 [
                     'label' => 'Stage 2',
-                    'par' => 120.0,
+                    'timed' => false,
+                    'par' => null,
                     'tiebreaker' => false,
                     'distances' => [300, 300, 350, 350, 400, 400, 450, 450, 500, 500],
                 ],
                 [
                     'label' => 'Stage 3',
-                    'par' => 120.0,
+                    'timed' => false,
+                    'par' => null,
                     'tiebreaker' => false,
                     'distances' => [400, 400, 450, 450, 500, 500, 550, 550, 600, 600],
                 ],
                 [
                     'label' => 'Stage 4',
-                    'par' => 120.0,
+                    'timed' => false,
+                    'par' => null,
                     'tiebreaker' => false,
                     'distances' => [500, 500, 550, 550, 600, 600, 650, 650, 700, 700],
                 ],
                 [
                     'label' => 'Stage 5',
-                    'par' => 120.0,
+                    'timed' => false,
+                    'par' => null,
                     'tiebreaker' => false,
                     'distances' => [350, 350, 450, 450, 550, 550, 650, 650, 750, 750],
                 ],
                 [
                     'label' => 'Stage 6',
-                    'par' => 150.0,
+                    'timed' => false,
+                    'par' => null,
                     'tiebreaker' => false,
                     'distances' => [400, 500, 500, 600, 600, 700, 700, 800, 800, 900],
                 ],
@@ -179,7 +187,7 @@ class SaprfPprcMatch20260502Seeder extends Seeder
                     'par_time_seconds' => $stage['par'],
                     'total_shots' => count($stage['distances']),
                     'stage_number' => $i + 1,
-                    'is_timed_stage' => true,
+                    'is_timed_stage' => $stage['timed'],
                 ]);
 
                 foreach ($stage['distances'] as $j => $distance) {

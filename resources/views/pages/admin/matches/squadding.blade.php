@@ -496,7 +496,13 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
-        $squads = $this->match->squads()->with(['shooters' => fn ($q) => $q->orderBy('sort_order')])->orderBy('sort_order')->get();
+        $isPrs = strtolower($this->match->scoring_type ?? '') === 'prs';
+        // PRS squadding shows division + category per shooter, so eager
+        // load them to avoid N+1 on a squad page with 50+ shooters.
+        $squads = $this->match->squads()
+            ->with(['shooters' => fn ($q) => $q->with(['division', 'categories'])->orderBy('sort_order')])
+            ->orderBy('sort_order')
+            ->get();
         $realSquads = $squads->filter(fn ($s) => !in_array($s->name, ['Default', 'Unassigned']));
         $unassignedSquads = $squads->filter(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
         $unassignedShooters = $unassignedSquads->flatMap(fn ($s) => $s->shooters);
@@ -535,6 +541,7 @@ new #[Layout('components.layouts.app')]
             'withdrawnCount' => $withdrawnCount,
             'dqCount' => $dqCount,
             'userResults' => $userResults,
+            'isPrs' => $isPrs,
         ];
     }
 }; ?>
@@ -642,12 +649,17 @@ new #[Layout('components.layouts.app')]
         </div>
 
         @php $colors = ['bg-blue-500/20 text-blue-400', 'bg-emerald-500/20 text-emerald-400', 'bg-amber-500/20 text-amber-400', 'bg-purple-500/20 text-purple-400', 'bg-pink-500/20 text-pink-400']; @endphp
-        <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span class="font-medium text-secondary">Concurrent groups:</span>
-            @foreach($squads->chunk($concurrentSize) as $groupIndex => $group)
-                <span class="rounded px-2 py-0.5 {{ $colors[$groupIndex % count($colors)] }}">{{ $group->pluck('name')->join(' + ') }}</span>
-            @endforeach
-        </div>
+        {{-- Concurrent-group legend is a Royal Flush / Steel Challenge concept
+             (multiple relays shooting in parallel). PRS runs one squad at a
+             time so the legend adds noise — hide it for PRS. --}}
+        @unless($isPrs)
+            <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+                <span class="font-medium text-secondary">Concurrent groups:</span>
+                @foreach($squads->chunk($concurrentSize) as $groupIndex => $group)
+                    <span class="rounded px-2 py-0.5 {{ $colors[$groupIndex % count($colors)] }}">{{ $group->pluck('name')->join(' + ') }}</span>
+                @endforeach
+            </div>
+        @endunless
 
         @if($squads->isNotEmpty())
             <div class="space-y-3">
@@ -664,7 +676,9 @@ new #[Layout('components.layouts.app')]
                         <div class="flex items-center justify-between border-b border-border px-4 py-2.5">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-medium text-primary">{{ $squad->name }}</span>
-                                <span class="rounded px-1.5 py-0.5 text-[10px] {{ $groupColor }}">Group {{ $groupIndex + 1 }}</span>
+                                @unless($isPrs)
+                                    <span class="rounded px-1.5 py-0.5 text-[10px] {{ $groupColor }}">Group {{ $groupIndex + 1 }}</span>
+                                @endunless
                                 <span class="text-xs text-muted">
                                     {{ $squad->shooters->count() }}{{ $cap ? "/{$cap}" : '' }} shooters
                                     @if($remaining !== null && $remaining <= 0)
@@ -694,6 +708,10 @@ new #[Layout('components.layouts.app')]
                                         <thead><tr class="text-left text-muted border-b border-border/50">
                                             <th class="px-2 py-1.5 font-medium w-10">#</th>
                                             <th class="px-2 py-1.5 font-medium">Shooter</th>
+                                            @if($isPrs)
+                                                <th class="px-2 py-1.5 font-medium w-40">Division</th>
+                                                <th class="px-2 py-1.5 font-medium w-36">Category</th>
+                                            @endif
                                             <th class="px-2 py-1.5 font-medium w-20">Status</th>
                                             <th class="px-2 py-1.5 font-medium w-32">Shares rifle</th>
                                             <th class="px-2 py-1.5 font-medium w-32 text-right">Actions</th>
@@ -708,6 +726,31 @@ new #[Layout('components.layouts.app')]
                                                             <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-amber-500/10 text-amber-400">walk-in</span>
                                                         @endif
                                                     </td>
+                                                    @if($isPrs)
+                                                        <td class="px-2 py-1.5">
+                                                            @if($shooter->division)
+                                                                <span class="inline-flex items-center rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-inset ring-sky-500/20">
+                                                                    {{ $shooter->division->name }}
+                                                                </span>
+                                                            @else
+                                                                <span class="text-muted text-xs">&mdash;</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-2 py-1.5">
+                                                            @php $cats = $shooter->categories; @endphp
+                                                            @if($cats->isNotEmpty())
+                                                                <div class="flex flex-wrap gap-1">
+                                                                    @foreach($cats as $cat)
+                                                                        <span class="inline-flex items-center rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-300 ring-1 ring-inset ring-violet-500/20">
+                                                                            {{ $cat->name }}
+                                                                        </span>
+                                                                    @endforeach
+                                                                </div>
+                                                            @else
+                                                                <span class="text-muted text-xs">&mdash;</span>
+                                                            @endif
+                                                        </td>
+                                                    @endif
                                                     <td class="px-2 py-1.5">
                                                         <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium {{ $shooter->statusBadgeClasses() }}">{{ $shooter->statusLabel() }}</span>
                                                     </td>

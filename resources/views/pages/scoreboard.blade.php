@@ -428,6 +428,78 @@ new #[Layout('components.layouts.app')]
             ->filter(fn ($s) => $s->isUnclaimedResult() && ! in_array($s->status ?? 'active', ['dq', 'no_show'], true))
             ->count();
 
+        // Live stage-progress summary — shown on the header while the match
+        // is Active so spectators and the MD can see at-a-glance how far
+        // through the match we are. A stage is:
+        //   - "underway"  → at least one active shooter has a result
+        //   - "complete"  → every active (non-DQ/no-show) shooter has a result
+        // Percentage is computed against the total shooter × stage grid so
+        // partial stages still move the bar.
+        $stageProgress = null;
+        if ($this->match->status === \App\Enums\MatchStatus::Active) {
+            $activeShooterIds = $shooters
+                ->filter(fn ($s) => ! in_array($s->status ?? 'active', ['dq', 'no_show'], true))
+                ->pluck('id');
+
+            if ($isPrs && isset($targetSets) && $targetSets->count() > 0) {
+                $totalStages = $targetSets->count();
+                $expectedPerStage = $activeShooterIds->count();
+
+                $scoredByStage = \App\Models\PrsStageResult::where('match_id', $this->match->id)
+                    ->whereIn('shooter_id', $activeShooterIds)
+                    ->select('stage_id', DB::raw('COUNT(DISTINCT shooter_id) as scored_count'))
+                    ->groupBy('stage_id')
+                    ->get();
+
+                $stagesUnderway = $scoredByStage->count();
+                $stagesComplete = $expectedPerStage > 0
+                    ? $scoredByStage->where('scored_count', '>=', $expectedPerStage)->count()
+                    : 0;
+
+                $totalCells = $totalStages * max($expectedPerStage, 1);
+                $filledCells = (int) $scoredByStage->sum('scored_count');
+                $percent = $totalCells > 0 ? (int) round(($filledCells / $totalCells) * 100) : 0;
+
+                $stageProgress = [
+                    'total' => $totalStages,
+                    'underway' => $stagesUnderway,
+                    'complete' => $stagesComplete,
+                    'percent' => $percent,
+                ];
+            } elseif ($isStandard) {
+                $standardStages = $this->match->targetSets()->with('gongs:id,target_set_id')->get();
+                $totalStages = $standardStages->count();
+
+                if ($totalStages > 0 && $activeShooterIds->count() > 0) {
+                    $gongIdByStage = $standardStages->mapWithKeys(fn ($ts) => [$ts->id => $ts->gongs->pluck('id')]);
+                    $stageScoreCounts = [];
+                    foreach ($standardStages as $ts) {
+                        $gongIds = $gongIdByStage[$ts->id];
+                        if ($gongIds->isEmpty()) continue;
+                        $scoredShooters = \App\Models\Score::whereIn('gong_id', $gongIds)
+                            ->whereIn('shooter_id', $activeShooterIds)
+                            ->distinct()
+                            ->count('shooter_id');
+                        $stageScoreCounts[$ts->id] = $scoredShooters;
+                    }
+
+                    $stagesUnderway = count(array_filter($stageScoreCounts, fn ($c) => $c > 0));
+                    $stagesComplete = count(array_filter($stageScoreCounts, fn ($c) => $c >= $activeShooterIds->count()));
+
+                    $totalCells = $totalStages * $activeShooterIds->count();
+                    $filledCells = array_sum($stageScoreCounts);
+                    $percent = $totalCells > 0 ? (int) round(($filledCells / $totalCells) * 100) : 0;
+
+                    $stageProgress = [
+                        'total' => $totalStages,
+                        'underway' => $stagesUnderway,
+                        'complete' => $stagesComplete,
+                        'percent' => $percent,
+                    ];
+                }
+            }
+        }
+
         return [
             'shooters' => $shooters,
             'isPrs' => $isPrs,
@@ -445,6 +517,7 @@ new #[Layout('components.layouts.app')]
             'isTeamEvent' => $isTeamEvent,
             'teamLeaderboard' => $teamLeaderboard,
             'unclaimedCount' => $unclaimedCount,
+            'stageProgress' => $stageProgress,
         ];
     }
 }; ?>
@@ -488,6 +561,33 @@ new #[Layout('components.layouts.app')]
                 @if($match->location) &mdash; {{ $match->location }} @endif
             </p>
             <p class="mt-0.5 text-xs text-muted/50">Last updated: {{ now()->format('H:i:s') }}</p>
+
+            @if($stageProgress)
+                {{-- Live match progress. "Complete" = every active shooter
+                     has a result for that stage; "underway" = at least one
+                     shooter has scored it. The bar is a true fill-rate of
+                     the shooter × stage grid, so partial stages still move
+                     the needle. --}}
+                <div class="mt-3 inline-flex min-w-0 max-w-full flex-col gap-1.5 rounded-xl border border-border bg-surface/60 px-3 py-2 sm:min-w-[18rem]">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span class="font-bold uppercase tracking-wider text-muted">Match Progress</span>
+                        <span class="tabular-nums font-semibold text-primary">
+                            {{ $stageProgress['complete'] }} / {{ $stageProgress['total'] }} stages complete
+                        </span>
+                        @if($stageProgress['underway'] > $stageProgress['complete'])
+                            <span class="text-muted">&bull;</span>
+                            <span class="tabular-nums text-amber-400">
+                                {{ $stageProgress['underway'] - $stageProgress['complete'] }} in progress
+                            </span>
+                        @endif
+                        <span class="ml-auto tabular-nums font-bold text-accent">{{ $stageProgress['percent'] }}%</span>
+                    </div>
+                    <div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                        <div class="h-full rounded-full bg-gradient-to-r from-red-500 to-accent transition-all duration-500"
+                             style="width: {{ $stageProgress['percent'] }}%"></div>
+                    </div>
+                </div>
+            @endif
             <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
             @php
                 $user = auth()->user();
@@ -1252,12 +1352,16 @@ new #[Layout('components.layouts.app')]
                         <tr class="border-b border-zinc-700">
                             <th class="relative z-0 w-10 min-w-10 bg-zinc-800 px-2 py-2 text-left text-zinc-500 sm:sticky sm:left-0 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]">#</th>
                             <th class="relative z-0 min-w-[7rem] bg-zinc-800 px-2 py-2 text-left text-zinc-500 sm:sticky sm:left-10 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]">Shooter</th>
+                            {{-- Stage header group. The left divider on the FIRST gong of
+                                 each stage doubles as the inter-stage separator — bumped
+                                 to a 2px bright zinc-500 line so the stages read as
+                                 distinct columns even when cells are fully populated. --}}
                             @foreach($prsTargetSets as $ts)
-                                <th colspan="{{ $ts->gongs_count }}" class="px-1 py-2 text-center border-l border-zinc-700/50 {{ $ts->is_tiebreaker ? 'text-amber-400 bg-amber-900/10' : 'text-zinc-500' }}">
+                                <th colspan="{{ $ts->gongs_count }}" class="px-1 py-2 text-center border-l-2 border-zinc-500 {{ $ts->is_tiebreaker ? 'text-amber-400 bg-amber-900/10' : 'text-zinc-400' }}">
                                     {{ $ts->label }}
                                 </th>
                             @endforeach
-                            <th class="px-2 py-2 text-center font-bold text-zinc-500 border-l border-zinc-700">Total</th>
+                            <th class="px-2 py-2 text-center font-bold text-zinc-400 border-l-2 border-zinc-500">Total</th>
                             <th class="px-2 py-2 text-center text-zinc-500">Time</th>
                         </tr>
                         <tr class="border-b border-zinc-700 text-[9px] text-zinc-600">
@@ -1265,10 +1369,10 @@ new #[Layout('components.layouts.app')]
                             <th class="relative z-0 bg-zinc-800 sm:sticky sm:left-10 sm:z-20 sm:shadow-[4px_0_12px_-6px_rgba(0,0,0,0.65)]"></th>
                             @foreach($prsTargetSets as $ts)
                                 @for($g = 1; $g <= $ts->gongs_count; $g++)
-                                    <th class="px-0.5 py-1 text-center {{ $g === 1 ? 'border-l border-zinc-700/50' : '' }}">{{ $g }}</th>
+                                    <th class="px-0.5 py-1 text-center {{ $g === 1 ? 'border-l-2 border-zinc-500' : '' }}">{{ $g }}</th>
                                 @endfor
                             @endforeach
-                            <th class="border-l border-zinc-700"></th>
+                            <th class="border-l-2 border-zinc-500"></th>
                             <th></th>
                         </tr>
                     </thead>
@@ -1284,21 +1388,25 @@ new #[Layout('components.layouts.app')]
                                     @php
                                         $shotResult = $shooter->shot_grid[$ts->id][$g] ?? null;
                                     @endphp
-                                    <td class="px-0 py-1.5 text-center {{ $g === 1 ? 'border-l border-zinc-700/50' : '' }}">
+                                    {{-- Gong cell. Hit / miss / not-taken now use the same
+                                         tick / cross / dash glyphs as the match report's
+                                         per-stage breakdown so spectators get a consistent
+                                         vocabulary across the platform. --}}
+                                    <td class="px-0 py-1.5 text-center {{ $g === 1 ? 'border-l-2 border-zinc-500' : '' }}">
                                         @if($shotResult === 'hit')
-                                            <span class="inline-block h-3 w-3 rounded-full bg-green-500"></span>
+                                            <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold leading-none text-white" title="Hit">&check;</span>
                                         @elseif($shotResult === 'miss')
-                                            <span class="inline-block h-3 w-3 rounded-full bg-red-500"></span>
+                                            <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold leading-none text-white" title="Miss">&#10007;</span>
                                         @elseif($shotResult === 'not_taken')
-                                            <span class="inline-block h-3 w-3 rounded-full bg-amber-500/40"></span>
+                                            <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/30 text-[11px] font-bold leading-none text-amber-300" title="Not taken">&ndash;</span>
                                         @else
-                                            <span class="inline-block h-3 w-3 rounded-full bg-zinc-700"></span>
+                                            <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-[11px] font-bold leading-none text-zinc-500" title="Not scored">&ndash;</span>
                                         @endif
                                     </td>
                                 @endfor
                             @endforeach
                             {{-- Total column: raw hit count (per-gong grid context) --}}
-                            <td class="px-2 py-1.5 text-center font-bold text-white tabular-nums border-l border-zinc-700">{{ $shooter->hits_count }}</td>
+                            <td class="px-2 py-1.5 text-center font-bold text-white tabular-nums border-l-2 border-zinc-500">{{ $shooter->hits_count }}</td>
                             <td class="px-2 py-1.5 text-center tabular-nums text-zinc-500">{{ $shooter->tb_time > 0 ? number_format($shooter->tb_time, 1) . 's' : '—' }}</td>
                         </tr>
                         @endforeach

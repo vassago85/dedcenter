@@ -14,8 +14,14 @@
     $isPrs       = $scoringType === 'prs';
     $isElr       = $scoringType === 'elr';
 
-    $accentColor   = $isPrs ? '#F59E0B' : '#ff2b2b';
-    $accentDark    = $isPrs ? '#D97706' : '#e10600';
+    // Single DeadCenter brand accent across every match type. The old PRS-only
+    // orange was inconsistent with the rest of the platform (the red "LIVE"
+    // pill, the scoreboard header, the button accent). Keep the type-chip
+    // (PRS / ELR / STANDARD) in its own colour so the discipline is still
+    // instantly identifiable.
+    $accentColor   = '#e10600';
+    $accentDark    = '#b00400';
+    $typeChipColor = $isPrs ? '#F59E0B' : ($isElr ? '#38BDF8' : '#ff2b2b');
     $scoreLabel    = $isPrs ? 'Hits' : ($isElr ? 'Points' : 'Score');
     $typeLabel     = strtoupper($scoringType);
 @endphp
@@ -25,6 +31,26 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Match Report</title>
+    {{-- Responsive overrides. Gmail & Apple Mail honour these; Outlook
+         desktop ignores them and falls back to the fixed 600-wide layout.
+         Browser preview honours them fully. We deliberately keep the 4-tile
+         stat row intact on mobile (just shrunken) instead of stacking —
+         stacking via display:block on <td> breaks in too many email clients.
+    --}}
+    <style>
+        @media only screen and (max-width: 520px) {
+            .dc-outer { padding:12px 8px !important; }
+            .dc-section-pad { padding:20px 16px !important; }
+            .dc-summary-card { padding:12px 10px !important; }
+            .dc-stage-card { padding:14px !important; }
+            .dc-stage-head { font-size:14px !important; }
+            .dc-stat-value { font-size:20px !important; }
+            .dc-stat-label { font-size:9px !important; letter-spacing:0.5px !important; }
+            .dc-stage-gong { width:18px !important; height:18px !important; line-height:18px !important; font-size:10px !important; }
+            .dc-page-title { font-size:20px !important; }
+            .dc-brand { font-size:22px !important; letter-spacing:2px !important; }
+        }
+    </style>
 </head>
 <body style="margin:0;padding:0;background-color:#071327;font-family:Arial,Helvetica,sans-serif;">
 
@@ -58,7 +84,7 @@
 </td></tr>
 @endif
 
-<tr><td align="center" style="padding:20px 10px;">
+<tr><td align="center" class="dc-outer" style="padding:20px 10px;">
 
 {{-- Main container --}}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;border-radius:12px;overflow:hidden;">
@@ -67,10 +93,10 @@
          HEADER
     ============================================================= --}}
     <tr>
-        <td bgcolor="#071327" style="padding:32px 30px 24px;border-bottom:3px solid {{ $accentColor }};">
+        <td bgcolor="#071327" class="dc-section-pad" style="padding:32px 30px 24px;border-bottom:3px solid {{ $accentColor }};">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                    <td style="font-size:28px;font-weight:bold;letter-spacing:4px;color:{{ $accentColor }};font-family:Arial,Helvetica,sans-serif;">
+                    <td class="dc-brand" style="font-size:28px;font-weight:bold;letter-spacing:4px;color:{{ $accentColor }};font-family:Arial,Helvetica,sans-serif;">
                         DEAD<span style="color:#ffffff;">CENTER</span>
                     </td>
                     <td align="right" style="font-size:13px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;text-transform:uppercase;letter-spacing:2px;">
@@ -85,10 +111,10 @@
          MATCH INFO
     ============================================================= --}}
     <tr>
-        <td bgcolor="#0c1a33" style="padding:28px 30px 20px;">
+        <td bgcolor="#0c1a33" class="dc-section-pad" style="padding:28px 30px 20px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                    <td style="font-size:22px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;padding-bottom:8px;">
+                    <td class="dc-page-title" style="font-size:22px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;padding-bottom:8px;">
                         {{ $match['name'] ?? 'Match' }}
                     </td>
                 </tr>
@@ -104,7 +130,7 @@
                     <td>
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                                <td style="background-color:{{ $accentColor }};color:#ffffff;font-size:11px;font-weight:bold;padding:4px 12px;border-radius:4px;letter-spacing:1px;font-family:Arial,Helvetica,sans-serif;">
+                                <td style="background-color:{{ $typeChipColor }};color:#ffffff;font-size:11px;font-weight:bold;padding:4px 12px;border-radius:4px;letter-spacing:1px;font-family:Arial,Helvetica,sans-serif;">
                                     {{ $typeLabel }}
                                 </td>
                                 @if(!empty($shooter['division']))
@@ -129,15 +155,17 @@
         </td>
     </tr>
 
-    {{-- Divider --}}
-    <tr><td bgcolor="#071327" style="height:2px;font-size:0;line-height:0;">&nbsp;</td></tr>
-
     {{-- ============================================================
-         SHOOTER NAME
+         SHOOTER NAME + MATCH SUMMARY
+         (Summary rewrapped as a single rounded card — same width, same
+         padding, same bg as the per-stage breakdown and "How You Compared"
+         cards below. Stat tiles sit *inside* the card so the whole section
+         reads as one visual unit instead of a flat strip.)
     ============================================================= --}}
     <tr>
-        <td bgcolor="#0c1a33" style="padding:20px 30px 6px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <td bgcolor="#071327" class="dc-section-pad" style="padding:24px 30px 20px;">
+            {{-- Shooter identity --}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-bottom:14px;">
                 <tr>
                     <td style="font-size:16px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
                         {{ $shooter['name'] ?? 'Shooter' }}
@@ -147,113 +175,116 @@
                     </td>
                 </tr>
             </table>
-        </td>
-    </tr>
 
-    {{-- ============================================================
-         MATCH SUMMARY — stat cards
-    ============================================================= --}}
-    <tr>
-        <td bgcolor="#0c1a33" style="padding:14px 30px 24px;">
+            {{-- Section heading --}}
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                {{-- Section heading --}}
                 <tr>
-                    <td colspan="4" style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
+                    <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:12px;font-family:Arial,Helvetica,sans-serif;">
                         Match Summary
-                    </td>
-                </tr>
-                {{-- Cards row --}}
-                <tr>
-                    {{-- Rank --}}
-                    <td width="25%" align="center" style="padding:0 4px;">
-                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
-                            <tr>
-                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
-                                    <div style="font-size:28px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
-                                        #{{ $placement['rank'] ?? '—' }}
-                                    </div>
-                                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
-                                        Rank
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                    {{-- Hit Rate --}}
-                    <td width="25%" align="center" style="padding:0 4px;">
-                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
-                            <tr>
-                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
-                                    <div style="font-size:28px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
-                                        {{ number_format($summary['hit_rate'] ?? 0, 0) }}%
-                                    </div>
-                                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
-                                        Hit Rate
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                    {{-- Hits --}}
-                    <td width="25%" align="center" style="padding:0 4px;">
-                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
-                            <tr>
-                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
-                                    <div style="font-size:28px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
-                                        {{ $summary['hits'] ?? 0 }}
-                                    </div>
-                                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
-                                        Hits
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                    {{-- Misses --}}
-                    <td width="25%" align="center" style="padding:0 4px;">
-                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
-                            <tr>
-                                <td bgcolor="#1d2d4a" align="center" style="padding:16px 6px 10px;">
-                                    <div style="font-size:28px;font-weight:bold;color:#ef4444;font-family:Arial,Helvetica,sans-serif;">
-                                        {{ $summary['misses'] ?? 0 }}
-                                    </div>
-                                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
-                                        Misses
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
                     </td>
                 </tr>
             </table>
 
-            {{-- Score + Placement text --}}
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top:16px;">
+            {{-- Summary card (matches .stage-card / .compared-card) --}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                    <td style="font-size:15px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;padding-bottom:4px;">
-                        <span style="color:#64748b;">{{ $scoreLabel }}:</span>
-                        <strong style="color:#ffffff;">{{ number_format($summary['total_score'] ?? 0, 1) }}</strong>
-                        <span style="color:#475569;">/ {{ number_format($summary['max_possible'] ?? 0, 1) }}</span>
+                    <td bgcolor="#0c1a33" class="dc-summary-card" style="border-radius:8px;padding:18px;">
+                        {{-- 4 stat tiles. `td width="25%"` with a nested
+                             rounded cell each gives us the equal-width grid
+                             most email clients render correctly. The .dc-stat
+                             class lets the mobile stylesheet stack them on
+                             narrow screens. --}}
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <tr>
+                                <td width="25%" align="center" class="dc-stat" style="padding:0 3px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
+                                        <tr>
+                                            <td bgcolor="#1d2d4a" align="center" style="padding:14px 6px 10px;">
+                                                <div class="dc-stat-value" style="font-size:26px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+                                                    #{{ $placement['rank'] ?? '—' }}
+                                                </div>
+                                                <div class="dc-stat-label" style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
+                                                    Rank
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td width="25%" align="center" class="dc-stat" style="padding:0 3px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
+                                        <tr>
+                                            <td bgcolor="#1d2d4a" align="center" style="padding:14px 6px 10px;">
+                                                <div class="dc-stat-value" style="font-size:26px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
+                                                    {{ number_format($summary['hit_rate'] ?? 0, 0) }}%
+                                                </div>
+                                                <div class="dc-stat-label" style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
+                                                    Hit Rate
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td width="25%" align="center" class="dc-stat" style="padding:0 3px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
+                                        <tr>
+                                            <td bgcolor="#1d2d4a" align="center" style="padding:14px 6px 10px;">
+                                                <div class="dc-stat-value" style="font-size:26px;font-weight:bold;color:#22c55e;font-family:Arial,Helvetica,sans-serif;">
+                                                    {{ $summary['hits'] ?? 0 }}
+                                                </div>
+                                                <div class="dc-stat-label" style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
+                                                    Hits
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td width="25%" align="center" class="dc-stat" style="padding:0 3px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:8px;overflow:hidden;">
+                                        <tr>
+                                            <td bgcolor="#1d2d4a" align="center" style="padding:14px 6px 10px;">
+                                                <div class="dc-stat-value" style="font-size:26px;font-weight:bold;color:#ef4444;font-family:Arial,Helvetica,sans-serif;">
+                                                    {{ $summary['misses'] ?? 0 }}
+                                                </div>
+                                                <div class="dc-stat-label" style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;padding-top:4px;font-family:Arial,Helvetica,sans-serif;">
+                                                    Misses
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+
+                        {{-- Score + Placement text --}}
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top:14px;">
+                            <tr>
+                                <td style="font-size:15px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;padding-bottom:4px;">
+                                    <span style="color:#64748b;">{{ $scoreLabel }}:</span>
+                                    <strong style="color:#ffffff;">{{ number_format($summary['total_score'] ?? 0, 1) }}</strong>
+                                    <span style="color:#475569;">/ {{ number_format($summary['max_possible'] ?? 0, 1) }}</span>
+                                </td>
+                            </tr>
+                            @if(!empty($placement['rank']) && !empty($placement['total']))
+                            <tr>
+                                <td style="font-size:14px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
+                                    Placement: {{ $placement['rank'] }}{{ $placement['rank'] == 1 ? 'st' : ($placement['rank'] == 2 ? 'nd' : ($placement['rank'] == 3 ? 'rd' : 'th')) }} of {{ $placement['total'] }}
+                                    @if(!empty($placement['percentile']))
+                                        <span style="color:{{ $accentColor }};font-weight:bold;">(top {{ number_format($placement['percentile'], 0) }}%)</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endif
+                            @if($isPrs && !empty($summary['total_time']))
+                            <tr>
+                                <td style="font-size:14px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;padding-top:4px;">
+                                    <span style="color:#64748b;">Total Time:</span>
+                                    <strong style="color:#F59E0B;">{{ number_format($summary['total_time'], 1) }}s</strong>
+                                </td>
+                            </tr>
+                            @endif
+                        </table>
                     </td>
                 </tr>
-                @if(!empty($placement['rank']) && !empty($placement['total']))
-                <tr>
-                    <td style="font-size:14px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
-                        Placement: {{ $placement['rank'] }}{{ $placement['rank'] == 1 ? 'st' : ($placement['rank'] == 2 ? 'nd' : ($placement['rank'] == 3 ? 'rd' : 'th')) }} of {{ $placement['total'] }}
-                        @if(!empty($placement['percentile']))
-                            <span style="color:{{ $accentColor }};font-weight:bold;">(top {{ number_format($placement['percentile'], 0) }}%)</span>
-                        @endif
-                    </td>
-                </tr>
-                @endif
-                @if($isPrs && !empty($summary['total_time']))
-                <tr>
-                    <td style="font-size:14px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;padding-top:4px;">
-                        <span style="color:#64748b;">Total Time:</span>
-                        <strong style="color:#F59E0B;">{{ number_format($summary['total_time'], 1) }}s</strong>
-                    </td>
-                </tr>
-                @endif
             </table>
         </td>
     </tr>
@@ -263,7 +294,7 @@
     ============================================================= --}}
     @if(count($stages) > 0)
     <tr>
-        <td bgcolor="#071327" style="padding:28px 30px;">
+        <td bgcolor="#071327" class="dc-section-pad" style="padding:28px 30px;">
             {{-- Section heading --}}
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
@@ -274,14 +305,16 @@
             </table>
 
             @foreach($stages as $idx => $stage)
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:{{ $idx < count($stages) - 1 ? '16px' : '0' }};">
-                {{-- Stage card --}}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:{{ $idx < count($stages) - 1 ? '12px' : '0' }};">
+                {{-- Stage card — same rounded container, same width as
+                     the Match Summary card above and the How-You-Compared
+                     rows below. --}}
                 <tr>
-                    <td bgcolor="#0c1a33" style="border-radius:8px;padding:16px 18px;">
+                    <td bgcolor="#0c1a33" class="dc-stage-card" style="border-radius:8px;padding:16px 18px;">
                         {{-- Stage title row --}}
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-bottom:12px;">
                             <tr>
-                                <td style="font-size:15px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+                                <td class="dc-stage-head" style="font-size:15px;font-weight:bold;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
                                     {{ $stage['label'] ?? 'Stage ' . ($idx + 1) }}
                                     @if(!empty($stage['distance_meters']))
                                         <span style="color:#64748b;font-weight:normal;font-size:13px;">
@@ -305,13 +338,13 @@
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="padding-bottom:12px;">
                             <tr>
                                 @foreach($stage['gongs'] as $gong)
-                                <td align="center" style="padding:0 3px;">
+                                <td align="center" style="padding:0 2px;">
                                     @if(($gong['result'] ?? '') === 'hit')
-                                        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#22c55e;color:#ffffff;text-align:center;line-height:22px;font-size:11px;font-weight:bold;">&#10003;</span>
+                                        <span class="dc-stage-gong" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#22c55e;color:#ffffff;text-align:center;line-height:22px;font-size:11px;font-weight:bold;">&#10003;</span>
                                     @elseif(($gong['result'] ?? '') === 'miss')
-                                        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#ffffff;text-align:center;line-height:22px;font-size:11px;font-weight:bold;">&#10007;</span>
+                                        <span class="dc-stage-gong" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#ffffff;text-align:center;line-height:22px;font-size:11px;font-weight:bold;">&#10007;</span>
                                     @else
-                                        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#374151;color:#6b7280;text-align:center;line-height:22px;font-size:11px;">-</span>
+                                        <span class="dc-stage-gong" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#374151;color:#6b7280;text-align:center;line-height:22px;font-size:11px;">-</span>
                                     @endif
                                 </td>
                                 @endforeach
@@ -358,7 +391,7 @@
     ============================================================= --}}
     @if($bestStage || $worstStage)
     <tr>
-        <td bgcolor="#0c1a33" style="padding:24px 30px;">
+        <td bgcolor="#0c1a33" class="dc-section-pad" style="padding:24px 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
@@ -417,7 +450,7 @@
     ============================================================= --}}
     @if(!empty($fieldStats))
     <tr>
-        <td bgcolor="#071327" style="padding:24px 30px;">
+        <td bgcolor="#071327" class="dc-section-pad" style="padding:24px 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:16px;font-family:Arial,Helvetica,sans-serif;">
@@ -532,7 +565,7 @@
     ============================================================= --}}
     @if(count($funFacts) > 0)
     <tr>
-        <td bgcolor="#0c1a33" style="padding:24px 30px;">
+        <td bgcolor="#0c1a33" class="dc-section-pad" style="padding:24px 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:14px;font-family:Arial,Helvetica,sans-serif;">
@@ -582,7 +615,7 @@
         ];
     @endphp
     <tr>
-        <td bgcolor="#071327" style="padding:24px 30px;">
+        <td bgcolor="#071327" class="dc-section-pad" style="padding:24px 30px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                     <td style="font-size:11px;font-weight:bold;color:{{ $accentColor }};text-transform:uppercase;letter-spacing:2px;padding-bottom:16px;font-family:Arial,Helvetica,sans-serif;">
@@ -628,7 +661,7 @@
          FOOTER
     ============================================================= --}}
     <tr>
-        <td bgcolor="#071327" style="padding:28px 30px;border-top:2px solid #1e293b;">
+        <td bgcolor="#071327" class="dc-section-pad" style="padding:28px 30px;border-top:2px solid #1e293b;">
             @php $sponsor = $report['sponsor'] ?? null; @endphp
             @if($sponsor)
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-bottom:16px;">
@@ -652,7 +685,7 @@
             @endif
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                    <td align="center" style="font-size:18px;font-weight:bold;letter-spacing:3px;color:{{ $accentColor }};font-family:Arial,Helvetica,sans-serif;padding-bottom:8px;">
+                    <td align="center" class="dc-brand" style="font-size:18px;font-weight:bold;letter-spacing:3px;color:{{ $accentColor }};font-family:Arial,Helvetica,sans-serif;padding-bottom:8px;">
                         DEAD<span style="color:#ffffff;">CENTER</span>
                     </td>
                 </tr>
