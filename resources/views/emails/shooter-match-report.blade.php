@@ -601,18 +601,60 @@
 
     {{-- ============================================================
          BADGES AWARDED
+         Match-report badge cards styled to match the marketing badge
+         gallery (resources/views/components/badge-card.blade.php):
+         dark rounded panel, family-coloured crest on the left, tier
+         overline, title, description and earn-chip. Rendered with
+         nested tables + inline styles so it survives Gmail/Outlook
+         while still reading as "premium" in the browser preview.
     ============================================================= --}}
     @if(count($badges) > 0)
     @php
-        $badgesByCategory = collect($badges)->groupBy('category');
-        $categoryOrder = ['match_special', 'lifetime', 'repeatable'];
-        $categoryLabels = ['match_special' => 'Match Special', 'lifetime' => 'Lifetime Milestone', 'repeatable' => 'Achievement'];
-        $categoryColors = ['match_special' => '#F59E0B', 'lifetime' => '#A855F7', 'repeatable' => '#38BDF8'];
-        $badgeIcons = [
-            'match_special' => '&#9733;',
-            'lifetime' => '&#9734;',
-            'repeatable' => '&#9679;',
+        $tierLabels = [
+            'featured'  => 'Signature Badge',
+            'elite'     => 'Elite Achievement',
+            'milestone' => 'Lifetime Milestone',
+            'earned'    => 'Repeatable',
         ];
+        $tierOrder = ['featured' => 0, 'elite' => 1, 'milestone' => 2, 'earned' => 3];
+
+        $distOverlineLabels = [
+            'dist-700' => 'Extreme Distance',
+            'dist-600' => 'Long Distance',
+            'dist-500' => 'Mid Distance',
+            'dist-400' => 'Standard Distance',
+        ];
+
+        // Family + tier palettes mirror components/badge-card.blade.php. Email-
+        // safe hex values (no rgba() — not every client resolves it cleanly
+        // against dark backgrounds).
+        $palettes = [
+            'prs' => [
+                'featured'  => ['border' => '#1b3a52', 'accent' => '#38BDF8', 'overline' => '#7DD3FC', 'crest_bg' => '#0b1f2c', 'crest_border' => '#1e4a6b', 'chip_bg' => '#08202e', 'chip_border' => '#1e5172', 'chip_text' => '#7DD3FC'],
+                'elite'     => ['border' => '#15314a', 'accent' => '#38BDF8', 'overline' => '#7DD3FC', 'crest_bg' => '#0a1b26', 'crest_border' => '#184461', 'chip_bg' => '#07182a', 'chip_border' => '#184968', 'chip_text' => '#7DD3FC'],
+                'milestone' => ['border' => '#22262e', 'accent' => null,      'overline' => '#7DD3FC', 'crest_bg' => '#111319', 'crest_border' => '#2a2e37', 'chip_bg' => '#14161c', 'chip_border' => '#2a2e37', 'chip_text' => '#a1a1aa'],
+                'earned'    => ['border' => '#1e2129', 'accent' => null,      'overline' => '#a1a1aa', 'crest_bg' => '#101218', 'crest_border' => '#252932', 'chip_bg' => '#14161c', 'chip_border' => '#252932', 'chip_text' => '#a1a1aa'],
+            ],
+            'rf' => [
+                'featured'  => ['border' => '#4a3410', 'accent' => '#FBBF24', 'overline' => '#FCD34D', 'crest_bg' => '#291b08', 'crest_border' => '#5b3f14', 'chip_bg' => '#231606', 'chip_border' => '#5b3f14', 'chip_text' => '#FCD34D'],
+                'elite'     => ['border' => '#3d2a0c', 'accent' => '#FBBF24', 'overline' => '#FCD34D', 'crest_bg' => '#22160a', 'crest_border' => '#4a3410', 'chip_bg' => '#1d1207', 'chip_border' => '#4a3410', 'chip_text' => '#FCD34D'],
+                'milestone' => ['border' => '#22262e', 'accent' => null,      'overline' => '#FCD34D', 'crest_bg' => '#111319', 'crest_border' => '#2a2e37', 'chip_bg' => '#14161c', 'chip_border' => '#2a2e37', 'chip_text' => '#a1a1aa'],
+                'earned'    => ['border' => '#1e2129', 'accent' => null,      'overline' => '#a1a1aa', 'crest_bg' => '#101218', 'crest_border' => '#252932', 'chip_bg' => '#14161c', 'chip_border' => '#252932', 'chip_text' => '#a1a1aa'],
+            ],
+        ];
+
+        // Distance flush badges (RF only) get a per-distance colour treatment.
+        $distPalettes = [
+            'dist-700' => ['border' => '#4a1a1a', 'accent' => '#F87171', 'overline' => '#FCA5A5', 'crest_bg' => '#2a0e0e', 'crest_border' => '#5b2323', 'chip_bg' => '#24090a', 'chip_border' => '#5b2323', 'chip_text' => '#FCA5A5'],
+            'dist-600' => ['border' => '#42260f', 'accent' => '#FB923C', 'overline' => '#FDBA74', 'crest_bg' => '#26150a', 'crest_border' => '#512f13', 'chip_bg' => '#1f1108', 'chip_border' => '#512f13', 'chip_text' => '#FDBA74'],
+            'dist-500' => ['border' => '#3d3413', 'accent' => '#FACC15', 'overline' => '#FDE68A', 'crest_bg' => '#1e1a0a', 'crest_border' => '#493e18', 'chip_bg' => '#181509', 'chip_border' => '#493e18', 'chip_text' => '#FDE68A'],
+            'dist-400' => ['border' => '#143029', 'accent' => '#34D399', 'overline' => '#86EFAC', 'crest_bg' => '#0a1c17', 'crest_border' => '#1a3e33', 'chip_bg' => '#08171324', 'chip_border' => '#1a3e33', 'chip_text' => '#86EFAC'],
+        ];
+
+        // Order badges: featured → elite → milestone → earned, keeping stable insertion order inside each tier.
+        $orderedBadges = collect($badges)
+            ->sortBy(fn ($b) => $tierOrder[$b['tier'] ?? 'earned'] ?? 9)
+            ->values();
     @endphp
     <tr>
         <td bgcolor="#071327" class="dc-section-pad" style="padding:24px 30px;">
@@ -624,35 +666,80 @@
                 </tr>
             </table>
 
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                @foreach($categoryOrder as $cat)
-                    @if($badgesByCategory->has($cat))
-                        @foreach($badgesByCategory->get($cat) as $badge)
-                        <tr>
-                            <td bgcolor="#0c1a33" style="border-radius:8px;padding:14px 18px;border-left:4px solid {{ $categoryColors[$cat] ?? '#38BDF8' }};{{ !$loop->last || !$loop->parent->last ? 'margin-bottom:6px;' : '' }}">
+            @foreach($orderedBadges as $badge)
+                @php
+                    $family = $badge['family'] ?? 'prs';
+                    $tier   = $badge['tier'] ?? 'earned';
+                    $icon   = $badge['icon'] ?? 'target';
+                    $isDist = str_starts_with($icon, 'dist-');
+                    $s = ($isDist && isset($distPalettes[$icon]))
+                        ? $distPalettes[$icon]
+                        : ($palettes[$family][$tier] ?? $palettes['prs']['earned']);
+                    $overlineText = $isDist
+                        ? ($distOverlineLabels[$icon] ?? $tierLabels[$tier])
+                        : ($tierLabels[$tier] ?? 'Badge');
+                    $chipText = $badge['earn_chip'] ?? null;
+                @endphp
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:12px;">
+                    <tr>
+                        <td bgcolor="#0b0b10" style="border:1px solid {{ $s['border'] }};border-radius:18px;padding:0;">
+                            @if($s['accent'])
+                                {{-- Top accent strip for featured / elite tiers.
+                                     Flat colour (not a gradient) so Outlook and Gmail render it; the
+                                     marketing card's gradient glow degrades gracefully to a solid bar. --}}
                                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                                     <tr>
-                                        <td style="font-size:14px;color:#e2e8f0;font-family:Arial,Helvetica,sans-serif;">
-                                            <strong style="color:{{ $categoryColors[$cat] ?? '#38BDF8' }};">{{ $badge['label'] }}</strong>
-                                            <span style="font-size:11px;color:#64748b;padding-left:6px;">{{ $categoryLabels[$cat] ?? '' }}</span>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="font-size:12px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;padding-top:4px;">
-                                            {{ $badge['description'] }}
-                                            @if(!empty($badge['stage']))
-                                                &mdash; {{ $badge['stage'] }}
-                                            @endif
-                                        </td>
+                                        <td bgcolor="{{ $s['accent'] }}" height="2" style="height:2px;line-height:2px;font-size:0;border-top-left-radius:18px;border-top-right-radius:18px;">&nbsp;</td>
                                     </tr>
                                 </table>
-                            </td>
-                        </tr>
-                        <tr><td style="height:6px;font-size:0;line-height:0;">&nbsp;</td></tr>
-                        @endforeach
-                    @endif
-                @endforeach
-            </table>
+                            @endif
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td valign="top" width="76" style="padding:18px 0 18px 18px;">
+                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td width="56" height="56" align="center" valign="middle" bgcolor="{{ $s['crest_bg'] }}" style="width:56px;height:56px;border:1px solid {{ $s['crest_border'] }};border-radius:14px;color:{{ $s['accent'] ?? $s['overline'] }};font-family:Arial,Helvetica,sans-serif;">
+                                                    @if($isDist)
+                                                        @php $meters = substr($icon, 5); @endphp
+                                                        <span style="font-size:15px;font-weight:900;letter-spacing:-0.5px;color:{{ $s['accent'] ?? $s['overline'] }};">{{ $meters }}<span style="font-size:10px;">m</span></span>
+                                                    @else
+                                                        <x-badge-icon :name="$icon" class="h-6 w-6" style="width:24px;height:24px;" />
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    <td valign="top" style="padding:18px 18px 18px 14px;font-family:Arial,Helvetica,sans-serif;">
+                                        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:{{ $s['overline'] }};">
+                                            {{ $overlineText }}
+                                        </div>
+                                        <div style="font-size:17px;font-weight:700;color:#ffffff;padding-top:6px;line-height:1.25;">
+                                            {{ $badge['label'] }}
+                                        </div>
+                                        <div style="font-size:13px;color:#a1a1aa;padding-top:6px;line-height:1.55;">
+                                            {{ $badge['description'] }}
+                                        </div>
+                                        @if(!empty($badge['stage']) || $chipText)
+                                            <div style="padding-top:10px;">
+                                                @if($chipText)
+                                                    <span style="display:inline-block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:999px;border:1px solid {{ $s['chip_border'] }};background-color:{{ $s['chip_bg'] }};color:{{ $s['chip_text'] }};margin-right:6px;">
+                                                        {{ $chipText }}
+                                                    </span>
+                                                @endif
+                                                @if(!empty($badge['stage']))
+                                                    <span style="display:inline-block;font-size:11px;color:#64748b;">
+                                                        {{ $badge['stage'] }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            @endforeach
         </td>
     </tr>
     @endif
