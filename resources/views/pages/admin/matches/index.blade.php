@@ -26,7 +26,10 @@ new #[Layout('components.layouts.app')]
 
     public function forceDeleteMatch(int $id): void
     {
-        ShootingMatch::onlyTrashed()->findOrFail($id)->forceDelete();
+        // Works on both active and archived rows so admins can nuke test
+        // matches without the archive round-trip.
+        $match = ShootingMatch::withTrashed()->findOrFail($id);
+        $match->forceDelete();
         Flux::toast('Match permanently deleted.', variant: 'danger');
     }
 
@@ -152,6 +155,11 @@ new #[Layout('components.layouts.app')]
                                                          wire:click="archiveMatch({{ $match->id }})"
                                                          wire:confirm="Archive this match? You can restore it later.">
                                                 Archive
+                                            </flux:button>
+                                            <flux:button size="sm" variant="ghost" class="!text-red-500 hover:!text-red-400"
+                                                         wire:click="forceDeleteMatch({{ $match->id }})"
+                                                         wire:confirm="Permanently delete &quot;{{ $match->name }}&quot;? This wipes squads, shooters, scores and registrations. This cannot be undone.">
+                                                Delete Forever
                                             </flux:button>
                                         </div>
                                     @endif
