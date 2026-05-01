@@ -25,14 +25,24 @@ use Illuminate\Support\Str;
  *   php artisan rf:import-results database/data/royal-flush/2026-03-28.php --dry-run
  *
  * Fixture shape (see database/data/royal-flush/*.php):
- *   ['meta' => ['name', 'date', 'organization_slug', 'location'],
- *    'shooters' => [['pos', 'name', 'cartridge', 'score', 'hit_pct'], ...]]
+ *   ['meta' => [
+ *        'name', 'date', 'organization_slug', 'location',
+ *        // Optional per-match overrides (fall back to historical defaults):
+ *        'gong_multipliers' => [1.00, 1.25, 1.50, 1.75, 2.00],
+ *        'distances'        => [400, 500, 600, 700],
+ *    ],
+ *    'shooters' => [
+ *        ['pos', 'name', 'cartridge', 'score', 'hit_pct'],           // classic row
+ *        ['pos', 'name', 'cartridge', 'score', 'hits' => 18],        // explicit hit count (preferred when hit_pct is noisy)
+ *        ...
+ *    ]]
  *
  * Per-cell hit/miss patterns are NOT in the fixture — only the documented
- * total Score and Hit Rate. The command reconstructs a pattern that
- * matches both exactly via subset-sum DP, preferring misses on the
- * harder gongs at the longer distances. Totals, leaderboard order, and
- * hit-rate analytics are exact; per-gong patterns are reconstructed.
+ * total Score and Hit Rate (or an explicit `hits` count). The command
+ * reconstructs a pattern that matches both exactly via subset-sum DP,
+ * preferring misses on the harder gongs at the longer distances. Totals,
+ * leaderboard order, and hit-rate analytics are exact; per-gong patterns
+ * are reconstructed.
  */
 class ImportRoyalFlushResults extends Command
 {
@@ -44,9 +54,17 @@ class ImportRoyalFlushResults extends Command
 
     protected $description = 'Import a completed Royal Flush match (per-shooter Score + Hit Rate) into the leaderboard.';
 
-    /** Royal Flush spreadsheet uses 1.00, 1.30, 1.50, 1.80, 2.00 (G1 biggest → G5 smallest). */
-    private const GONG_MULTIPLIERS = [1.00, 1.30, 1.50, 1.80, 2.00];
-    private const DISTANCES        = [400, 500, 600, 700];
+    /** Historical default gong multipliers (G1 biggest → G5 smallest). Overridable via meta.gong_multipliers. */
+    private const DEFAULT_GONG_MULTIPLIERS = [1.00, 1.30, 1.50, 1.80, 2.00];
+    /** Historical default distance banks (metres). Overridable via meta.distances. */
+    private const DEFAULT_DISTANCES = [400, 500, 600, 700];
+    /** Internal scale factor for subset-sum arithmetic — ×100 lets 1.25/1.75 multipliers stay integer. */
+    private const SCALE = 100;
+
+    /** @var float[] */
+    private array $gongMultipliers = self::DEFAULT_GONG_MULTIPLIERS;
+    /** @var int[] */
+    private array $distances = self::DEFAULT_DISTANCES;
 
     public function handle(): int
     {
@@ -66,8 +84,16 @@ class ImportRoyalFlushResults extends Command
         $squadSize = max(1, (int) $this->option('squad-size'));
         $dryRun = (bool) $this->option('dry-run');
 
+        if (isset($meta['gong_multipliers']) && is_array($meta['gong_multipliers']) && count($meta['gong_multipliers']) > 0) {
+            $this->gongMultipliers = array_map('floatval', array_values($meta['gong_multipliers']));
+        }
+        if (isset($meta['distances']) && is_array($meta['distances']) && count($meta['distances']) > 0) {
+            $this->distances = array_map('intval', array_values($meta['distances']));
+        }
+
         $this->line("Fixture: {$fixturePath}");
         $this->line("Match:   {$meta['name']}  ({$meta['date']})");
+        $this->line('Gongs:   ['.implode(', ', array_map(fn ($m) => rtrim(rtrim(number_format($m, 2), '0'), '.'), $this->gongMultipliers)).']  ·  Distances: ['.implode(', ', $this->distances).'] m');
         $this->line('Shooters: '.count($shooters).'  ·  squad size: '.$squadSize.($dryRun ? '  ·  DRY RUN' : ''));
         $this->newLine();
 
@@ -129,14 +155,15 @@ class ImportRoyalFlushResults extends Command
      * Returns an array shaped like the input shooters, plus a 'pattern' key
      * containing 4×5 binary hits, or null on any failure (errors printed).
      *
-     * @param array<int, array{pos:int,name:string,cartridge:string,score:int,hit_pct:float}> $shooters
-     * @return array<int, array{pos:int,name:string,cartridge:string,score:int,hit_pct:float,pattern:int[][],actual_score:float}>|null
+     * @param array<int, array{pos:int,name:string,cartridge:string,score:int,hit_pct?:float,hits?:int}> $shooters
+     * @return array<int, array{pos:int,name:string,cartridge:string,score:int,hit_pct?:float,hits?:int,pattern:int[][],actual_score:float}>|null
      */
     private function reconstructAll(array $shooters): ?array
     {
-        $cellValuesX10 = $this->cellValuesTimesTen();
-        $maxSumX10 = array_sum($cellValuesX10);
-        $cellCount = count($cellValuesX10);
+        $cellValues = $this->cellValuesScaled();
+        $maxSum = array_sum($cellValues);
+        $cellCount = count($cellValues);
+        $scale = self::SCALE;
 
         $errors = [];
         $out = [];
@@ -146,49 +173,85 @@ class ImportRoyalFlushResults extends Command
             .' '.str_pad('Name', $maxNameLen + 2)
             .' '.str_pad('Score', 6)
             .' '.str_pad('HR', 6)
-            .' '.str_pad('Reconstructed', 14)
+            .' '.str_pad('Reconstructed', 18)
             .' Notes');
 
         foreach ($shooters as $row) {
             $pos = $row['pos'];
             $name = $row['name'];
             $score = (int) $row['score'];
-            $hitPct = (float) $row['hit_pct'];
 
-            $hitCount = (int) round($hitPct * $cellCount / 100.0);
-            if ($hitCount < 0 || $hitCount > $cellCount) {
-                $errors[] = "Pos {$pos} {$name}: hit_pct {$hitPct} → invalid hit count {$hitCount}";
+            $autoHits = false;
+            $hitCount = null;
+            $hrLabel = '';
+
+            if (array_key_exists('hits', $row) && $row['hits'] !== null) {
+                $hitCount = (int) $row['hits'];
+                $hrLabel = $hitCount.'/'.$cellCount;
+            } elseif (array_key_exists('hit_pct', $row) && $row['hit_pct'] !== null) {
+                $hitPctDisplay = (float) $row['hit_pct'];
+                $hitCount = (int) round($hitPctDisplay * $cellCount / 100.0);
+                $hrLabel = number_format($hitPctDisplay, 1).'%';
+            } else {
+                // Auto-hits: fewest misses (i.e. highest hit count) consistent
+                // with the score. Mirrors real-world shooter behaviour — miss
+                // the hardest gongs first. Used when only the score column
+                // is available (e.g. fixtures from scoresheets with a
+                // non-obvious Hit Rate / Relative Score formula).
+                $autoHits = true;
+                $hrLabel = 'auto';
+            }
+
+            if (! $autoHits && ($hitCount < 0 || $hitCount > $cellCount)) {
+                $errors[] = "Pos {$pos} {$name}: hit count {$hitCount} out of range [0..{$cellCount}]";
                 continue;
             }
 
-            if ($score === 0 && $hitCount === 0) {
+            // Score range (spreadsheets use floor, so real ∈ [score, score+1)).
+            $targetSumLow = max(0, $maxSum - ($scale * $score + ($scale - 1)));
+            $targetSumHigh = min($maxSum, $maxSum - $scale * $score);
+
+            if ($score === 0 && ($autoHits || $hitCount === 0)) {
                 $pattern = $this->emptyPattern();
                 $actual = 0.0;
-            } elseif ($score > 0 && $hitCount === $cellCount) {
+                if ($autoHits) {
+                    $hitCount = 0;
+                    $hrLabel = '0/'.$cellCount.' (auto)';
+                }
+            } elseif (! $autoHits && $score > 0 && $hitCount === $cellCount) {
                 $pattern = $this->fullPattern();
-                $actual = $maxSumX10 / 10.0;
+                $actual = $maxSum / $scale;
             } else {
-                $missCount = $cellCount - $hitCount;
+                $missIndices = null;
+                if ($autoHits) {
+                    for ($m = 0; $m <= $cellCount; $m++) {
+                        $candidate = $this->findMissIndices($cellValues, $m, $targetSumLow, $targetSumHigh);
+                        if ($candidate !== null) {
+                            $missIndices = $candidate;
+                            $hitCount = $cellCount - $m;
+                            $hrLabel = $hitCount.'/'.$cellCount.' (auto)';
+                            break;
+                        }
+                    }
+                } else {
+                    $missCount = $cellCount - $hitCount;
+                    $missIndices = $this->findMissIndices($cellValues, $missCount, $targetSumLow, $targetSumHigh);
+                }
 
-                // The source spreadsheet shows the integer Score using
-                // truncation (floor), not round-half-up — verified against
-                // Pos 15 Gerhardu Odendaal (16 hits, real 117.8 → "117").
-                // So real_score ∈ [score, score + 1), i.e. real_x10 ∈
-                // [10*score, 10*score + 9], giving sum-of-misses in
-                // [maxSum - 10*score - 9, maxSum - 10*score].
-                $targetSumLow = max(0, $maxSumX10 - (10 * $score + 9));
-                $targetSumHigh = min($maxSumX10, $maxSumX10 - 10 * $score);
-
-                $missIndices = $this->findMissIndices($cellValuesX10, $missCount, $targetSumLow, $targetSumHigh);
                 if ($missIndices === null) {
-                    $errors[] = sprintf(
-                        'Pos %d %s: cannot reconstruct (hits=%d, score=%d, target sum range %d..%d)',
-                        $pos, $name, $hitCount, $score, $targetSumLow, $targetSumHigh
-                    );
+                    $errors[] = $autoHits
+                        ? sprintf(
+                            'Pos %d %s: auto-hits failed (score=%d, target sum range %d..%d — no subset of any size sums into range)',
+                            $pos, $name, $score, $targetSumLow, $targetSumHigh
+                        )
+                        : sprintf(
+                            'Pos %d %s: cannot reconstruct (hits=%d, score=%d, target sum range %d..%d)',
+                            $pos, $name, $hitCount, $score, $targetSumLow, $targetSumHigh
+                        );
                     continue;
                 }
                 $pattern = $this->patternFromMissIndices($missIndices);
-                $actual = ($maxSumX10 - array_sum(array_map(fn ($i) => $cellValuesX10[$i], $missIndices))) / 10.0;
+                $actual = ($maxSum - array_sum(array_map(fn ($i) => $cellValues[$i], $missIndices))) / $scale;
             }
 
             $computedHits = 0;
@@ -216,8 +279,8 @@ class ImportRoyalFlushResults extends Command
             $this->line(str_pad((string) $pos, 4)
                 .' '.str_pad($name, $maxNameLen + 2)
                 .' '.str_pad((string) $score, 6)
-                .' '.str_pad(number_format($hitPct, 1).'%', 6)
-                .' '.str_pad(number_format($actual, 1).' / '.$score, 14)
+                .' '.str_pad($hrLabel, 6)
+                .' '.str_pad(number_format($actual, 2).' / '.$score, 18)
                 .' OK');
         }
 
@@ -234,32 +297,33 @@ class ImportRoyalFlushResults extends Command
     }
 
     /**
-     * @return int[]  Cell values × 10, indexed bank*5 + gong (banks: 400,500,600,700)
+     * @return int[]  Cell values × SCALE (100), indexed bank*G + gong, with G = count of gong multipliers.
+     *               Scaling by 100 keeps multipliers like 1.25 / 1.75 as clean integers.
      */
-    private function cellValuesTimesTen(): array
+    private function cellValuesScaled(): array
     {
         $values = [];
-        foreach (self::DISTANCES as $distance) {
-            foreach (self::GONG_MULTIPLIERS as $mult) {
-                $values[] = (int) round($distance / 100 * $mult * 10);
+        foreach ($this->distances as $distance) {
+            foreach ($this->gongMultipliers as $mult) {
+                $values[] = (int) round($distance / 100 * $mult * self::SCALE);
             }
         }
         return $values;
     }
 
     /** @return int[]|null Cell indices marked as miss, or null if no valid subset exists. */
-    private function findMissIndices(array $cellValuesX10, int $missCount, int $targetLow, int $targetHigh): ?array
+    private function findMissIndices(array $cellValues, int $missCount, int $targetLow, int $targetHigh): ?array
     {
         if ($missCount < 0 || $targetLow > $targetHigh) {
             return null;
         }
 
-        $n = count($cellValuesX10);
+        $n = count($cellValues);
 
         // Sort by value desc to bias the greedy traceback toward harder gongs.
         $sorted = [];
         for ($i = 0; $i < $n; $i++) {
-            $sorted[] = ['index' => $i, 'value' => $cellValuesX10[$i]];
+            $sorted[] = ['index' => $i, 'value' => $cellValues[$i]];
         }
         usort($sorted, fn ($a, $b) => $b['value'] <=> $a['value']);
 
@@ -310,26 +374,26 @@ class ImportRoyalFlushResults extends Command
         return $missIndices;
     }
 
-    /** @return int[][]  4 banks × 5 gongs of 0/1, all zeros. */
+    /** @return int[][]  banks × gongs of 0/1, all zeros. */
     private function emptyPattern(): array
     {
-        return array_fill(0, count(self::DISTANCES), array_fill(0, count(self::GONG_MULTIPLIERS), 0));
+        return array_fill(0, count($this->distances), array_fill(0, count($this->gongMultipliers), 0));
     }
 
-    /** @return int[][]  4 banks × 5 gongs of 0/1, all ones. */
+    /** @return int[][]  banks × gongs of 0/1, all ones. */
     private function fullPattern(): array
     {
-        return array_fill(0, count(self::DISTANCES), array_fill(0, count(self::GONG_MULTIPLIERS), 1));
+        return array_fill(0, count($this->distances), array_fill(0, count($this->gongMultipliers), 1));
     }
 
     /**
-     * @param int[] $missIndices  flat indices into the 4×5 grid
+     * @param int[] $missIndices  flat indices into the banks × gongs grid
      * @return int[][]
      */
     private function patternFromMissIndices(array $missIndices): array
     {
         $pattern = $this->fullPattern();
-        $gongCount = count(self::GONG_MULTIPLIERS);
+        $gongCount = count($this->gongMultipliers);
         foreach ($missIndices as $flat) {
             $bank = intdiv($flat, $gongCount);
             $gong = $flat % $gongCount;
@@ -383,7 +447,7 @@ class ImportRoyalFlushResults extends Command
     private function ensureTargetSetsAndGongs(ShootingMatch $match): array
     {
         $gongs = [];
-        foreach (self::DISTANCES as $bankIdx => $distance) {
+        foreach ($this->distances as $bankIdx => $distance) {
             $ts = TargetSet::firstOrCreate(
                 ['match_id' => $match->id, 'distance_meters' => $distance],
                 [
@@ -400,7 +464,7 @@ class ImportRoyalFlushResults extends Command
 
             $existing = Gong::where('target_set_id', $ts->id)->orderBy('number')->get()->keyBy('number');
             $bankGongs = [];
-            foreach (self::GONG_MULTIPLIERS as $gongIdx => $mult) {
+            foreach ($this->gongMultipliers as $gongIdx => $mult) {
                 $number = $gongIdx + 1;
                 $row = $existing->get($number);
                 if ($row) {
