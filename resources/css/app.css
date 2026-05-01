@@ -200,23 +200,45 @@ html.dark [data-flux-label] {
     color: var(--color-primary) !important;
 }
 
-/* ── Inputs & textareas ── */
+/* ── Inputs & textareas ──
+   Covers three entry points:
+   1. <flux:input>       — wraps in [data-flux-input]
+   2. <flux:textarea>    — emits standalone [data-flux-textarea]
+   3. raw native controls — authored <textarea>, <input>, <select> without Flux
+   All three used to fall through to the Flux light-mode default (white bg,
+   dark text) on our always-dark shell, which reads as "text same colour as
+   background" on the match edit page and several member/admin forms. */
 :where([data-flux-input]) input,
 :where([data-flux-input]) textarea,
-:where([data-flux-input]) select {
+:where([data-flux-input]) select,
+:where([data-flux-textarea]),
+html.dark textarea:not([data-no-dc-style]),
+html.dark input:where([type='text'], [type='search'], [type='email'], [type='url'], [type='tel'], [type='password'], [type='number'], [type='date'], [type='datetime-local'], [type='time']):not([data-no-dc-style]),
+html.dark select:not([data-no-dc-style]) {
     color: #ffffff !important;
     background: var(--color-surface) !important;
     border-color: var(--color-border) !important;
 }
 :where([data-flux-input]) input::placeholder,
-:where([data-flux-input]) textarea::placeholder {
+:where([data-flux-input]) textarea::placeholder,
+:where([data-flux-textarea])::placeholder,
+html.dark textarea:not([data-no-dc-style])::placeholder,
+html.dark input:not([data-no-dc-style])::placeholder {
     color: #a8b9d4 !important;
+    opacity: 1 !important;
 }
-html.dark :where([data-flux-input]) input[type='datetime-local'] {
+html.dark :where([data-flux-input]) input[type='datetime-local'],
+html.dark input[type='datetime-local']:not([data-no-dc-style]),
+html.dark input[type='date']:not([data-no-dc-style]),
+html.dark input[type='time']:not([data-no-dc-style]) {
     color-scheme: dark;
 }
 :where([data-flux-input]) input:focus,
-:where([data-flux-input]) textarea:focus {
+:where([data-flux-input]) textarea:focus,
+:where([data-flux-textarea]):focus,
+html.dark textarea:not([data-no-dc-style]):focus,
+html.dark input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='submit']):not([type='button']):not([data-no-dc-style]):focus,
+html.dark select:not([data-no-dc-style]):focus {
     border-color: var(--color-accent) !important;
 }
 
