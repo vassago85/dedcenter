@@ -1038,12 +1038,18 @@ new #[Layout('components.layouts.app')]
             $bcfg = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG;
         @endphp
 
+        @php
+            $rfAwardedSlugs = $matchBadges->pluck('achievement.slug')->filter()->unique()->values()->all();
+        @endphp
+
         @if(!$hasBadges)
             <div class="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface/30 px-6 py-16 text-center">
                 <x-badge-icon name="award" class="mb-3 h-10 w-10 text-muted opacity-40" />
                 <h3 class="text-lg font-bold text-primary">No badges awarded yet</h3>
                 <p class="mt-2 max-w-sm text-sm text-muted">Badges earned during this match will appear here once scoring has been finalized.</p>
             </div>
+
+            <x-badge-criteria-reference competitionType="royal_flush" :awardedSlugs="$rfAwardedSlugs" />
         @else
             <div class="space-y-6">
 
@@ -1060,6 +1066,13 @@ new #[Layout('components.layouts.app')]
                                 <div class="min-w-0 flex-1">
                                     <h3 class="text-xl font-semibold text-amber-300 sm:text-2xl">Winning Hand</h3>
                                     <p class="mt-1 text-sm text-secondary">{{ $winningHand->achievement->description }}</p>
+                                    @php $whCriteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor('winning-hand'); @endphp
+                                    @if($whCriteria)
+                                        <div class="mt-2 rounded-lg border border-amber-400/15 bg-amber-900/10 px-3 py-2">
+                                            <span class="block text-[10px] font-bold uppercase tracking-wider text-amber-400/70">How to earn it</span>
+                                            <p class="mt-0.5 text-xs leading-snug text-secondary">{{ $whCriteria }}</p>
+                                        </div>
+                                    @endif
                                     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
                                         @if($winningHand->user_id)
                                             <a href="{{ route('shooter.profile', $winningHand->user_id) }}" class="font-bold text-primary hover:underline">{{ $winningHand->shooter?->name ?? $winningHand->user?->name ?? 'Unknown' }}</a>
@@ -1107,11 +1120,15 @@ new #[Layout('components.layouts.app')]
                                     $icon = $cfg['icon'] ?? 'target';
                                     $tier = $cfg['tier'] ?? 'earned';
                                 @endphp
-                                <div class="flex items-center gap-4 rounded-2xl border border-amber-400/15 bg-amber-900/8 px-4 py-4">
+                                <div class="flex items-start gap-4 rounded-2xl border border-amber-400/15 bg-amber-900/8 px-4 py-4">
                                     <x-badge-crest :icon="$icon" :tier="$tier" family="royal_flush" />
                                     <div class="min-w-0 flex-1">
                                         <span class="text-base font-bold text-amber-200">{{ $badge->label }}</span>
                                         <p class="mt-0.5 text-xs text-muted leading-snug">{{ $badge->description }}</p>
+                                        @php $lbCriteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor($badge->slug); @endphp
+                                        @if($lbCriteria && $lbCriteria !== $badge->description)
+                                            <p class="mt-1 text-[11px] leading-snug text-amber-200/70"><span class="font-semibold uppercase tracking-wider text-amber-400/70 text-[9px]">How to earn &middot;</span> {{ $lbCriteria }}</p>
+                                        @endif
                                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                                             @if($ua->user_id)
                                                 <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-semibold text-primary hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
@@ -1149,13 +1166,17 @@ new #[Layout('components.layouts.app')]
                                     $tier = $cfg['tier'] ?? 'earned';
                                 @endphp
                                 <div class="overflow-hidden rounded-2xl border border-amber-500/12 bg-amber-900/5">
-                                    <div class="flex items-center gap-4 border-b border-amber-500/10 px-4 py-3">
+                                    <div class="flex items-start gap-4 border-b border-amber-500/10 px-4 py-3">
                                         <x-badge-crest :icon="$icon" :tier="$tier" family="royal_flush" />
                                         <div class="min-w-0 flex-1">
                                             <span class="text-base font-bold text-amber-200">{{ $badge->label }}</span>
                                             <p class="mt-0.5 text-xs text-muted leading-snug">{{ $badge->description }}</p>
+                                            @php $rbCriteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor($badge->slug); @endphp
+                                            @if($rbCriteria && $rbCriteria !== $badge->description)
+                                                <p class="mt-1 text-[11px] leading-snug text-amber-200/70"><span class="font-semibold uppercase tracking-wider text-amber-400/70 text-[9px]">How to earn &middot;</span> {{ $rbCriteria }}</p>
+                                            @endif
                                         </div>
-                                        <span class="rounded-full bg-amber-600/20 px-2.5 py-1 text-xs font-bold tabular-nums text-amber-400">{{ $entries->count() }}&times;</span>
+                                        <span class="flex-shrink-0 rounded-full bg-amber-600/20 px-2.5 py-1 text-xs font-bold tabular-nums text-amber-400">{{ $entries->count() }}&times;</span>
                                     </div>
                                     <div class="divide-y divide-border/30">
                                         @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
@@ -1182,6 +1203,8 @@ new #[Layout('components.layouts.app')]
                         </div>
                     </section>
                 @endif
+
+                <x-badge-criteria-reference competitionType="royal_flush" :awardedSlugs="$rfAwardedSlugs" />
 
             </div>
         @endif
@@ -1426,12 +1449,18 @@ new #[Layout('components.layouts.app')]
                 $bcfg = \App\Http\Controllers\BadgeGalleryController::BADGE_CONFIG;
             @endphp
 
+            @php
+                $prsAwardedSlugs = $matchBadges->pluck('achievement.slug')->filter()->unique()->values()->all();
+            @endphp
+
             @if(!$hasBadges)
                 <div class="flex flex-col items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-800/30 px-6 py-16 text-center">
                     <x-badge-icon name="award" class="mx-auto mb-3 h-10 w-10 text-zinc-600 opacity-40" />
                     <h3 class="text-lg font-bold text-zinc-300">No badges awarded yet</h3>
                     <p class="mt-2 max-w-sm text-sm text-zinc-500">Badges earned during this PRS match will appear here once scoring has been finalized.</p>
                 </div>
+
+                <x-badge-criteria-reference competitionType="prs" :awardedSlugs="$prsAwardedSlugs" />
             @else
                 <div class="space-y-6">
 
@@ -1448,6 +1477,13 @@ new #[Layout('components.layouts.app')]
                                     <div class="min-w-0 flex-1">
                                         <h3 class="text-xl font-semibold text-sky-300 sm:text-2xl">DeadCenter</h3>
                                         <p class="mt-1 text-sm text-zinc-300">{{ $deadCenter->achievement->description }}</p>
+                                        @php $dcCriteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor('deadcenter'); @endphp
+                                        @if($dcCriteria)
+                                            <div class="mt-2 rounded-lg border border-sky-400/15 bg-sky-900/10 px-3 py-2">
+                                                <span class="block text-[10px] font-bold uppercase tracking-wider text-sky-400/70">How to earn it</span>
+                                                <p class="mt-0.5 text-xs leading-snug text-zinc-300">{{ $dcCriteria }}</p>
+                                            </div>
+                                        @endif
                                         <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
                                             @if($deadCenter->user_id)
                                                 <a href="{{ route('shooter.profile', $deadCenter->user_id) }}" class="font-bold text-white hover:underline">{{ $deadCenter->shooter?->name ?? $deadCenter->user?->name ?? 'Unknown' }}</a>
@@ -1495,11 +1531,15 @@ new #[Layout('components.layouts.app')]
                                         $icon = $cfg['icon'] ?? 'target';
                                         $tier = $cfg['tier'] ?? 'earned';
                                     @endphp
-                                    <div class="flex items-center gap-4 rounded-2xl border border-sky-400/15 bg-sky-900/8 px-4 py-4">
+                                    <div class="flex items-start gap-4 rounded-2xl border border-sky-400/15 bg-sky-900/8 px-4 py-4">
                                         <x-badge-crest :icon="$icon" :tier="$tier" family="prs" />
                                         <div class="min-w-0 flex-1">
                                             <span class="text-base font-bold text-sky-200">{{ $badge->label }}</span>
                                             <p class="mt-0.5 text-xs text-zinc-400 leading-snug">{{ $badge->description }}</p>
+                                            @php $plbCriteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor($badge->slug); @endphp
+                                            @if($plbCriteria && $plbCriteria !== $badge->description)
+                                                <p class="mt-1 text-[11px] leading-snug text-sky-200/70"><span class="font-semibold uppercase tracking-wider text-sky-400/70 text-[9px]">How to earn &middot;</span> {{ $plbCriteria }}</p>
+                                            @endif
                                             <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                                                 @if($ua->user_id)
                                                     <a href="{{ route('shooter.profile', $ua->user_id) }}" class="font-semibold text-white hover:underline">{{ $ua->shooter?->name ?? $ua->user?->name ?? 'Unknown' }}</a>
@@ -1537,13 +1577,17 @@ new #[Layout('components.layouts.app')]
                                         $tier = $cfg['tier'] ?? 'earned';
                                     @endphp
                                     <div class="overflow-hidden rounded-2xl border border-sky-500/12 bg-sky-900/5">
-                                        <div class="flex items-center gap-4 border-b border-sky-500/10 px-4 py-3">
+                                        <div class="flex items-start gap-4 border-b border-sky-500/10 px-4 py-3">
                                             <x-badge-crest :icon="$icon" :tier="$tier" family="prs" />
                                             <div class="min-w-0 flex-1">
                                                 <span class="text-base font-bold text-sky-200">{{ $badge->label }}</span>
                                                 <p class="mt-0.5 text-xs text-zinc-500 leading-snug">{{ $badge->description }}</p>
+                                                @php $prbCriteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor($badge->slug); @endphp
+                                                @if($prbCriteria && $prbCriteria !== $badge->description)
+                                                    <p class="mt-1 text-[11px] leading-snug text-sky-200/70"><span class="font-semibold uppercase tracking-wider text-sky-400/70 text-[9px]">How to earn &middot;</span> {{ $prbCriteria }}</p>
+                                                @endif
                                             </div>
-                                            <span class="rounded-full bg-sky-600/20 px-2.5 py-1 text-xs font-bold tabular-nums text-sky-400">{{ $entries->count() }}&times;</span>
+                                            <span class="flex-shrink-0 rounded-full bg-sky-600/20 px-2.5 py-1 text-xs font-bold tabular-nums text-sky-400">{{ $entries->count() }}&times;</span>
                                         </div>
                                         <div class="divide-y divide-zinc-800">
                                             @foreach($entries->sortBy(fn ($ua) => $ua->shooter?->name ?? $ua->user?->name ?? '') as $ua)
@@ -1577,6 +1621,8 @@ new #[Layout('components.layouts.app')]
                             </div>
                         </section>
                     @endif
+
+                    <x-badge-criteria-reference competitionType="prs" :awardedSlugs="$prsAwardedSlugs" />
 
                 </div>
             @endif

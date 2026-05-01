@@ -4,11 +4,13 @@
     'tier' => 'earned',
     'family' => 'prs',
     'earnChip' => null,
+    'showCriteria' => true,
 ])
 
 @php
     $isPrs = $family === 'prs';
     $isDist = str_starts_with($icon, 'dist-');
+    $criteria = $showCriteria ? \App\Http\Controllers\BadgeGalleryController::criteriaFor($badge->slug) : null;
 
     $tierLabels = [
         'featured'  => 'Signature Badge',
@@ -169,6 +171,13 @@
             <p class="text-sm leading-6 text-zinc-400">
                 {{ $badge->description }}
             </p>
+
+            @if($criteria && $criteria !== $badge->description)
+                <div class="mt-2 rounded-lg border border-white/6 bg-white/3 px-3 py-2">
+                    <span class="block text-[10px] font-semibold uppercase tracking-[0.14em] {{ $s['overline'] }}">How to earn it</span>
+                    <p class="mt-1 text-xs leading-snug text-zinc-300/90">{{ $criteria }}</p>
+                </div>
+            @endif
 
             @if($earnChip)
                 <div class="mt-auto pt-1">

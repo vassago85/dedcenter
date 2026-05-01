@@ -84,10 +84,18 @@
                 $isDist = str_starts_with($icon, 'dist-');
                 $crest = ($isDist && isset($distCrestStyles[$icon])) ? $distCrestStyles[$icon] : ($crestStyles[$family][$tier] ?? $crestStyles['prs']['earned']);
                 $count = $repeatableCounts[$a->slug] ?? 1;
+                $criteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor($a->slug);
+                $tierLabel = match($tier) {
+                    'featured'  => 'Signature Badge',
+                    'elite'     => 'Elite',
+                    'milestone' => 'Lifetime Milestone',
+                    default     => 'Earned',
+                };
             @endphp
             <div class="relative">
                 <button type="button" @click.stop="activePopover = activePopover === {{ $bi }} ? null : {{ $bi }}"
-                        class="group relative inline-flex items-center justify-center rounded-md border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} h-6 w-6">
+                        class="group relative inline-flex items-center justify-center rounded-md border transition-transform duration-150 hover:scale-110 cursor-pointer {{ $crest }} h-6 w-6"
+                        aria-label="{{ $a->label }} — tap for earning criteria">
                     <x-badge-icon :name="$icon" class="h-3 w-3" />
                     @if($a->is_repeatable && $count > 1)
                         <span class="absolute -top-1 -right-1 flex h-3 min-w-[0.75rem] items-center justify-center rounded-full bg-white/15 px-0.5 text-[7px] font-bold text-white/80 backdrop-blur-sm">{{ $count }}</span>
@@ -100,17 +108,24 @@
                      x-transition:leave="transition ease-in duration-100"
                      x-transition:leave-start="opacity-100"
                      x-transition:leave-end="opacity-0 scale-95"
-                     class="absolute left-1/2 z-50 w-48 -translate-x-1/2 rounded-lg border border-border bg-surface p-2.5 shadow-xl"
-                     :class="$el.getBoundingClientRect().top < 120 ? 'top-full mt-1' : 'bottom-full mb-1'">
-                    <div class="flex items-start gap-2">
-                        <div class="flex-shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg border {{ $crest }}">
-                            <x-badge-icon :name="$icon" class="h-4 w-4" />
+                     class="absolute left-1/2 z-50 w-72 -translate-x-1/2 rounded-xl border border-border bg-surface p-3 shadow-xl"
+                     :class="$el.getBoundingClientRect().top < 200 ? 'top-full mt-1' : 'bottom-full mb-1'">
+                    <div class="flex items-start gap-2.5">
+                        <div class="flex-shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border {{ $crest }}">
+                            <x-badge-icon :name="$icon" class="h-5 w-5" />
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-xs font-bold text-primary leading-tight">{{ $a->label }}</p>
-                            <p class="mt-0.5 text-[10px] leading-snug text-muted line-clamp-2">{{ $a->description }}</p>
+                            <span class="block text-[9px] font-bold uppercase tracking-wider {{ $family === 'royal_flush' ? 'text-amber-400/70' : 'text-sky-400/70' }}">{{ $tierLabel }}@if($a->is_repeatable && $count > 1) · &times;{{ $count }}@endif</span>
+                            <p class="mt-0.5 text-sm font-bold leading-tight text-primary">{{ $a->label }}</p>
+                            <p class="mt-1 text-[11px] leading-snug text-secondary">{{ $a->description }}</p>
                         </div>
                     </div>
+                    @if($criteria)
+                        <div class="mt-2.5 rounded-md border border-border/60 bg-app/50 px-2.5 py-2">
+                            <span class="block text-[9px] font-bold uppercase tracking-wider text-muted">How to earn it</span>
+                            <p class="mt-1 text-[11px] leading-snug text-secondary">{{ $criteria }}</p>
+                        </div>
+                    @endif
                 </div>
             </div>
         @endforeach
