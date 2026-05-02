@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\PlacementKey;
 use App\Models\Organization;
+use App\Models\PrsShotScore;
+use App\Models\PrsStageResult;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
@@ -267,46 +269,31 @@ class MatchExportController extends Controller
         $divisionNames = $this->divisionLookup($match);
         $targetSets = $match->targetSets()->get();
         $targetSetIds = $targetSets->pluck('id');
-
         $totalTargets = DB::table('gongs')->whereIn('target_set_id', $targetSetIds)->count();
-        $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
 
-        $shooterTimes = StageTime::whereIn('target_set_id', $targetSetIds)
-            ->get()->groupBy('shooter_id')
-            ->map(fn ($t) => (float) $t->sum('time_seconds'))->toArray();
-
-        $tbHits = [];
-        $tbTimes = [];
-        if ($tiebreakerStage) {
-            $tbGongIds = DB::table('gongs')->where('target_set_id', $tiebreakerStage->id)->pluck('id');
-            $tbHits = Score::whereIn('gong_id', $tbGongIds)->where('is_hit', true)
-                ->select('shooter_id', DB::raw('COUNT(*) as c'))->groupBy('shooter_id')
-                ->pluck('c', 'shooter_id')->map(fn ($v) => (int) $v)->toArray();
-            $tbTimes = StageTime::where('target_set_id', $tiebreakerStage->id)
-                ->pluck('time_seconds', 'shooter_id')->map(fn ($v) => (float) $v)->toArray();
-        }
+        $perShooter = $this->prsAggregatesForCsv($match, $targetSets);
 
         $shooters = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-            ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
             ->where('squads.match_id', $match->id)
             ->select('shooters.id as shooter_id', 'shooters.name', 'squads.name as squad')
-            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 1 THEN 1 END) as agg_hits')
-            ->selectRaw('COUNT(CASE WHEN scores.is_hit = 0 THEN 1 END) as agg_misses')
-            ->groupBy('shooters.id', 'shooters.name', 'squads.name')
             ->get();
 
-        $entries = $shooters->map(function ($s) use ($shooterTimes, $tbHits, $tbTimes, $divisionNames, $totalTargets) {
+        $entries = $shooters->map(function ($s) use ($perShooter, $divisionNames, $totalTargets) {
             $sid = (int) $s->shooter_id;
+            $agg = $perShooter[$sid] ?? null;
+
+            $hits = $agg['hits'] ?? 0;
+            $misses = $agg['misses'] ?? 0;
 
             return [
                 'sid' => $sid, 'name' => $s->name, 'squad' => $s->squad,
                 'division' => $divisionNames[$sid] ?? '',
-                'hits' => (int) $s->agg_hits, 'misses' => (int) $s->agg_misses,
-                'not_taken' => $totalTargets - (int) $s->agg_hits - (int) $s->agg_misses,
-                'total_time' => round($shooterTimes[$sid] ?? 0.0, 2),
-                'tb_hits' => $tbHits[$sid] ?? 0,
-                'tb_time' => round($tbTimes[$sid] ?? 0.0, 2),
+                'hits' => $hits, 'misses' => $misses,
+                'not_taken' => max(0, $totalTargets - $hits - $misses),
+                'total_time' => round($agg['total_time'] ?? 0.0, 2),
+                'tb_hits' => $agg['tb_hits'] ?? 0,
+                'tb_time' => round($agg['tb_time'] ?? 0.0, 2),
             ];
         })->sort(function ($a, $b) {
             if ($a['hits'] !== $b['hits']) {
@@ -335,34 +322,16 @@ class MatchExportController extends Controller
         $targetSets = $match->targetSets()->orderBy('sort_order')
             ->with(['gongs' => fn ($q) => $q->orderBy('number')])->get();
         $targetSetIds = $targetSets->pluck('id');
-
         $totalTargets = DB::table('gongs')->whereIn('target_set_id', $targetSetIds)->count();
-        $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
-        $allGongs = $targetSets->flatMap->gongs;
 
-        $shooterTimesByStage = StageTime::whereIn('target_set_id', $targetSetIds)
-            ->get()->groupBy('shooter_id');
-
-        $tbHits = [];
-        $tbTimes = [];
-        if ($tiebreakerStage) {
-            $tbGongIds = DB::table('gongs')->where('target_set_id', $tiebreakerStage->id)->pluck('id');
-            $tbHits = Score::whereIn('gong_id', $tbGongIds)->where('is_hit', true)
-                ->select('shooter_id', DB::raw('COUNT(*) as c'))->groupBy('shooter_id')
-                ->pluck('c', 'shooter_id')->map(fn ($v) => (int) $v)->toArray();
-            $tbTimes = StageTime::where('target_set_id', $tiebreakerStage->id)
-                ->pluck('time_seconds', 'shooter_id')->map(fn ($v) => (float) $v)->toArray();
-        }
+        $perShooter = $this->prsAggregatesForCsv($match, $targetSets);
+        $shotMap = $this->prsShotMapForCsv($match, $targetSets);
 
         $shooters = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->where('squads.match_id', $match->id)
             ->select('shooters.id', 'shooters.name', 'squads.name as squad_name')
             ->get();
-
-        $allScores = Score::whereIn('shooter_id', $shooters->pluck('id'))
-            ->whereIn('gong_id', $allGongs->pluck('id'))
-            ->get()->groupBy('shooter_id');
 
         $header = ['Rank', 'Name', 'Squad', 'Division'];
         foreach ($targetSets as $ts) {
@@ -375,43 +344,38 @@ class MatchExportController extends Controller
         $header = array_merge($header, ['Hits', 'Misses', 'Not Taken', 'Total Time', 'TB Hits', 'TB Time']);
         fputcsv($out, $header);
 
-        $rows = $shooters->map(function ($shooter) use ($allScores, $targetSets, $shooterTimesByStage, $divisionNames, $totalTargets, $tbHits, $tbTimes) {
-            $scores = $allScores->get($shooter->id, collect())->keyBy('gong_id');
-            $times = $shooterTimesByStage->get($shooter->id, collect())->keyBy('target_set_id');
-            $totalHits = 0;
-            $totalMisses = 0;
-            $totalTime = 0;
+        $rows = $shooters->map(function ($shooter) use ($shotMap, $perShooter, $targetSets, $divisionNames, $totalTargets) {
+            $sid = (int) $shooter->id;
+            $shotsForShooter = $shotMap[$sid] ?? [];
+            $agg = $perShooter[$sid] ?? [];
+            $totalHits = $agg['hits'] ?? 0;
+            $totalMisses = $agg['misses'] ?? 0;
             $cells = [];
+            $totalTime = 0.0;
 
             foreach ($targetSets as $ts) {
                 foreach ($ts->gongs as $g) {
-                    $score = $scores->get($g->id);
-                    if (! $score) {
-                        $cells[] = '-';
-                    } elseif ($score->is_hit) {
-                        $cells[] = 'H';
-                        $totalHits++;
-                    } else {
-                        $cells[] = 'M';
-                        $totalMisses++;
-                    }
+                    $state = $shotsForShooter[$ts->id][$g->id] ?? 'none';
+                    $cells[] = match ($state) {
+                        'hit' => 'H',
+                        'miss' => 'M',
+                        default => '-',
+                    };
                 }
-                $stageTime = $times->get($ts->id)?->time_seconds ?? 0;
+                $stageTime = $agg['stage_times'][$ts->id] ?? 0.0;
                 $totalTime += $stageTime;
                 $cells[] = round((float) $stageTime, 2);
             }
-
-            $sid = $shooter->id;
 
             return [
                 'name' => $shooter->name, 'squad' => $shooter->squad_name,
                 'division' => $divisionNames[$sid] ?? '',
                 'cells' => $cells,
                 'hits' => $totalHits, 'misses' => $totalMisses,
-                'not_taken' => $totalTargets - $totalHits - $totalMisses,
+                'not_taken' => max(0, $totalTargets - $totalHits - $totalMisses),
                 'total_time' => round($totalTime, 2),
-                'tb_hits' => $tbHits[$sid] ?? 0,
-                'tb_time' => round($tbTimes[$sid] ?? 0.0, 2),
+                'tb_hits' => $agg['tb_hits'] ?? 0,
+                'tb_time' => round($agg['tb_time'] ?? 0.0, 2),
             ];
         })->sort(function ($a, $b) {
             if ($a['hits'] !== $b['hits']) {
@@ -434,6 +398,187 @@ class MatchExportController extends Controller
                 [$row['hits'], $row['misses'], $row['not_taken'], $row['total_time'], $row['tb_hits'], $row['tb_time']],
             ));
         }
+    }
+
+    /**
+     * Aggregate PRS data per shooter for CSV exports.
+     *
+     * Returns an array keyed by shooter_id with: hits, misses, total_time,
+     * tb_hits, tb_time, and stage_times (keyed by target_set_id).
+     *
+     * Sources data from `prs_stage_results` when populated (current PRS
+     * scoring app), otherwise falls back to `scores` + `stage_times` so
+     * legacy PRS matches scored gong-by-gong before the dedicated PRS
+     * tables existed still export correctly.
+     *
+     * @return array<int, array{hits:int, misses:int, total_time:float, tb_hits:int, tb_time:float, stage_times:array<int, float>}>
+     */
+    private function prsAggregatesForCsv(ShootingMatch $match, \Illuminate\Support\Collection $targetSets): array
+    {
+        $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
+        $tbStageId = $tiebreakerStage?->id;
+
+        $usePrsTables = PrsStageResult::where('match_id', $match->id)->exists();
+
+        if ($usePrsTables) {
+            $results = PrsStageResult::where('match_id', $match->id)
+                ->get()
+                ->groupBy('shooter_id');
+
+            $perShooter = [];
+            foreach ($results as $sid => $stages) {
+                $hits = (int) $stages->sum('hits');
+                $misses = (int) $stages->sum('misses');
+                $totalTime = (float) $stages->whereNotNull('official_time_seconds')
+                    ->sum(fn ($r) => (float) $r->official_time_seconds);
+
+                $stageTimes = [];
+                foreach ($stages as $r) {
+                    $stageTimes[(int) $r->stage_id] = $r->official_time_seconds !== null
+                        ? (float) $r->official_time_seconds
+                        : 0.0;
+                }
+
+                $tbHits = 0;
+                $tbTime = 0.0;
+                if ($tbStageId !== null) {
+                    $tbResult = $stages->firstWhere('stage_id', $tbStageId);
+                    if ($tbResult) {
+                        $tbHits = (int) $tbResult->hits;
+                        $tbTime = $tbResult->official_time_seconds !== null
+                            ? (float) $tbResult->official_time_seconds
+                            : 0.0;
+                    }
+                }
+
+                $perShooter[(int) $sid] = [
+                    'hits' => $hits,
+                    'misses' => $misses,
+                    'total_time' => $totalTime,
+                    'tb_hits' => $tbHits,
+                    'tb_time' => $tbTime,
+                    'stage_times' => $stageTimes,
+                ];
+            }
+
+            return $perShooter;
+        }
+
+        // Legacy PRS — score table + stage_times.
+        $targetSetIds = $targetSets->pluck('id');
+        $allGongIds = DB::table('gongs')->whereIn('target_set_id', $targetSetIds)->pluck('id');
+
+        $shooterAgg = Score::query()
+            ->whereIn('gong_id', $allGongIds)
+            ->select('shooter_id', DB::raw('COUNT(CASE WHEN is_hit = 1 THEN 1 END) as agg_hits'))
+            ->selectRaw('COUNT(CASE WHEN is_hit = 0 THEN 1 END) as agg_misses')
+            ->groupBy('shooter_id')
+            ->get();
+
+        $stageTimesRaw = StageTime::whereIn('target_set_id', $targetSetIds)->get();
+        $totalTimeByShooter = $stageTimesRaw->groupBy('shooter_id')
+            ->map(fn ($t) => (float) $t->sum('time_seconds'))->toArray();
+        $stageTimesByShooter = [];
+        foreach ($stageTimesRaw as $st) {
+            $stageTimesByShooter[(int) $st->shooter_id][(int) $st->target_set_id] = (float) $st->time_seconds;
+        }
+
+        $tbHitsMap = [];
+        $tbTimesMap = [];
+        if ($tbStageId !== null) {
+            $tbGongIds = DB::table('gongs')->where('target_set_id', $tbStageId)->pluck('id');
+            $tbHitsMap = Score::whereIn('gong_id', $tbGongIds)->where('is_hit', true)
+                ->select('shooter_id', DB::raw('COUNT(*) as c'))->groupBy('shooter_id')
+                ->pluck('c', 'shooter_id')->map(fn ($v) => (int) $v)->toArray();
+            $tbTimesMap = StageTime::where('target_set_id', $tbStageId)
+                ->pluck('time_seconds', 'shooter_id')->map(fn ($v) => (float) $v)->toArray();
+        }
+
+        $perShooter = [];
+        foreach ($shooterAgg as $row) {
+            $sid = (int) $row->shooter_id;
+            $perShooter[$sid] = [
+                'hits' => (int) $row->agg_hits,
+                'misses' => (int) $row->agg_misses,
+                'total_time' => $totalTimeByShooter[$sid] ?? 0.0,
+                'tb_hits' => $tbHitsMap[$sid] ?? 0,
+                'tb_time' => $tbTimesMap[$sid] ?? 0.0,
+                'stage_times' => $stageTimesByShooter[$sid] ?? [],
+            ];
+        }
+
+        return $perShooter;
+    }
+
+    /**
+     * Per-(shooter, stage, gong) hit/miss/none lookup used by the PRS
+     * detailed CSV.
+     *
+     * Returns: $map[shooter_id][stage_id][gong_id] = 'hit' | 'miss' | 'none'
+     *
+     * For modern PRS matches we read `prs_shot_scores` and map shot_number
+     * to gong_id by ordering each stage's gongs by `number`. Legacy matches
+     * (pre-PRS-tables) fall back to the `scores` table keyed directly by
+     * gong_id. `not_taken` shots collapse to 'none' so the CSV cell shows
+     * '-' rather than misrepresenting a skipped shot as a miss.
+     */
+    private function prsShotMapForCsv(ShootingMatch $match, \Illuminate\Support\Collection $targetSets): array
+    {
+        $hasPrsShots = PrsShotScore::where('match_id', $match->id)->exists();
+
+        if ($hasPrsShots) {
+            $shotToGong = [];
+            foreach ($targetSets as $ts) {
+                $i = 1;
+                foreach ($ts->gongs as $g) {
+                    $shotToGong[(int) $ts->id][$i] = (int) $g->id;
+                    $i++;
+                }
+            }
+
+            $shots = PrsShotScore::where('match_id', $match->id)
+                ->orderBy('shot_number')
+                ->get(['shooter_id', 'stage_id', 'shot_number', 'result']);
+
+            $map = [];
+            foreach ($shots as $s) {
+                $stageId = (int) $s->stage_id;
+                $gongId = $shotToGong[$stageId][(int) $s->shot_number] ?? null;
+                if ($gongId === null) {
+                    continue;
+                }
+                $result = $s->result instanceof \BackedEnum ? $s->result->value : (string) $s->result;
+                $map[(int) $s->shooter_id][$stageId][$gongId] = match ($result) {
+                    'hit' => 'hit',
+                    'miss' => 'miss',
+                    default => 'none',
+                };
+            }
+
+            return $map;
+        }
+
+        // Legacy: per-gong scores in the `scores` table.
+        $allGongs = $targetSets->flatMap->gongs;
+        $gongToStage = [];
+        foreach ($targetSets as $ts) {
+            foreach ($ts->gongs as $g) {
+                $gongToStage[(int) $g->id] = (int) $ts->id;
+            }
+        }
+
+        $scores = Score::whereIn('gong_id', $allGongs->pluck('id'))->get();
+
+        $map = [];
+        foreach ($scores as $s) {
+            $stageId = $gongToStage[(int) $s->gong_id] ?? null;
+            if ($stageId === null) {
+                continue;
+            }
+            $map[(int) $s->shooter_id][$stageId][(int) $s->gong_id] = $s->is_hit ? 'hit' : 'miss';
+        }
+
+        return $map;
     }
 
     // ── ELR ─────────────────────────────────────────────────────
@@ -743,11 +888,16 @@ class MatchExportController extends Controller
             }
         }
 
-        // Index distance rows by shooter for fast lookup.
+        // Index distance rows by shooter for fast lookup. We key by the
+        // distance-table index (not distance_meters) because PRS matches
+        // typically have multiple stages at distance_meters = 0 and using
+        // the meters value as a key would silently overwrite earlier
+        // stages with later ones (the "all stages report 0/0 — 0% hit
+        // rate" symptom on completed PRS matches).
         $shooterRows = [];
-        foreach ($distanceTables as $dt) {
+        foreach ($distanceTables as $dtIdx => $dt) {
             foreach ($dt['rows'] as $row) {
-                $shooterRows[$row['name']][$dt['distance_meters']] = $row;
+                $shooterRows[$row['name']][$dtIdx] = $row;
             }
         }
 
@@ -761,8 +911,8 @@ class MatchExportController extends Controller
         $heatmap = [];
         foreach ($standings as $standing) {
             $cells = [];
-            foreach ($distanceTables as $dt) {
-                $row = $shooterRows[$standing->name][$dt['distance_meters']] ?? null;
+            foreach ($distanceTables as $dtIdx => $dt) {
+                $row = $shooterRows[$standing->name][$dtIdx] ?? null;
                 if (! $row) {
                     foreach ($dt['gongs'] as $_) {
                         $cells[] = ['state' => 'none', 'points' => null];
@@ -1331,23 +1481,35 @@ class MatchExportController extends Controller
     private function buildPostMatchReportData(ShootingMatch $match): array
     {
         $match->load('organization');
-        $standingsService = new MatchStandingsService;
-
-        $standings = $standingsService->standardStandings($match);
 
         $targetSets = $match->targetSets()
             ->orderBy('sort_order')
             ->with(['gongs' => fn ($q) => $q->orderBy('number')])
             ->get();
 
-        $allGongIds = $targetSets->flatMap(fn ($ts) => $ts->gongs->pluck('id'));
+        // PRS matches store per-shot results in `prs_shot_scores` and per-stage
+        // aggregates (incl. stage time) in `prs_stage_results`, NOT in the
+        // legacy `scores` table. Fall back to the standard `scores`-based
+        // pipeline only when there are no PRS rows on file (i.e. truly
+        // standard/RF, or a legacy PRS match that was scored gong-by-gong
+        // before the PRS tables existed).
+        $usePrsTables = $match->isPrs()
+            && PrsStageResult::where('match_id', $match->id)->exists();
+
+        if ($usePrsTables) {
+            $standings = $this->prsStandingsForReport($match, $targetSets);
+            $scores = $this->prsScoresAsScoreCollection($match, $targetSets);
+        } else {
+            $standings = (new MatchStandingsService)->standardStandings($match);
+            $allGongIds = $targetSets->flatMap(fn ($ts) => $ts->gongs->pluck('id'));
+            $scores = Score::query()
+                ->whereIn('shooter_id', $standings->pluck('shooter_id'))
+                ->whereIn('gong_id', $allGongIds)
+                ->get()
+                ->groupBy('shooter_id');
+        }
 
         $shooterIds = $standings->pluck('shooter_id');
-        $scores = Score::query()
-            ->whereIn('shooter_id', $shooterIds)
-            ->whereIn('gong_id', $allGongIds)
-            ->get()
-            ->groupBy('shooter_id');
 
         // Preload user_id for every shooter in the match so report views can
         // decide whether to render a "Claim this result" chip per row.
@@ -1491,6 +1653,173 @@ class MatchExportController extends Controller
             'sideBetCascade' => $sideBetCascade,
             'generatedAt' => now(),
         ];
+    }
+
+    /**
+     * PRS standings shaped like MatchStandingsService::standardStandings.
+     *
+     * Sourced from `prs_stage_results` (per-stage hits/misses + stage time)
+     * with PRS tiebreakers applied:
+     *   1. raw hits (desc)
+     *   2. tiebreaker-stage hits (desc)
+     *   3. tiebreaker-stage time (asc; null pushed to the back)
+     *   4. aggregate match time (asc)
+     *
+     * Returns plain objects matching the standard standings contract:
+     *   shooter_id, name, squad, hits, misses, total_score, status, rank
+     *
+     * `total_score` for PRS is just the hit count (one point per hit) so the
+     * podium and stat cards keep speaking the same numeric language as the
+     * scoreboard. DQ / no-show shooters get rank=null and sit at the bottom.
+     */
+    private function prsStandingsForReport(ShootingMatch $match, \Illuminate\Support\Collection $targetSets): \Illuminate\Support\Collection
+    {
+        $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
+
+        $shooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.id as shooter_id', 'shooters.name', 'shooters.status', 'squads.name as squad')
+            ->get();
+
+        $allResults = PrsStageResult::where('match_id', $match->id)
+            ->get()
+            ->groupBy('shooter_id');
+
+        $entries = $shooters->map(function ($s) use ($allResults, $tiebreakerStage) {
+            $sid = (int) $s->shooter_id;
+            $results = $allResults->get($sid, collect());
+
+            $hits = (int) $results->sum('hits');
+            $misses = (int) $results->sum('misses');
+            $aggTime = (float) $results->whereNotNull('official_time_seconds')
+                ->sum(fn ($r) => (float) $r->official_time_seconds);
+
+            $tbHits = 0;
+            $tbTime = null;
+            if ($tiebreakerStage) {
+                $tbResult = $results->firstWhere('stage_id', $tiebreakerStage->id);
+                if ($tbResult) {
+                    $tbHits = (int) $tbResult->hits;
+                    $tbTime = $tbResult->official_time_seconds !== null
+                        ? (float) $tbResult->official_time_seconds
+                        : null;
+                }
+            }
+
+            return (object) [
+                'shooter_id' => $sid,
+                'name' => $s->name,
+                'squad' => $s->squad,
+                'status' => $s->status ?? 'active',
+                'hits' => $hits,
+                'misses' => $misses,
+                'total_score' => (float) $hits,
+                'tb_hits' => $tbHits,
+                'tb_time' => $tbTime,
+                'agg_time' => $aggTime,
+            ];
+        });
+
+        $ranked = $entries
+            ->filter(fn ($e) => ! in_array($e->status, MatchStandingsService::NON_RANKED_STATUSES, true))
+            ->sort(function ($a, $b) {
+                if ($a->hits !== $b->hits) return $b->hits <=> $a->hits;
+                if ($a->tb_hits !== $b->tb_hits) return $b->tb_hits <=> $a->tb_hits;
+                $aTb = $a->tb_time ?? PHP_FLOAT_MAX;
+                $bTb = $b->tb_time ?? PHP_FLOAT_MAX;
+                if ($aTb !== $bTb) return $aTb <=> $bTb;
+                return $a->agg_time <=> $b->agg_time;
+            })
+            ->values();
+
+        $nonRanked = $entries
+            ->filter(fn ($e) => in_array($e->status, MatchStandingsService::NON_RANKED_STATUSES, true))
+            ->sortBy(fn ($e) => $e->status === 'dq' ? 0 : 1)
+            ->values();
+
+        $standings = collect();
+        foreach ($ranked as $i => $row) {
+            $standings->push((object) [
+                'shooter_id' => $row->shooter_id,
+                'name' => $row->name,
+                'squad' => $row->squad,
+                'hits' => $row->hits,
+                'misses' => $row->misses,
+                'total_score' => round($row->total_score, 2),
+                'status' => $row->status,
+                'rank' => $i + 1,
+            ]);
+        }
+        foreach ($nonRanked as $row) {
+            $standings->push((object) [
+                'shooter_id' => $row->shooter_id,
+                'name' => $row->name,
+                'squad' => $row->squad,
+                'hits' => $row->hits,
+                'misses' => $row->misses,
+                'total_score' => round($row->total_score, 2),
+                'status' => $row->status,
+                'rank' => null,
+            ]);
+        }
+
+        return $standings;
+    }
+
+    /**
+     * Re-shape PRS shot scores into the same `Collection<shooter_id, Collection<Score-like>>`
+     * structure the report-builder expects from the legacy `scores` table.
+     *
+     * `prs_shot_scores` records every shot by `shot_number` (1..N within a
+     * stage) rather than by `gong_id`. We map shot_number → gong_id by
+     * ordering each stage's gongs by `number` (the same order the scoring
+     * app and the scoreboard use), then synthesise lightweight stdClass
+     * "score" objects exposing `gong_id` and `is_hit` so the cell-builder
+     * loop in buildPostMatchReportData doesn't need to branch on scoring
+     * type. Misses get `is_hit = false`; shots with result=not_taken (or
+     * shots that simply weren't recorded) are omitted entirely so the
+     * cell renders as an empty `none` slot — matching what the PRS
+     * scoreboard shows on screen.
+     */
+    private function prsScoresAsScoreCollection(ShootingMatch $match, \Illuminate\Support\Collection $targetSets): \Illuminate\Support\Collection
+    {
+        // Build (stage_id, shot_number) → gong_id lookup. shot_number is 1-based.
+        $shotToGong = [];
+        foreach ($targetSets as $ts) {
+            $i = 1;
+            foreach ($ts->gongs as $g) {
+                $shotToGong[$ts->id][$i] = $g->id;
+                $i++;
+            }
+        }
+
+        $shots = PrsShotScore::where('match_id', $match->id)
+            ->orderBy('shot_number')
+            ->get(['shooter_id', 'stage_id', 'shot_number', 'result']);
+
+        return $shots->map(function ($s) use ($shotToGong) {
+            $gongId = $shotToGong[$s->stage_id][$s->shot_number] ?? null;
+            if ($gongId === null) {
+                return null;
+            }
+
+            $result = $s->result instanceof \BackedEnum ? $s->result->value : (string) $s->result;
+            if ($result === 'not_taken') {
+                // Match scoreboard semantics: a not_taken shot leaves the cell empty
+                // rather than reading as a recorded miss.
+                return null;
+            }
+
+            return (object) [
+                'shooter_id' => (int) $s->shooter_id,
+                'gong_id' => (int) $gongId,
+                'is_hit' => $result === 'hit',
+            ];
+        })
+            ->filter()
+            ->values()
+            ->groupBy('shooter_id');
     }
 
     /**
