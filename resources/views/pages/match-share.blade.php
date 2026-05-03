@@ -358,7 +358,13 @@
                                         ? rtrim(rtrim(number_format((float) $gong['value'], 2), '0'), '.')
                                         : null;
                                 @endphp
-                                <span class="gong-stack" title="{{ $gong['label'] ?? '' }}@if(isset($gong['value'])) — {{ $valFmt }} pts@endif">
+                                {{-- The space between `pts` and `@endif` is load-bearing: --}}
+                                {{-- Blade only recognises `@directive` after a non-word --}}
+                                {{-- character (its regex uses \B), so `pts@endif` would be --}}
+                                {{-- left as literal text and the `@if` above would never be --}}
+                                {{-- closed, which crashed the compiled view with --}}
+                                {{-- `unexpected endforeach, expecting endif`. Don't strip it. --}}
+                                <span class="gong-stack" title="{{ $gong['label'] ?? '' }}@if(isset($gong['value'])) — {{ $valFmt }} pts @endif">
                                     <span class="{{ $cls }}">{{ $glyph }}</span>
                                     @if($showValues && $valFmt !== null)
                                         <span class="{{ $valCls }}">{{ $valFmt }}</span>
