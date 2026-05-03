@@ -1457,23 +1457,55 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-6 max-w-4xl" x-data="{ tab: 'info' }">
+<div x-data="{ tab: 'info' }">
     @if($match)
-        <x-match-hub-tabs :match="$match" :organization="$organization" />
+        <x-match-control-shell :match="$match" :organization="$organization">
+
+            {{-- Lifecycle-aware Setup banner. Active/Completed matches
+                 should be a read-only experience by default — the form
+                 fields below remain editable (we don't disable them
+                 hard, since some MDs have a legitimate reason to fix a
+                 typo mid-match), but we make it clear the lifecycle has
+                 moved past the safe-to-edit window. The shell's primary
+                 CTA already redirects the MD's attention to scoring/
+                 reports for these states. --}}
+            @php
+                $editLockMsg = match($match->status) {
+                    \App\Enums\MatchStatus::Active    => ['Match is live — edits affect scoring',  'Stage layouts and scoring type are locked in for the live match. Tweaking them now will reshape live results. Reopen via Scoring → Reopen Match if you genuinely need to roll the lifecycle back first.', 'amber'],
+                    \App\Enums\MatchStatus::Completed => ['Match is finalised — Setup is read-only',  'New scores are blocked until you reopen the match (Scoring tab → Reopen Match). Setup fields are still editable for typo fixes, but anything material should wait until after the match is reopened.', 'zinc'],
+                    default                          => null,
+                };
+            @endphp
+            @if($editLockMsg)
+                <div class="flex items-start gap-3 rounded-xl border p-4 {{ $editLockMsg[2] === 'amber' ? 'border-amber-500/30 bg-amber-500/8' : 'border-zinc-500/30 bg-zinc-500/8' }}">
+                    <x-icon name="lock" class="mt-0.5 h-5 w-5 shrink-0 {{ $editLockMsg[2] === 'amber' ? 'text-amber-300' : 'text-zinc-300' }}" />
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold {{ $editLockMsg[2] === 'amber' ? 'text-amber-200' : 'text-zinc-200' }}">{{ $editLockMsg[0] }}</p>
+                        <p class="mt-0.5 text-xs {{ $editLockMsg[2] === 'amber' ? 'text-amber-100/75' : 'text-zinc-400' }}">{{ $editLockMsg[1] }}</p>
+                    </div>
+                </div>
+            @endif
+    @else
+        {{-- Create flow: no $match yet, so we can't render the shell.
+             Use the existing minimal chrome — a back button + heading.
+             The shell + lifecycle stepper appear from the second save. --}}
+        <div class="mx-auto w-full max-w-4xl space-y-4 sm:space-y-5">
+            <div class="flex items-center gap-4">
+                <flux:button href="{{ route('org.matches.index', $organization) }}" variant="ghost" size="sm">
+                    <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
+                    Back
+                </flux:button>
+                <div>
+                    <flux:heading size="xl">New Match</flux:heading>
+                    <p class="mt-1 text-sm text-muted">{{ $organization->name }}</p>
+                </div>
+            </div>
     @endif
 
-    <div class="flex items-center gap-4">
-        <flux:button href="{{ route('org.matches.index', $organization) }}" variant="ghost" size="sm">
-            <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
-            Back
-        </flux:button>
-        <div>
-            <flux:heading size="xl">{{ $match ? 'Edit Match' : 'New Match' }}</flux:heading>
-            <p class="mt-1 text-sm text-muted">{{ $organization->name }}</p>
-        </div>
-    </div>
-
     @if($match)
+    {{-- Inner Setup sub-nav — splits the long Setup form into Match Info,
+         Stages, and Configuration (deeper org-level options). The outer
+         5-tab nav lives in the shell above. --}}
     <div class="flex gap-2 border-b border-border pb-3">
         <button type="button" @click="tab = 'info'" :class="tab === 'info' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary'" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">Match Info</button>
         <button type="button" @click="tab = 'stages'" :class="tab === 'stages' ? 'bg-accent text-white' : 'bg-surface-2 text-secondary hover:text-primary'" class="rounded-lg px-4 py-2 text-sm font-medium transition-colors">Stages</button>
@@ -1482,90 +1514,13 @@ new #[Layout('components.layouts.app')]
     @endif
 
     <div x-show="tab === 'info'">
-    @if($match)
-        {{-- Quick-status card: shows current lifecycle state and the single
-             most-useful next action. Keeps MDs out of the Config tab just to
-             flip a status. --}}
-        @php
-            $statusCardClasses = match($match->status) {
-                \App\Enums\MatchStatus::Active => 'border-green-500/40 bg-green-950/20',
-                \App\Enums\MatchStatus::Completed => 'border-zinc-500/30 bg-zinc-900/30',
-                \App\Enums\MatchStatus::SquaddingOpen => 'border-indigo-500/40 bg-indigo-950/20',
-                \App\Enums\MatchStatus::SquaddingClosed => 'border-cyan-500/40 bg-cyan-950/20',
-                \App\Enums\MatchStatus::Ready => 'border-emerald-500/40 bg-emerald-950/20',
-                default => 'border-amber-500/30 bg-amber-950/15',
-            };
-        @endphp
-        <div class="mb-6 rounded-xl border {{ $statusCardClasses }} p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">Current Status</div>
-                    <div class="mt-1 flex items-center gap-2">
-                        <span class="inline-flex items-center rounded-full bg-{{ $match->status->color() }}-600/25 px-3 py-1 text-sm font-semibold text-{{ $match->status->color() }}-300">
-                            {{ $match->status->label() }}
-                        </span>
-                    </div>
-                    <p class="mt-2 text-sm text-secondary">
-                        @switch($match->status)
-                            @case(\App\Enums\MatchStatus::Draft)
-                                This match is a draft. Open registration or squadding to progress.
-                                @break
-                            @case(\App\Enums\MatchStatus::PreRegistration)
-                            @case(\App\Enums\MatchStatus::RegistrationOpen)
-                                Shooters are registering. Close registration when ready to squad.
-                                @break
-                            @case(\App\Enums\MatchStatus::RegistrationClosed)
-                                Registration closed. Open squadding or start the match.
-                                @break
-                            @case(\App\Enums\MatchStatus::SquaddingOpen)
-                                Squadding is open. Close squadding to lock shooter self-squadding.
-                                @break
-                            @case(\App\Enums\MatchStatus::SquaddingClosed)
-                                Squads are locked to shooters. Finalise squad assignments, then mark the match <strong class="text-primary">Ready</strong>.
-                                @break
-                            @case(\App\Enums\MatchStatus::Ready)
-                                Pre-flight done. Tablets can download the match. Scoring goes live on the first shot or when you tap <strong class="text-primary">Start Match</strong>.
-                                @break
-                            @case(\App\Enums\MatchStatus::Active)
-                                Match is live. Scoring app can download and submit scores.
-                                @break
-                            @case(\App\Enums\MatchStatus::Completed)
-                                Match completed. Scores are locked unless you reopen it.
-                                @break
-                        @endswitch
-                    </p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    {{-- Primary CTA: Mark Ready from SquaddingClosed, Start Match from Ready,
-                         Start Match (straight to Active) from earlier stages. --}}
-                    @if($match->status === \App\Enums\MatchStatus::SquaddingClosed)
-                        <button type="button" wire:click="transitionStatus('ready')"
-                                wire:confirm="Mark this match as Ready? Tablets will be able to download it. Scoring is still locked until the first shot or tapping Start Match."
-                                class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-900/40 transition-colors min-h-[44px]">
-                            <x-icon name="chevron-right" class="h-4 w-4" />
-                            Mark Ready
-                        </button>
-                    @elseif(in_array(\App\Enums\MatchStatus::Active, $match->status->allowedTransitions()))
-                        <button type="button" wire:click="transitionStatus('active')"
-                                wire:confirm="Start the match now? Scoring goes live and the scoreboard begins accepting hits."
-                                class="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-green-900/40 transition-colors min-h-[44px]">
-                            <x-icon name="chevron-right" class="h-4 w-4" />
-                            Start Match
-                        </button>
-                    @endif
-                    @if(in_array($match->status, [\App\Enums\MatchStatus::Active, \App\Enums\MatchStatus::Ready]))
-                        <flux:button href="{{ route('score') }}" target="_blank" variant="primary" class="!bg-accent hover:!bg-accent-hover">Open Scoring App</flux:button>
-                    @endif
-                    @if($organization->isRoyalFlushOrg())
-                        <flux:button href="{{ route('org.matches.side-bet', [$organization, $match]) }}" variant="ghost" size="sm" class="!text-amber-400 hover:!bg-amber-500/10">
-                            Side Bet Buy-In
-                        </flux:button>
-                    @endif
-                    <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost" size="sm">Squadding</flux:button>
-                </div>
-            </div>
-        </div>
-    @endif
+    {{-- The "Quick-status card" that used to sit here (Current Status pill +
+         duplicate Mark Ready / Start Match / Open Scoring App / Squadding /
+         Side Bet buttons) has been removed. The Match Control Center shell
+         now hosts the canonical match identity + status badge + lifecycle-
+         aware primary CTA + secondary Scoreboard / Scoring App quick links
+         at the top of every tab — having a second copy here was redundant
+         and caused the "duplicate buttons everywhere" complaint. --}}
     <form wire:submit="save" class="space-y-6">
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <h2 class="text-lg font-semibold text-primary">Match Details</h2>
@@ -1790,135 +1745,35 @@ new #[Layout('components.layouts.app')]
             </form>
         </div>
 
-        {{-- Status stepper --}}
-        <div class="rounded-xl border border-border bg-surface p-6 space-y-5">
-            <h2 class="text-lg font-semibold text-primary">Match Lifecycle</h2>
-
-            @php
-                $steps = \App\Enums\MatchStatus::cases();
-                $currentStatus = $match->status;
-                $currentOrd = $currentStatus->ordinal();
-                $allowed = $currentStatus->allowedTransitions();
-            @endphp
-
-            <p class="text-sm text-muted">Tap any stage to jump there. The current stage is ringed. Every jump asks for confirmation and tells you what will fire.</p>
-
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                @foreach($steps as $step)
-                    @php
-                        $ord = $step->ordinal();
-                        $isCurrent = $currentStatus === $step;
-                        $isPast = $ord < $currentOrd && ! $isCurrent;
-                        $isAllowed = in_array($step, $allowed, true);
-                        $color = $step->color();
-
-                        $warning = $step->transitionWarning($currentStatus);
-                        $confirmText = $isCurrent
-                            ? null
-                            : "Move match to '{$step->label()}'?\n\n".($warning ?? 'No side effects.');
-                    @endphp
-
-                    <button
-                        wire:key="status-step-{{ $step->value }}"
-                        type="button"
-                        @if(! $isCurrent && $isAllowed)
-                            wire:click="transitionStatus('{{ $step->value }}')"
-                            wire:confirm="{{ $confirmText }}"
-                        @else
-                            disabled
-                        @endif
-                        class="group relative flex items-start gap-3 rounded-xl border p-3 text-left transition-colors
-                            {{ $isCurrent
-                                ? 'border-'.$color.'-500 bg-'.$color.'-600/15 ring-2 ring-'.$color.'-500/40 cursor-default'
-                                : ($isAllowed
-                                    ? ($isPast
-                                        ? 'border-green-600/40 bg-green-600/5 hover:bg-green-600/15 hover:border-green-500/60'
-                                        : 'border-border bg-surface-2/40 hover:bg-surface-2 hover:border-'.$color.'-500/50')
-                                    : 'border-border/40 bg-surface-2/10 opacity-40 cursor-not-allowed')
-                            }}"
-                    >
-                        <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold
-                            {{ $isCurrent
-                                ? 'bg-'.$color.'-600 text-white'
-                                : ($isPast ? 'bg-green-600/30 text-green-400' : 'bg-surface-2 text-muted') }}">
-                            @if($isPast)
-                                &#10003;
-                            @else
-                                {{ $ord + 1 }}
-                            @endif
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-sm font-semibold {{ $isCurrent ? 'text-primary' : 'text-secondary' }}">{{ $step->label() }}</span>
-                                @if($isCurrent)
-                                    <span class="rounded-full bg-{{ $color }}-600/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-{{ $color }}-300">Current</span>
-                                @elseif($isPast)
-                                    <span class="text-[10px] text-green-400">Done</span>
-                                @elseif(! $isAllowed)
-                                    <span class="text-[10px] text-muted">Not reachable</span>
-                                @endif
-                            </div>
-                            <p class="mt-1 text-xs leading-snug text-muted">{{ $step->shortDescription() }}</p>
-                        </div>
-                    </button>
-                @endforeach
-            </div>
-
-            @if($currentStatus === MatchStatus::Active)
-                <div class="rounded-xl border border-red-600/30 bg-red-900/10 p-5 space-y-3">
-                    <h3 class="text-base font-semibold text-red-400">Finalise Match</h3>
-                    <p class="text-sm text-muted">When every stage is scored and every time recorded, mark the match Completed above. This will trigger badge evaluation and post-match notifications. You can un-complete it later if needed — achievements already awarded will stay in place.</p>
+        {{-- Live scoreboard QR — useful spectator affordance, kept on the
+             Setup tab where the rest of the match-meta config lives. The
+             old "Match Lifecycle" stepper that sat above this is now in
+             the Match Control Center shell at the top of every page;
+             the duplicate action buttons (Manage Squadding / Open
+             Scoring / View Scoreboard / Download Standings / Send
+             Reports Now / Toggle Scores) have moved to their dedicated
+             tabs (Squadding / Scoring / Reports). --}}
+        @if($qrCodeSvg)
+            <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-primary">Live Scoreboard QR</h2>
+                        <p class="mt-1 text-sm text-muted">Share this code so spectators can follow scores live on their phones.</p>
+                    </div>
+                    <flux:button href="{{ route('live', $match) }}" target="_blank" variant="ghost" size="sm">Open Live Scoreboard</flux:button>
                 </div>
-            @elseif($currentStatus === MatchStatus::Completed)
-                <div class="rounded-xl border border-amber-600/30 bg-amber-900/10 p-5 space-y-2">
-                    <h3 class="text-base font-semibold text-amber-400">Match Completed</h3>
-                    <p class="text-sm text-muted">Accidentally finished the match? Tap <span class="font-semibold text-primary">Active</span> above to reopen it. Achievements already awarded and post-match emails already sent will stay in place — re-completing later does not re-award or re-send.</p>
-                </div>
-            @endif
-
-            <div class="flex flex-wrap gap-3 border-t border-border pt-4">
-                <flux:button href="{{ route('org.matches.squadding', [$organization, $match]) }}" variant="ghost">Manage Squadding</flux:button>
-                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready]))
-                    <flux:button href="{{ route('score') }}" target="_blank" variant="ghost">Open Scoring</flux:button>
-                    <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost">View Scoreboard</flux:button>
-                @endif
-                @if(in_array($match->status, [MatchStatus::Active, MatchStatus::Completed]))
-                    <flux:button href="{{ route('org.matches.export.standings', [$organization, $match]) }}" variant="ghost">Download Standings</flux:button>
-                    <flux:button href="{{ route('org.matches.export.detailed', [$organization, $match]) }}" variant="ghost">Download Full Results</flux:button>
-                    @if($match->side_bet_enabled && $match->royal_flush_enabled)
-                        <flux:button href="{{ route('org.matches.side-bet-report', [$organization, $match]) }}" variant="ghost" class="!text-amber-400">Side Bet Report</flux:button>
-                    @endif
-                    <flux:button wire:click="toggleScoresPublished" variant="{{ $scores_published ? 'ghost' : 'primary' }}" class="{{ $scores_published ? '' : '!bg-amber-600 hover:!bg-amber-700' }}">
-                        {{ $scores_published ? 'Hide Scores' : 'Publish Scores' }}
-                    </flux:button>
-                @endif
-                @if($match->status === MatchStatus::Completed)
-                    <flux:button href="{{ route('org.matches.report.preview', [$organization, $match]) }}" target="_blank" variant="ghost">Preview Match Report</flux:button>
-                    <flux:button wire:click="sendMatchReports" wire:confirm="Results and reports are sent automatically 1 hour after marking complete. Send them now instead?" variant="primary" class="!bg-emerald-600 hover:!bg-emerald-700">
-                        Send Reports Now
-                    </flux:button>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Results auto-sent 1 hr after completion</p>
-                @endif
-            </div>
-
-            @if($qrCodeSvg)
-                <div class="border-t border-border pt-4">
-                    <h3 class="text-sm font-medium text-secondary mb-3">Live Scoreboard</h3>
-                    <div class="flex items-start gap-4">
-                        <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0"><img src="{{ $qrCodeSvg }}" alt="QR Code" class="w-full h-full" /></div>
-                        <div class="space-y-2">
-                            <p class="text-xs text-muted">Share this QR code for spectators to follow scores live on their phones.</p>
-                            <div class="flex items-center gap-2">
-                                <input type="text" value="{{ $liveUrl }}" readonly class="flex-1 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-secondary" />
-                                <button onclick="navigator.clipboard.writeText('{{ $liveUrl }}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)"
-                                        class="rounded-md bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-2">Copy</button>
-                            </div>
-                            <flux:button href="{{ route('live', $match) }}" target="_blank" variant="ghost" size="sm">Open Live Scoreboard</flux:button>
+                <div class="flex items-start gap-4">
+                    <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0"><img src="{{ $qrCodeSvg }}" alt="QR Code" class="w-full h-full" /></div>
+                    <div class="flex-1 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <input type="text" value="{{ $liveUrl }}" readonly class="flex-1 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-secondary" />
+                            <button onclick="navigator.clipboard.writeText('{{ $liveUrl }}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000)"
+                                    class="rounded-md bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-2">Copy</button>
                         </div>
                     </div>
                 </div>
-            @endif
-        </div>
+            </div>
+        @endif
 
         <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
             <h2 class="text-lg font-semibold text-primary">Advertising Options</h2>
@@ -3056,6 +2911,14 @@ new #[Layout('components.layouts.app')]
             @endif
         </div>
         </div>{{-- /tab:config group 3 --}}
+    @endif
+
+    {{-- Close the shell wrapper (when $match exists) or the create-flow
+         simple wrapper (when no $match yet). --}}
+    @if($match)
+        </x-match-control-shell>
+    @else
+        </div>
     @endif
 </div>
 

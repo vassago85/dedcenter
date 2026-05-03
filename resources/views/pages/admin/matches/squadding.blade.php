@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\HandlesMatchLifecycleTransitions;
 use App\Enums\MatchStatus;
 use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
@@ -13,6 +14,8 @@ use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
     class extends Component {
+    use HandlesMatchLifecycleTransitions;
+
     public ShootingMatch $match;
 
     public string $walkinName = '';
@@ -546,31 +549,25 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-6 max-w-6xl" x-data="{ tab: @entangle('activeTab') }">
+<div x-data="{ tab: @entangle('activeTab') }">
+<x-match-control-shell :match="$match">
 
-    <x-match-hub-tabs :match="$match" />
-
-    {{-- Header --}}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-4">
-            <flux:button href="{{ route('admin.matches.hub', $match) }}" variant="ghost" size="sm">
-                <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
-                Back
-            </flux:button>
-            <div>
-                <flux:heading size="xl">Squads &amp; Shooters</flux:heading>
-                <p class="mt-1 text-sm text-muted">{{ $match->name }} &mdash; {{ $confirmedCount }} confirmed registrations</p>
+    {{-- Squadding-page-specific shortcut: SquaddingOpen → Active in one
+         step (the standard graph routes through SquaddingClosed → Ready
+         → Active). Surfaced here so the existing power-user shortcut
+         doesn't disappear, but only when relevant. The shell's primary
+         CTA covers the standard graph path. --}}
+    @if($match->status === MatchStatus::SquaddingOpen)
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-primary">{{ $confirmedCount }} confirmed {{ \Illuminate\Support\Str::plural('registration', $confirmedCount) }}</p>
+                <p class="mt-0.5 text-xs text-muted">Manage relays, capacities and walk-ins below.</p>
             </div>
+            <flux:button wire:click="closeSquadding" variant="primary" class="!bg-emerald-600 hover:!bg-emerald-700 min-h-[44px]" wire:confirm="Close squadding AND jump straight to Active (skipping Squadding-Closed → Ready)? Use the lifecycle stepper above for the gradual path.">
+                Close Squadding &amp; Go Live
+            </flux:button>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            @if($match->status->canTransitionTo(MatchStatus::SquaddingOpen))
-                <flux:button wire:click="openSquadding" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]" wire:confirm="Open squadding to shooters?">Open Squadding</flux:button>
-            @elseif($match->status === MatchStatus::SquaddingOpen)
-                <flux:badge color="indigo" size="sm">Squadding Open</flux:badge>
-                <flux:button wire:click="closeSquadding" variant="ghost" class="min-h-[44px]" wire:confirm="Close squadding and activate match?">Close &amp; Activate</flux:button>
-            @endif
-        </div>
-    </div>
+    @endif
 
     {{-- Status summary --}}
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -1024,4 +1021,5 @@ new #[Layout('components.layouts.app')]
             <flux:button wire:click="addWalkin" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]">Add Walk-in</flux:button>
         </div>
     </div>
+</x-match-control-shell>
 </div>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\HandlesMatchLifecycleTransitions;
 use App\Enums\MatchStatus;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
@@ -14,6 +15,8 @@ use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
     class extends Component {
+    use HandlesMatchLifecycleTransitions;
+
     public Organization $organization;
     public ShootingMatch $match;
 
@@ -676,39 +679,43 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-6 max-w-6xl" x-data="{ tab: @entangle('activeTab') }">
-
-    <x-match-hub-tabs :match="$match" :organization="$organization" />
+<div x-data="{ tab: @entangle('activeTab') }">
+<x-match-control-shell :match="$match" :organization="$organization">
 
     {{-- ═══════════════════════════════════════════════
-         Header
-         ═══════════════════════════════════════════════ --}}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-4">
-            <flux:button href="{{ route('org.matches.hub', [$organization, $match]) }}" variant="ghost" size="sm">
-                <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
-                Back
-            </flux:button>
-            <div>
-                <flux:heading size="xl">Squads &amp; Shooters</flux:heading>
-                <p class="mt-1 text-sm text-muted">{{ $match->name }} &mdash; {{ $confirmedCount }} confirmed registrations</p>
+         Squadding-page-specific quick actions
+         ═══════════════════════════════════════════════
+         The shell's primary CTA already covers the standard graph
+         transitions (RegistrationClosed → Open Squadding, SquaddingOpen
+         → Close Squadding). But this page has a power-user shortcut
+         that the standard graph doesn't expose: closeSquadding() jumps
+         SquaddingOpen → Active directly (skipping SquaddingClosed and
+         Ready) for organisers who want to go live the moment squadding
+         is locked. Surface that here as a secondary action so the
+         shortcut isn't lost — but only when the lifecycle state makes
+         it relevant. Side-bet quick link stays here for the same reason
+         (squadding day is when shooters buy in). --}}
+    @if($sideBetEnabled || $match->status === MatchStatus::SquaddingOpen)
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-primary">{{ $confirmedCount }} confirmed {{ \Illuminate\Support\Str::plural('registration', $confirmedCount) }}</p>
+                <p class="mt-0.5 text-xs text-muted">Manage relays, capacities and walk-ins below.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                @if($sideBetEnabled)
+                    <flux:button href="{{ route('org.matches.side-bet', [$organization, $match]) }}" variant="ghost" class="!text-amber-400 hover:!bg-amber-500/10 min-h-[44px]">
+                        <x-icon name="check" class="mr-1 h-4 w-4" />
+                        Side Bet Buy-In
+                    </flux:button>
+                @endif
+                @if($match->status === MatchStatus::SquaddingOpen)
+                    <flux:button wire:click="closeSquadding" variant="primary" class="!bg-emerald-600 hover:!bg-emerald-700 min-h-[44px]" wire:confirm="Close squadding AND jump straight to Active (skipping Squadding-Closed → Ready)? This is the power-user shortcut — use the lifecycle stepper above for the gradual path.">
+                        Close Squadding &amp; Go Live
+                    </flux:button>
+                @endif
             </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            @if($sideBetEnabled)
-                <flux:button href="{{ route('org.matches.side-bet', [$organization, $match]) }}" variant="ghost" class="!text-amber-400 hover:!bg-amber-500/10 min-h-[44px]">
-                    <x-icon name="check" class="mr-1 h-4 w-4" />
-                    Side Bet Buy-In
-                </flux:button>
-            @endif
-            @if($match->status->canTransitionTo(MatchStatus::SquaddingOpen))
-                <flux:button wire:click="openSquadding" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]" wire:confirm="Open squadding to shooters?">Open Squadding</flux:button>
-            @elseif($match->status === MatchStatus::SquaddingOpen)
-                <flux:badge color="indigo" size="sm">Squadding Open</flux:badge>
-                <flux:button wire:click="closeSquadding" variant="ghost" class="min-h-[44px]" wire:confirm="Close squadding and activate match?">Close &amp; Activate</flux:button>
-            @endif
-        </div>
-    </div>
+    @endif
 
     {{-- ═══════════════════════════════════════════════
          Match-Day Status Summary
@@ -1368,4 +1375,5 @@ new #[Layout('components.layouts.app')]
             </div>
         </div>
     @endif
+</x-match-control-shell>
 </div>
