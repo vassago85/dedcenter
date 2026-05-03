@@ -124,8 +124,13 @@ export const useMatchStore = defineStore('match', {
             }
         },
 
-        async fetchMatch(matchId) {
-            this.loading = true;
+        async fetchMatch(matchId, { silent = false } = {}) {
+            // `silent` skips the loading flag so callers that already have the
+            // match in cache (e.g. coming back from a sibling route) don't
+            // flash a spinner while we revalidate in the background. The
+            // network refresh still happens — we just don't tear down the UI
+            // for it.
+            if (!silent) this.loading = true;
             this.error = null;
             try {
                 const { data } = await axios.get(`/api/matches/${matchId}`);
@@ -136,11 +141,11 @@ export const useMatchStore = defineStore('match', {
                 const cached = await db.matches.get(matchId);
                 if (cached) {
                     this.currentMatch = cached;
-                } else {
+                } else if (!silent) {
                     this.error = 'Match not available offline.';
                 }
             } finally {
-                this.loading = false;
+                if (!silent) this.loading = false;
             }
 
             const squadLock = readSquadLock(matchId);

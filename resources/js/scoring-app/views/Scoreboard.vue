@@ -2,8 +2,18 @@
     <div class="min-h-screen bg-app text-primary">
         <header class="border-b border-border bg-surface px-4 py-4">
             <div class="mx-auto flex max-w-4xl items-center gap-3">
+                <!--
+                    Back goes to ScoringRouter, not the Match Overview. The
+                    overview re-fires `fetchMatch` and flashes a "loading
+                    match" spinner that feels like a re-download. The router
+                    restores the last squad/stage/screen from localStorage
+                    so the scorer lands straight back on the shooter list
+                    they were last on. ScoringRouter bounces to overview
+                    when the match is already completed, so we don't end up
+                    in a dead-end on closed matches.
+                -->
                 <router-link
-                    :to="{ name: 'match-overview', params: { matchId: props.matchId } }"
+                    :to="{ name: 'scoring', params: { matchId: props.matchId } }"
                     class="text-muted hover:text-primary"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -113,6 +123,9 @@
                                 <tr class="border-b border-border text-left text-muted">
                                     <th class="px-2 py-3 text-center w-10">#</th>
                                     <th class="px-2 py-3">Shooter</th>
+                                    <th class="px-2 py-3 text-center text-green-400">Hits</th>
+                                    <th class="px-2 py-3 text-center text-red-400">Miss</th>
+                                    <th class="px-2 py-3 text-center text-amber-400/70">N/T</th>
                                     <th
                                         v-for="ts in targetSets"
                                         :key="'prs-hdr-' + ts.id"
@@ -149,6 +162,9 @@
                                         </div>
                                         <p class="text-[10px] text-muted">{{ entry.squad }}</p>
                                     </td>
+                                    <td class="px-2 py-3 text-center tabular-nums text-green-400 font-medium">{{ prsTotalHits(entry) }}</td>
+                                    <td class="px-2 py-3 text-center tabular-nums text-red-400">{{ prsTotalMisses(entry) }}</td>
+                                    <td class="px-2 py-3 text-center tabular-nums text-amber-400/70">{{ prsTotalNotTaken(entry) }}</td>
                                     <td
                                         v-for="ts in targetSets"
                                         :key="'prs-cell-' + entry.shooter_id + '-' + ts.id"
@@ -869,6 +885,32 @@ function stageNotTaken(entry, tsId) {
     const shots = stageData.shots;
     if (!shots) return 0;
     return shots.filter(s => s === 'not_taken').length;
+}
+
+// PRS aggregate counts shown in the leaderboard header columns. The API
+// gives us per-stage breakdown in `entry.stages[stageId]`; we sum across
+// stages so the scorer can see the H/M/NT split at a glance instead of
+// only the relative-points figure. `entry.hits` / `entry.total_score` are
+// still preferred when present (server may pre-compute them) so we don't
+// double-count anything the backend has already aggregated.
+function prsTotalHits(entry) {
+    if (entry?.hits != null) return entry.hits;
+    if (entry?.total_score != null) return entry.total_score;
+    return Object.values(entry?.stages || {}).reduce((sum, st) => sum + (st?.hits || 0), 0);
+}
+
+function prsTotalMisses(entry) {
+    if (entry?.misses != null) return entry.misses;
+    return Object.values(entry?.stages || {}).reduce((sum, st) => sum + (st?.misses || 0), 0);
+}
+
+function prsTotalNotTaken(entry) {
+    if (entry?.not_taken != null) return entry.not_taken;
+    return Object.values(entry?.stages || {}).reduce((sum, st) => {
+        if (st?.not_taken != null) return sum + st.not_taken;
+        if (Array.isArray(st?.shots)) return sum + st.shots.filter(s => s === 'not_taken').length;
+        return sum;
+    }, 0);
 }
 
 function prsGongClass(entry, tsId, gongNum) {

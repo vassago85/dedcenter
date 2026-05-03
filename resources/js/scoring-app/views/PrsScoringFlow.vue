@@ -967,21 +967,22 @@ function moveFromActionModal() {
 }
 
 function goBack() {
+    // Simplified back stack — the old version walked the user through
+    // scoring → shooter-list → stage-select → squad-select → match-home →
+    // match-overview, which was four taps to leave a stage and felt
+    // clumsy. New rule: from scoring, one tap back to the shooter list
+    // (so you can pick the next person). From anywhere else inside the
+    // PRS flow, jump straight back to the match overview. The "Change
+    // Squad" / "Change Stage" buttons on the shooter-list cover the rare
+    // case where the scorer actually wants to switch — they don't need a
+    // back-button traversal for it.
     const s = prsStore.currentScreen;
-    if (s === 'scoring') prsStore.navigateTo('shooter-list');
-    // If locked to a stage, going "back" from the shooter-list should jump
-    // past the (forbidden) stage-select screen straight to match-home so
-    // the user isn't stuck bouncing between equivalent locked screens.
-    else if (s === 'shooter-list') prsStore.navigateTo(stageLocked.value ? 'match-home' : 'stage-select');
-    // Same for squad: if locked there's only ever one squad, no point going
-    // to the squad picker.
-    else if (s === 'stage-select') prsStore.navigateTo(squadLocked.value ? 'match-home' : 'squad-select');
-    else if (s === 'squad-select') prsStore.navigateTo('match-home');
-    else if (s === 'match-home') {
-        router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+    if (s === 'scoring') {
+        prsStore.navigateTo('shooter-list');
+        savePrsProgress();
         return;
     }
-    savePrsProgress();
+    router.push({ name: 'match-overview', params: { matchId: props.matchId } });
 }
 
 function recordHit() { prsStore.recordShot('hit'); }

@@ -453,6 +453,15 @@ function formatDate(d) {
 }
 
 onMounted(() => {
-    matchStore.fetchMatch(props.matchId);
+    // Show whatever's already in the store immediately, then revalidate in
+    // the background. Without this, tapping back from Scoreboard / scoring
+    // re-fires fetchMatch, flips `loading` to true, and the user sees a
+    // "redownloading the match" spinner even though the match is already
+    // cached locally.
+    if (matchStore.currentMatch?.id === props.matchId) {
+        matchStore.fetchMatch(props.matchId, { silent: true });
+    } else {
+        matchStore.fetchMatch(props.matchId);
+    }
 });
 </script>
