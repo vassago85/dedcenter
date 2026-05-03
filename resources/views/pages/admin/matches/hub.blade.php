@@ -111,11 +111,11 @@ new #[Layout('components.layouts.app')]
                 'isCompleted' => $status === MatchStatus::Completed,
                 'isPreActive' => $status->ordinal() < MatchStatus::Active->ordinal(),
                 'isRoyalFlush' => (bool) $this->match->royal_flush_enabled,
-                'setupUrl' => route('admin.matches.edit', $match),
-                'squaddingUrl' => route('admin.matches.squadding', $match),
-                'scoringUrl' => route('admin.matches.scoring', $match),
-                'reportsUrl' => route('admin.matches.reports', $match),
-                'sideBetReportUrl' => $match->side_bet_enabled ? route('admin.matches.side-bet-report', $match) : null,
+                'setupUrl' => route('admin.matches.edit', $this->match),
+                'squaddingUrl' => route('admin.matches.squadding', $this->match),
+                'scoringUrl' => route('admin.matches.scoring', $this->match),
+                'reportsUrl' => route('admin.matches.reports', $this->match),
+                'sideBetReportUrl' => $this->match->side_bet_enabled ? route('admin.matches.side-bet-report', $this->match) : null,
             ];
         }
     }; ?>

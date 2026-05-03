@@ -27,6 +27,18 @@
     $isPrs       = $scoringType === 'prs';
     $isElr       = $scoringType === 'elr';
 
+    // Per-shooter accuracy breakdown (first round / follow-up / rounds
+    // fired tiles, plus distance / position / target-size bracket cards).
+    // Each section is null when the match director didn't supply enough
+    // metadata for it to mean anything, so we just hide it instead of
+    // rendering an empty card.
+    $accuracy            = $report['accuracy_breakdown'] ?? [];
+    $shotOrder           = $accuracy['shot_order'] ?? [];
+    $roundsFired         = $accuracy['rounds_fired'] ?? null;
+    $distanceBrackets    = $accuracy['distance_brackets'] ?? null;
+    $positionBrackets    = $accuracy['position_brackets'] ?? null;
+    $targetSizeBrackets  = $accuracy['target_size_brackets'] ?? null;
+
     $typeChipColor = $isPrs ? 'bg-amber-500' : ($isElr ? 'bg-sky-500' : 'bg-red-600');
     $scoreLabel    = $isPrs ? 'Hits' : ($isElr ? 'Points' : 'Score');
     $typeLabel     = strtoupper($scoringType);
@@ -391,6 +403,102 @@
                 </article>
             @endforeach
         </div>
+    </section>
+    @endif
+
+    {{-- ─── Accuracy breakdown ──────────────────────────────────────────
+         Three "always-on" tiles (first round, follow-up, rounds fired)
+         plus three optional bracket cards (distance, position, target
+         size). Each bracket card is null when the match director didn't
+         set up the metadata, so we just render whatever we have without
+         leaving empty placeholders. --}}
+    @php
+        $hasOrderTiles = ! empty($shotOrder);
+        $hasRoundsFired = $roundsFired !== null;
+        $hasAnyTopTile = $hasOrderTiles || $hasRoundsFired;
+        $hasAnyBracket = $distanceBrackets || $positionBrackets || $targetSizeBrackets;
+    @endphp
+    @if($hasAnyTopTile || $hasAnyBracket)
+    <section class="space-y-3">
+        <h2 class="text-[10px] font-bold uppercase tracking-[0.22em] text-red-400">Accuracy Breakdown</h2>
+
+        @if($hasAnyTopTile)
+            @php
+                $tiles = collect($shotOrder)
+                    ->map(fn ($t) => ['label' => $t['label'], 'value' => number_format($t['hit_rate'], 0) . '%', 'sub' => "{$t['hits']}/{$t['attempts']}", 'tone' => 'emerald'])
+                    ->all();
+
+                if ($hasRoundsFired) {
+                    $tiles[] = [
+                        'label' => 'Rounds Fired',
+                        'value' => number_format($roundsFired['pct'], 0) . '%',
+                        'sub' => "{$roundsFired['fired']}/{$roundsFired['total']}",
+                        'tone' => 'amber',
+                    ];
+                }
+
+                // Static Tailwind class lookup — JIT can't see
+                // dynamically-built grid-cols-* utilities, so we map
+                // 1/2/3 explicitly. With only 1-3 tiles in play
+                // (first round, follow-up, rounds fired) this covers
+                // every realistic outcome.
+                $gridClass = match (min(count($tiles), 3)) {
+                    1 => 'grid-cols-1',
+                    2 => 'grid-cols-2',
+                    default => 'grid-cols-3',
+                };
+            @endphp
+            <div class="grid gap-2 {{ $gridClass }}">
+                @foreach($tiles as $tile)
+                    @php
+                        $valueClass = $tile['tone'] === 'amber' ? 'text-amber-400' : 'text-emerald-400';
+                    @endphp
+                    <div class="rounded-xl bg-zinc-900/60 ring-1 ring-white/5 px-2 py-3 text-center">
+                        <div class="text-2xl font-bold leading-none {{ $valueClass }}">{{ $tile['value'] }}</div>
+                        <div class="mt-1 text-[9px] font-semibold uppercase tracking-wider text-zinc-500">{{ $tile['label'] }}</div>
+                        <div class="mt-0.5 text-[10px] text-zinc-600">{{ $tile['sub'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
+        @php
+            // Compact horizontal bar for a bucketed list — same shape
+            // for distance, position, target-size so the visual rhythm
+            // stays consistent.
+            $bracketCards = array_filter([
+                'Distance' => $distanceBrackets,
+                'Position' => $positionBrackets,
+                'Target Size' => $targetSizeBrackets,
+            ]);
+        @endphp
+
+        @foreach($bracketCards as $title => $rows)
+            <div class="rounded-xl bg-zinc-900/50 ring-1 ring-white/5 p-3.5">
+                <h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{{ $title }}</h3>
+                <ul class="mt-2 space-y-1.5">
+                    @foreach($rows as $row)
+                        @php
+                            $pct = (float) ($row['hit_rate'] ?? 0);
+                            $barClass = $pct >= 70 ? 'bg-emerald-500'
+                                : ($pct >= 40 ? 'bg-amber-400' : 'bg-red-500');
+                        @endphp
+                        <li class="space-y-1">
+                            <div class="flex items-baseline justify-between gap-2 text-[12px]">
+                                <span class="min-w-0 truncate text-zinc-300">{{ $row['label'] }}</span>
+                                <span class="shrink-0 font-semibold text-white">
+                                    {{ number_format($pct, 0) }}%
+                                    <span class="ml-1 text-[10px] font-normal text-zinc-500">{{ $row['hits'] }}/{{ $row['attempts'] }}</span>
+                                </span>
+                            </div>
+                            <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                                <div class="h-full {{ $barClass }} rounded-full" style="width: {{ min(100, $pct) }}%"></div>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endforeach
     </section>
     @endif
 

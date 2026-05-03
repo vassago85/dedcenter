@@ -127,13 +127,13 @@ new #[Layout('components.layouts.app')]
                 'isRoyalFlush' => (bool) $this->match->royal_flush_enabled,
                 'isCompleted' => $status === MatchStatus::Completed,
                 'isPreActive' => $status->ordinal() < MatchStatus::Active->ordinal(),
-                'matchesIndexUrl' => route('org.matches.index', $organization),
-                'setupUrl' => route('org.matches.edit', [$organization, $match]),
-                'squaddingUrl' => route('org.matches.squadding', [$organization, $match]),
-                'scoringUrl' => route('org.matches.scoring', [$organization, $match]),
-                'reportsUrl' => route('org.matches.reports', [$organization, $match]),
-                'sideBetBuyInUrl' => $match->side_bet_enabled ? route('org.matches.side-bet', [$organization, $match]) : null,
-                'sideBetReportUrl' => $match->side_bet_enabled ? route('org.matches.side-bet-report', [$organization, $match]) : null,
+                'matchesIndexUrl' => route('org.matches.index', $this->organization),
+                'setupUrl' => route('org.matches.edit', [$this->organization, $this->match]),
+                'squaddingUrl' => route('org.matches.squadding', [$this->organization, $this->match]),
+                'scoringUrl' => route('org.matches.scoring', [$this->organization, $this->match]),
+                'reportsUrl' => route('org.matches.reports', [$this->organization, $this->match]),
+                'sideBetBuyInUrl' => $this->match->side_bet_enabled ? route('org.matches.side-bet', [$this->organization, $this->match]) : null,
+                'sideBetReportUrl' => $this->match->side_bet_enabled ? route('org.matches.side-bet-report', [$this->organization, $this->match]) : null,
             ];
         }
     }; ?>

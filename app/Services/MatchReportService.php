@@ -24,6 +24,13 @@ class MatchReportService
             default => $this->generateStandardReport($match, $shooter),
         };
 
+        // Per-shooter accuracy breakdown (first round %, follow-up %, rounds
+        // fired %, distance / position / target-size brackets). The bracket
+        // sections only materialise when the match director has populated
+        // the relevant stage metadata, so a "minimal" match still gets the
+        // shot-order tiles without bogus "Unknown distance" buckets.
+        $report['accuracy_breakdown'] = $this->buildAccuracyBreakdown($match, $shooter);
+
         $report['sponsor'] = $this->sponsorData($match);
 
         return $report;
@@ -1183,6 +1190,506 @@ class MatchReportService
             'hardest' => $rates->sortBy('hit_rate')->first(),
             'easiest' => $rates->sortByDesc('hit_rate')->first(),
         ];
+    }
+
+    // ── Accuracy breakdown ──────────────────────────────────────────────
+    //
+    // Per-shooter "where did your shots actually land?" view, surfaced on
+    // the shooter share view / PDF. Five sections, each independently
+    // gated on whether the underlying metadata exists:
+    //
+    //   shot_order            — first round impact %, follow-up shot %
+    //                           (always available, derived from gong/shot
+    //                           order on every match type)
+    //   rounds_fired_pct      — % of available rounds the shooter actually
+    //                           sent downrange (PRS only — standard / RF
+    //                           don't track "didn't fire" as a distinct
+    //                           result, every gong has a hit/miss)
+    //   distance_brackets     — hit % grouped into 200-300 / 300-400 /
+    //                           400-500 / 500-600 / 600-800 / 800m+
+    //                           (only emitted when stages / gongs carry
+    //                           distance metadata across more than one
+    //                           bucket — otherwise it's noise)
+    //   position_brackets     — hit % grouped by stage position name
+    //                           ("Prone", "Positional", etc). Requires
+    //                           the PRS stage author to have built a
+    //                           `stage_shot_sequence` row per shot, which
+    //                           only the new PRS pipeline supports.
+    //   target_size_brackets  — hit % grouped by gong angular size in
+    //                           mrad (≤0.5 / 0.5–1 / 1–2 / 2+). Computed
+    //                           from gongs.target_size_mm divided by
+    //                           distance, so requires both fields to be
+    //                           populated for at least some gongs.
+
+    /**
+     * Top-level entry — collects the shooter's per-shot records once and
+     * derives every bracket from that flat list, so every match type goes
+     * through the same code path with the same edge cases.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildAccuracyBreakdown(ShootingMatch $match, Shooter $shooter): array
+    {
+        $shots = $this->collectShooterShots($match, $shooter);
+
+        $isPrs = $match->scoring_type === 'prs';
+
+        return [
+            'shot_order' => $this->bucketShotsByOrder($shots),
+            'rounds_fired' => $isPrs ? $this->roundsFiredFromShots($shots) : null,
+            'distance_brackets' => $this->bucketShotsByDistance($shots),
+            'position_brackets' => $this->bucketShotsByPosition($shots),
+            'target_size_brackets' => $this->bucketShotsByTargetSize($shots),
+        ];
+    }
+
+    /**
+     * Build a flat per-shot record list for the shooter, regardless of
+     * scoring type. Each row has:
+     *   order            — 1-based shot index within its stage
+     *   hit              — true / false / null (null = "not taken")
+     *   distance_m       — int|null
+     *   position         — string|null  (PRS only; pulled via
+     *                       stage_shot_sequence -> stage_positions.name)
+     *   target_size_mrad — float|null   (computed from mm/distance)
+     *
+     * @return list<array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
+     */
+    private function collectShooterShots(ShootingMatch $match, Shooter $shooter): array
+    {
+        if ($match->scoring_type === 'elr') {
+            // ELR has its own scoring model + per-shot data already
+            // surfaced via stage_details — keep the breakdown disabled
+            // for now rather than half-fake it.
+            return [];
+        }
+
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        if ($targetSets->isEmpty()) {
+            return [];
+        }
+
+        // Per-stage metadata enrichers so PRS can attach position +
+        // size + distance to the recorded prs_shot_scores rows. For
+        // standard / RF we only need the gong list.
+        $stageIds = $targetSets->pluck('id');
+        $sequenceByStage = collect();
+        $positionsById = collect();
+
+        if ($match->scoring_type === 'prs') {
+            $sequenceByStage = \App\Models\StageShotSequence::whereIn('stage_id', $stageIds)
+                ->get()
+                ->groupBy('stage_id')
+                ->map(fn ($rows) => $rows->keyBy('shot_number'));
+
+            $positionsById = \App\Models\StagePosition::whereIn('stage_id', $stageIds)
+                ->get()
+                ->keyBy('id');
+        }
+
+        $gongsById = $targetSets->flatMap->gongs->keyBy('id');
+
+        $isPrsNew = $match->scoring_type === 'prs'
+            && PrsStageResult::where('match_id', $match->id)->exists();
+
+        if ($isPrsNew) {
+            return $this->collectPrsShots(
+                $match, $shooter, $targetSets, $sequenceByStage,
+                $positionsById, $gongsById
+            );
+        }
+
+        return $this->collectGongScoreShots($shooter, $targetSets, $gongsById);
+    }
+
+    /**
+     * PRS new pipeline — one row per `prs_shot_scores` entry, enriched
+     * with stage_shot_sequence position/gong if the match director set
+     * up that mapping.
+     *
+     * @return list<array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
+     */
+    private function collectPrsShots(
+        ShootingMatch $match, Shooter $shooter, Collection $targetSets,
+        Collection $sequenceByStage, Collection $positionsById, Collection $gongsById
+    ): array {
+        $shots = PrsShotScore::where('match_id', $match->id)
+            ->where('shooter_id', $shooter->id)
+            ->orderBy('stage_id')
+            ->orderBy('shot_number')
+            ->get();
+
+        $expectedByStage = [];
+        foreach ($targetSets as $ts) {
+            $expectedByStage[$ts->id] = $ts->total_shots
+                ?: $ts->gongs->count();
+        }
+
+        $stageDistanceById = $targetSets->keyBy('id')
+            ->map(fn ($ts) => $ts->distance_meters);
+
+        $rows = [];
+        $seenByStage = [];
+
+        foreach ($shots as $shot) {
+            $stageId = $shot->stage_id;
+            $shotNumber = (int) $shot->shot_number;
+            $seenByStage[$stageId][$shotNumber] = true;
+
+            $resultValue = $shot->result instanceof \BackedEnum
+                ? $shot->result->value
+                : (string) $shot->result;
+
+            $hit = match ($resultValue) {
+                'hit'  => true,
+                'miss' => false,
+                default => null,
+            };
+
+            $rows[] = $this->buildShotRow(
+                $shotNumber, $hit, $stageId,
+                $sequenceByStage, $positionsById, $gongsById, $stageDistanceById
+            );
+        }
+
+        // Fill in "not taken" rows for any expected shot the shooter
+        // didn't have a prs_shot_scores entry for, so rounds-fired %
+        // accounts for shots they never sent.
+        foreach ($expectedByStage as $stageId => $expectedCount) {
+            for ($n = 1; $n <= $expectedCount; $n++) {
+                if (! isset($seenByStage[$stageId][$n])) {
+                    $rows[] = $this->buildShotRow(
+                        $n, null, $stageId,
+                        $sequenceByStage, $positionsById, $gongsById, $stageDistanceById
+                    );
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Standard / Royal Flush / PRS legacy — one row per gong on each
+     * stage, ordered by gong number. `hit` is null only when the
+     * scorer never recorded a row for that gong (rare in practice, but
+     * we treat it as "not taken" so the rounds-fired math still works
+     * if a future scoring type opts in).
+     *
+     * @return list<array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
+     */
+    private function collectGongScoreShots(
+        Shooter $shooter, Collection $targetSets, Collection $gongsById
+    ): array {
+        $allGongIds = $gongsById->keys();
+
+        $scoresByGong = Score::query()
+            ->where('shooter_id', $shooter->id)
+            ->whereIn('gong_id', $allGongIds)
+            ->get()
+            ->keyBy('gong_id');
+
+        $rows = [];
+        foreach ($targetSets as $ts) {
+            foreach ($ts->gongs as $g) {
+                $score = $scoresByGong->get($g->id);
+                $hit = $score ? (bool) $score->is_hit : null;
+
+                $distance = $g->distance_meters ?: $ts->distance_meters;
+                $sizeMrad = $this->mradFromMm($g->target_size_mm, $distance);
+
+                $rows[] = [
+                    'order' => (int) $g->number,
+                    'hit' => $hit,
+                    'distance_m' => $distance ? (int) $distance : null,
+                    'position' => null,
+                    'target_size_mrad' => $sizeMrad,
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Build a single PRS shot record, looking up position + distance +
+     * size via the stage_shot_sequence mapping when the author wired one
+     * up. Falls back to the stage's distance if the sequence row or the
+     * gong distance is missing.
+     *
+     * @return array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}
+     */
+    private function buildShotRow(
+        int $shotNumber, ?bool $hit, int $stageId,
+        Collection $sequenceByStage, Collection $positionsById,
+        Collection $gongsById, Collection $stageDistanceById
+    ): array {
+        $sequence = $sequenceByStage->get($stageId)?->get($shotNumber);
+
+        $position = null;
+        $distance = null;
+        $sizeMrad = null;
+
+        if ($sequence) {
+            $position = $positionsById->get($sequence->position_id)?->name;
+            $gong = $gongsById->get($sequence->gong_id);
+            if ($gong) {
+                $distance = $gong->distance_meters;
+                $sizeMrad = $this->mradFromMm($gong->target_size_mm, $distance);
+            }
+        }
+
+        $distance = $distance ?: $stageDistanceById->get($stageId);
+
+        return [
+            'order' => $shotNumber,
+            'hit' => $hit,
+            'distance_m' => $distance ? (int) $distance : null,
+            'position' => $position,
+            'target_size_mrad' => $sizeMrad,
+        ];
+    }
+
+    /**
+     * Convert plate width in mm at a given distance to angular size in
+     * mrad (1 mrad = the angle that subtends 1 unit at 1000 units of
+     * distance, so mm at meters → mm / (m * 1000) gives mrad). Returns
+     * null when either input is missing or zero so we don't bucket on
+     * fake data.
+     */
+    private function mradFromMm($mm, $distanceM): ?float
+    {
+        $mm = (float) $mm;
+        $distance = (float) $distanceM;
+        if ($mm <= 0 || $distance <= 0) {
+            return null;
+        }
+
+        return round($mm / ($distance * 1000) * 1000, 2);
+    }
+
+    /**
+     * "First round impact %" + "Follow-up shot %" tiles. We always
+     * surface the first round; the follow-up only renders if the field
+     * actually has a shot #2 (to avoid a misleading "0% follow-ups"
+     * card on stages that are first-round-only).
+     *
+     * @param  list<array<string, mixed>>  $shots
+     * @return list<array{label:string,hit_rate:float,hits:int,attempts:int}>
+     */
+    private function bucketShotsByOrder(array $shots): array
+    {
+        if (empty($shots)) {
+            return [];
+        }
+
+        $byOrder = [];
+        foreach ($shots as $s) {
+            $order = $s['order'];
+            // "Not taken" still counts as an attempt for shot-order
+            // stats — if you never sent a follow-up at all, that's part
+            // of your follow-up impact %. Otherwise we'd flatter the
+            // shooter for skipping difficult positions.
+            $byOrder[$order]['attempts'] = ($byOrder[$order]['attempts'] ?? 0) + 1;
+            if ($s['hit'] === true) {
+                $byOrder[$order]['hits'] = ($byOrder[$order]['hits'] ?? 0) + 1;
+            } else {
+                $byOrder[$order]['hits'] = $byOrder[$order]['hits'] ?? 0;
+            }
+        }
+
+        $out = [];
+        foreach ([1 => 'First Round Impact', 2 => 'Follow-Up Shot'] as $orderKey => $label) {
+            if (! isset($byOrder[$orderKey])) {
+                continue;
+            }
+            $entry = $byOrder[$orderKey];
+            $out[] = [
+                'label' => $label,
+                'hit_rate' => $entry['attempts'] > 0
+                    ? round($entry['hits'] / $entry['attempts'] * 100, 1)
+                    : 0.0,
+                'hits' => $entry['hits'],
+                'attempts' => $entry['attempts'],
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Shots actually sent downrange (hits + misses) versus shots the
+     * stage allowed (hits + misses + not_taken). Only meaningful when
+     * the scoring system tracks "not taken" as a distinct outcome,
+     * which today is PRS only.
+     *
+     * @param  list<array<string, mixed>>  $shots
+     * @return array{pct:float,fired:int,total:int}|null
+     */
+    private function roundsFiredFromShots(array $shots): ?array
+    {
+        if (empty($shots)) {
+            return null;
+        }
+
+        $fired = 0;
+        foreach ($shots as $s) {
+            if ($s['hit'] !== null) {
+                $fired++;
+            }
+        }
+        $total = count($shots);
+
+        return [
+            'pct' => $total > 0 ? round($fired / $total * 100, 1) : 0.0,
+            'fired' => $fired,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Distance brackets (200-300m, 300-400m, ...). Skipped when fewer
+     * than two distinct buckets have any data — a single-bracket match
+     * isn't telling the shooter anything new.
+     *
+     * @param  list<array<string, mixed>>  $shots
+     * @return list<array{label:string,hit_rate:float,hits:int,attempts:int}>|null
+     */
+    private function bucketShotsByDistance(array $shots): ?array
+    {
+        $brackets = [
+            '<200m'    => fn ($d) => $d < 200,
+            '200-300m' => fn ($d) => $d >= 200 && $d < 300,
+            '300-400m' => fn ($d) => $d >= 300 && $d < 400,
+            '400-500m' => fn ($d) => $d >= 400 && $d < 500,
+            '500-600m' => fn ($d) => $d >= 500 && $d < 600,
+            '600-800m' => fn ($d) => $d >= 600 && $d < 800,
+            '800m+'    => fn ($d) => $d >= 800,
+        ];
+
+        return $this->bucketShotsBy($shots, function ($s) use ($brackets) {
+            $d = $s['distance_m'];
+            if ($d === null) {
+                return null;
+            }
+            foreach ($brackets as $label => $matches) {
+                if ($matches($d)) {
+                    return $label;
+                }
+            }
+            return null;
+        }, array_keys($brackets));
+    }
+
+    /**
+     * Hit % per stage position name, ordered alphabetically so the
+     * card is stable across reports.
+     *
+     * @param  list<array<string, mixed>>  $shots
+     * @return list<array{label:string,hit_rate:float,hits:int,attempts:int}>|null
+     */
+    private function bucketShotsByPosition(array $shots): ?array
+    {
+        return $this->bucketShotsBy($shots, fn ($s) => $s['position'] ?: null);
+    }
+
+    /**
+     * Target size buckets in mrad (smaller = harder shot at distance).
+     * The cutoffs chosen here roughly map to the steel sizes most clubs
+     * carry: ≤0.5 mrad is the "barely there" plate, 2+ mrad is "you
+     * shouldn't be missing this".
+     *
+     * @param  list<array<string, mixed>>  $shots
+     * @return list<array{label:string,hit_rate:float,hits:int,attempts:int}>|null
+     */
+    private function bucketShotsByTargetSize(array $shots): ?array
+    {
+        $brackets = [
+            '≤0.5 mrad'  => fn ($v) => $v <= 0.5,
+            '0.5–1 mrad' => fn ($v) => $v > 0.5 && $v <= 1.0,
+            '1–2 mrad'   => fn ($v) => $v > 1.0 && $v <= 2.0,
+            '2+ mrad'    => fn ($v) => $v > 2.0,
+        ];
+
+        return $this->bucketShotsBy($shots, function ($s) use ($brackets) {
+            $v = $s['target_size_mrad'];
+            if ($v === null) {
+                return null;
+            }
+            foreach ($brackets as $label => $matches) {
+                if ($matches($v)) {
+                    return $label;
+                }
+            }
+            return null;
+        }, array_keys($brackets));
+    }
+
+    /**
+     * Generic "group shots into named buckets and emit hit %" helper.
+     * Returns null if the bucketer couldn't classify any shot or if
+     * fewer than two non-empty buckets resulted — both cases mean the
+     * card would be misleading or trivially uninteresting and should
+     * be hidden, per the user's "only show if the match director sets
+     * up the stages correctly" requirement.
+     *
+     * @param  list<array<string, mixed>>  $shots
+     * @param  callable(array<string, mixed>): ?string  $bucketer
+     * @param  list<string>|null  $orderedLabels  preferred order
+     * @return list<array{label:string,hit_rate:float,hits:int,attempts:int}>|null
+     */
+    private function bucketShotsBy(array $shots, callable $bucketer, ?array $orderedLabels = null): ?array
+    {
+        if (empty($shots)) {
+            return null;
+        }
+
+        $buckets = [];
+        foreach ($shots as $s) {
+            $label = $bucketer($s);
+            if ($label === null) {
+                continue;
+            }
+            $buckets[$label]['attempts'] = ($buckets[$label]['attempts'] ?? 0) + 1;
+            if ($s['hit'] === true) {
+                $buckets[$label]['hits'] = ($buckets[$label]['hits'] ?? 0) + 1;
+            } else {
+                $buckets[$label]['hits'] = $buckets[$label]['hits'] ?? 0;
+            }
+        }
+
+        // Director didn't fill in metadata, or it was all the same
+        // bracket — either way, hide the card.
+        if (count($buckets) < 2) {
+            return null;
+        }
+
+        $labels = $orderedLabels !== null
+            ? array_values(array_filter($orderedLabels, fn ($l) => isset($buckets[$l])))
+            : array_keys($buckets);
+
+        if ($orderedLabels === null) {
+            sort($labels);
+        }
+
+        $out = [];
+        foreach ($labels as $label) {
+            $entry = $buckets[$label];
+            $out[] = [
+                'label' => $label,
+                'hit_rate' => $entry['attempts'] > 0
+                    ? round($entry['hits'] / $entry['attempts'] * 100, 1)
+                    : 0.0,
+                'hits' => $entry['hits'],
+                'attempts' => $entry['attempts'],
+            ];
+        }
+
+        return $out;
     }
 
     private function elrTargetHitRates(Collection $allShots, Collection $stages, int $shooterCount): array
