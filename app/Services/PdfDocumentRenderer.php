@@ -28,18 +28,25 @@ class PdfDocumentRenderer
      *
      * @param  array{width: float, height: float}|null  $customSize  Paper size in mm
      * @param  bool  $singlePage  When true, asks Gotenberg to emit the entire document on a single tall page regardless of `@page`
+     * @param  array<string,string>  $assets   Sibling asset files to send to Gotenberg alongside index.html.
+     *                                          Keyed by filename inside the zip (e.g. 'app.css' => '<file path on disk>').
+     *                                          The Blade template's `<link rel="stylesheet" href="app.css">` (relative URL)
+     *                                          will resolve against these. Lets us reuse the on-screen Tailwind CSS for the
+     *                                          PDF without inlining the whole 400KB stylesheet into the HTML payload.
      */
-    public function generate(string $template, array $data, ?array $customSize = null, bool $singlePage = false): string
+    public function generate(string $template, array $data, ?array $customSize = null, bool $singlePage = false, array $assets = []): string
     {
         $html = view($template, $data)->render();
 
         // Strategy 1: Gotenberg
-        $pdfBytes = $this->tryGotenberg($html, $customSize, $singlePage);
+        $pdfBytes = $this->tryGotenberg($html, $customSize, $singlePage, $assets);
         if ($pdfBytes !== null) {
             return $pdfBytes;
         }
 
-        // Strategy 2: DomPDF fallback
+        // Strategy 2: DomPDF fallback (assets aren't supported here — DomPDF
+        // doesn't understand modern CSS anyway, so the template should fall
+        // back to inline-style equivalents on its own).
         return $this->generateWithDomPdf($template, $data, $customSize);
     }
 
@@ -76,11 +83,13 @@ class PdfDocumentRenderer
 
     /**
      * Generate a PDF and stream it directly to the browser.
+     *
+     * @param  array<string,string>  $assets  See generate().
      */
-    public function stream(string $template, array $data, string $filename, ?array $customSize = null, bool $singlePage = false): \Symfony\Component\HttpFoundation\Response
+    public function stream(string $template, array $data, string $filename, ?array $customSize = null, bool $singlePage = false, array $assets = []): \Symfony\Component\HttpFoundation\Response
     {
         try {
-            $pdfBytes = $this->generate($template, $data, $customSize, $singlePage);
+            $pdfBytes = $this->generate($template, $data, $customSize, $singlePage, $assets);
 
             return response($pdfBytes, 200, [
                 'Content-Type' => 'application/pdf',
@@ -93,7 +102,12 @@ class PdfDocumentRenderer
         }
     }
 
-    protected function tryGotenberg(string $html, ?array $customSize = null, bool $singlePage = false): ?string
+    /**
+     * @param  array<string,string>  $assets  Sibling files; key = filename inside the bundle, value = absolute path on disk.
+     *                                          Each gets attached as another `files` part so the rendered HTML can
+     *                                          reference them via relative URL (e.g. `<link href="app.css">`).
+     */
+    protected function tryGotenberg(string $html, ?array $customSize = null, bool $singlePage = false, array $assets = []): ?string
     {
         try {
             $multipart = [
@@ -105,6 +119,23 @@ class PdfDocumentRenderer
                 ['name' => 'marginRight', 'contents' => '0'],
                 ['name' => 'preferCssPageSize', 'contents' => 'true'],
             ];
+
+            // Attach sibling asset files (typically the compiled Tailwind CSS
+            // for the on-screen share view, so the PDF reuses the same
+            // stylesheet instead of forking a print-only template). Skipped
+            // silently if the file is missing — Gotenberg will still render,
+            // just without the missing asset.
+            foreach ($assets as $filename => $diskPath) {
+                if (is_string($diskPath) && file_exists($diskPath)) {
+                    $multipart[] = [
+                        'name' => 'files',
+                        'contents' => fopen($diskPath, 'rb'),
+                        'filename' => $filename,
+                    ];
+                } else {
+                    Log::warning('Skipping missing PDF asset', ['filename' => $filename, 'path' => $diskPath]);
+                }
+            }
 
             if ($customSize) {
                 $multipart[] = ['name' => 'paperWidth', 'contents' => (string) round($customSize['width'] / 25.4, 2)];

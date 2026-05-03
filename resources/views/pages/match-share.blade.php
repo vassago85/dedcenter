@@ -53,6 +53,14 @@
     $shareUrl = $shareUrl ?? request()->url();
     $pdfUrl   = $pdfUrl ?? null;
 
+    // `$pdfMode` flips the view into PDF-render mode: skip the @vite include
+    // (the CSS is shipped as a sibling file to Gotenberg instead), drop the
+    // sticky share bar + JS at the bottom, and let our `@page { size: ... }`
+    // rule drive the paper size. Keeps the PDF output a true print of the
+    // on-screen share view — single source of truth, no parallel template
+    // to drift out of sync.
+    $pdfMode = $pdfMode ?? false;
+
     // Pre-encoded JSON for the share-data <script type="application/json">
     // island below. Building it here (instead of inline `@json([...])`)
     // keeps the script body pure JS so editor linters don't choke on
@@ -88,7 +96,14 @@
     <meta name="theme-color" content="#071327">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    @vite(['resources/css/app.css'])
+    @if($pdfMode)
+        {{-- Sibling stylesheet attached to the Gotenberg multipart payload by
+             PdfDocumentRenderer. Same compiled Tailwind output the on-screen
+             view uses, so the PDF is visually identical. --}}
+        <link rel="stylesheet" href="app.css">
+    @else
+        @vite(['resources/css/app.css'])
+    @endif
 
     <style>
         /* Local-only styles: anything that's tedious to express in Tailwind
@@ -154,6 +169,24 @@
         @media print {
             .no-screenshot { display: none !important; }
         }
+
+        @if($pdfMode)
+        /* PDF render path — phone-shaped continuous page so the file looks
+           like a screenshot of the share view when attached to a chat. The
+           Gotenberg controller pairs this with `singlePage=true` so the
+           whole document is one tall page regardless of pagination. */
+        @page { size: 90mm auto; margin: 0; background: #071327; }
+        html, body { background: #071327 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        /* Drop the sticky-bar bottom padding that `pb-32` reserves on screen —
+           there's no share bar in the PDF so the extra inch of dead space at
+           the bottom of the page would just look like a printer mistake. */
+        main#share-card { padding-bottom: 1rem !important; padding-top: 1rem !important; }
+        /* Belt-and-braces: even though we conditionally skip the share bar
+           in markup below, hide anything left tagged `.no-screenshot` so a
+           future contributor can't accidentally leak interactive UI into the
+           printed file. */
+        .no-screenshot { display: none !important; }
+        @endif
     </style>
 </head>
 <body class="text-white antialiased">
@@ -513,7 +546,12 @@
     </footer>
 </main>
 
-{{-- ─── Sticky share bar ────────────────────────────────────────────── --}}
+@if(! $pdfMode)
+{{-- ─── Sticky share bar ──────────────────────────────────────────────
+     Skipped entirely in PDF mode — Gotenberg's `@media print` would hide
+     it via `.no-screenshot`, but skipping the markup outright also avoids
+     loading the WhatsApp SVG and the inline JS island below for the
+     printable output (smaller payload, no JS-execution risk). --}}
 <div class="share-bar fixed inset-x-0 bottom-0 z-40 no-screenshot">
     <div class="mx-auto flex w-full max-w-md items-center gap-2 px-4 pt-3 sm:max-w-lg">
         <button
@@ -559,12 +597,19 @@
         @endif
     </div>
 </div>
+@endif
 
 {{--
     Share data is embedded as a JSON island so the runtime <script> block
     contains pure JS (no Blade interpolation). That keeps the JS linter
     happy AND keeps the JSON encoding correct via Laravel's @json directive.
+
+    Wrapped in `@if(! $pdfMode)` so the PDF render skips both the JSON
+    blob and the share-handler script — no JS runs in the PDF, which keeps
+    Gotenberg's render deterministic (no waiting for navigator.share /
+    clipboard polyfills that the headless Chromium would never hit anyway).
 --}}
+@if(! $pdfMode)
 <script type="application/json" id="match-share-data">{!! $shareDataJson !!}</script>
 
 {{--
@@ -639,6 +684,7 @@
         }
     })();
 </script>
+@endif
 
 </body>
 </html>

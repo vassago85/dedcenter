@@ -54,6 +54,52 @@ it('still serves the PDF at /matches/{match}/my-report.pdf', function () {
 });
 
 /*
+| pdfMode flag — the share view is now the single source of truth for both
+| the on-screen render AND the downloadable PDF. When pdfMode=true the
+| template skips the sticky share bar, the JSON island, and the share
+| handler script (so Gotenberg renders a clean print-friendly artifact),
+| and swaps the @vite include for a relative <link href="app.css">
+| (which the renderer attaches as a sibling Gotenberg file). Locks both
+| of those branches so a future contributor doesn't accidentally leave
+| the share bar inside the PDF output.
+*/
+it('strips share bar + JS when rendered with pdfMode=true', function () {
+    [$user, $match] = makeShooterMatch();
+    $shooter = \App\Models\Shooter::where('user_id', $user->id)->first();
+    $report = (new \App\Services\MatchReportService)->generateReport($match, $shooter);
+
+    $html = view('pages.match-share', [
+        'report'   => $report,
+        'shareUrl' => 'https://example.test/share',
+        'pdfUrl'   => null,
+        'pdfMode'  => true,
+    ])->render();
+
+    // No interactive bits.
+    expect($html)->not->toContain('data-share-btn');
+    expect($html)->not->toContain('data-copy-btn');
+    expect($html)->not->toContain('navigator.share');
+    expect($html)->not->toContain('match-share-data');
+    // CSS is the sibling-file path Gotenberg expects, not a Vite include.
+    expect($html)->toContain('<link rel="stylesheet" href="app.css">');
+    expect($html)->not->toContain('@vite');
+    // PDF-only @page rule was emitted.
+    expect($html)->toContain('size: 90mm auto');
+});
+
+it('keeps share bar + Vite include for the on-screen route', function () {
+    [$user, $match] = makeShooterMatch();
+
+    $res = $this->actingAs($user)->get(route('matches.my-report', $match));
+
+    $res->assertOk();
+    // The on-screen render still includes the interactive share bar...
+    $res->assertSee('data-share-btn', false);
+    // ...and does not flip into PDF mode.
+    expect($res->getContent())->not->toContain('size: 90mm auto');
+});
+
+/*
 | Badges section regression — the on-screen share view used to render
 | every badge as the literal placeholder string "Badge" because the Blade
 | was reading nonexistent keys (`title`, `tier_label`) instead of the
