@@ -314,5 +314,14 @@ new #[Layout('components.layouts.app')]
             </div>
         </section>
 
+        {{-- ─── Match audit log ───────────────────────────────────────
+             Same component the Scoring tab renders live, in `full`
+             variant for the post-match record. Score corrections are
+             part of the official match record — having them in Reports
+             means an audit isn't a separate tool to remember about. --}}
+        <section class="mt-4">
+            <x-match-corrections-feed :match="$match" variant="full" :limit="50" />
+        </section>
+
     </x-match-control-shell>
 </div>

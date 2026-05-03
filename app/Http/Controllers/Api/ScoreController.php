@@ -63,7 +63,22 @@ class ScoreController extends Controller
             'stage_times.*.time_seconds' => ['required', 'numeric', 'min:0'],
             'stage_times.*.device_id' => ['required', 'string', 'max:255'],
             'stage_times.*.recorded_at' => ['required', 'date'],
+            // Optional batch-wide correction note. The scoring app sends
+            // this when the SO is explicitly fixing a previously-synced
+            // result rather than scoring fresh. Persisted onto every
+            // score_audit_logs.reason for the mutated rows in this batch
+            // so the MD's "Recent Corrections" feed has the why, not just
+            // the what. We don't enforce required-ness here because old
+            // clients shouldn't break — server-side enforcement happens
+            // below, only when the batch actually contains a mutation
+            // that warrants a note (delete OR is_hit flip on an existing
+            // row OR stage time change).
+            'correction_reason' => ['sometimes', 'nullable', 'string', 'min:3', 'max:500'],
         ]);
+
+        $reason = isset($validated['correction_reason']) && $validated['correction_reason'] !== ''
+            ? trim($validated['correction_reason'])
+            : null;
 
         // Auto-promote a Ready match to Active the moment anything is captured
         // (scores OR stage times). Ready means "tablets loaded, waiting to
@@ -84,7 +99,7 @@ class ScoreController extends Controller
                     ->where('gong_id', $del['gong_id'])
                     ->first();
                 if ($existing) {
-                    ScoreAuditService::logDeleted($match->id, $existing, null, $request);
+                    ScoreAuditService::logDeleted($match->id, $existing, $reason, $request);
                     $existing->delete();
                 }
             }
@@ -115,7 +130,7 @@ class ScoreController extends Controller
 
             if ($existing && $oldValues) {
                 if ((bool) ($oldValues['is_hit'] ?? false) !== (bool) $scoreData['is_hit']) {
-                    ScoreAuditService::logUpdated($match->id, $score, $oldValues, null, $request);
+                    ScoreAuditService::logUpdated($match->id, $score, $oldValues, $reason, $request);
                 }
             } else {
                 ScoreAuditService::logCreated($match->id, $score, $request);
@@ -146,7 +161,7 @@ class ScoreController extends Controller
 
                 if ($existingTime && $oldTimeValues) {
                     if ((float) ($oldTimeValues['time_seconds'] ?? 0) !== (float) $timeData['time_seconds']) {
-                        ScoreAuditService::logUpdated($match->id, $stageTime, $oldTimeValues, null, $request);
+                        ScoreAuditService::logUpdated($match->id, $stageTime, $oldTimeValues, $reason, $request);
                     }
                 } else {
                     ScoreAuditService::logCreated($match->id, $stageTime, $request);

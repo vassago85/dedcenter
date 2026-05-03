@@ -272,6 +272,13 @@ new #[Layout('components.layouts.app')]
             </section>
         @endif
 
+        {{-- Live corrections feed (mirrors the org Scoring tab). --}}
+        @if($isActive || $isCompleted)
+            <div class="mt-4">
+                <x-match-corrections-feed :match="$match" variant="compact" :limit="15" />
+            </div>
+        @endif
+
         @if($isCompleted)
             <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">
                 <div class="sm:flex sm:items-center sm:justify-between sm:gap-4">

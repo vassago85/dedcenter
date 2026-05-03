@@ -263,5 +263,9 @@ new #[Layout('components.layouts.app')]
             </div>
         </section>
 
+        <section class="mt-4">
+            <x-match-corrections-feed :match="$match" variant="full" :limit="50" />
+        </section>
+
     </x-match-control-shell>
 </div>

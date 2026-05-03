@@ -324,6 +324,16 @@ new #[Layout('components.layouts.app')]
             </section>
         @endif
 
+        {{-- ─── Live corrections feed ─────────────────────────────────
+             Live during the match so the MD knows the moment an SO files
+             a correction. Same component is rendered on the Reports tab
+             with `variant=full` for the permanent post-match record. --}}
+        @if($isActive || $isCompleted)
+            <div class="mt-4">
+                <x-match-corrections-feed :match="$match" variant="compact" :limit="15" />
+            </div>
+        @endif
+
         {{-- ─── Completed → next step pointer ────────────────────────── --}}
         @if($isCompleted)
             <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">

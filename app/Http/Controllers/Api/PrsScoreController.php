@@ -74,12 +74,22 @@ class PrsScoreController extends Controller
             'shots' => ['required', 'array', 'min:1', "max:{$maxShots}"],
             'shots.*.shot_number' => ['required', 'integer', 'min:1'],
             'shots.*.result' => ['required', 'string', Rule::in(['hit', 'miss', 'not_taken'])],
+            // See ScoreController::store for the full rationale. Optional
+            // batch-wide note threaded into score_audit_logs.reason on
+            // every PrsShotScore / PrsStageResult update so the MD's
+            // corrections feed has the why, not just the what. Old
+            // clients that don't send this still work — the null reason
+            // just becomes a "silent" audit row.
+            'correction_reason' => ['sometimes', 'nullable', 'string', 'min:3', 'max:500'],
         ]);
 
         $deviceId = $request->header('X-Device-Id', $request->input('device_id'));
         $rawTime = $validated['raw_time_seconds'] ?? null;
+        $reason = isset($validated['correction_reason']) && $validated['correction_reason'] !== ''
+            ? trim($validated['correction_reason'])
+            : null;
 
-        $stageResult = DB::transaction(function () use ($validated, $match, $stage, $user, $deviceId, $rawTime, $request) {
+        $stageResult = DB::transaction(function () use ($validated, $match, $stage, $user, $deviceId, $rawTime, $request, $reason) {
             $hits = 0;
             $misses = 0;
             $notTaken = 0;
@@ -108,7 +118,7 @@ class PrsScoreController extends Controller
                 );
 
                 if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shot['result']) {
-                    ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, null, $request);
+                    ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, $reason, $request);
                 } elseif (! $existingShot) {
                     ScoreAuditService::logCreated($match->id, $savedShot, $request);
                 }
@@ -152,7 +162,7 @@ class PrsScoreController extends Controller
             );
 
             if ($existingResult && $oldResultValues) {
-                ScoreAuditService::logUpdated($match->id, $stageResult, $oldResultValues, null, $request);
+                ScoreAuditService::logUpdated($match->id, $stageResult, $oldResultValues, $reason, $request);
             } else {
                 ScoreAuditService::logCreated($match->id, $stageResult, $request);
             }
