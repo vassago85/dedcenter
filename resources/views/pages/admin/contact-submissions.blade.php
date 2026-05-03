@@ -47,40 +47,54 @@ new #[Layout('components.layouts.app')]
     </div>
 
     @if($submissions->isEmpty())
-        <div class="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-700 dark:bg-zinc-800">
-            <p class="text-zinc-500">No contact submissions yet.</p>
+        <div class="rounded-xl border border-border bg-surface">
+            <x-empty-state
+                title="No contact submissions yet"
+                description="Messages from the public contact form will land here when someone gets in touch.">
+                <x-slot:icon>
+                    <x-icon name="mail" class="h-5 w-5" />
+                </x-slot:icon>
+            </x-empty-state>
         </div>
     @else
         <div class="space-y-4">
             @foreach($submissions as $sub)
-                <div class="rounded-xl border p-5 {{ $sub->read_at ? 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800' : 'border-amber-500/30 bg-amber-50 dark:border-amber-600/30 dark:bg-amber-900/10' }}">
+                {{--
+                    Use design tokens (`bg-surface`, `border-border`, `text-primary`)
+                    instead of raw `bg-white` / `dark:bg-zinc-*`. The previous
+                    classes hard-coded a light theme that rendered as a glaring
+                    white panel with white-on-white text against the rest of
+                    the app's dark surface — the empty state was completely
+                    invisible.
+                --}}
+                <div class="rounded-xl border p-5 {{ $sub->read_at ? 'border-border bg-surface' : 'border-amber-500/40 bg-amber-500/10' }}">
                     <div class="flex items-start justify-between gap-4">
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="font-semibold text-zinc-900 dark:text-white">{{ $sub->name }}</span>
+                                <span class="font-semibold text-primary">{{ $sub->name }}</span>
                                 @if($sub->company)
-                                    <span class="text-sm text-zinc-500">&mdash; {{ $sub->company }}</span>
+                                    <span class="text-sm text-muted">&mdash; {{ $sub->company }}</span>
                                 @endif
                                 @if(!$sub->read_at)
-                                    <span class="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">New</span>
+                                    <span class="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase text-black">New</span>
                                 @endif
                             </div>
-                            <div class="mt-1 flex flex-wrap gap-4 text-sm text-zinc-500">
-                                <a href="mailto:{{ $sub->email }}" class="hover:text-zinc-900 dark:hover:text-white">{{ $sub->email }}</a>
+                            <div class="mt-1 flex flex-wrap gap-4 text-sm text-muted">
+                                <a href="mailto:{{ $sub->email }}" class="transition-colors hover:text-primary">{{ $sub->email }}</a>
                                 @if($sub->phone)
                                     <span>{{ $sub->phone }}</span>
                                 @endif
                             </div>
-                            <p class="mt-3 whitespace-pre-line text-sm text-zinc-700 dark:text-zinc-300">{{ $sub->message }}</p>
-                            <p class="mt-2 text-xs text-zinc-400">{{ $sub->created_at->diffForHumans() }} &mdash; via {{ $sub->source }}</p>
+                            <p class="mt-3 whitespace-pre-line text-sm text-secondary">{{ $sub->message }}</p>
+                            <p class="mt-2 text-xs text-muted">{{ $sub->created_at->diffForHumans() }} &mdash; via {{ $sub->source }}</p>
                         </div>
                         <div class="flex flex-shrink-0 gap-2">
                             @if(!$sub->read_at)
-                                <button wire:click="markRead({{ $sub->id }})" class="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-700">
+                                <button wire:click="markRead({{ $sub->id }})" class="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:border-accent hover:text-primary">
                                     Mark Read
                                 </button>
                             @endif
-                            <button wire:click="delete({{ $sub->id }})" wire:confirm="Delete this submission?" class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20">
+                            <button wire:click="delete({{ $sub->id }})" wire:confirm="Delete this submission?" class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 hover:text-red-200">
                                 Delete
                             </button>
                         </div>
