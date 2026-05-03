@@ -93,8 +93,15 @@
         .stage-name .dist { font-weight: 400; color: #64748b; font-size: 8pt; }
         .stage-time { font-size: 8pt; color: {{ $accent }}; }
 
-        .gong-row { display: flex; gap: 2px; margin-bottom: 3px; flex-wrap: wrap; }
+        .gong-row { display: flex; gap: 5px; margin-bottom: 3px; flex-wrap: wrap; align-items: flex-start; }
         .gong-dot { width: 13px; height: 13px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 6.5pt; font-weight: 700; color: #fff; line-height: 1; }
+        /* Per-gong stack: dot + the gong's nominal value (Royal Flush
+           1.0/1.25/1.5/1.75/2.0 × distance/100) so the report shows the
+           per-gong scaling instead of an undifferentiated row of dots. */
+        .gong-stack { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+        .gong-val   { font-size: 5.5pt; font-weight: 700; color: #cbd5e1; line-height: 1; }
+        .gong-val.miss { color: #64748b; }
+        .gong-val.none { color: #475569; }
         .gong-hit { background: #22c55e; }
         .gong-miss { background: #ef4444; }
         .gong-ns { background: #374151; color: #6b7280; }
@@ -296,14 +303,48 @@
                     </div>
                 </div>
                 @if(!empty($stage['gongs']))
+                    @php
+                        // Per-gong values are only meaningful when the
+                        // multipliers vary across the stage (Royal Flush /
+                        // standard with distance multipliers > 1). For PRS
+                        // every gong is 1pt so we skip the value strip and
+                        // keep the row visually clean.
+                        $showValues = ! $isPrs && collect($stage['gongs'])
+                            ->pluck('value')
+                            ->filter(fn ($v) => $v !== null)
+                            ->unique()
+                            ->count() > 1;
+                    @endphp
                     <div class="gong-row">
                         @foreach($stage['gongs'] as $gong)
-                            @if(($gong['result'] ?? '') === 'hit')
-                                <span class="gong-dot gong-hit">&#10003;</span>
-                            @elseif(($gong['result'] ?? '') === 'miss')
-                                <span class="gong-dot gong-miss">&#10007;</span>
+                            @php
+                                $r = $gong['result'] ?? '';
+                                $cls = match ($r) {
+                                    'hit'  => 'gong-dot gong-hit',
+                                    'miss' => 'gong-dot gong-miss',
+                                    default => 'gong-dot gong-ns',
+                                };
+                                $glyph = match ($r) {
+                                    'hit'  => '&#10003;',
+                                    'miss' => '&#10007;',
+                                    default => '-',
+                                };
+                                $valCls = match ($r) {
+                                    'hit'  => 'gong-val',
+                                    'miss' => 'gong-val miss',
+                                    default => 'gong-val none',
+                                };
+                                $valFmt = isset($gong['value'])
+                                    ? rtrim(rtrim(number_format((float) $gong['value'], 2), '0'), '.')
+                                    : null;
+                            @endphp
+                            @if($showValues && $valFmt !== null)
+                                <span class="gong-stack">
+                                    <span class="{!! $cls !!}">{!! $glyph !!}</span>
+                                    <span class="{{ $valCls }}">{{ $valFmt }}</span>
+                                </span>
                             @else
-                                <span class="gong-dot gong-ns">-</span>
+                                <span class="{!! $cls !!}">{!! $glyph !!}</span>
                             @endif
                         @endforeach
                     </div>

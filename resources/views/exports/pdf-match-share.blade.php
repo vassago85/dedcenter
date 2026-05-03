@@ -194,6 +194,23 @@
         .gong-miss      { background: #ef4444; }
         .gong-not-taken { background: #f59e0b; }
         .gong-none      { background: #1e293b; color: #475569; }
+
+        /* Vertical gong stack — coloured result on top, the gong's nominal
+           point value (Royal Flush 1.0/1.25/1.5/1.75/2.0 × distance/100)
+           underneath. Surfaces the per-gong scaling that the share view
+           also exposes, so the printed report tells the same story.  */
+        .gong-stack { display: inline-block; vertical-align: top; text-align: center; margin-right: 1mm; margin-bottom: 1mm; }
+        .gong-stack .gong-dot { display: block; margin: 0 auto; }
+        .gong-val {
+            display: block;
+            margin-top: 0.5mm;
+            font-size: 5.5pt;
+            font-weight: 700;
+            line-height: 1;
+            color: #d4d4d8;
+        }
+        .gong-val.miss { color: #71717a; }
+        .gong-val.none { color: #475569; }
         .stage-foot { display: flex; justify-content: space-between; align-items: center; font-size: 7.5pt; }
         .stage-foot .dim { color: #64748b; }
         .stage-foot .green { color: #22c55e; }
@@ -385,6 +402,13 @@
                 </div>
 
                 @if(!empty($stage['gongs']))
+                    @php
+                        $showValues = ! $isPrs && collect($stage['gongs'])
+                            ->pluck('value')
+                            ->filter(fn ($v) => $v !== null)
+                            ->unique()
+                            ->count() > 1;
+                    @endphp
                     <div class="gong-row">
                         @foreach($stage['gongs'] as $gong)
                             @php
@@ -401,8 +425,23 @@
                                     'not_taken' => '–',
                                     default     => '·',
                                 };
+                                $valCls = match ($r) {
+                                    'hit'   => 'gong-val',
+                                    'miss'  => 'gong-val miss',
+                                    default => 'gong-val none',
+                                };
+                                $valFmt = isset($gong['value'])
+                                    ? rtrim(rtrim(number_format((float) $gong['value'], 2), '0'), '.')
+                                    : null;
                             @endphp
-                            <span class="{{ $cls }}">{{ $glyph }}</span>
+                            @if($showValues && $valFmt !== null)
+                                <span class="gong-stack">
+                                    <span class="{{ $cls }}">{{ $glyph }}</span>
+                                    <span class="{{ $valCls }}">{{ $valFmt }}</span>
+                                </span>
+                            @else
+                                <span class="{{ $cls }}">{{ $glyph }}</span>
+                            @endif
                         @endforeach
                     </div>
                 @endif

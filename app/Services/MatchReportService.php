@@ -155,20 +155,31 @@ class MatchReportService
 
             foreach ($ts->gongs as $g) {
                 $score = $shooterScores->get($g->id);
-                $points = round($mult * $g->multiplier, 2);
+                // `value` is the gong's *nominal* point worth (distance
+                // multiplier × per-gong multiplier — for Royal Flush stages
+                // this scales 1.0 / 1.25 / 1.5 / 1.75 / 2.0 across the five
+                // gongs and produces e.g. 5.0 / 6.25 / 7.5 / 8.75 / 10.0 at
+                // 500m). The reports surface this so a viewer can see at a
+                // glance which gong each dot represents and what was at
+                // stake — the smallest gong on the line is also the
+                // biggest payoff and that asymmetry was previously
+                // invisible. `points` is preserved as "what the shooter
+                // actually scored on this gong" so existing consumers
+                // (CSV exports, regression tests) keep their old shape.
+                $value = round($mult * (float) $g->multiplier, 2);
 
                 if ($score) {
                     if ($score->is_hit) {
                         $stageHits++;
-                        $stageScore += $points;
-                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'result' => 'hit', 'points' => $points];
+                        $stageScore += $value;
+                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'multiplier' => (float) $g->multiplier, 'value' => $value, 'result' => 'hit', 'points' => $value];
                     } else {
                         $stageMisses++;
-                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'result' => 'miss', 'points' => 0];
+                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'multiplier' => (float) $g->multiplier, 'value' => $value, 'result' => 'miss', 'points' => 0];
                     }
                 } else {
                     $stageNoShots++;
-                    $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'result' => 'no_shot', 'points' => 0];
+                    $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'multiplier' => (float) $g->multiplier, 'value' => $value, 'result' => 'no_shot', 'points' => 0];
                 }
             }
 
@@ -331,6 +342,8 @@ class MatchReportService
                 return [
                     'number' => $s->shot_number,
                     'label' => "Shot {$s->shot_number}",
+                    'multiplier' => 1.0,
+                    'value' => 1,
                     'result' => $result,
                     'points' => $result === 'hit' ? 1 : 0,
                 ];
@@ -339,7 +352,7 @@ class MatchReportService
             $expectedCount = $gongCountByTs[$ts->id] ?? 0;
             while (count($gongDetails) < $expectedCount) {
                 $n = count($gongDetails) + 1;
-                $gongDetails[] = ['number' => $n, 'label' => "Shot {$n}", 'result' => 'not_taken', 'points' => 0];
+                $gongDetails[] = ['number' => $n, 'label' => "Shot {$n}", 'multiplier' => 1.0, 'value' => 1, 'result' => 'not_taken', 'points' => 0];
             }
 
             $stageHits = $stageResult ? $stageResult->hits : 0;
@@ -481,17 +494,22 @@ class MatchReportService
 
             foreach ($ts->gongs as $g) {
                 $score = $allScores->get("{$shooter->id}-{$g->id}");
+                // PRS scoring is flat (1 hit = 1 point, no multipliers), so
+                // every gong's `value` is 1 and `multiplier` is 1. Including
+                // these keys anyway keeps the gong-payload shape consistent
+                // with the standard/RF branch above so the share view and
+                // PDF templates don't need a per-scoring-type render path.
                 if ($score) {
                     if ($score->is_hit) {
                         $stageHits++;
-                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'result' => 'hit', 'points' => 1];
+                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'multiplier' => 1.0, 'value' => 1, 'result' => 'hit', 'points' => 1];
                     } else {
                         $stageMisses++;
-                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'result' => 'miss', 'points' => 0];
+                        $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'multiplier' => 1.0, 'value' => 1, 'result' => 'miss', 'points' => 0];
                     }
                 } else {
                     $stageNoShots++;
-                    $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'result' => 'not_taken', 'points' => 0];
+                    $gongDetails[] = ['number' => $g->number, 'label' => $g->label, 'multiplier' => 1.0, 'value' => 1, 'result' => 'not_taken', 'points' => 0];
                 }
             }
 

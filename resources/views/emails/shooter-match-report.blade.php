@@ -333,8 +333,22 @@
                             </tr>
                         </table>
 
-                        {{-- Gong indicators --}}
+                        {{-- Gong indicators
+                             Three-row email-safe table: result dot, point
+                             value (Royal Flush 1.0/1.25/1.5/1.75/2.0 ×
+                             distance/100 — the per-gong scaling that makes
+                             the smallest gong on the line worth the most),
+                             then the label. The value row is suppressed for
+                             flat-scoring matches (PRS) where every gong is
+                             1pt and the strip would just read "1 1 1 1 1". --}}
                         @if(!empty($stage['gongs']))
+                        @php
+                            $showValues = ! $isPrs && collect($stage['gongs'])
+                                ->pluck('value')
+                                ->filter(fn ($v) => $v !== null)
+                                ->unique()
+                                ->count() > 1;
+                        @endphp
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="padding-bottom:12px;">
                             <tr>
                                 @foreach($stage['gongs'] as $gong)
@@ -349,6 +363,25 @@
                                 </td>
                                 @endforeach
                             </tr>
+                            @if($showValues)
+                            <tr>
+                                @foreach($stage['gongs'] as $gong)
+                                @php
+                                    $valColor = match ($gong['result'] ?? '') {
+                                        'hit'   => '#e2e8f0',
+                                        'miss'  => '#64748b',
+                                        default => '#475569',
+                                    };
+                                    $valFmt = isset($gong['value'])
+                                        ? rtrim(rtrim(number_format((float) $gong['value'], 2), '0'), '.')
+                                        : '';
+                                @endphp
+                                <td align="center" style="padding:3px 3px 0;">
+                                    <span style="font-size:10px;font-weight:bold;color:{{ $valColor }};font-family:Arial,Helvetica,sans-serif;font-variant-numeric:tabular-nums;">{{ $valFmt }}</span>
+                                </td>
+                                @endforeach
+                            </tr>
+                            @endif
                             <tr>
                                 @foreach($stage['gongs'] as $gong)
                                 <td align="center" style="padding:2px 3px 0;">

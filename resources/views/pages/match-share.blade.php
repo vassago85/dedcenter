@@ -121,6 +121,18 @@
         .gong-dot--not-taken { background: #f59e0b; }
         .gong-dot--none      { background: #1e293b; color: #475569; }
 
+        /* A vertical gong "stack": coloured result dot on top, the gong's
+           nominal point value (distance × per-gong multiplier) underneath.
+           This is what surfaces the Royal Flush 1 / 1.25 / 1.5 / 1.75 / 2.0
+           per-gong scaling so a viewer can see at a glance that the smallest
+           gong on the line was also the biggest payoff (and that they hit it,
+           or missed the 10-pointer). Only rendered for non-PRS scoring
+           because PRS is a flat 1-hit-1-point scheme. */
+        .gong-stack { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+        .gong-val   { font-size: 9.5px; font-weight: 700; line-height: 1; color: #d4d4d8; font-variant-numeric: tabular-nums; }
+        .gong-val--miss { color: #71717a; }
+        .gong-val--none { color: #475569; }
+
         /* The hero rank tile — pulled out so we can do a subtle inset glow
            that Tailwind's arbitrary-value shadow syntax makes ugly inline. */
         .hero-rank {
@@ -272,7 +284,20 @@
                     </div>
 
                     @if(!empty($stage['gongs']))
-                        <div class="mt-2 flex flex-wrap gap-1.5">
+                        @php
+                            // Show the per-gong value strip only when there's
+                            // actual variation worth showing — Royal Flush /
+                            // standard with multipliers > 1, ELR with awarded
+                            // points. PRS (flat 1-point scoring) skips this so
+                            // we don't paste a row of "1 1 1 1 1" under every
+                            // dot for no information gain.
+                            $showValues = ! $isPrs && collect($stage['gongs'])
+                                ->pluck('value')
+                                ->filter(fn ($v) => $v !== null)
+                                ->unique()
+                                ->count() > 1;
+                        @endphp
+                        <div class="mt-2 flex flex-wrap gap-2">
                             @foreach($stage['gongs'] as $gong)
                                 @php
                                     $r = $gong['result'] ?? '';
@@ -288,8 +313,24 @@
                                         'not_taken' => '–',
                                         default     => '·',
                                     };
+                                    $valCls = match ($r) {
+                                        'hit'      => 'gong-val',
+                                        'miss'     => 'gong-val gong-val--miss',
+                                        default    => 'gong-val gong-val--none',
+                                    };
+                                    // Format: drop trailing .0 for whole points
+                                    // (so a 5pt gong reads "5", a 6.25pt gong
+                                    // reads "6.25" — feels cleaner than "5.0").
+                                    $valFmt = isset($gong['value'])
+                                        ? rtrim(rtrim(number_format((float) $gong['value'], 2), '0'), '.')
+                                        : null;
                                 @endphp
-                                <span class="{{ $cls }}" title="{{ $gong['label'] ?? '' }}">{{ $glyph }}</span>
+                                <span class="gong-stack" title="{{ $gong['label'] ?? '' }}@if(isset($gong['value'])) — {{ $valFmt }} pts@endif">
+                                    <span class="{{ $cls }}">{{ $glyph }}</span>
+                                    @if($showValues && $valFmt !== null)
+                                        <span class="{{ $valCls }}">{{ $valFmt }}</span>
+                                    @endif
+                                </span>
                             @endforeach
                         </div>
                     @endif
