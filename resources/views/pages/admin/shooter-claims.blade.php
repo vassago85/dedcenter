@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\ShooterAccountClaimService;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
@@ -15,6 +16,18 @@ new #[Layout('components.layouts.app')]
     class extends Component {
     public string $statusFilter = 'pending';
     public array $reviewerNotes = [];
+
+    /**
+     * Re-render hook for when something elsewhere on the platform resolves
+     * a claim while this page is also on screen (e.g. the admin dashboard's
+     * "X claims pending" CTA + this page open in two tabs, or a sibling
+     * Livewire component on the same page). Empty body — Livewire re-runs
+     * `with()` whenever the component is hydrated by an event.
+     */
+    #[On('moderation-updated')]
+    public function refreshOnModeration(): void
+    {
+    }
 
     public function with(): array
     {
@@ -83,6 +96,19 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
+    {{--
+        wire:navigate keeps a HTML snapshot of this page in memory so the
+        browser back/forward (and repeat sidebar clicks) feel instant. The
+        downside is that an approved claim that just disappeared from the
+        list visually reappears when the cached snapshot is restored, even
+        though the DB row is now `approved` — exactly the "shooter claim
+        keeps coming back after approving it" bug. Forcing $wire.$refresh()
+        on every livewire:navigated event re-runs `with()` so the list and
+        the "X pending" badge always match the database.
+    --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-primary">Shooter Account Claims</h1>

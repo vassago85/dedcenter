@@ -112,6 +112,16 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
+    {{--
+        Same wire:navigate snapshot bug as the shooter-claims page: an
+        approved registration that just disappeared from the queue can
+        re-appear when the cached HTML is restored on browser back/forward
+        or repeat sidebar clicks. Forcing a refresh on every
+        livewire:navigated event keeps the queue honest.
+    --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <div>
         <flux:heading size="xl">Match Registrations</flux:heading>
         <p class="mt-1 text-sm text-muted">Review and approve member registrations.</p>

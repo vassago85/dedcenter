@@ -31,6 +31,16 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
+    {{--
+        Same wire:navigate snapshot bug as the shooter-claims page: marking
+        a submission read or deleting it should not visually un-mark itself
+        when the page is restored from cache. A refresh on every
+        livewire:navigated event keeps the unread count + list in sync
+        with the database.
+    --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.settings'), 'label' => 'General', 'active' => false],
         ['href' => route('admin.homepage'), 'label' => 'Homepage', 'active' => false],
