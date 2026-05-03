@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\MatchStatus;
+use App\Enums\PrsShotResult;
 use App\Models\Gong;
 use App\Models\Organization;
+use App\Models\PrsShotScore;
+use App\Models\PrsStageResult;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
@@ -157,4 +160,75 @@ it('returns empty collection for users with no completed matches', function () {
     $rows = (new ShooterBestFinishesService)->forUser($user);
 
     expect($rows)->toHaveCount(0);
+});
+
+/*
+ * Regression: a completed PRS match was showing "Awaiting a ranked finish"
+ * on the dashboard's per-org best-finish card, even though the per-shooter
+ * report correctly ranked the user. Cause: rankForShooter() returned null
+ * for any PRS or ELR match. We now resolve PRS/ELR ranks via
+ * MatchReportService, so the dashboard matches the report.
+ */
+it('surfaces a PRS rank from prs_stage_results (no more "Awaiting a ranked finish")', function () {
+    $user = User::factory()->create();
+    $rivalUser = User::factory()->create();
+    $org = Organization::factory()->create();
+
+    $match = ShootingMatch::factory()->create([
+        'organization_id' => $org->id,
+        'created_by' => $rivalUser->id,
+        'scoring_type' => 'prs',
+        'status' => MatchStatus::Completed,
+    ]);
+
+    $stage = TargetSet::create([
+        'match_id' => $match->id,
+        'label' => 'Stage 1',
+        'distance_meters' => 0,
+        'distance_multiplier' => 1.0,
+        'sort_order' => 1,
+    ]);
+    $g1 = Gong::create(['target_set_id' => $stage->id, 'number' => 1, 'label' => 'G1', 'multiplier' => '1.00']);
+    $g2 = Gong::create(['target_set_id' => $stage->id, 'number' => 2, 'label' => 'G2', 'multiplier' => '1.00']);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Squad A', 'sort_order' => 1]);
+
+    $rivalShooter = Shooter::factory()->create([
+        'squad_id' => $squad->id,
+        'user_id' => $rivalUser->id,
+        'status' => 'active',
+    ]);
+    $userShooter = Shooter::factory()->create([
+        'squad_id' => $squad->id,
+        'user_id' => $user->id,
+        'status' => 'active',
+    ]);
+
+    // Rival clears the stage (2/2), our user gets 1/2. Rival should rank #1, user #2.
+    PrsStageResult::create([
+        'match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $rivalShooter->id,
+        'hits' => 2, 'misses' => 0, 'not_taken' => 0,
+        'raw_time_seconds' => 30.0, 'official_time_seconds' => 30.0,
+        'completed_at' => now(),
+    ]);
+    PrsShotScore::create(['match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $rivalShooter->id, 'shot_number' => 1, 'result' => PrsShotResult::Hit]);
+    PrsShotScore::create(['match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $rivalShooter->id, 'shot_number' => 2, 'result' => PrsShotResult::Hit]);
+
+    PrsStageResult::create([
+        'match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $userShooter->id,
+        'hits' => 1, 'misses' => 1, 'not_taken' => 0,
+        'raw_time_seconds' => 35.0, 'official_time_seconds' => 35.0,
+        'completed_at' => now(),
+    ]);
+    PrsShotScore::create(['match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $userShooter->id, 'shot_number' => 1, 'result' => PrsShotResult::Hit]);
+    PrsShotScore::create(['match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $userShooter->id, 'shot_number' => 2, 'result' => PrsShotResult::Miss]);
+
+    $rows = (new ShooterBestFinishesService)->forUser($user);
+
+    expect($rows)->toHaveCount(1);
+    expect($rows[0]->organization->id)->toBe($org->id);
+    expect($rows[0]->best_rank)->toBe(2);
+    expect($rows[0]->field_size)->toBe(2);
+    expect($rows[0]->percentile)->toBe(100);
+    expect($rows[0]->matches_shot)->toBe(1);
 });

@@ -842,15 +842,96 @@ class MatchReportService
         ];
     }
 
+    /**
+     * Placement payload consumed by the per-shooter PDF, the in-app/email
+     * report, and the "did you know?" fun facts.
+     *
+     * Note on the `summary` field — the old code rendered every result as
+     * "(top X%)" using `rank / total * 100`. Mathematically that's a real
+     * percentile-position number, but the *copy* reads like a flex when it
+     * isn't: rank 32 of 47 came out as "(top 68%)" which sounds like an
+     * achievement but actually means the shooter is below average. We now
+     * use "(top X%)" only when the shooter is in the top half (where the
+     * phrase actually flatters) and switch to "beat N shooters" for the
+     * bottom half — honest, unambiguous, and still positive.
+     *
+     * `percentile` is kept for any external consumer that read it, but the
+     * three templates and three fun-fact generators use `summary` so they
+     * all stay in lock-step.
+     *
+     * `rank_ordinal` replaces the buggy inline ordinal logic in the
+     * templates (the old `match` only handled 1/2/3 so 22, 32, 42 etc.
+     * came out as "32th" instead of "32nd").
+     */
     private function placement(int $rank, int $total): array
     {
         $percentile = $total > 0 ? round(($rank / $total) * 100, 1) : 0;
+        $beatCount = max(0, $total - $rank);
 
         return [
             'rank' => $rank,
             'total' => $total,
             'percentile' => $percentile,
+            'beat_count' => $beatCount,
+            'rank_ordinal' => $rank . self::ordinalSuffix($rank),
+            'summary' => self::placementSummary($rank, $total),
         ];
+    }
+
+    /**
+     * Human-friendly placement summary. Returns either "top X%", "beat N
+     * shooters", or '' (last place / unranked) — never "top 68%".
+     */
+    public static function placementSummary(int $rank, int $total): string
+    {
+        if ($total <= 0 || $rank <= 0) {
+            return '';
+        }
+
+        $percentile = round(($rank / $total) * 100, 1);
+
+        if ($percentile <= 50) {
+            return 'top ' . max(1, (int) round($percentile)) . '%';
+        }
+
+        $beatCount = $total - $rank;
+        if ($beatCount > 0) {
+            return 'beat ' . $beatCount . ' ' . ($beatCount === 1 ? 'shooter' : 'shooters');
+        }
+
+        return '';
+    }
+
+    /**
+     * Single source of truth for the "You finished #X of Y …" fun fact.
+     * Drops the misleading "(top 68%)" copy and falls back to the honest
+     * "beat N shooters" phrasing for bottom-half finishes.
+     */
+    private function placementFunFact(int $rank, int $total): string
+    {
+        $base = "You finished #{$rank} out of {$total} shooters";
+        $summary = self::placementSummary($rank, $total);
+
+        return $summary === '' ? $base : "{$base} ({$summary})";
+    }
+
+    /**
+     * English ordinal suffix (1st, 2nd, 3rd, 4th, … 21st, 22nd, 23rd, …).
+     * The 11th-13th teens are "th" regardless of last digit.
+     */
+    public static function ordinalSuffix(int $n): string
+    {
+        $abs = abs($n);
+        if ($abs % 100 >= 11 && $abs % 100 <= 13) {
+            return 'th';
+        }
+
+        return match ($abs % 10) {
+            1 => 'st',
+            2 => 'nd',
+            3 => 'rd',
+            default => 'th',
+        };
     }
 
     /**
@@ -1052,9 +1133,7 @@ class MatchReportService
         array $gongDistanceMap = [], ?Collection $targetSets = null
     ): array {
         $facts = [];
-        $percentile = $total > 0 ? round(($rank / $total) * 100, 1) : 0;
-
-        $facts[] = "You finished #{$rank} out of {$total} shooters (top {$percentile}%)";
+        $facts[] = $this->placementFunFact($rank, $total);
 
         $hitRate = $totalGongCount > 0 ? round($totalHits / $totalGongCount * 100, 1) : 0;
         $avgHitRate = round($fieldHitRates->avg(), 1);
@@ -1098,9 +1177,7 @@ class MatchReportService
         float $totalTime, array $stages, Collection $ranked, array $shotHitRates
     ): array {
         $facts = [];
-        $percentile = $total > 0 ? round(($rank / $total) * 100, 1) : 0;
-
-        $facts[] = "You finished #{$rank} out of {$total} shooters (top {$percentile}%)";
+        $facts[] = $this->placementFunFact($rank, $total);
 
         $hitRate = $totalTargets > 0 ? round($totalHits / $totalTargets * 100, 1) : 0;
         $avgHits = round($ranked->avg('hits'), 1);
@@ -1142,9 +1219,7 @@ class MatchReportService
         array $targetHitRates, int $fieldFurthest
     ): array {
         $facts = [];
-        $percentile = $total > 0 ? round(($rank / $total) * 100, 1) : 0;
-
-        $facts[] = "You finished #{$rank} out of {$total} shooters (top {$percentile}%)";
+        $facts[] = $this->placementFunFact($rank, $total);
 
         $hitRate = $totalTargets > 0 ? round($totalHits / $totalTargets * 100, 1) : 0;
         $facts[] = "You scored {$totalPoints} points hitting {$totalHits} of {$totalTargets} targets ({$hitRate}%)";

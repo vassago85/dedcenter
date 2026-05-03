@@ -260,9 +260,9 @@
         </div>
         @if(!empty($placement['rank']) && !empty($placement['total']))
             <div class="summary-line">
-                Placement: {{ $placement['rank'] }}{{ match((int)$placement['rank']) { 1 => 'st', 2 => 'nd', 3 => 'rd', default => 'th' } }} of {{ $placement['total'] }}
-                @if(!empty($placement['percentile']))
-                    <span class="hl">(top {{ number_format($placement['percentile'], 0) }}%)</span>
+                Placement: {{ $placement['rank_ordinal'] ?? $placement['rank'] }} of {{ $placement['total'] }}
+                @if(!empty($placement['summary']))
+                    <span class="hl">({{ $placement['summary'] }})</span>
                 @endif
             </div>
         @endif

@@ -267,9 +267,9 @@
                             @if(!empty($placement['rank']) && !empty($placement['total']))
                             <tr>
                                 <td style="font-size:14px;color:#94a3b8;font-family:Arial,Helvetica,sans-serif;">
-                                    Placement: {{ $placement['rank'] }}{{ $placement['rank'] == 1 ? 'st' : ($placement['rank'] == 2 ? 'nd' : ($placement['rank'] == 3 ? 'rd' : 'th')) }} of {{ $placement['total'] }}
-                                    @if(!empty($placement['percentile']))
-                                        <span style="color:{{ $accentColor }};font-weight:bold;">(top {{ number_format($placement['percentile'], 0) }}%)</span>
+                                    Placement: {{ $placement['rank_ordinal'] ?? $placement['rank'] }} of {{ $placement['total'] }}
+                                    @if(!empty($placement['summary']))
+                                        <span style="color:{{ $accentColor }};font-weight:bold;">({{ $placement['summary'] }})</span>
                                     @endif
                                 </td>
                             </tr>

@@ -9,6 +9,18 @@ use App\Models\ShootingMatch;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
+/*
+ * NOTE on scoring-type coverage:
+ * Standard matches use MatchStandingsService directly (cheap aggregate query).
+ * PRS / ELR matches use MatchReportService::generateReport() so we get the
+ * exact same rank that the per-shooter PDF and the in-app match report
+ * surface — no tie-breaker logic duplicated in two places. The cost of
+ * generateReport() (full per-shooter payload incl. stages/fun-facts/badges)
+ * is only paid for matches the user actually shot, and only on dashboard
+ * load. If that ever becomes a perf concern we can add a leaner
+ * `MatchReportService::placementOnly($match, $shooter)` and switch.
+ */
+
 /**
  * Builds a per-organization "best finish" card for the shooter dashboard.
  *
@@ -22,6 +34,15 @@ use Illuminate\Support\Collection;
  */
 class ShooterBestFinishesService
 {
+    public function __construct(
+        private ?MatchReportService $reportService = null,
+    ) {
+        // The DI container fills $reportService in production; the legacy
+        // tests `new ShooterBestFinishesService()` so default-construct via
+        // app() to keep the existing test signatures working.
+        $this->reportService ??= app(MatchReportService::class);
+    }
+
     /**
      * Return a collection of best-finish rows for a user, one per organization
      * they have ever competed in, sorted by rank (best first).
@@ -58,7 +79,7 @@ class ShooterBestFinishesService
             $match = $shooter->squad->match;
             $org = $match->organization;
 
-            $rankInfo = $this->rankForShooter($standingsService, $match, $shooter->id);
+            $rankInfo = $this->rankForShooter($standingsService, $match, $shooter);
             if ($rankInfo === null) {
                 // DQ, no-show, or unranked (e.g. PRS without results) — skip for ranking but still count.
                 $rowsByOrg[$org->id] ??= [
@@ -112,19 +133,23 @@ class ShooterBestFinishesService
 
     /**
      * Return [rank, fieldSize] for a given shooter within a match, or null if
-     * the shooter wasn't ranked (DQ / no-show / PRS match we can't rank here).
+     * the shooter wasn't ranked (DQ / no-show / no scoring data yet).
+     *
+     * Standard matches go through MatchStandingsService directly. PRS / ELR
+     * matches defer to MatchReportService so the dashboard "best finish"
+     * matches the rank shown on the per-shooter report (same tie-breaker
+     * rules, same field-size definition).
      *
      * @return array{0: int, 1: int}|null
      */
-    private function rankForShooter(MatchStandingsService $service, ShootingMatch $match, int $shooterId): ?array
+    private function rankForShooter(MatchStandingsService $service, ShootingMatch $match, Shooter $shooter): ?array
     {
         if ($match->isPrs() || $match->isElr()) {
-            // PRS/ELR rankings are held elsewhere; best-effort only — skip for now.
-            return null;
+            return $this->prsOrElrRank($match, $shooter);
         }
 
         $standings = $service->standardStandings($match);
-        $row = $standings->firstWhere('shooter_id', $shooterId);
+        $row = $standings->firstWhere('shooter_id', $shooter->id);
 
         if ($row === null || $row->rank === null) {
             return null;
@@ -133,5 +158,29 @@ class ShooterBestFinishesService
         $fieldSize = $standings->filter(fn ($r) => $r->rank !== null)->count();
 
         return [(int) $row->rank, $fieldSize];
+    }
+
+    /**
+     * @return array{0: int, 1: int}|null
+     */
+    private function prsOrElrRank(ShootingMatch $match, Shooter $shooter): ?array
+    {
+        try {
+            $report = $this->reportService->generateReport($match, $shooter);
+        } catch (\Throwable $e) {
+            // A report can fail for matches with no scored stages yet (e.g.
+            // a PRS match marked Completed but with empty PrsStageResults).
+            // Treat that as "unranked" rather than 500-ing the dashboard.
+            return null;
+        }
+
+        $rank = $report['placement']['rank'] ?? null;
+        $total = $report['placement']['total'] ?? 0;
+
+        if (! $rank || $total <= 0) {
+            return null;
+        }
+
+        return [(int) $rank, (int) $total];
     }
 }
