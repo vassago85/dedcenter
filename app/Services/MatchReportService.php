@@ -29,12 +29,48 @@ class MatchReportService
         return $report;
     }
 
+    /**
+     * Render the shooter's match report as PDF bytes.
+     *
+     * Goes through the SAME pipeline as the on-screen mobile share view:
+     * `pages.match-share` Blade with `pdfMode=true`, the compiled Tailwind
+     * stylesheet attached to the Gotenberg multipart payload as `app.css`,
+     * `singlePage=true` so Chromium emits one continuous tall page. The
+     * resulting file is a true print of the share card the shooter sees
+     * in the browser — same hero rank tile, same gong stack with per-gong
+     * values, same badge grid, just without the sticky share bar and the
+     * inline JS island (both stripped by `pdfMode`).
+     *
+     * Used by:
+     *   - `MatchReportController::download` ("Download My Match Report"
+     *     button on the event-detail page) → forced attachment download
+     *   - `MatchExportController::pdfMyShooterReport` (Download PDF button
+     *     inside the share view itself) → inline display
+     *
+     * Both endpoints used to render different templates — the event-detail
+     * button silently fell back to the old A4 narrative `exports.pdf-
+     * match-report` even after the share view was supposed to be the
+     * single source of truth, which is why "the downloaded report still
+     * looks like the same shit". Consolidated here so the choice of
+     * template is no longer a function of which button you clicked.
+     */
     public function generatePdfBytes(ShootingMatch $match, Shooter $shooter): string
     {
         $report = $this->generateReport($match, $shooter);
         $renderer = app(PdfDocumentRenderer::class);
 
-        return $renderer->generate('exports.pdf-match-report', ['report' => $report], null, true);
+        return $renderer->generate(
+            'pages.match-share',
+            [
+                'report'   => $report,
+                'shareUrl' => null,
+                'pdfUrl'   => null,
+                'pdfMode'  => true,
+            ],
+            null,
+            true,
+            PdfDocumentRenderer::shareViewAssets(),
+        );
     }
 
     private function sponsorData(ShootingMatch $match): ?array

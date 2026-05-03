@@ -875,49 +875,34 @@ class MatchExportController extends Controller
      * regardless of pagination heuristics — that's what makes the file
      * read like a single phone screenshot rather than a stack of A6s.
      */
-    public function pdfMyShooterReport(ShootingMatch $match, PdfDocumentRenderer $renderer, MatchReportService $reportService)
+    public function pdfMyShooterReport(ShootingMatch $match, MatchReportService $reportService)
     {
         $shooter = $this->resolveAuthenticatedShooter($match);
         $slug = Str::slug($match->name.'-'.$shooter->name);
-        $report = $reportService->generateReport($match, $shooter);
 
-        return $renderer->stream(
-            'pages.match-share',
-            [
-                'report'   => $report,
-                'shareUrl' => route('matches.my-report', $match),
-                'pdfUrl'   => null,         // Don't render the PDF link inside the PDF itself.
-                'pdfMode'  => true,
-            ],
-            "{$slug}-shooter-report.pdf",
-            null,
-            true,
-            $this->resolveShareViewPdfAssets(),
-        );
-    }
+        // Delegate the actual rendering to MatchReportService so this
+        // endpoint and `MatchReportController::download` (the "Download
+        // My Match Report" button on the event-detail page) hand back
+        // exactly the same PDF artefact. Previously each had its own
+        // call into PdfDocumentRenderer with a different template, so
+        // depending on which button the shooter clicked they got either
+        // the new share-view print OR the old A4 narrative — the user's
+        // "downloaded report still looks like the same shit" was the
+        // event-detail button's path silently rendering the wrong
+        // template. Single source of truth now lives in the service.
+        $pdfBytes = $reportService->generatePdfBytes($match, $shooter);
 
-    /**
-     * Map the on-screen share view's compiled CSS (resolved via the Vite
-     * manifest) to the `app.css` filename the PDF template's `<link>` tag
-     * expects when `pdfMode=true`. Returns an empty array if the manifest
-     * isn't present (e.g. local dev without `npm run build`); the PDF will
-     * still render via Gotenberg, just without styling.
-     *
-     * @return array<string,string>
-     */
-    private function resolveShareViewPdfAssets(): array
-    {
-        $manifestPath = public_path('build/manifest.json');
-        if (! file_exists($manifestPath)) {
-            return [];
-        }
-        $manifest = json_decode((string) file_get_contents($manifestPath), true);
-        $cssRel = $manifest['resources/css/app.css']['file'] ?? null;
-        if (! $cssRel) {
-            return [];
-        }
-        $cssAbs = public_path('build/'.$cssRel);
-        return file_exists($cssAbs) ? ['app.css' => $cssAbs] : [];
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            // `inline` (rather than `attachment`) because this endpoint
+            // backs the Download PDF button inside the share view — most
+            // mobile browsers preview an inline PDF in-app, which is what
+            // a user expects from a "view PDF" affordance. The matching
+            // event-detail "download" button uses `attachment` to force
+            // the OS download dialog instead — different audience, same
+            // bytes.
+            'Content-Disposition' => 'inline; filename="'.$slug.'-shooter-report.pdf"',
+        ]);
     }
 
     /**

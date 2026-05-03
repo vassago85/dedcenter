@@ -92,6 +92,56 @@ it('still serves the PDF at /matches/{match}/my-report.pdf', function () {
 });
 
 /*
+| Regression: the "Download My Match Report (PDF)" button on the event-
+| detail page hits a DIFFERENT route (`matches.report.download` →
+| MatchReportController::download → MatchReportService::generatePdfBytes)
+| than the "Download PDF" button inside the share view itself
+| (`matches.my-report.pdf` → MatchExportController::pdfMyShooterReport).
+| Both must hand back the SAME artefact — the new mobile share view
+| rendered with pdfMode=true — otherwise the user gets two different
+| PDFs depending on which button they happen to click. That was the
+| bug that prompted "when i download the report its still teh same
+| shit": one button rendered `pages.match-share` (correct), the other
+| silently fell back to the old A4 narrative `exports.pdf-match-report`
+| (wrong). We now share rendering through the service so the choice of
+| template can't drift between the two endpoints again.
+|
+| Asserted at the service layer rather than over HTTP because BOTH
+| routes call MatchReportService::generatePdfBytes() — so locking the
+| service's template choice locks both routes together by construction.
+*/
+it('renders the share view (NOT the old A4 narrative) for the shooter self-download', function () {
+    [$user, $match] = makeShooterMatch();
+    $shooter = \App\Models\Shooter::where('user_id', $user->id)->first();
+
+    // Spy on the renderer so we can see which template it was asked for
+    // without having to actually fire up Gotenberg in the test container.
+    $captured = ['template' => null, 'pdfMode' => null, 'assets' => null];
+    $this->mock(\App\Services\PdfDocumentRenderer::class, function ($m) use (&$captured) {
+        $m->shouldReceive('generate')
+          ->once()
+          ->andReturnUsing(function ($template, $data, $size, $singlePage, $assets = []) use (&$captured) {
+              $captured['template'] = $template;
+              $captured['pdfMode']  = $data['pdfMode'] ?? null;
+              $captured['assets']   = array_keys($assets);
+              return '%PDF-1.4 fake bytes';
+          });
+    });
+
+    (new \App\Services\MatchReportService)->generatePdfBytes($match, $shooter);
+
+    expect($captured['template'])->toBe('pages.match-share')
+        ->and($captured['pdfMode'])->toBeTrue()
+        // The compiled-CSS sibling file is what makes the PDF look like
+        // the on-screen share card instead of an unstyled HTML dump.
+        // Asserting it's at least passed through (file may not exist in
+        // the test env without `npm run build`, in which case the asset
+        // map is empty — still acceptable, but we lock the template/mode
+        // choice unconditionally above).
+        ->and($captured['assets'])->toBeArray();
+});
+
+/*
 | pdfMode flag — the share view is now the single source of truth for both
 | the on-screen render AND the downloadable PDF. When pdfMode=true the
 | template skips the sticky share bar, the JSON island, and the share

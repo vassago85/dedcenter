@@ -24,6 +24,46 @@ class PdfDocumentRenderer
     }
 
     /**
+     * Resolve the compiled Tailwind CSS asset that the on-screen share
+     * view (`pages.match-share`) references via `<link href="app.css">`
+     * when rendered with `pdfMode=true`. Returns an asset map suitable
+     * for `generate()` / `stream()`'s `$assets` argument — keyed by the
+     * filename Gotenberg sees (the relative href the template uses), with
+     * the absolute path on disk as the value.
+     *
+     * Lives on the renderer (not the controller) because TWO different
+     * download endpoints emit this same PDF artefact and were previously
+     * resolving the manifest from independent copies of the helper. The
+     * second copy was the source of yet another "downloaded report still
+     * looks like the same shit" regression — `MatchReportController::
+     * download` rendered the OLD A4 narrative template (`exports.pdf-
+     * match-report`) while `MatchExportController::pdfMyShooterReport`
+     * rendered the NEW share view, so which template you got depended
+     * entirely on which Download button you happened to click. Centralised
+     * here so the answer is always "render the share view".
+     *
+     * Returns [] when the manifest is missing (e.g. local dev without
+     * `npm run build`); the PDF still renders via Gotenberg, just without
+     * the Tailwind layer.
+     *
+     * @return array<string,string>
+     */
+    public static function shareViewAssets(): array
+    {
+        $manifestPath = public_path('build/manifest.json');
+        if (! file_exists($manifestPath)) {
+            return [];
+        }
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+        $cssRel = $manifest['resources/css/app.css']['file'] ?? null;
+        if (! $cssRel) {
+            return [];
+        }
+        $cssAbs = public_path('build/'.$cssRel);
+        return file_exists($cssAbs) ? ['app.css' => $cssAbs] : [];
+    }
+
+    /**
      * Generate a PDF from a Blade template and return the raw PDF bytes.
      *
      * @param  array{width: float, height: float}|null  $customSize  Paper size in mm
