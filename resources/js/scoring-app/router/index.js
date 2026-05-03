@@ -1,10 +1,15 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 
 const LAST_MATCH_KEY = 'dc_last_match_id';
 const MODE_KEY = 'dc_pwa_mode';
 
 const routes = [
+    // Root redirect — the standalone APK loads `file:///.../scoring-standalone.html`
+    // with no path/hash, which lands the hash router on `/`. Without this
+    // redirect the user sees a "no route matched" blank page instead of the
+    // home screen.
+    { path: '/', redirect: { name: 'home' } },
     {
         path: '/score',
         name: 'home',
@@ -89,8 +94,19 @@ const routes = [
     },
 ];
 
+// When the standalone APK loads `file:///android_asset/scoring-standalone.html`
+// the WebView can't navigate to clean URLs like `/score/123` — there's no
+// host to resolve them against, so vue-router's `createWebHistory` silently
+// breaks every internal navigation (the symptom is a blank screen the moment
+// the user taps anything). Hash history works in both `file://` and HTTPS,
+// so we pick it whenever the protocol isn't HTTP(S). The Laravel-served PWA
+// continues to use clean URLs.
+const isFileProtocol = typeof window !== 'undefined'
+    && typeof window.location !== 'undefined'
+    && window.location.protocol === 'file:';
+
 const router = createRouter({
-    history: createWebHistory(),
+    history: isFileProtocol ? createWebHashHistory() : createWebHistory(),
     routes,
 });
 

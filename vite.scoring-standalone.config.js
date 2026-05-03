@@ -9,7 +9,11 @@ export default defineConfig({
         vue(),
     ],
     root: resolve(__dirname),
-    base: '/',
+    // Relative base — so `file:///android_asset/scoring-standalone.html`
+    // can resolve `./assets/...` URLs without depending on a host. The
+    // previous absolute `/` base broke the WebView when there was no HTTP
+    // server underneath it (which is exactly the standalone APK case).
+    base: './',
     publicDir: false,
     build: {
         outDir: resolve(__dirname, 'scoring-standalone-dist'),

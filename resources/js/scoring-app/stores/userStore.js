@@ -26,9 +26,8 @@ export const useUserStore = defineStore('user', {
             if (this.loading) return this.user;
             this.loading = true;
             try {
-                const { data } = await axios.get('/api/user');
+                const { data } = await axios.get('/api/user', { timeout: 8000 });
                 this.user = data.user;
-                this.loaded = true;
 
                 if (!this.canScore) {
                     this.setMode('member');
@@ -36,9 +35,17 @@ export const useUserStore = defineStore('user', {
 
                 return this.user;
             } catch (e) {
+                // Logging only — we deliberately swallow the error so the app
+                // can boot offline. If we leave `loaded` as false here the
+                // router's `ensureLoaded()` will re-fire on every navigation
+                // and a slow / hung axios call will block route transitions
+                // forever (the symptom is a stuck spinner / blank screen on
+                // a fresh phone with no internet). Mark the boot as resolved
+                // either way; downstream views already gate on `canScore`.
                 console.error('Failed to fetch user:', e);
                 return null;
             } finally {
+                this.loaded = true;
                 this.loading = false;
             }
         },
