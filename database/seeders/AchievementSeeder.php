@@ -16,7 +16,15 @@ class AchievementSeeder extends Seeder
 
             // ── PRS Lifetime (earned once, kept forever) ──
             ['slug' => 'prs-full-send',     'label' => 'Full Send',         'description' => 'Completed a stage with all impacts and no shots not taken.',                                             'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 10,  'competition_type' => 'prs'],
-            ['slug' => 'no-drop-stage',     'label' => 'No Drop Stage',     'description' => 'Dropped only one point on a PRS stage while completing all shots.',                                       'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 20,  'competition_type' => 'prs'],
+            // `no-drop-stage` slug is intentionally unchanged — it's the
+            // internal key referenced by AchievementService::evaluateStageCompletion,
+            // BadgeGalleryController::BADGE_CONFIG, and (most importantly) the
+            // existing user_achievements rows. Renaming the slug would orphan
+            // every previously-awarded badge. Only the user-facing label and
+            // description move from the misleading "No Drop Stage" / "dropped
+            // only one point" framing — you DO drop one round to earn it, so
+            // the old name read backwards from the actual criterion.
+            ['slug' => 'no-drop-stage',     'label' => 'One Down',          'description' => 'Took every shot on a PRS stage and dropped only one impact.',                                              'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 20,  'competition_type' => 'prs'],
             ['slug' => 'impact-chain',      'label' => 'Impact Chain',      'description' => 'Built a streak of consecutive hits on a single stage.',                                                   'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 30,  'competition_type' => 'prs'],
             ['slug' => 'high-efficiency',   'label' => 'High Efficiency',   'description' => 'Achieved 80% or higher hit rate on shots taken across the match.',                                        'category' => 'lifetime', 'scope' => 'stage', 'is_repeatable' => false, 'sort_order' => 40,  'competition_type' => 'prs'],
             ['slug' => 'early-bird',        'label' => 'Early Bird',        'description' => 'First shooter to register for a PRS match.',                                                               'category' => 'lifetime', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 50,  'competition_type' => 'prs'],
