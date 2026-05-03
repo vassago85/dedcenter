@@ -8,12 +8,28 @@ use App\Models\ShooterAccountClaim;
 use App\Enums\MatchStatus;
 use App\Enums\ShooterClaimStatus;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
 
 new #[Layout('components.layouts.app')]
     #[Title('Platform Admin Dashboard')]
     class extends Component {
+    /**
+     * Re-render hook fired by approve / reject actions on other pages.
+     * Without this, after approving a claim and navigating back to the
+     * dashboard via wire:navigate, the cached page snapshot still shows
+     * the old "X pending" banner because `with()` doesn't re-run on a
+     * Livewire snapshot restore. Listening for the global event lets us
+     * force a fresh data pull whenever a moderator resolves something.
+     */
+    #[On('moderation-updated')]
+    public function refreshModerationCounts(): void
+    {
+        // Empty body — Livewire re-runs `with()` whenever the component
+        // is hydrated by an event, which is all we need.
+    }
+
     public function with(): array
     {
         return [
@@ -125,6 +141,20 @@ new #[Layout('components.layouts.app')]
             <x-icon name="arrow-right" class="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
         </a>
     </div>
+
+    {{--
+        wire:navigate keeps a snapshot of this page in memory so back-nav
+        feels instant. Downside: the moderation counters above
+        (`pendingClaims`, `pendingOrgs`, `pendingRegistrations`) become
+        stale the moment another page resolves one of them — exactly the
+        "I approved a claim but the banner still says 1 pending" bug.
+        Refreshing on every `livewire:navigated` event re-runs `with()`
+        and updates the banner + stat cards. The cost is ~7 lightweight
+        COUNT queries per navigation to the dashboard, which is fine on
+        a page admins use sparingly.
+    --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
 
     {{-- Recent matches --}}
     <x-panel title="Recent matches" subtitle="Latest matches across all organizations" :padding="false">

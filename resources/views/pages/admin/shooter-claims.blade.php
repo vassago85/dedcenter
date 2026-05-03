@@ -53,6 +53,12 @@ new #[Layout('components.layouts.app')]
             ShooterAccountClaimService::APPROVED_WALKIN =>
                 Flux::toast('Claim approved. Shooter linked to account.', variant: 'success'),
         };
+
+        // Tell other Livewire components on the page (admin dashboard, sidebar
+        // counters) that the moderation backlog just changed so they refresh
+        // their cached "X pending" badges instead of staying stale until a
+        // hard reload.
+        $this->dispatch('moderation-updated');
     }
 
     public function reject(int $claimId): void
@@ -72,6 +78,7 @@ new #[Layout('components.layouts.app')]
         ]);
 
         Flux::toast('Claim rejected.', variant: 'success');
+        $this->dispatch('moderation-updated');
     }
 }; ?>
 
