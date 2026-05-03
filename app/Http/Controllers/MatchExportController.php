@@ -847,10 +847,19 @@ class MatchExportController extends Controller
     /**
      * Member-facing shooter report (PDF).
      *
-     * The original A4 stream — kept under `/matches/{match}/my-report.pdf`
-     * so the new HTML view's "Download PDF" button has somewhere to link
-     * and so existing email-attachment / "save to files" workflows still
-     * work. Same auth gate as myShooterReport().
+     * Renders the *phone-shaped* share-style PDF (`exports.pdf-match-share`)
+     * — same visual identity as the on-screen `pages.match-share` view but
+     * sized as one tall, narrow column (90mm wide, single page) so the file
+     * looks like a screenshot of the share view when attached to a chat or
+     * email. The old A4 narrative report still lives at
+     * `exports.pdf-match-report` and is used by the email mailer + the
+     * organiser-side bulk download endpoints; only the *self-download*
+     * route on this URL was switched, because that's the one shooters use
+     * to share their result.
+     *
+     * `singlePage=true` is essential: it forces Chromium to emit one
+     * continuous page regardless of DomPDF/Chromium pagination heuristics,
+     * which is what makes the file a clean phone-shaped artifact.
      */
     public function pdfMyShooterReport(ShootingMatch $match, PdfDocumentRenderer $renderer, MatchReportService $reportService)
     {
@@ -858,7 +867,18 @@ class MatchExportController extends Controller
         $slug = Str::slug($match->name.'-'.$shooter->name);
         $report = $reportService->generateReport($match, $shooter);
 
-        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf", null, true);
+        // No customSize → renderer keeps `preferCssPageSize: true`, which
+        // means the template's own `@page { size: 90mm auto }` rule wins.
+        // singlePage=true tells Gotenberg/Chromium to collapse the entire
+        // report into one continuous tall page (the whole point of the
+        // share-style format).
+        return $renderer->stream(
+            'exports.pdf-match-share',
+            ['report' => $report],
+            "{$slug}-shooter-report.pdf",
+            null,
+            true,
+        );
     }
 
     /**

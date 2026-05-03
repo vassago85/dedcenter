@@ -403,23 +403,62 @@
     </section>
     @endif
 
-    {{-- ─── Badges ──────────────────────────────────────────────────── --}}
+    {{-- ─── Badges ──────────────────────────────────────────────────────
+         The badge payload from MatchReportService::shooterBadges() keys are
+         `label`, `icon`, `tier`, `family`, `description`, `earn_chip`. The
+         old markup here referenced `title` and `tier_label` (both nonexistent),
+         so every card collapsed to the literal placeholder "Badge" with a
+         generic "Milestone" overline. Now we render the actual badge name +
+         crest + tier-aware copy, family-coloured for PRS (sky) vs Royal
+         Flush (amber). --}}
     @if(count($badges) > 0)
+    @php
+        // Tier → human label (mirrors badge-card-earned.blade.php so the
+        // share view talks the same dialect as the badge gallery).
+        $tierLabels = [
+            'featured'  => 'Signature',
+            'elite'     => 'Elite',
+            'milestone' => 'Lifetime',
+            'earned'    => 'Earned',
+        ];
+        // Crest tone per family/tier — kept inline (rather than a component)
+        // so this view stays self-contained and screenshot-clean.
+        $crestTones = [
+            'prs' => [
+                'featured'  => ['ring' => 'ring-sky-400/35',  'crest' => 'border-sky-400/35 bg-gradient-to-b from-sky-400/18 to-sky-600/8 text-sky-200',  'label' => 'text-sky-300'],
+                'elite'     => ['ring' => 'ring-sky-400/25',  'crest' => 'border-sky-400/25 bg-gradient-to-b from-sky-400/14 to-sky-500/6 text-sky-200',  'label' => 'text-sky-300/90'],
+                'milestone' => ['ring' => 'ring-sky-300/20',  'crest' => 'border-sky-300/20 bg-gradient-to-b from-sky-400/10 to-sky-500/4 text-sky-300',  'label' => 'text-sky-300/80'],
+                'earned'    => ['ring' => 'ring-white/12',    'crest' => 'border-white/12 bg-gradient-to-b from-white/7 to-white/3 text-sky-300/80',     'label' => 'text-sky-300/70'],
+            ],
+            'rf' => [
+                'featured'  => ['ring' => 'ring-amber-400/35','crest' => 'border-amber-400/35 bg-gradient-to-b from-amber-400/18 to-orange-500/8 text-amber-200', 'label' => 'text-amber-300'],
+                'elite'     => ['ring' => 'ring-amber-400/25','crest' => 'border-amber-400/25 bg-gradient-to-b from-amber-400/14 to-orange-500/6 text-amber-200', 'label' => 'text-amber-300/90'],
+                'milestone' => ['ring' => 'ring-amber-400/18','crest' => 'border-amber-400/18 bg-gradient-to-b from-amber-400/10 to-orange-500/4 text-amber-300', 'label' => 'text-amber-300/80'],
+                'earned'    => ['ring' => 'ring-white/12',    'crest' => 'border-white/12 bg-gradient-to-b from-white/7 to-white/3 text-amber-300/80',           'label' => 'text-amber-300/70'],
+            ],
+        ];
+    @endphp
     <section class="space-y-2">
         <h2 class="text-[10px] font-bold uppercase tracking-[0.22em] text-red-400">Badges Awarded</h2>
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
             @foreach($badges as $badge)
                 @php
-                    $family = $badge['family'] ?? 'prs';
-                    $tier = $badge['tier'] ?? 'earned';
-                    $accent = $family === 'rf' ? 'text-amber-300' : 'text-sky-300';
-                    $ring = $family === 'rf' ? 'ring-amber-500/30' : 'ring-sky-500/30';
+                    $family   = $badge['family'] ?? 'prs';
+                    $tier     = $badge['tier'] ?? 'earned';
+                    $tone     = $crestTones[$family][$tier] ?? $crestTones['prs']['earned'];
+                    $name     = $badge['label'] ?? 'Badge';
+                    $tierTxt  = $tierLabels[$tier] ?? ucfirst($tier);
+                    $icon     = $badge['icon'] ?? 'target';
+                    $subtitle = $badge['description'] ?? $badge['earn_chip'] ?? null;
                 @endphp
-                <div class="rounded-xl bg-zinc-900/50 ring-1 {{ $ring }} p-3 text-center">
-                    <div class="text-[10px] uppercase tracking-wider {{ $accent }}">{{ $badge['tier_label'] ?? ucfirst($tier) }}</div>
-                    <div class="mt-1 text-[12.5px] font-semibold text-white leading-tight">{{ $badge['title'] ?? 'Badge' }}</div>
-                    @if(!empty($badge['earn_chip']))
-                        <div class="mt-1 text-[10px] text-zinc-500">{{ $badge['earn_chip'] }}</div>
+                <div class="rounded-xl bg-zinc-900/60 ring-1 {{ $tone['ring'] }} p-3 text-center">
+                    <div class="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-xl border {{ $tone['crest'] }}">
+                        <x-badge-icon :name="$icon" class="h-5 w-5" />
+                    </div>
+                    <div class="mt-2 text-[10px] font-bold uppercase tracking-wider {{ $tone['label'] }}">{{ $tierTxt }}</div>
+                    <div class="mt-0.5 text-[12.5px] font-semibold leading-tight text-white">{{ $name }}</div>
+                    @if($subtitle)
+                        <div class="mt-1 line-clamp-2 text-[10px] leading-snug text-zinc-500">{{ $subtitle }}</div>
                     @endif
                 </div>
             @endforeach

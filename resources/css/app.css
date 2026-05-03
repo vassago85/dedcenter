@@ -219,6 +219,29 @@ html.dark select:not([data-no-dc-style]) {
     background: var(--color-surface) !important;
     border-color: var(--color-border) !important;
 }
+
+/* Native <select> drop-downs are rendered by the OS, not by our CSS. Without
+   `color-scheme: dark` on the control, Chrome/Firefox/Edge open a *light*
+   popup whose option text inherits our forced `color: #ffffff`, giving the
+   classic white-on-white invisible list (e.g. admin → Homepage Curation
+   match picker). We also explicitly style the <option> elements so older
+   Safari and any browser that ignores color-scheme on <select> still gets a
+   readable popup. */
+:where([data-flux-input]) select,
+html.dark select:not([data-no-dc-style]) {
+    color-scheme: dark;
+}
+:where([data-flux-input]) select option,
+html.dark select:not([data-no-dc-style]) option {
+    color: #ffffff;
+    background-color: var(--color-surface);
+}
+:where([data-flux-input]) select option:checked,
+:where([data-flux-input]) select option:hover,
+html.dark select:not([data-no-dc-style]) option:checked,
+html.dark select:not([data-no-dc-style]) option:hover {
+    background-color: var(--color-surface-2);
+}
 :where([data-flux-input]) input::placeholder,
 :where([data-flux-input]) textarea::placeholder,
 :where([data-flux-textarea])::placeholder,

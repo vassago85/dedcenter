@@ -48,6 +48,14 @@ new #[Layout('components.layouts.app')]
 
             $achievementCount = UserAchievement::where('user_id', $userId)->count();
 
+            // Pre-flight check for the "Your Badges" section so the dashboard
+            // can hide the whole panel for shooters who haven't earned any
+            // yet (without paying the eager-load cost when there's nothing
+            // to show — `<x-shooter-badges>` will re-query but the existence
+            // check is cheap and lets us decide between "show grid" vs "show
+            // empty CTA encouraging them to browse the gallery").
+            $hasBadges = $achievementCount > 0;
+
             $liveMatches = ShootingMatch::with('organization')
                 ->activeLiveToday()
                 ->orderBy('date', 'desc')
@@ -96,6 +104,7 @@ new #[Layout('components.layouts.app')]
                 'bestFinish',
                 'bestFinishes',
                 'achievementCount',
+                'hasBadges',
                 'liveMatches',
                 'upcomingMatches',
                 'recentResults',
@@ -173,7 +182,8 @@ new #[Layout('components.layouts.app')]
             label="Achievements"
             :value="$achievementCount"
             :color="$achievementCount > 0 ? 'accent' : 'slate'"
-            helper="Badges earned" />
+            helper="Badges earned"
+            :href="route('badges.preview')" />
     </div>
 
     {{-- Best finishes by organization — per-org stats so a Royal Flush win
@@ -296,6 +306,57 @@ new #[Layout('components.layouts.app')]
             </div>
         </section>
     @endif
+
+    {{-- Your badges
+         Shows the shooter their earned badges grouped by competition (PRS /
+         Royal Flush) and category (signature / lifetime / repeatable). When
+         the user has nothing yet, we still render a CTA pointing at the
+         gallery so they understand badges exist and what's earnable —
+         "achievements" is a 0 stat in the strip above otherwise. --}}
+    <section>
+        <div class="mb-3 flex items-end justify-between gap-3">
+            <div>
+                <h2 class="text-base font-semibold text-primary">Your badges</h2>
+                <p class="text-xs text-muted">
+                    @if($hasBadges)
+                        {{ $achievementCount }} {{ \Illuminate\Support\Str::plural('badge', $achievementCount) }} earned across your matches
+                    @else
+                        Earn badges as you shoot — podiums, distance hits, signature feats, and more
+                    @endif
+                </p>
+            </div>
+            <a href="{{ route('badges.preview') }}"
+               class="inline-flex items-center gap-1 text-xs font-semibold text-muted transition-colors hover:text-primary">
+                Browse all
+                <x-icon name="arrow-right" class="h-3.5 w-3.5" />
+            </a>
+        </div>
+
+        @if($hasBadges)
+            <x-panel :padding="false">
+                <div class="p-5 sm:p-6">
+                    <x-shooter-badges :userId="auth()->id()" />
+                </div>
+            </x-panel>
+        @else
+            <x-panel>
+                <div class="flex flex-col items-center gap-3 py-6 text-center sm:flex-row sm:items-center sm:gap-5 sm:py-4 sm:text-left">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-400/25 bg-gradient-to-b from-amber-400/15 to-orange-500/8 text-amber-200">
+                        <x-icon name="award" class="h-6 w-6" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-primary">No badges yet</p>
+                        <p class="mt-0.5 text-xs text-muted">Show up, take your shots, and you'll start collecting them. Browse the gallery to see what's up for grabs.</p>
+                    </div>
+                    <a href="{{ route('badges.preview') }}"
+                       class="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-secondary transition-colors hover:border-accent hover:text-primary">
+                        <x-icon name="award" class="h-3.5 w-3.5" />
+                        Badge gallery
+                    </a>
+                </div>
+            </x-panel>
+        @endif
+    </section>
 
     {{-- Live now strip --}}
     @if($liveMatches->isNotEmpty())

@@ -53,6 +53,39 @@ it('still serves the PDF at /matches/{match}/my-report.pdf', function () {
     expect($res->headers->get('Content-Type'))->toBe('application/pdf');
 });
 
+/*
+| Badges section regression — the on-screen share view used to render
+| every badge as the literal placeholder string "Badge" because the Blade
+| was reading nonexistent keys (`title`, `tier_label`) instead of the
+| actual `label` / `tier` fields produced by MatchReportService. We now
+| read the right keys, so a real badge label should appear in the HTML.
+*/
+it('renders badges with their real labels in the share view', function () {
+    [$user, $match] = makeShooterMatch();
+
+    $achievement = \App\Models\Achievement::create([
+        'slug' => 'iron-shooter',
+        'label' => 'Iron Shooter',
+        'description' => 'Stayed on the line all match.',
+        'category' => 'lifetime',
+        'competition_type' => 'standard',
+        'is_active' => true,
+        'sort_order' => 0,
+    ]);
+    \App\Models\UserAchievement::create([
+        'user_id' => $user->id,
+        'achievement_id' => $achievement->id,
+        'match_id' => $match->id,
+        'awarded_at' => now(),
+    ]);
+
+    $res = $this->actingAs($user)->get(route('matches.my-report', $match));
+
+    $res->assertOk();
+    $res->assertSee('Iron Shooter', false);
+    $res->assertDontSee('>Badge<', false); // i.e. the old placeholder string
+});
+
 it('404s the share view if the user is not a linked shooter in the match', function () {
     [, $match] = makeShooterMatch();
     $stranger = User::factory()->create();
