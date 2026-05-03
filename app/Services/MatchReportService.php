@@ -903,6 +903,38 @@ class MatchReportService
     }
 
     /**
+     * Compact, capitalised variant of placementSummary() — purpose-built
+     * for chips, pills, badges, or anywhere we want a short label that
+     * isn't a full sentence.
+     *
+     *   rank 5 of 47   → "Top 11%"
+     *   rank 32 of 47  → "Beat 15"   (drops the noun, the chip context implies it)
+     *   rank 47 of 47  → ""
+     *
+     * If the surrounding sentence already mentions "shooters", call
+     * placementSummary() instead so the prose reads naturally.
+     */
+    public static function placementSummaryShort(int $rank, int $total): string
+    {
+        if ($total <= 0 || $rank <= 0) {
+            return '';
+        }
+
+        $percentile = round(($rank / $total) * 100, 1);
+
+        if ($percentile <= 50) {
+            return 'Top ' . max(1, (int) round($percentile)) . '%';
+        }
+
+        $beatCount = $total - $rank;
+        if ($beatCount > 0) {
+            return 'Beat ' . $beatCount;
+        }
+
+        return '';
+    }
+
+    /**
      * Single source of truth for the "You finished #X of Y …" fun fact.
      * Drops the misleading "(top 68%)" copy and falls back to the honest
      * "beat N shooters" phrasing for bottom-half finishes.

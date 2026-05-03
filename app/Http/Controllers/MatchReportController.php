@@ -68,12 +68,15 @@ class MatchReportController extends Controller
 
         $report = $this->reportService->generateReport($match, $shooter);
 
-        $downloadUrl = $this->resolvePublicDownloadUrl($request, $match, $shooter);
+        // PDF download is gated by who's looking — staff get the official
+        // export, the linked shooter gets the my-report PDF, everyone else
+        // sees no PDF button (they can still share the URL itself).
+        $pdfUrl = $this->resolvePublicDownloadUrl($request, $match, $shooter);
 
-        return view('emails.shooter-match-report', [
-            'report' => $report,
-            'showActions' => true,
-            'downloadUrl' => $downloadUrl,
+        return view('pages.match-share', [
+            'report'   => $report,
+            'shareUrl' => route('scoreboard.matches.report.view', [$match, $shooter]),
+            'pdfUrl'   => $pdfUrl,
         ]);
     }
 
@@ -113,7 +116,10 @@ class MatchReportController extends Controller
         }
 
         if ($shooter->user_id === $user->id) {
-            return route('matches.my-report', $match);
+            // The shooter themself viewing their own scoreboard preview →
+            // PDF endpoint for the my-report flow (the HTML view IS the
+            // page they're already on).
+            return route('matches.my-report.pdf', $match);
         }
 
         return null;

@@ -52,6 +52,33 @@ describe('MatchReportService::placementSummary', function () {
     });
 });
 
+/*
+ * placementSummaryShort() is the same rule as placementSummary() but
+ * trimmed for chips / pills / stat-card badges. The dashboard's per-org
+ * "Best finishes" card uses this so we don't show a fat sentence inside
+ * a tiny pill (and so we never render the misleading "Top 68%" again).
+ */
+describe('MatchReportService::placementSummaryShort', function () {
+    it('renders top-half finishes as "Top X%" (Title Case, no noun)', function () {
+        expect(MatchReportService::placementSummaryShort(1, 47))->toBe('Top 2%');
+        expect(MatchReportService::placementSummaryShort(5, 47))->toBe('Top 11%');
+        expect(MatchReportService::placementSummaryShort(23, 47))->toBe('Top 49%');
+    });
+
+    it('renders bottom-half finishes as just "Beat N" (the chip context implies "shooters")', function () {
+        // The exact bug from the dashboard screenshot — "32 of 47" used to
+        // read "Top 69%" inside the chip; now reads "Beat 15".
+        expect(MatchReportService::placementSummaryShort(32, 47))->toBe('Beat 15');
+        expect(MatchReportService::placementSummaryShort(32, 51))->toBe('Beat 19');
+        expect(MatchReportService::placementSummaryShort(46, 47))->toBe('Beat 1');
+    });
+
+    it('returns empty string for last place / unranked', function () {
+        expect(MatchReportService::placementSummaryShort(47, 47))->toBe('');
+        expect(MatchReportService::placementSummaryShort(0, 0))->toBe('');
+    });
+});
+
 describe('MatchReportService::ordinalSuffix', function () {
     it('handles the single-digit ordinals', function () {
         expect(MatchReportService::ordinalSuffix(1))->toBe('st');

@@ -162,7 +162,10 @@ new #[Layout('components.layouts.app')]
 
         <x-stat-card
             label="Best finish"
-            :value="$bestFinish ? $bestFinish . match($bestFinish) { 1 => 'st', 2 => 'nd', 3 => 'rd', default => 'th' } : '—'"
+            {{-- Use the central ordinal helper so 22nd / 32nd / 43rd render
+                 correctly. The old inline `match` only handled 1/2/3
+                 literally, which produced "32th" for anything not matching. --}}
+            :value="$bestFinish ? ($bestFinish . \App\Services\MatchReportService::ordinalSuffix($bestFinish)) : '—'"
             :color="$bestFinish === 1 ? 'amber' : ($bestFinish && $bestFinish <= 3 ? 'accent' : 'slate')"
             helper="Overall placement" />
 
@@ -196,6 +199,10 @@ new #[Layout('components.layouts.app')]
                         $pct = $row->percentile;
                         $medal = $rank !== null && $rank <= 3 ? 'medal' : null;
                         $medalTone = $rank === 1 ? 'amber' : ($rank === 2 ? 'slate' : ($rank === 3 ? 'orange' : null));
+
+                        // Tone by actual percentile-position. Top finishers get the
+                        // bright treatments; anything below the median falls back
+                        // to slate so the colour doesn't lie about performance.
                         $tone = match(true) {
                             $rank === null => 'slate',
                             $rank === 1 => 'amber',
@@ -219,12 +226,19 @@ new #[Layout('components.layouts.app')]
                             default => 'bg-surface-2 text-muted ring-border',
                         };
                         $org = $row->organization;
-                        $ordSuffix = $rank ? match($rank % 10) {
-                            1 => $rank % 100 === 11 ? 'th' : 'st',
-                            2 => $rank % 100 === 12 ? 'th' : 'nd',
-                            3 => $rank % 100 === 13 ? 'th' : 'rd',
-                            default => 'th',
-                        } : '';
+
+                        // Single source of truth for English ordinals AND for the
+                        // chip label. The old inline copy was the same `(top X%)`
+                        // formula we already retired on the per-shooter report —
+                        // which is why "32 of 47" used to read as "Top 69%" here.
+                        $ordSuffix = $rank ? \App\Services\MatchReportService::ordinalSuffix($rank) : '';
+                        $chipLabel = ($rank !== null && $row->field_size > 0)
+                            ? \App\Services\MatchReportService::placementSummaryShort($rank, $row->field_size)
+                            : '';
+                        // "Beat N" finishes don't deserve a trending-up arrow —
+                        // it's misleading to put a green/up icon on a bottom-half
+                        // finish. Top-half stays with the up-arrow.
+                        $chipIcon = str_starts_with($chipLabel, 'Top ') ? 'trending-up' : 'medal';
                     @endphp
                     <article class="relative overflow-hidden rounded-xl border p-4 transition-colors {{ $toneClasses }}">
                         <div class="flex items-start gap-3">
@@ -257,10 +271,10 @@ new #[Layout('components.layouts.app')]
                                         <span class="ml-1 text-xs text-muted">/ {{ $row->field_size }}</span>
                                     </div>
                                 </div>
-                                @if($pct !== null)
+                                @if($chipLabel !== '')
                                     <span class="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset {{ $badgeClasses }}">
-                                        <x-icon name="trending-up" class="h-3 w-3" />
-                                        Top {{ $pct }}%
+                                        <x-icon name="{{ $chipIcon }}" class="h-3 w-3" />
+                                        {{ $chipLabel }}
                                     </span>
                                 @endif
                             </div>
@@ -430,9 +444,9 @@ new #[Layout('components.layouts.app')]
                             </a>
                             <div class="flex flex-shrink-0 items-center gap-2">
                                 <a href="{{ route('matches.my-report', $match) }}"
-                                   title="Download your match report (PDF)"
+                                   title="View &amp; share your match report"
                                    class="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-secondary transition-colors hover:border-accent/60 hover:text-accent">
-                                    <x-icon name="download" class="h-3.5 w-3.5" />
+                                    <x-icon name="share" class="h-3.5 w-3.5" />
                                     <span class="hidden sm:inline">Report</span>
                                 </a>
                                 <a href="{{ route('scoreboard', $match) }}"

@@ -125,11 +125,14 @@
                                class="inline-flex items-center justify-center rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/80 hover:text-primary">
                                 Results
                             </a>
-                            {{-- PDF download — MUST NOT be wire:navigated --}}
+                            {{-- Mobile share view — opens a phone-friendly
+                                 layout with WhatsApp / Web Share / Copy /
+                                 Download PDF on the page itself. NOT
+                                 wire:navigated so it always boots clean. --}}
                             <a href="{{ route('matches.my-report', $match) }}"
-                               title="Download your match report (PDF)"
+                               title="View &amp; share your match report"
                                class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
-                                <x-icon name="download" class="h-3.5 w-3.5" />
+                                <x-icon name="share" class="h-3.5 w-3.5" />
                                 My Report
                             </a>
                         </div>

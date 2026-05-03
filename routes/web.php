@@ -112,10 +112,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/events/{match}/register', 'member.register-for-match')->name('events.register');
     Route::get('/matches/{match}/report/download', [MatchReportController::class, 'download'])->name('matches.report.download');
 
-    // Personal shooter report (PDF) — any authenticated user can download
-    // the per-shooter report for a match in which they are a linked shooter.
-    Route::get('/matches/{match}/my-report', [MatchExportController::class, 'pdfMyShooterReport'])
+    // Personal shooter report.
+    //
+    // `my-report`     → mobile-first HTML share view (the page shooters open
+    //                   from the dashboard / match cards / scoreboard); the
+    //                   view itself has Web Share + WhatsApp + Copy + PDF.
+    // `my-report.pdf` → the original A4 PDF stream, kept for archival /
+    //                   email attachments / "save to files".
+    //
+    // The HTML view used to be the PDF stream — we kept the same name on
+    // the HTML route so every existing link (sidebar, dashboard, share text)
+    // keeps working without a redirect.
+    Route::get('/matches/{match}/my-report', [MatchExportController::class, 'myShooterReport'])
         ->name('matches.my-report');
+    Route::get('/matches/{match}/my-report.pdf', [MatchExportController::class, 'pdfMyShooterReport'])
+        ->name('matches.my-report.pdf');
 
     // Shooter account claims
     Volt::route('/claim', 'claim.index')->name('claim.index');

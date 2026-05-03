@@ -731,8 +731,8 @@ new #[Layout('components.layouts.app')]
                 ->where('user_id', auth()->id())
                 ->exists()
         )
-            <flux:button href="{{ route('matches.my-report', $match) }}" variant="ghost" icon="download">
-                Download My Report
+            <flux:button href="{{ route('matches.my-report', $match) }}" variant="ghost" icon="share">
+                My Match Report
             </flux:button>
         @endif
     </div>

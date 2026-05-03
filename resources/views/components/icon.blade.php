@@ -288,6 +288,11 @@
     @case('target')
         <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
         @break
+    @case('share')
+        {{-- Lucide `share-2` — universal share glyph (left/top/bottom dots
+             joined by lines). Reads as "share" on Android, iOS, and the web. --}}
+        <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+        @break
 
     @default
         <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />

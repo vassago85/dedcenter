@@ -819,18 +819,55 @@ class MatchExportController extends Controller
     }
 
     /**
-     * Member-facing shooter report.
+     * Member-facing shooter report (HTML).
      *
-     * Any logged-in user can download the PDF for the match they shot — we
-     * resolve their own shooter row (via `shooters.user_id = auth()->id()`)
-     * and stream the same per-shooter report the org/admin surfaces use.
+     * Renders the mobile-first share view at `/matches/{match}/my-report`.
+     * The view itself has Web Share / WhatsApp / Copy / Download PDF
+     * affordances — the PDF action hits `matches.my-report.pdf` (below).
      *
-     * Unlike pdfShooterReport(), this does NOT call authorizeExport(); the
-     * gate is purely "the shooter row is linked to this user". If they claim
-     * a result later, the link is updated via ShooterAccountClaim approval
+     * Any logged-in user can open this for a match they shot in. We resolve
+     * their own shooter row via `shooters.user_id = auth()->id()`. Unlike
+     * pdfShooterReport(), this does NOT call authorizeExport(); the gate is
+     * purely "the shooter row is linked to this user". If they claim a
+     * result later, the link is updated via ShooterAccountClaim approval
      * and this endpoint starts working for them — no config change needed.
      */
+    public function myShooterReport(ShootingMatch $match, MatchReportService $reportService)
+    {
+        $shooter = $this->resolveAuthenticatedShooter($match);
+        $report = $reportService->generateReport($match, $shooter);
+
+        return view('pages.match-share', [
+            'report'   => $report,
+            'shareUrl' => route('matches.my-report', $match),
+            'pdfUrl'   => route('matches.my-report.pdf', $match),
+        ]);
+    }
+
+    /**
+     * Member-facing shooter report (PDF).
+     *
+     * The original A4 stream — kept under `/matches/{match}/my-report.pdf`
+     * so the new HTML view's "Download PDF" button has somewhere to link
+     * and so existing email-attachment / "save to files" workflows still
+     * work. Same auth gate as myShooterReport().
+     */
     public function pdfMyShooterReport(ShootingMatch $match, PdfDocumentRenderer $renderer, MatchReportService $reportService)
+    {
+        $shooter = $this->resolveAuthenticatedShooter($match);
+        $slug = Str::slug($match->name.'-'.$shooter->name);
+        $report = $reportService->generateReport($match, $shooter);
+
+        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf", null, true);
+    }
+
+    /**
+     * Resolve the active shooter row for the currently authenticated user
+     * within a given match. 404s with a helpful message if the user wasn't
+     * a shooter (or wasn't claimed yet). Shared by the HTML and PDF
+     * variants of the my-report endpoint.
+     */
+    private function resolveAuthenticatedShooter(ShootingMatch $match): Shooter
     {
         $user = auth()->user();
         abort_unless($user, 403);
@@ -846,10 +883,7 @@ class MatchExportController extends Controller
             'We couldn’t find your shooter record for this match. If you shot under a different name, claim that result first.',
         );
 
-        $slug = Str::slug($match->name.'-'.$shooter->name);
-        $report = $reportService->generateReport($match, $shooter);
-
-        return $renderer->stream('exports.pdf-match-report', ['report' => $report], "{$slug}-shooter-report.pdf", null, true);
+        return $shooter;
     }
 
     /**
