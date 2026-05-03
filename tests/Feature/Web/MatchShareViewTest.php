@@ -43,6 +43,44 @@ it('renders the mobile share view at /matches/{match}/my-report', function () {
     $res->assertSee(route('matches.my-report.pdf', $match), false);
 });
 
+/*
+| WhatsApp / Web Share / Copy-link must hand out a *public* URL.
+|
+| The route the shooter is *viewing* — `matches.my-report` — is auth-gated
+| and resolves the shooter from the logged-in user. If we hand that URL to
+| WhatsApp, anyone the shooter shares with lands on a login screen instead
+| of the report (the bug the user reported: "the WhatsApp link doesn't
+| work, it's not unique to me"). The fix is to share the public spectator
+| route at `/scoreboard/{match}/report/{shooter}` which renders the same
+| view through publicPreview() with no auth requirement and is keyed by
+| the shooter id, so it's both public AND uniquely identifies the shooter.
+*/
+it('uses the PUBLIC scoreboard URL in the WhatsApp / share / copy-link affordances', function () {
+    [$user, $match] = makeShooterMatch();
+    $shooter = \App\Models\Shooter::where('user_id', $user->id)->first();
+
+    $publicUrl = route('scoreboard.matches.report.view', [$match, $shooter]);
+    $authedUrl = route('matches.my-report', $match);
+
+    $res = $this->actingAs($user)->get($authedUrl);
+
+    $res->assertOk();
+    $body = $res->getContent();
+
+    // The WhatsApp deep-link href is `https://wa.me/?text=<urlencoded>`,
+    // and the urlencoded payload includes the share URL — so the public
+    // URL (encoded) must appear in the body, and the encoded auth-gated
+    // `my-report` URL must not.
+    $encodedPublic = urlencode($publicUrl);
+    $encodedAuthed = urlencode($authedUrl);
+    expect($body)->toContain($encodedPublic);
+    expect($body)->not->toContain('wa.me/?text='.urlencode("\n".$authedUrl));
+
+    // Belt-and-braces: the JSON-island share-data blob handed to the Web
+    // Share API must also carry the public URL.
+    expect($body)->toMatch('/"url":"[^"]*scoreboard/');
+});
+
 it('still serves the PDF at /matches/{match}/my-report.pdf', function () {
     [$user, $match] = makeShooterMatch();
 

@@ -837,9 +837,19 @@ class MatchExportController extends Controller
         $shooter = $this->resolveAuthenticatedShooter($match);
         $report = $reportService->generateReport($match, $shooter);
 
+        // The Web Share / WhatsApp / Copy-link buttons must hand out a
+        // *public* URL. The one we render at — `matches.my-report` — is
+        // auth-gated and resolves the shooter from the logged-in user, so
+        // any recipient who isn't the original shooter would land on a
+        // login screen (the bug the user just reported: "the WhatsApp link
+        // doesn't work, it's not unique to me"). The spectator-facing
+        // route at `/scoreboard/{match}/report/{shooter}` renders the same
+        // share view through publicPreview() with no auth requirement and
+        // is keyed by the shooter id, so it's both public AND uniquely
+        // identifies which shooter the report is for.
         return view('pages.match-share', [
             'report'   => $report,
-            'shareUrl' => route('matches.my-report', $match),
+            'shareUrl' => route('scoreboard.matches.report.view', [$match, $shooter]),
             'pdfUrl'   => route('matches.my-report.pdf', $match),
         ]);
     }
