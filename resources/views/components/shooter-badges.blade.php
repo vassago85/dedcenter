@@ -1,4 +1,18 @@
-@props(['userId', 'matchId' => null, 'competitionType' => null, 'compact' => false, 'grouped' => true])
+@props([
+    'userId',
+    'matchId' => null,
+    'competitionType' => null,
+    'compact' => false,
+    'grouped' => true,
+    // `trophy` is the dashboard hero strip mode: square crests laid out in
+    // a horizontal flex, sized like the badge-gallery medallions (so the
+    // dashboard reads as a personal trophy cabinet rather than the old
+    // pill-card grid that crammed icon+title+description into 200px
+    // rectangles and looked, in the user's words, like a "poor effort").
+    // `compact` is preserved for the per-row scoreboard avatars-of-badges
+    // affordance — different consumer, different size budget.
+    'trophy' => false,
+])
 
 @php
     use App\Http\Controllers\BadgeGalleryController;
@@ -72,7 +86,112 @@
     ];
 @endphp
 
-@if($compact)
+@if($trophy)
+    {{--
+        Trophy strip — the dashboard's "Welcome back, Paul" sidekick.
+        Square crests, no text labels, hover lift + idle breathe on rarer
+        tiers, click-through to the gallery. Sorted strongest-first
+        (signature → elite → milestone → earned) so the eye lands on the
+        rarest hardware first. Repeatable badges (e.g. podiums earned at
+        multiple matches) get a count overlay so a 3× podium reads as one
+        crest with a "×3" rather than three identical crests in a row.
+    --}}
+    @php
+        $trophyBadges = $badges
+            ->unique(fn ($b) => $b->achievement_id)
+            ->sortBy(fn ($b) => ($tierOrder[$badgeConfig[$b->achievement->slug]['tier'] ?? 'earned'] ?? 9))
+            ->values();
+        // The breathe animation lives in resources/css/app.css under the
+        // `.badge-trophy-*` selectors below — keeping it inline as a
+        // <style> block rather than touching the global stylesheet so the
+        // animation ships and ages with this component.
+    @endphp
+
+    <style>
+        /* Stagger fade-in so the strip "draws itself" as the page settles
+           rather than popping in all at once. The --i CSS var is set per
+           crest below; an 80ms step keeps the whole strip done in well
+           under a second even with a dozen badges. */
+        @keyframes badge-trophy-in {
+            from { opacity: 0; transform: translateY(8px) scale(0.92); }
+            to   { opacity: 1; transform: translateY(0)   scale(1); }
+        }
+        /* Idle breathe — a 4s gentle scale loop only applied to the rarer
+           tiers (featured + elite), so the eye is drawn to the hardware
+           that's actually hard to earn instead of every commodity badge
+           in the cabinet wobbling for attention. */
+        @keyframes badge-trophy-breathe {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-2px); }
+        }
+        .badge-trophy-cell {
+            animation: badge-trophy-in 480ms ease-out both;
+            animation-delay: calc(var(--i, 0) * 70ms);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            /* Honour OS-level "reduce motion" — no entrance animation, no
+               idle breathe. The hover lift stays because that's a direct
+               response to user input rather than ambient motion. */
+            .badge-trophy-cell        { animation: none !important; }
+            .badge-trophy-cell-rare   { animation: none !important; }
+        }
+        .badge-trophy-cell-rare {
+            animation:
+                badge-trophy-in 480ms ease-out both,
+                badge-trophy-breathe 4.2s ease-in-out infinite;
+            /* Stagger the breathe phase too so the rare badges don't all
+               pulse in lockstep (which reads as a single throbbing block
+               rather than individual living trophies). */
+            animation-delay: calc(var(--i, 0) * 70ms), calc(var(--i, 0) * 350ms);
+        }
+        .badge-trophy-cell:hover,
+        .badge-trophy-cell-rare:hover {
+            transform: translateY(-3px);
+            transition: transform 180ms ease-out;
+        }
+    </style>
+
+    <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+        @foreach($trophyBadges as $bi => $badge)
+            @php
+                $a = $badge->achievement;
+                $cfg = $badgeConfig[$a->slug] ?? [];
+                $icon = $cfg['icon'] ?? 'target';
+                $tier = $cfg['tier'] ?? 'earned';
+                $family = $a->competition_type ?? 'prs';
+                $count = $repeatableCounts[$a->slug] ?? 1;
+                $isRare = in_array($tier, ['featured', 'elite'], true);
+                $criteria = \App\Http\Controllers\BadgeGalleryController::criteriaFor($a->slug);
+                // Native browser title is good enough — Alpine popovers
+                // would be nice but the dashboard already pays for Livewire
+                // and we don't need another JS dance just to see badge copy
+                // on hover. Tap on mobile still opens a long-press preview.
+                $tooltip = trim(
+                    $a->label
+                    . ($a->is_repeatable && $count > 1 ? " ×{$count}" : '')
+                    . ($a->description ? "\n— " . $a->description : '')
+                    . ($criteria && $criteria !== $a->description ? "\nHow to earn: " . $criteria : '')
+                );
+            @endphp
+            <a
+                href="{{ route('badges.preview') }}#badge-{{ $a->slug }}"
+                title="{{ $tooltip }}"
+                aria-label="{{ $a->label }}{{ $a->is_repeatable && $count > 1 ? " ×{$count}" : '' }}"
+                class="group relative block {{ $isRare ? 'badge-trophy-cell-rare' : 'badge-trophy-cell' }}"
+                style="--i: {{ $bi }};"
+            >
+                <x-badge-crest :icon="$icon" :tier="$tier" :family="$family === 'royal_flush' ? 'royal_flush' : 'prs'" />
+                @if($a->is_repeatable && $count > 1)
+                    {{-- Count overlay: a podium earned 3× shows once with "×3" --}}
+                    {{-- rather than three identical crests cluttering the strip. --}}
+                    <span class="pointer-events-none absolute -top-1.5 -right-1.5 z-20 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-white/15 bg-zinc-900/95 px-1 text-[10px] font-bold text-white shadow-md backdrop-blur-sm">
+                        ×{{ $count }}
+                    </span>
+                @endif
+            </a>
+        @endforeach
+    </div>
+@elseif($compact)
     <div class="flex flex-wrap items-center gap-1" x-data="{ activePopover: null }" @click.outside="activePopover = null">
         @foreach($badges->unique(fn ($b) => $b->achievement_id)->sortBy(fn ($b) => ($tierOrder[$badgeConfig[$b->achievement->slug]['tier'] ?? 'earned'] ?? 9))->values() as $bi => $badge)
             @php
