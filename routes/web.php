@@ -146,6 +146,16 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Volt::route('/matches/{match}', 'org.matches.hub')->name('matches.hub');
     Volt::route('/matches/{match}/edit', 'org.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'org.matches.squadding')->name('matches.squadding');
+    // Match Control Center — Scoring + Reports tabs.
+    // Both URLs deep-link directly into the corresponding tab so an MD
+    // can bookmark "the place where I open the scoring app" or "the
+    // place where I send shooter reports" instead of hunting through
+    // the old Configuration tab. The lifecycle gate is enforced inside
+    // the Volt component (Scoring is read-only until the match has at
+    // least passed Squadding; Reports surface live as soon as there's
+    // anything to publish).
+    Volt::route('/matches/{match}/scoring', 'org.matches.scoring')->name('matches.scoring');
+    Volt::route('/matches/{match}/reports', 'org.matches.reports')->name('matches.reports');
     Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
@@ -190,6 +200,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/matches/{match}', 'admin.matches.hub')->name('matches.hub');
     Volt::route('/matches/{match}/edit', 'admin.matches.edit')->name('matches.edit');
     Volt::route('/matches/{match}/squadding', 'admin.matches.squadding')->name('matches.squadding');
+    // Match Control Center — Scoring + Reports tabs (admin context).
+    Volt::route('/matches/{match}/scoring', 'admin.matches.scoring')->name('matches.scoring');
+    Volt::route('/matches/{match}/reports', 'admin.matches.reports')->name('matches.reports');
     Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
