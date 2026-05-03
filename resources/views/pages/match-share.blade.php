@@ -425,7 +425,26 @@
         @if($hasAnyTopTile)
             @php
                 $tiles = collect($shotOrder)
-                    ->map(fn ($t) => ['label' => $t['label'], 'value' => number_format($t['hit_rate'], 0) . '%', 'sub' => "{$t['hits']}/{$t['attempts']}", 'tone' => 'emerald'])
+                    ->map(function ($t) {
+                        // Spell out the conditional under the
+                        // Follow-Up tile because the bare "2/6"
+                        // counter is genuinely ambiguous — the
+                        // user has to know it's "2 of 6 stages
+                        // where you first-rounded" for the number
+                        // to mean anything. The hint goes in the
+                        // detail line so the tile face stays
+                        // clean and at-a-glance.
+                        $sub = "{$t['hits']}/{$t['attempts']}";
+                        if ($t['label'] === 'Follow-Up Shot') {
+                            $sub .= ' after impacts';
+                        }
+                        return [
+                            'label' => $t['label'],
+                            'value' => number_format($t['hit_rate'], 0) . '%',
+                            'sub' => $sub,
+                            'tone' => 'emerald',
+                        ];
+                    })
                     ->all();
 
                 if ($hasRoundsFired) {

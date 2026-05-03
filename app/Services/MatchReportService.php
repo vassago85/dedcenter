@@ -1246,6 +1246,12 @@ class MatchReportService
     /**
      * Build a flat per-shot record list for the shooter, regardless of
      * scoring type. Each row has:
+     *   stage_id         — int — needed so the bucketers can pair
+     *                       shot #1 with shot #2 within the same stage
+     *                       (e.g. follow-up impact % is shot #2 hit
+     *                       rate **conditional on shot #1 hitting**,
+     *                       which is per-stage logic — not a flat
+     *                       cross-match shot-2 rate).
      *   order            — 1-based shot index within its stage
      *   hit              — true / false / null (null = "not taken")
      *   distance_m       — int|null
@@ -1253,7 +1259,7 @@ class MatchReportService
      *                       stage_shot_sequence -> stage_positions.name)
      *   target_size_mrad — float|null   (computed from mm/distance)
      *
-     * @return list<array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
+     * @return list<array{stage_id:int,order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
      */
     private function collectShooterShots(ShootingMatch $match, Shooter $shooter): array
     {
@@ -1311,7 +1317,7 @@ class MatchReportService
      * with stage_shot_sequence position/gong if the match director set
      * up that mapping.
      *
-     * @return list<array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
+     * @return list<array{stage_id:int,order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
      */
     private function collectPrsShots(
         ShootingMatch $match, Shooter $shooter, Collection $targetSets,
@@ -1380,7 +1386,7 @@ class MatchReportService
      * we treat it as "not taken" so the rounds-fired math still works
      * if a future scoring type opts in).
      *
-     * @return list<array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
+     * @return list<array{stage_id:int,order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}>
      */
     private function collectGongScoreShots(
         Shooter $shooter, Collection $targetSets, Collection $gongsById
@@ -1403,6 +1409,7 @@ class MatchReportService
                 $sizeMrad = $this->mradFromMm($g->target_size_mm, $distance);
 
                 $rows[] = [
+                    'stage_id' => (int) $ts->id,
                     'order' => (int) $g->number,
                     'hit' => $hit,
                     'distance_m' => $distance ? (int) $distance : null,
@@ -1421,7 +1428,7 @@ class MatchReportService
      * up. Falls back to the stage's distance if the sequence row or the
      * gong distance is missing.
      *
-     * @return array{order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}
+     * @return array{stage_id:int,order:int,hit:?bool,distance_m:?int,position:?string,target_size_mrad:?float}
      */
     private function buildShotRow(
         int $shotNumber, ?bool $hit, int $stageId,
@@ -1446,6 +1453,7 @@ class MatchReportService
         $distance = $distance ?: $stageDistanceById->get($stageId);
 
         return [
+            'stage_id' => $stageId,
             'order' => $shotNumber,
             'hit' => $hit,
             'distance_m' => $distance ? (int) $distance : null,
@@ -1473,10 +1481,28 @@ class MatchReportService
     }
 
     /**
-     * "First round impact %" + "Follow-up shot %" tiles. We always
-     * surface the first round; the follow-up only renders if the field
-     * actually has a shot #2 (to avoid a misleading "0% follow-ups"
-     * card on stages that are first-round-only).
+     * "First Round Impact %" + "Follow-Up Shot %" tiles.
+     *
+     * - First Round Impact = % of shot #1 across all stages that hit
+     *   (the easy-to-define one).
+     *
+     * - Follow-Up Shot = % of shot #2 that hit, **only counting
+     *   stages where shot #1 hit**. This is the PRS definition of a
+     *   follow-up shot — it's a conditional rate, not a flat
+     *   shot-2-across-the-match rate. Doing the flat version makes
+     *   the number meaningless: a shooter who first-rounds 33%
+     *   would get the same "follow-up %" if their shot-2 was
+     *   independent random as if it was tightly correlated with
+     *   their shot-1, which conflates two very different skills.
+     *   Conditional on shot-1 hitting tells you "given you got the
+     *   first impact, did you stay on it for the follow-up" — which
+     *   is the question the user actually wants answered.
+     *
+     * The follow-up tile only renders when there's at least one
+     * stage where shot #1 hit AND a shot #2 exists, so we don't
+     * confront the shooter with "0% follow-ups (0 of 0)" on a
+     * single-shot match or a match where they didn't first-round
+     * anything.
      *
      * @param  list<array<string, mixed>>  $shots
      * @return list<array{label:string,hit_rate:float,hits:int,attempts:int}>
@@ -1487,34 +1513,62 @@ class MatchReportService
             return [];
         }
 
-        $byOrder = [];
+        // Group shots by stage so we can pair shot #1 with the matching
+        // shot #2 on the same stage (the conditional follow-up math
+        // doesn't make sense across stages).
+        $byStage = [];
         foreach ($shots as $s) {
-            $order = $s['order'];
-            // "Not taken" still counts as an attempt for shot-order
-            // stats — if you never sent a follow-up at all, that's part
-            // of your follow-up impact %. Otherwise we'd flatter the
-            // shooter for skipping difficult positions.
-            $byOrder[$order]['attempts'] = ($byOrder[$order]['attempts'] ?? 0) + 1;
-            if ($s['hit'] === true) {
-                $byOrder[$order]['hits'] = ($byOrder[$order]['hits'] ?? 0) + 1;
-            } else {
-                $byOrder[$order]['hits'] = $byOrder[$order]['hits'] ?? 0;
+            $byStage[$s['stage_id']][$s['order']] = $s;
+        }
+
+        $firstRoundAttempts = 0;
+        $firstRoundHits = 0;
+        $followUpAttempts = 0;
+        $followUpHits = 0;
+
+        foreach ($byStage as $stageShots) {
+            $shotOne = $stageShots[1] ?? null;
+            $shotTwo = $stageShots[2] ?? null;
+
+            if ($shotOne !== null) {
+                // "Not taken" still counts as an attempt — if you
+                // chose to skip your first round on a stage, that's
+                // part of your first-round impact rate.
+                $firstRoundAttempts++;
+                if ($shotOne['hit'] === true) {
+                    $firstRoundHits++;
+                }
+            }
+
+            // Follow-up only counts when shot #1 was an impact AND
+            // a shot #2 exists for that stage. If shot #1 missed
+            // there's no follow-up to evaluate; if there's no shot
+            // #2 the stage is single-round and irrelevant here.
+            if ($shotOne !== null && $shotOne['hit'] === true && $shotTwo !== null) {
+                $followUpAttempts++;
+                if ($shotTwo['hit'] === true) {
+                    $followUpHits++;
+                }
             }
         }
 
         $out = [];
-        foreach ([1 => 'First Round Impact', 2 => 'Follow-Up Shot'] as $orderKey => $label) {
-            if (! isset($byOrder[$orderKey])) {
-                continue;
-            }
-            $entry = $byOrder[$orderKey];
+
+        if ($firstRoundAttempts > 0) {
             $out[] = [
-                'label' => $label,
-                'hit_rate' => $entry['attempts'] > 0
-                    ? round($entry['hits'] / $entry['attempts'] * 100, 1)
-                    : 0.0,
-                'hits' => $entry['hits'],
-                'attempts' => $entry['attempts'],
+                'label' => 'First Round Impact',
+                'hit_rate' => round($firstRoundHits / $firstRoundAttempts * 100, 1),
+                'hits' => $firstRoundHits,
+                'attempts' => $firstRoundAttempts,
+            ];
+        }
+
+        if ($followUpAttempts > 0) {
+            $out[] = [
+                'label' => 'Follow-Up Shot',
+                'hit_rate' => round($followUpHits / $followUpAttempts * 100, 1),
+                'hits' => $followUpHits,
+                'attempts' => $followUpAttempts,
             ];
         }
 

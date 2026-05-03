@@ -55,7 +55,7 @@ function makeMatch(string $type = 'standard', bool $rf = false): array
     return [$match, $shooter];
 }
 
-it('always exposes first-round and follow-up tiles on a standard match', function () {
+it('exposes first-round impact tile on every match with at least one shot #1', function () {
     [$match, $shooter] = makeMatch('standard');
 
     $ts = TargetSet::create([
@@ -83,10 +83,85 @@ it('always exposes first-round and follow-up tiles on a standard match', functio
     $report = (new MatchReportService)->generateReport($match, $shooter);
     $tiles = collect($report['accuracy_breakdown']['shot_order']);
 
+    // One stage, shot #1 hit → 100% first round impact (1 of 1).
     expect($tiles->firstWhere('label', 'First Round Impact'))
         ->toMatchArray(['hit_rate' => 100.0, 'hits' => 1, 'attempts' => 1]);
+    // Shot #1 hit AND shot #2 exists AND shot #2 missed → 0% follow-up
+    // (0 of 1 attempts — denominator is "stages where shot #1 hit").
     expect($tiles->firstWhere('label', 'Follow-Up Shot'))
         ->toMatchArray(['hit_rate' => 0.0, 'hits' => 0, 'attempts' => 1]);
+});
+
+it('computes follow-up % conditionally on shot #1 hitting (not the flat shot-2 rate)', function () {
+    // Three stages, each with shot #1 + shot #2:
+    //   Stage A: shot #1 HIT,  shot #2 HIT  → contributes to follow-up: 1/1
+    //   Stage B: shot #1 MISS, shot #2 HIT  → does NOT contribute to follow-up
+    //   Stage C: shot #1 HIT,  shot #2 MISS → contributes to follow-up: 0/1
+    //
+    // Flat shot-2-across-all-stages rate would be 2/3 ≈ 67%.
+    // Conditional follow-up rate is 1/2 = 50%.
+    [$match, $shooter] = makeMatch('standard');
+
+    $stages = [];
+    foreach (['A', 'B', 'C'] as $i => $label) {
+        $ts = TargetSet::create([
+            'match_id' => $match->id,
+            'label' => $label,
+            'distance_meters' => 300 + ($i * 100),
+            'sort_order' => $i + 1,
+        ]);
+        $g1 = Gong::create(['target_set_id' => $ts->id, 'number' => 1, 'label' => 'G1', 'multiplier' => '1.00']);
+        $g2 = Gong::create(['target_set_id' => $ts->id, 'number' => 2, 'label' => 'G2', 'multiplier' => '1.00']);
+        $stages[$label] = ['ts' => $ts, 'g1' => $g1, 'g2' => $g2];
+    }
+
+    $matrix = [
+        'A' => [true, true],
+        'B' => [false, true],
+        'C' => [true, false],
+    ];
+
+    foreach ($matrix as $label => [$hit1, $hit2]) {
+        Score::create(['shooter_id' => $shooter->id, 'gong_id' => $stages[$label]['g1']->id, 'is_hit' => $hit1, 'recorded_at' => now()]);
+        Score::create(['shooter_id' => $shooter->id, 'gong_id' => $stages[$label]['g2']->id, 'is_hit' => $hit2, 'recorded_at' => now()]);
+    }
+
+    $report = (new MatchReportService)->generateReport($match, $shooter);
+    $tiles = collect($report['accuracy_breakdown']['shot_order']);
+
+    // First round: 2 of 3 stages hit → 66.7%
+    expect($tiles->firstWhere('label', 'First Round Impact'))
+        ->toMatchArray(['hit_rate' => 66.7, 'hits' => 2, 'attempts' => 3]);
+    // Follow-up: 1 of 2 stages where shot #1 hit also got shot #2 → 50%
+    // (Stage B is excluded entirely because shot #1 missed there — its
+    // shot #2 hit doesn't inflate the follow-up rate.)
+    expect($tiles->firstWhere('label', 'Follow-Up Shot'))
+        ->toMatchArray(['hit_rate' => 50.0, 'hits' => 1, 'attempts' => 2]);
+});
+
+it('hides the follow-up tile entirely when shot #1 never hit', function () {
+    // Shooter went 0/3 on first rounds — there's no follow-up to
+    // evaluate. Showing "0% follow-up (0 of 0)" would be misleading
+    // and add noise; the tile should just not render.
+    [$match, $shooter] = makeMatch('standard');
+
+    foreach (['A', 'B', 'C'] as $i => $label) {
+        $ts = TargetSet::create([
+            'match_id' => $match->id, 'label' => $label,
+            'distance_meters' => 300, 'sort_order' => $i + 1,
+        ]);
+        $g1 = Gong::create(['target_set_id' => $ts->id, 'number' => 1, 'label' => 'G1', 'multiplier' => '1.00']);
+        $g2 = Gong::create(['target_set_id' => $ts->id, 'number' => 2, 'label' => 'G2', 'multiplier' => '1.00']);
+        Score::create(['shooter_id' => $shooter->id, 'gong_id' => $g1->id, 'is_hit' => false, 'recorded_at' => now()]);
+        Score::create(['shooter_id' => $shooter->id, 'gong_id' => $g2->id, 'is_hit' => true, 'recorded_at' => now()]);
+    }
+
+    $report = (new MatchReportService)->generateReport($match, $shooter);
+    $tiles = collect($report['accuracy_breakdown']['shot_order']);
+
+    expect($tiles->firstWhere('label', 'First Round Impact'))
+        ->toMatchArray(['hit_rate' => 0.0, 'hits' => 0, 'attempts' => 3]);
+    expect($tiles->firstWhere('label', 'Follow-Up Shot'))->toBeNull();
 });
 
 it('reports rounds-fired % only for PRS matches (where not_taken is meaningful)', function () {
