@@ -45,6 +45,13 @@
     $allFiveUp = ! empty($columnsByDist)
         && collect($columnsByDist)->every(fn ($g) => count($g['cols'] ?? []) === 5);
     $useCardFaces = (bool) ($match->royal_flush_enabled ?? false) && $allFiveUp;
+
+    // True when the controller produced a PRS-shaped Score Sheet for this
+    // match. PRS matches render a per-stage gong-dot grid that mirrors the
+    // on-screen Scoreboard "Score Sheet" tab, with no distance / multiplier
+    // chrome (PRS scoring is just 1 hit = 1 point). Standard / RF matches
+    // keep the existing distance heatmap below.
+    $isPrsScoreSheet = ! empty($prsScoreSheet ?? null);
     $cardFaces = ['10', 'J', 'Q', 'K', 'A'];
     $gongLabel = function (int $gongNumber, int $positionInDistance) use ($useCardFaces, $cardFaces) {
         if ($useCardFaces && isset($cardFaces[$positionInDistance])) {
@@ -689,6 +696,14 @@
             </tr>
         </table>
 
+        @if($isPrsScoreSheet)
+            {{-- PRS branch: per-stage gong-dot Score Sheet (mirrors the
+                 on-screen Scoreboard) instead of the distance-grouped
+                 heatmap. The partial owns the per-stage strip, the grid
+                 itself, and the legend so this template doesn't need to
+                 know about PRS-specific column shapes. --}}
+            @include('exports.partials.pdf-prs-score-sheet')
+        @else
         {{-- ─── Distance strip ─── --}}
         <table class="dist-strip">
             <tr>
@@ -823,6 +838,7 @@
                 Rows sorted by match rank · Podium tinted gold / silver / bronze
             @endif
         </div>
+        @endif {{-- /isPrsScoreSheet --}}
 
         {{-- ─── Royal Flushes by Distance ───
              Only rendered for Royal Flush matches. Shows a per-distance

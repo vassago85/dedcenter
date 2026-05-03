@@ -202,6 +202,67 @@ it('renders the Full Match Report blade for a PRS match without empty cells', fu
         ->toContain('2/4');           // Stage 2: 1+1 hits / 4 shots
 });
 
+it('builds a PRS Score Sheet grid with per-stage gong cells and stage times', function () {
+    $ctx = makePrsMatch();
+    $controller = new App\Http\Controllers\MatchExportController();
+
+    $data = ($this->invokeExec)($controller, $ctx['match']);
+
+    // Score Sheet payload only exists for PRS matches with PRS table data.
+    expect($data['prsScoreSheet'])->not()->toBeNull();
+    expect($data['prsScoreSheet']['stages'])->toHaveCount(2);
+
+    // Stages render with short labels and the tiebreaker flag preserved
+    // so the column header can lead with a "TB" badge.
+    [$s1, $s2] = $data['prsScoreSheet']['stages'];
+    expect($s1['label'])->toBe('Stage 1');
+    expect($s1['gong_count'])->toBe(2);
+    expect($s1['is_tiebreaker'])->toBeFalse();
+    expect($s2['short_label'])->toBe('TB');
+    expect($s2['is_tiebreaker'])->toBeTrue();
+
+    // Rows arrive in rank order — Alpha first (3 hits), Bravo second (2).
+    expect($data['prsScoreSheet']['rows'])->toHaveCount(2);
+    [$alphaRow, $bravoRow] = $data['prsScoreSheet']['rows'];
+    expect($alphaRow['display_name'])->toBe('Alpha A');
+    expect($alphaRow['rank'])->toBe(1);
+    expect($alphaRow['total_hits'])->toBe(3);
+    expect($alphaRow['total_misses'])->toBe(1);
+
+    // Per-stage cells map shot_number → state. Alpha's stage 1 is hit/hit;
+    // stage 2 is hit/miss. Stage times come from prs_stage_results.
+    $alphaStage1 = $alphaRow['stages'][$ctx['stages']['s1']->id];
+    expect($alphaStage1['cells'])->toBe(['hit', 'hit']);
+    expect($alphaStage1['hits'])->toBe(2);
+    expect($alphaStage1['time'])->toBe(40.0);
+
+    $alphaStage2 = $alphaRow['stages'][$ctx['stages']['s2']->id];
+    expect($alphaStage2['cells'])->toBe(['hit', 'miss']);
+    expect($alphaStage2['time'])->toBe(50.0);
+
+    // Total time sums every stage's official time (Alpha: 40 + 50 = 90).
+    expect($alphaRow['total_time'])->toBe(90.0);
+});
+
+it('renders the PRS Score Sheet partial with gong dots instead of the distance heatmap', function () {
+    $ctx = makePrsMatch();
+    $controller = new App\Http\Controllers\MatchExportController();
+
+    $data = ($this->invokeExec)($controller, $ctx['match']);
+    $html = view('exports.pdf-executive-summary', $data + ['match' => $ctx['match']])->render();
+
+    // PRS-specific markup is present.
+    expect($html)->toContain('SCORE SHEET')
+        ->toContain('shot-hit')
+        ->toContain('shot-miss')
+        ->toContain('prs-grid');
+
+    // Standard heatmap chrome is suppressed for PRS — no "MATCH REPORT"
+    // distance-heatmap title and no "multiplier" copy in the PRS branch.
+    expect($html)->not()->toContain('MATCH REPORT</span>');
+    expect($html)->not()->toContain('multiplier 1×');
+});
+
 it('PRS detailed CSV writes hit/miss/time cells from the new tables', function () {
     $ctx = makePrsMatch();
     $controller = new App\Http\Controllers\MatchExportController();

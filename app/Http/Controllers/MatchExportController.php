@@ -1028,10 +1028,24 @@ class MatchExportController extends Controller
             $perfectHandShooters,
         );
 
+        // PRS-specific Score Sheet grid — built from prs_stage_results +
+        // prs_shot_scores so the Full Match Report can render the same
+        // per-stage gong-dot layout the on-screen Scoreboard uses,
+        // without the standard heatmap's distance-grouped columns and
+        // multiplier chrome (PRS scoring is just 1 hit = 1 point, no
+        // multipliers anywhere). Only computed when the match actually
+        // has PRS data on file; standard / RF matches keep using the
+        // existing $heatmap unchanged.
+        $prsScoreSheet = null;
+        if ($match->isPrs() && PrsStageResult::where('match_id', $match->id)->exists()) {
+            $prsScoreSheet = $this->buildPrsScoreSheetData($match, $standings);
+        }
+
         return array_merge($base, [
             'heatmap' => $heatmap,
             'heatmapColumns' => $heatmapColumns,
             'distanceStats' => $distanceStats,
+            'prsScoreSheet' => $prsScoreSheet,
             'podium' => [
                 'first' => $winner,
                 'second' => $runnerUp,
@@ -1050,6 +1064,164 @@ class MatchExportController extends Controller
             'perfectHandShooters' => $perfectHandShooters,
             'matchFacts' => $matchFacts,
         ]);
+    }
+
+    /**
+     * Build the PRS-specific Score Sheet data shape that mirrors the
+     * on-screen Scoreboard "Score Sheet" tab.
+     *
+     * Differences from the standard heatmap:
+     *   - Columns are grouped by STAGE (target_set) rather than distance —
+     *     PRS matches are stage-based, not distance-based.
+     *   - No multipliers anywhere (PRS = 1 hit, 1 point).
+     *   - Per-stage TIME column derived from prs_stage_results.
+     *   - Cell states preserve `not_taken` separately from `none` so the
+     *     Score Sheet can show amber dots for declared no-takes vs grey
+     *     dots for shots that were never recorded.
+     *   - Aggregate Hits / Misses / Not-Taken / Total Time columns on
+     *     the right edge of the row.
+     *
+     * @return array{
+     *   stages: array<int, array{stage_id:int,label:string,short_label:string,gong_count:int,is_tiebreaker:bool}>,
+     *   rows: array<int, array<string, mixed>>,
+     * }
+     */
+    private function buildPrsScoreSheetData(ShootingMatch $match, \Illuminate\Support\Collection $standings): array
+    {
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')])
+            ->get();
+
+        // Stage spine — one entry per target_set in display order.
+        $stages = $targetSets->map(fn ($ts) => [
+            'stage_id' => (int) $ts->id,
+            'label' => $ts->label ?? ('Stage ' . ($ts->sort_order ?? '?')),
+            // Short label for the column header — strip the "Stage N — "
+            // prefix so the suffix (e.g. "Tiebreaker") is what leads.
+            'short_label' => $this->prsShortStageLabel($ts->label, (int) ($ts->sort_order ?? 0)),
+            'gong_count' => $ts->gongs->count(),
+            'is_tiebreaker' => (bool) ($ts->is_tiebreaker ?? false),
+        ])->values()->all();
+
+        // Index per-stage results (hits / misses / time) by shooter+stage
+        // for O(1) lookup as we walk the standings.
+        $stageResults = PrsStageResult::where('match_id', $match->id)
+            ->get()
+            ->groupBy('shooter_id');
+
+        // Per-shot states (hit / miss / not_taken) by shooter+stage+shot_number.
+        // Unlike `prsScoresAsScoreCollection` we KEEP not_taken so the
+        // Score Sheet can render an amber dot for a declared no-take.
+        $shotStates = [];
+        $shots = PrsShotScore::where('match_id', $match->id)
+            ->get(['shooter_id', 'stage_id', 'shot_number', 'result']);
+        foreach ($shots as $s) {
+            $result = $s->result instanceof \BackedEnum ? $s->result->value : (string) $s->result;
+            $shotStates[(int) $s->shooter_id][(int) $s->stage_id][(int) $s->shot_number] = $result;
+        }
+
+        $rows = [];
+        foreach ($standings as $standing) {
+            $sid = (int) $standing->shooter_id;
+            $perShooterStages = [];
+            $totalNotTaken = 0;
+            $totalTime = 0.0;
+
+            foreach ($stages as $stage) {
+                $stageId = $stage['stage_id'];
+                $gongCount = $stage['gong_count'];
+
+                $cells = [];
+                $hits = 0;
+                $misses = 0;
+                $notTaken = 0;
+                for ($n = 1; $n <= $gongCount; $n++) {
+                    $state = $shotStates[$sid][$stageId][$n] ?? null;
+                    if ($state === 'hit') {
+                        $cells[] = 'hit';
+                        $hits++;
+                    } elseif ($state === 'miss') {
+                        $cells[] = 'miss';
+                        $misses++;
+                    } elseif ($state === 'not_taken') {
+                        $cells[] = 'not_taken';
+                        $notTaken++;
+                    } else {
+                        $cells[] = 'none';
+                    }
+                }
+
+                // If there's a stage-result row but no shots are recorded
+                // (e.g. fixture import that only knows aggregates), fall
+                // back to the aggregate counts so the row totals still
+                // reflect reality even though the cells stay grey.
+                $stageResult = ($stageResults->get($sid, collect())->firstWhere('stage_id', $stageId));
+                $time = $stageResult?->official_time_seconds !== null
+                    ? (float) $stageResult->official_time_seconds
+                    : null;
+                if ($stageResult && $hits === 0 && $misses === 0 && $notTaken === 0) {
+                    $hits = (int) $stageResult->hits;
+                    $misses = (int) $stageResult->misses;
+                }
+
+                $totalNotTaken += $notTaken;
+                if ($time !== null) {
+                    $totalTime += $time;
+                }
+
+                $perShooterStages[$stageId] = [
+                    'cells' => $cells,
+                    'hits' => $hits,
+                    'misses' => $misses,
+                    'not_taken' => $notTaken,
+                    'time' => $time,
+                ];
+            }
+
+            $rows[] = [
+                'shooter_id' => $sid,
+                'rank' => $standing->rank,
+                'name' => $standing->name,
+                'display_name' => Str::before($standing->name, ' — ') ?: $standing->name,
+                'caliber' => $this->caliberFromShooterName($standing->name),
+                'squad' => $standing->squad,
+                'status' => $standing->status,
+                'total_hits' => (int) ($standing->hits ?? 0),
+                'total_misses' => (int) ($standing->misses ?? 0),
+                'total_not_taken' => $totalNotTaken,
+                'total_time' => $totalTime > 0 ? round($totalTime, 1) : null,
+                'stages' => $perShooterStages,
+            ];
+        }
+
+        return [
+            'stages' => $stages,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Strip the "Stage N — " prefix off a PRS stage label so the column
+     * header in the Score Sheet leads with the meaningful suffix
+     * ("Tiebreaker", a stage name, etc.). Falls back to "S{n}" when
+     * there's nothing meaningful left.
+     */
+    private function prsShortStageLabel(?string $label, int $sortOrder): string
+    {
+        $label = trim((string) $label);
+        if ($label === '') {
+            return 'S' . max(1, $sortOrder);
+        }
+        // Match em-dash, en-dash, or hyphen used after the stage number.
+        if (preg_match('/—\s*(.+)$/u', $label, $m) || preg_match('/–\s*(.+)$/u', $label, $m) || preg_match('/-\s*(.+)$/u', $label, $m)) {
+            return trim($m[1]);
+        }
+        // No separator — return whatever's after "Stage N " if present.
+        if (preg_match('/^Stage\s*\d+\s+(.+)$/i', $label, $m)) {
+            return trim($m[1]);
+        }
+        return $label;
     }
 
     /**
