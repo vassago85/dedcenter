@@ -82,9 +82,15 @@ new #[Layout('components.layouts.app')]
                 })
                 ->count();
 
+            // squads.sort_order is the canonical relay-order column on the
+            // squads table — there is no `relay_number` column (we hit a
+            // 500 when the squad list was queried with that orderBy because
+            // the underlying SQL referenced a non-existent column). Falling
+            // back to `name` so two squads at the same sort_order still
+            // sort deterministically.
             $squads = $this->match->squads()
                 ->with('shooters')
-                ->orderBy('relay_number')
+                ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get();
 
@@ -251,7 +257,7 @@ new #[Layout('components.layouts.app')]
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-semibold text-primary">{{ $squad->name }}</p>
                                     <p class="mt-0.5 text-[11px] text-muted">
-                                        Relay {{ $squad->relay_number ?? '—' }} · {{ $squad->shooters->count() }} {{ \Illuminate\Support\Str::plural('shooter', $squad->shooters->count()) }}
+                                        {{ $squad->shooters->count() }} {{ \Illuminate\Support\Str::plural('shooter', $squad->shooters->count()) }}
                                     </p>
                                 </div>
                                 <x-icon name="arrow-right" class="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
