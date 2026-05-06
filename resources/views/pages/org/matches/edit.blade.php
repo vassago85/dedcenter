@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\HandlesMatchLifecycleTransitions;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
 use App\Models\User;
@@ -25,6 +26,18 @@ use Livewire\WithFileUploads;
 new #[Layout('components.layouts.app')]
     class extends Component {
     use WithFileUploads;
+    // HandlesMatchLifecycleTransitions provides transitionStatus(),
+    // reopenMatch(), and the password-modal properties
+    // (completeMatchPassword, completeMatchPasswordError) that the
+    // x-match-control-shell's "Complete Match" modal binds to via
+    // $wire.completeMatchPasswordError. Without the trait those
+    // properties don't exist on the parent component, so Alpine's
+    // $wire proxy treats the access as a method call and the page
+    // 500s with "Public method [completeMatchPasswordError] not
+    // found". The trait also calls cleanUpPreRegistrations() via
+    // method_exists when the lifecycle enters RegistrationClosed,
+    // so the existing hook on this page keeps firing.
+    use HandlesMatchLifecycleTransitions;
 
     public Organization $organization;
     public ?ShootingMatch $match = null;
@@ -1300,50 +1313,13 @@ new #[Layout('components.layouts.app')]
         $shooter->categories()->sync($validIds);
     }
 
-    public function transitionStatus(string $target): void
-    {
-        $targetStatus = MatchStatus::from($target);
-        if (! $this->match->status->canTransitionTo($targetStatus)) {
-            Flux::toast('Invalid status transition.', variant: 'danger');
-            return;
-        }
-        $oldStatus = $this->match->status;
-        $isUncomplete = $oldStatus === MatchStatus::Completed && $targetStatus === MatchStatus::Active;
-        $this->match->update(['status' => $targetStatus]);
-
-        try {
-            app(\App\Services\NotificationService::class)->onStatusChange($this->match, $oldStatus, $targetStatus);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Status notification dispatch failed', ['error' => $e->getMessage()]);
-        }
-
-        if ($targetStatus === MatchStatus::RegistrationClosed) {
-            $this->cleanUpPreRegistrations();
-        }
-
-        // Only evaluate achievements on a fresh entry into Completed (forward
-        // walk). Un-completing and then re-completing should not trigger
-        // another evaluation pass — the evaluators are idempotent on
-        // slug+shooter, but there's no value in running them again.
-        if ($targetStatus === MatchStatus::Completed && $oldStatus !== MatchStatus::Completed) {
-            try {
-                \App\Services\AchievementService::evaluateMatchCompletion($this->match);
-                if ($this->match->royal_flush_enabled) {
-                    \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
-                }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed', ['error' => $e->getMessage()]);
-            }
-        }
-
-        if ($isUncomplete) {
-            Flux::toast('Match reopened. Achievements already awarded stay in place.', variant: 'success');
-        } else {
-            Flux::toast("Match status changed to {$targetStatus->label()}.", variant: 'success');
-        }
-    }
-
-    public function reopenMatch(): void { $this->match->update(['status' => MatchStatus::Active]); Flux::toast('Match reopened.', variant: 'success'); }
+    // transitionStatus() and reopenMatch() now come from
+    // HandlesMatchLifecycleTransitions (declared at the top of the class).
+    // The trait preserves the original behaviour byte-for-byte, calls
+    // cleanUpPreRegistrations() defined below via method_exists() when
+    // the lifecycle enters RegistrationClosed, AND adds the password
+    // modal gate on Completed transitions which this page was previously
+    // bypassing.
 
     protected function cleanUpPreRegistrations(): void
     {
