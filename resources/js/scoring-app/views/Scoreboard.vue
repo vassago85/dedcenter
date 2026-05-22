@@ -627,45 +627,164 @@
 
                 <!-- =================== SIDE BET =================== -->
                 <template v-else-if="viewMode === 'sidebet'">
-                    <div v-if="!sideBet.length" class="rounded-xl border border-border bg-surface p-8 text-center">
-                        <p class="text-muted">No side bet scores yet.</p>
+                    <!-- Sub-tab: Standings (read-only) vs Buy-Ins (MD toggle).
+                         Buy-Ins is the new pot-management surface so the MD
+                         can tap shooters in/out without leaving the
+                         scoring app. Standings stays the read-only
+                         leaderboard for everyone else. -->
+                    <div class="mb-3 flex gap-2 rounded-xl border border-amber-700/40 bg-surface p-1">
+                        <button
+                            @click="sideBetSubView = 'standings'"
+                            class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                            :class="sideBetSubView === 'standings' ? 'bg-amber-600 text-white' : 'text-muted hover:bg-surface-2'"
+                        >Standings</button>
+                        <button
+                            @click="onEnterBuyIns"
+                            class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                            :class="sideBetSubView === 'buyins' ? 'bg-amber-600 text-white' : 'text-muted hover:bg-surface-2'"
+                        >
+                            Buy-Ins
+                            <span v-if="buyInsTotals.total > 0" class="ml-1 text-[10px] font-medium opacity-80">
+                                ({{ buyInsTotals.in }}/{{ buyInsTotals.total }})
+                            </span>
+                        </button>
                     </div>
-                    <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-surface">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-b border-border text-left text-muted">
-                                    <th class="px-4 py-3 text-center w-12">#</th>
-                                    <th class="px-4 py-3">Shooter</th>
-                                    <th class="px-4 py-3">Relay</th>
-                                    <th class="px-4 py-3 text-center text-amber-400">Small Gong Hits</th>
-                                    <th class="px-4 py-3">Distances</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-border">
-                                <tr
-                                    v-for="entry in sideBet"
-                                    :key="entry.shooter_id"
-                                    class="transition-colors hover:bg-surface-2"
-                                    :class="rankRowClass(entry.rank)"
-                                >
-                                    <td class="px-4 py-3 text-center">
+
+                    <template v-if="sideBetSubView === 'standings'">
+                        <div v-if="!sideBet.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                            <p class="text-muted">No side bet scores yet.</p>
+                        </div>
+                        <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-surface">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-border text-left text-muted">
+                                        <th class="px-4 py-3 text-center w-12">#</th>
+                                        <th class="px-4 py-3">Shooter</th>
+                                        <th class="px-4 py-3">Relay</th>
+                                        <th class="px-4 py-3 text-center text-amber-400">Small Gong Hits</th>
+                                        <th class="px-4 py-3">Distances</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border">
+                                    <tr
+                                        v-for="entry in sideBet"
+                                        :key="entry.shooter_id"
+                                        class="transition-colors hover:bg-surface-2"
+                                        :class="rankRowClass(entry.rank)"
+                                    >
+                                        <td class="px-4 py-3 text-center">
+                                            <span
+                                                v-if="entry.rank <= 3"
+                                                class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
+                                                :class="medalClass(entry.rank)"
+                                            >{{ entry.rank }}</span>
+                                            <span v-else class="text-muted">{{ entry.rank }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 font-medium">{{ entry.name }}</td>
+                                        <td class="px-4 py-3 text-muted">{{ entry.squad }}</td>
+                                        <td class="px-4 py-3 text-center text-lg font-bold text-amber-400">{{ entry.small_gong_hits }}</td>
+                                        <td class="px-4 py-3 text-secondary">
+                                            {{ entry.distances_hit?.length ? entry.distances_hit.map(d => d + 'm').join(', ') : '—' }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+
+                    <!-- =================== BUY-INS (MD only) =================== -->
+                    <template v-else-if="sideBetSubView === 'buyins'">
+                        <div v-if="buyInsLoading && !buyIns.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                            <p class="text-muted">Loading buy-ins…</p>
+                        </div>
+
+                        <div v-else-if="buyInsError" class="rounded-xl border border-red-700/50 bg-red-900/10 p-6 text-center">
+                            <p class="text-sm font-semibold text-red-400">{{ buyInsError }}</p>
+                            <button @click="loadBuyIns" class="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white">Retry</button>
+                        </div>
+
+                        <template v-else>
+                            <!-- Summary card -->
+                            <div class="mb-3 rounded-xl border border-amber-700/40 bg-gradient-to-br from-amber-900/15 to-surface p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div class="flex items-center gap-5">
+                                        <div>
+                                            <div class="text-[10px] uppercase tracking-wide text-muted">In the pot</div>
+                                            <div class="text-2xl font-bold text-amber-400 tabular-nums">{{ buyInsTotals.in }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[10px] uppercase tracking-wide text-muted">Out</div>
+                                            <div class="text-2xl font-bold text-muted tabular-nums">{{ Math.max(0, buyInsTotals.total - buyInsTotals.in) }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[10px] uppercase tracking-wide text-muted">Total</div>
+                                            <div class="text-2xl font-bold text-primary tabular-nums">{{ buyInsTotals.total }}</div>
+                                        </div>
+                                    </div>
+                                    <span v-if="buyInsLocked" class="rounded-full bg-zinc-700 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Locked</span>
+                                </div>
+                            </div>
+
+                            <!-- Search -->
+                            <div class="relative mb-3">
+                                <input
+                                    v-model="buyInsSearch"
+                                    type="text"
+                                    placeholder="Search by name, bib, or squad…"
+                                    class="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-primary placeholder:text-muted focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                />
+                                <button
+                                    v-if="buyInsSearch"
+                                    @click="buyInsSearch = ''"
+                                    aria-label="Clear search"
+                                    class="absolute inset-y-0 right-2 flex items-center text-muted hover:text-primary"
+                                >✕</button>
+                            </div>
+
+                            <!-- Shooter list. min-h-[56px] rows so phone taps don't misfire. -->
+                            <div v-if="!filteredBuyIns.length" class="rounded-xl border border-border bg-surface p-6 text-center">
+                                <p class="text-sm text-muted">
+                                    <template v-if="buyInsSearch">No shooters match “{{ buyInsSearch }}”.</template>
+                                    <template v-else>No shooters registered yet.</template>
+                                </p>
+                            </div>
+
+                            <ul v-else class="overflow-hidden rounded-xl border border-border bg-surface divide-y divide-border/40">
+                                <li v-for="shooter in filteredBuyIns" :key="shooter.id">
+                                    <button
+                                        type="button"
+                                        :disabled="buyInsLocked || togglingIds.has(shooter.id)"
+                                        @click="toggleBuyIn(shooter)"
+                                        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors min-h-[56px]"
+                                        :class="[
+                                            shooter.in_pot ? 'bg-amber-600/10 hover:bg-amber-600/15' : 'bg-transparent hover:bg-surface-2/50',
+                                            buyInsLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                                        ]"
+                                    >
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <span
+                                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
+                                                :class="shooter.in_pot ? 'border-amber-500 bg-amber-500 text-white' : 'border-border bg-surface-2 text-transparent'"
+                                            >✓</span>
+                                            <div class="min-w-0">
+                                                <div class="text-sm font-semibold text-primary truncate">{{ shooter.name }}</div>
+                                                <div class="flex items-center gap-2 text-xs text-muted">
+                                                    <span v-if="shooter.bib_number" class="whitespace-nowrap">Bib {{ shooter.bib_number }}</span>
+                                                    <span v-if="shooter.bib_number" aria-hidden="true">•</span>
+                                                    <span class="truncate">{{ shooter.squad ?? '—' }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <span
-                                            v-if="entry.rank <= 3"
-                                            class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold"
-                                            :class="medalClass(entry.rank)"
-                                        >{{ entry.rank }}</span>
-                                        <span v-else class="text-muted">{{ entry.rank }}</span>
-                                    </td>
-                                    <td class="px-4 py-3 font-medium">{{ entry.name }}</td>
-                                    <td class="px-4 py-3 text-muted">{{ entry.squad }}</td>
-                                    <td class="px-4 py-3 text-center text-lg font-bold text-amber-400">{{ entry.small_gong_hits }}</td>
-                                    <td class="px-4 py-3 text-secondary">
-                                        {{ entry.distances_hit?.length ? entry.distances_hit.map(d => d + 'm').join(', ') : '—' }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                            v-if="shooter.in_pot"
+                                            class="rounded-full bg-amber-600/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 whitespace-nowrap"
+                                        >In</span>
+                                        <span v-else class="text-[10px] uppercase tracking-wider text-muted whitespace-nowrap">Tap to add</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </template>
+                    </template>
                 </template>
 
                 <!-- =================== ROYAL FLUSH =================== -->
@@ -745,6 +864,17 @@ const targetSets = ref([]);
 const sideBet = ref([]);
 const sideBetEnabled = ref(false);
 const isMd = ref(false);
+
+// Side-bet Buy-Ins sub-tab (MD only). Local state kept here so the
+// scoring SPA can manage the pot without bouncing back to the PWA.
+const sideBetSubView = ref('standings');
+const buyIns = ref([]);
+const buyInsTotals = ref({ in: 0, total: 0 });
+const buyInsLoading = ref(false);
+const buyInsLocked = ref(false);
+const buyInsError = ref('');
+const buyInsSearch = ref('');
+const togglingIds = ref(new Set());
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
 const matchName = ref('');
@@ -938,6 +1068,82 @@ function gongDotClass(entry, tsId, gongNum) {
         if (result === 'not_taken') return 'bg-amber-500/40';
     }
     return 'bg-slate-700';
+}
+
+// ─── Side-bet Buy-Ins (MD only) ──────────────────────────────────────────
+// `filteredBuyIns` runs the client-side search so each keystroke stays
+// off the wire. `toggleBuyIn` is optimistic — flip the flag locally,
+// reconcile on response, roll back on error.
+
+const filteredBuyIns = computed(() => {
+    const q = (buyInsSearch.value || '').toLowerCase().trim();
+    if (!q) return buyIns.value;
+    return buyIns.value.filter((s) => {
+        const haystack = [s.name, s.bib_number, s.squad].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(q);
+    });
+});
+
+async function loadBuyIns() {
+    if (buyInsLoading.value) return;
+    buyInsLoading.value = true;
+    buyInsError.value = '';
+    try {
+        const { data } = await axios.get(`/api/matches/${props.matchId}/side-bet/buy-ins`);
+        buyIns.value = data.shooters ?? [];
+        buyInsTotals.value = data.totals ?? { in: 0, total: 0 };
+        buyInsLocked.value = !!data.locked;
+    } catch (e) {
+        const msg = e?.response?.data?.message;
+        buyInsError.value = msg || 'Unable to load buy-ins.';
+    } finally {
+        buyInsLoading.value = false;
+    }
+}
+
+function onEnterBuyIns() {
+    sideBetSubView.value = 'buyins';
+    // Refresh on each entry so a different phone's toggles show up.
+    loadBuyIns();
+}
+
+async function toggleBuyIn(shooter) {
+    if (buyInsLocked.value || togglingIds.value.has(shooter.id)) return;
+
+    // Optimistic flip so the tap feels instant on a phone.
+    const previous = shooter.in_pot;
+    const newSet = new Set(togglingIds.value);
+    newSet.add(shooter.id);
+    togglingIds.value = newSet;
+
+    shooter.in_pot = !previous;
+    buyInsTotals.value = {
+        ...buyInsTotals.value,
+        in: Math.max(0, buyInsTotals.value.in + (shooter.in_pot ? 1 : -1)),
+    };
+
+    try {
+        const { data } = await axios.post(
+            `/api/matches/${props.matchId}/side-bet/toggle/${shooter.id}`,
+            { in: shooter.in_pot }
+        );
+        shooter.in_pot = !!data.in_pot;
+        if (data.totals) buyInsTotals.value = data.totals;
+    } catch (e) {
+        // Rollback on failure so the UI doesn't lie about who's in the pot.
+        shooter.in_pot = previous;
+        buyInsTotals.value = {
+            ...buyInsTotals.value,
+            in: Math.max(0, buyInsTotals.value.in + (previous ? 1 : -1)),
+        };
+        const status = e?.response?.status;
+        if (status === 423) buyInsLocked.value = true;
+        buyInsError.value = e?.response?.data?.message || 'Toggle failed.';
+    } finally {
+        const cleared = new Set(togglingIds.value);
+        cleared.delete(shooter.id);
+        togglingIds.value = cleared;
+    }
 }
 
 onMounted(() => {

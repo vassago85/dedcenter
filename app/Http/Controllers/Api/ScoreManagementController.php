@@ -12,6 +12,7 @@ use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
 use App\Models\Score;
 use App\Models\ScoreAuditLog;
+use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Services\AchievementService;
 use App\Services\NotificationService;
@@ -381,6 +382,106 @@ class ScoreManagementController extends Controller
         return response()->json([
             'message' => 'Match re-opened for editing.',
             'status' => 'active',
+        ]);
+    }
+
+    /**
+     * Side-bet buy-in roster for the scoring SPA. Returns every shooter on
+     * the match with an `in_pot` flag so the MD can pick people in/out of
+     * the pot without leaving the scoring app. MD-only.
+     */
+    public function sideBetBuyIns(Request $request, ShootingMatch $match)
+    {
+        $this->authorizeMatchDirector($request, $match);
+
+        if (! $match->side_bet_enabled) {
+            return response()->json([
+                'message' => 'Side bet is not enabled for this match.',
+                'enabled' => false,
+                'shooters' => [],
+                'totals' => ['in' => 0, 'total' => 0],
+                'locked' => false,
+            ], 422);
+        }
+
+        $inPot = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->flip();
+
+        $shooters = $match->shooters()
+            ->with('squad:id,name')
+            ->orderByRaw('LOWER(shooters.name) asc')
+            ->get(['shooters.id', 'shooters.name', 'shooters.bib_number', 'shooters.squad_id', 'shooters.status'])
+            ->map(fn ($s) => [
+                'id' => (int) $s->id,
+                'name' => $s->name,
+                'bib_number' => $s->bib_number,
+                'squad' => $s->squad?->name,
+                'status' => $s->status,
+                'in_pot' => $inPot->has((int) $s->id),
+            ])
+            ->values();
+
+        return response()->json([
+            'enabled' => true,
+            'locked' => $match->status === MatchStatus::Completed,
+            'shooters' => $shooters,
+            'totals' => [
+                'in' => $inPot->count(),
+                'total' => $shooters->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Toggle a single shooter in/out of the side-bet pot. Idempotent and
+     * safe to retry — returns the resulting state so the SPA can confirm.
+     * MD-only; locked once the match is completed.
+     */
+    public function toggleSideBetShooter(Request $request, ShootingMatch $match, Shooter $shooter)
+    {
+        $this->authorizeMatchDirector($request, $match);
+
+        if (! $match->side_bet_enabled) {
+            return response()->json([
+                'message' => 'Side bet is not enabled for this match.',
+            ], 422);
+        }
+
+        if ($match->status === MatchStatus::Completed) {
+            return response()->json([
+                'message' => 'Side-bet buy-in is locked once the match is completed.',
+            ], 423);
+        }
+
+        // Confirm the shooter actually belongs to this match (catch IDs from
+        // a different match before they pollute the pivot table).
+        $belongs = $match->shooters()->whereKey($shooter->id)->exists();
+        if (! $belongs) {
+            return response()->json([
+                'message' => 'Shooter does not belong to this match.',
+            ], 404);
+        }
+
+        $explicit = $request->has('in') ? $request->boolean('in') : null;
+        $currentlyIn = $match->sideBetShooters()->where('shooters.id', $shooter->id)->exists();
+
+        $shouldBeIn = $explicit ?? ! $currentlyIn;
+
+        if ($shouldBeIn && ! $currentlyIn) {
+            $match->sideBetShooters()->syncWithoutDetaching([$shooter->id]);
+        } elseif (! $shouldBeIn && $currentlyIn) {
+            $match->sideBetShooters()->detach($shooter->id);
+        }
+
+        $totalIn = $match->sideBetShooters()->count();
+        $totalShooters = $match->shooters()->count();
+
+        return response()->json([
+            'shooter_id' => (int) $shooter->id,
+            'in_pot' => $shouldBeIn,
+            'totals' => [
+                'in' => $totalIn,
+                'total' => $totalShooters,
+            ],
         ]);
     }
 

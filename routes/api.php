@@ -137,6 +137,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
     Route::post('matches/{match}/reopen', [ScoreManagementController::class, 'reopenMatch']);
 
+    // Side-bet buy-in management (MD only) — drives the scoring-app's
+    // Buy-Ins sub-tab so the MD can add/remove shooters from the pot
+    // without leaving the scoring SPA.
+    Route::get('matches/{match}/side-bet/buy-ins', [ScoreManagementController::class, 'sideBetBuyIns']);
+    Route::post('matches/{match}/side-bet/toggle/{shooter}', [ScoreManagementController::class, 'toggleSideBetShooter']);
+
     // Disqualifications (MD only)
     Route::get('matches/{match}/disqualifications', [DisqualificationController::class, 'index']);
     Route::post('matches/{match}/disqualifications', [DisqualificationController::class, 'store']);
