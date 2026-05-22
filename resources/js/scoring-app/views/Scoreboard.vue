@@ -721,7 +721,20 @@
                                             <div class="text-2xl font-bold text-primary tabular-nums">{{ buyInsTotals.total }}</div>
                                         </div>
                                     </div>
-                                    <span v-if="buyInsLocked" class="rounded-full bg-zinc-700 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Locked</span>
+                                    <div class="flex items-center gap-2">
+                                        <!-- Offline pending pill: visible whenever the queue has rows.
+                                             Clicking it forces a flush instead of waiting for the
+                                             next 'online' event — handy if the OS missed firing it. -->
+                                        <button
+                                            v-if="buyInsPendingOffline > 0"
+                                            @click="flushSideBetQueue"
+                                            class="rounded-full bg-amber-600/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 transition-colors hover:bg-amber-600/40"
+                                            :title="`${buyInsPendingOffline} toggle${buyInsPendingOffline === 1 ? '' : 's'} waiting to sync — tap to retry now`"
+                                        >
+                                            {{ buyInsPendingOffline }} pending sync
+                                        </button>
+                                        <span v-if="buyInsLocked" class="rounded-full bg-zinc-700 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-300">Locked</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -854,6 +867,12 @@ import axios from 'axios';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import SyncStatusBar from '../components/SyncStatusBar.vue';
+import {
+    queueSideBetToggle,
+    getSideBetQueue,
+    getSideBetQueueCount,
+    removeSideBetQueueEntry,
+} from '../lib/offlineDb';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
@@ -875,6 +894,9 @@ const buyInsLocked = ref(false);
 const buyInsError = ref('');
 const buyInsSearch = ref('');
 const togglingIds = ref(new Set());
+// Offline queue surface — when the device has no signal, toggles get
+// stashed in IndexedDB and replayed on the next 'online' event.
+const buyInsPendingOffline = ref(0);
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
 const matchName = ref('');
@@ -1084,6 +1106,37 @@ const filteredBuyIns = computed(() => {
     });
 });
 
+async function applyPendingQueueOverlay() {
+    // After GET buy-ins lands, overlay anything still queued offline so
+    // the UI reflects the MD's last intent, not just the server snapshot.
+    try {
+        const queue = await getSideBetQueue(props.matchId);
+        if (!queue.length) return;
+        const byShooter = new Map(queue.map((q) => [q.shooter_id, q.desired_state]));
+        let inAdj = 0;
+        buyIns.value = buyIns.value.map((s) => {
+            if (!byShooter.has(s.id)) return s;
+            const desired = byShooter.get(s.id);
+            if (desired !== s.in_pot) inAdj += desired ? 1 : -1;
+            return { ...s, in_pot: desired };
+        });
+        if (inAdj !== 0) {
+            buyInsTotals.value = {
+                ...buyInsTotals.value,
+                in: Math.max(0, buyInsTotals.value.in + inAdj),
+            };
+        }
+    } catch {}
+}
+
+async function refreshPendingCount() {
+    try {
+        buyInsPendingOffline.value = await getSideBetQueueCount(props.matchId);
+    } catch {
+        buyInsPendingOffline.value = 0;
+    }
+}
+
 async function loadBuyIns() {
     if (buyInsLoading.value) return;
     buyInsLoading.value = true;
@@ -1093,11 +1146,20 @@ async function loadBuyIns() {
         buyIns.value = data.shooters ?? [];
         buyInsTotals.value = data.totals ?? { in: 0, total: 0 };
         buyInsLocked.value = !!data.locked;
+        await applyPendingQueueOverlay();
     } catch (e) {
         const msg = e?.response?.data?.message;
-        buyInsError.value = msg || 'Unable to load buy-ins.';
+        // If this is a pure network failure (no response at all), keep
+        // whatever roster we already have visible so the MD can still
+        // queue toggles offline.
+        if (!e?.response && buyIns.value.length) {
+            buyInsError.value = '';
+        } else {
+            buyInsError.value = msg || 'Unable to load buy-ins.';
+        }
     } finally {
         buyInsLoading.value = false;
+        await refreshPendingCount();
     }
 }
 
@@ -1105,12 +1167,15 @@ function onEnterBuyIns() {
     sideBetSubView.value = 'buyins';
     // Refresh on each entry so a different phone's toggles show up.
     loadBuyIns();
+    // Best-effort flush of anything stuck offline from a previous visit.
+    flushSideBetQueue();
 }
 
 async function toggleBuyIn(shooter) {
     if (buyInsLocked.value || togglingIds.value.has(shooter.id)) return;
 
-    // Optimistic flip so the tap feels instant on a phone.
+    // Optimistic flip so the tap feels instant on a phone — kept even on
+    // network failure (the toggle moves to the offline queue).
     const previous = shooter.in_pot;
     const newSet = new Set(togglingIds.value);
     newSet.add(shooter.id);
@@ -1130,15 +1195,35 @@ async function toggleBuyIn(shooter) {
         shooter.in_pot = !!data.in_pot;
         if (data.totals) buyInsTotals.value = data.totals;
     } catch (e) {
-        // Rollback on failure so the UI doesn't lie about who's in the pot.
-        shooter.in_pot = previous;
-        buyInsTotals.value = {
-            ...buyInsTotals.value,
-            in: Math.max(0, buyInsTotals.value.in + (previous ? 1 : -1)),
-        };
         const status = e?.response?.status;
-        if (status === 423) buyInsLocked.value = true;
-        buyInsError.value = e?.response?.data?.message || 'Toggle failed.';
+        // Server-side reject (4xx/5xx) means the toggle won't ever
+        // succeed in this state — roll back and surface the error.
+        if (e?.response) {
+            shooter.in_pot = previous;
+            buyInsTotals.value = {
+                ...buyInsTotals.value,
+                in: Math.max(0, buyInsTotals.value.in + (previous ? 1 : -1)),
+            };
+            if (status === 423) buyInsLocked.value = true;
+            buyInsError.value = e?.response?.data?.message || 'Toggle failed.';
+        } else {
+            // No response at all — phone is offline (or DNS / WebView is
+            // wedged). Persist the MD's intent so it replays once the
+            // device is back online; keep the optimistic UI as-is.
+            try {
+                await queueSideBetToggle(props.matchId, shooter.id, shooter.in_pot);
+                await refreshPendingCount();
+            } catch {
+                // IndexedDB itself failed — fall back to a rollback so we
+                // don't lie about who's in the pot.
+                shooter.in_pot = previous;
+                buyInsTotals.value = {
+                    ...buyInsTotals.value,
+                    in: Math.max(0, buyInsTotals.value.in + (previous ? 1 : -1)),
+                };
+                buyInsError.value = 'Offline storage unavailable.';
+            }
+        }
     } finally {
         const cleared = new Set(togglingIds.value);
         cleared.delete(shooter.id);
@@ -1146,12 +1231,67 @@ async function toggleBuyIn(shooter) {
     }
 }
 
+// Replay queued toggles when we're back online. Each POST is idempotent
+// on the server (accepts an explicit `in: bool`), so dropping a row from
+// the queue only AFTER a successful response is the safe ordering — a
+// half-completed flush just leaves the remaining rows for next time.
+let flushInFlight = false;
+async function flushSideBetQueue() {
+    if (flushInFlight) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    flushInFlight = true;
+    try {
+        const queue = await getSideBetQueue(props.matchId);
+        for (const entry of queue) {
+            try {
+                await axios.post(
+                    `/api/matches/${props.matchId}/side-bet/toggle/${entry.shooter_id}`,
+                    { in: entry.desired_state }
+                );
+                await removeSideBetQueueEntry(entry.id);
+            } catch (e) {
+                // Permanent reject (4xx/5xx) — drop the entry so we don't
+                // retry forever. Locked match (423) is a normal endpoint
+                // — bail the whole flush since nothing more will work.
+                if (e?.response) {
+                    await removeSideBetQueueEntry(entry.id);
+                    if (e.response.status === 423) break;
+                } else {
+                    // Network blip mid-flush — stop and try again next time.
+                    break;
+                }
+            }
+        }
+        await refreshPendingCount();
+        // If the MD is currently on the Buy-Ins sub-tab, pull a fresh
+        // snapshot so totals reconcile against the server.
+        if (sideBetSubView.value === 'buyins') {
+            await loadBuyIns();
+        }
+    } finally {
+        flushInFlight = false;
+    }
+}
+
+function onOnlineFlushTrigger() {
+    flushSideBetQueue();
+}
+
 onMounted(() => {
     fetchData();
     refreshInterval = setInterval(fetchData, 12000);
+    // Replay any queued side-bet toggles from a previous offline session,
+    // and keep replaying whenever the device comes back online. Runs
+    // unconditionally even if the MD never opens the Buy-Ins tab — so
+    // toggles made offline on a previous launch still make it to the
+    // server eventually.
+    refreshPendingCount();
+    flushSideBetQueue();
+    window.addEventListener('online', onOnlineFlushTrigger);
 });
 
 onUnmounted(() => {
     clearInterval(refreshInterval);
+    window.removeEventListener('online', onOnlineFlushTrigger);
 });
 </script>
