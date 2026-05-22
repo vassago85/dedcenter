@@ -482,6 +482,29 @@
                 </div>
             </div>
 
+            <!-- "Up for a Royal Flush" pressure pill. Surfaces the moment
+                 the current shooter has hit every other gong at this distance
+                 and a hit on the current gong would complete the flush. Sits
+                 at the very top of the scoring area so the scorer sees it
+                 before they even read the shooter name — adds the pressure
+                 the MD asked for. Pulsing dot + amber gradient strip. -->
+            <div
+                v-if="isRoyalFlushShot"
+                class="border-b border-amber-500/40 bg-gradient-to-r from-amber-900/40 via-amber-700/50 to-amber-900/40 px-4 py-2.5 shadow-inner shadow-amber-500/10"
+                role="status"
+                aria-live="polite"
+            >
+                <div class="mx-auto flex max-w-lg items-center justify-center gap-2.5">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-300"></span>
+                    </span>
+                    <span class="rounded-full border-2 border-amber-300 bg-amber-500/20 px-4 py-1 text-xs font-black uppercase tracking-[0.18em] text-amber-100 shadow-lg shadow-amber-500/30">
+                        ★ Up for Royal Flush ★
+                    </span>
+                </div>
+            </div>
+
             <!-- Main scoring area -->
             <main class="flex flex-1 flex-col px-4 py-6">
                 <div class="mx-auto flex w-full max-w-lg flex-1 flex-col">
@@ -512,6 +535,23 @@
                         :class="existingScore.isHit ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'"
                     >
                         Previously scored: {{ existingScore.isHit ? 'HIT' : 'MISS' }}
+                    </div>
+
+                    <!-- Royal Flush prompt: this shot completes the flush at this distance -->
+                    <div
+                        v-if="isRoyalFlushShot"
+                        class="mb-4 overflow-hidden rounded-xl border-2 border-amber-500 bg-gradient-to-br from-amber-700/40 to-amber-900/40 shadow-lg shadow-amber-500/20"
+                        role="status"
+                    >
+                        <div class="flex items-center gap-3 px-4 py-3">
+                            <svg class="h-7 w-7 flex-shrink-0 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M5 16L3 5l5.5 4L12 4l3.5 5L21 5l-2 11H5zm0 2h14v2H5v-2z" />
+                            </svg>
+                            <div class="min-w-0">
+                                <p class="text-[11px] font-bold uppercase tracking-widest text-amber-400">Royal Flush this shot</p>
+                                <p class="text-sm font-semibold text-amber-100">Hit completes the flush at {{ currentTargetSet?.distance_meters }}m</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Hit / Miss buttons -->
@@ -673,6 +713,33 @@ const currentShooter = computed(() => shooters.value[scoringStore.currentShooter
 const existingScore = computed(() => {
     if (!currentShooter.value || !currentGong.value) return null;
     return scoringStore.getScore(currentShooter.value.id, currentGong.value.id);
+});
+
+// ── Royal Flush "this shot completes it" detector ──
+// For Royal-Flush-enabled matches, surface a loud banner when the
+// current shooter has hit every OTHER gong at this distance and the
+// current gong is the only one left to call. Gives the MD time to
+// shout it out / get the cameras ready instead of finding out on the
+// scoreboard after the fact.
+//
+// Counts hits across every gong at this distance *except* the one
+// being scored. If that count equals (gongs.length - 1), a hit here
+// completes the flush at this distance. Reactive to back-edits — if
+// the MD goes back and flips a previous miss to a hit, the banner
+// shows up automatically.
+const isRoyalFlushShot = computed(() => {
+    if (!matchStore.currentMatch?.royal_flush_enabled) return false;
+    if (!currentShooter.value || !currentTargetSet.value || !currentGong.value) return false;
+    const gongs = currentGongs.value;
+    if (gongs.length < 2) return false;
+
+    let hitsOnOthers = 0;
+    for (const g of gongs) {
+        if (g.id === currentGong.value.id) continue;
+        const score = scoringStore.getScore(currentShooter.value.id, g.id);
+        if (score?.isHit) hitsOnOthers++;
+    }
+    return hitsOnOthers === gongs.length - 1;
 });
 
 // ── Progress ──

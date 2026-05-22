@@ -214,7 +214,7 @@ class RoyalFlush23May2026Seeder extends Seeder
             $this->command?->info("Match [{$match->id}] {$match->name} ready.");
 
             $rfDistances = [400, 500, 600, 700];
-            $gongMultipliers = ['1.00', '1.30', '1.50', '1.80', '2.00'];
+            $gongMultipliers = ['1.00', '1.25', '1.50', '1.75', '2.00'];
             foreach ($rfDistances as $i => $distance) {
                 $ts = TargetSet::firstOrCreate(
                     ['match_id' => $match->id, 'distance_meters' => $distance],

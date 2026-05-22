@@ -78,7 +78,7 @@ class RoyalFlushTwoPhoneTestSeeder extends Seeder
             $this->command?->info(($isNew ? 'Created' : 'Updated')." match [{$match->id}] {$match->name}.");
 
             $rfDistances = [400, 500, 600, 700];
-            $gongMultipliers = ['1.00', '1.30', '1.50', '1.80', '2.00'];
+            $gongMultipliers = ['1.00', '1.25', '1.50', '1.75', '2.00'];
 
             foreach ($match->targetSets as $existing) {
                 $existing->gongs()->delete();

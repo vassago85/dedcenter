@@ -222,13 +222,13 @@ class RoyalFlush18April2026Seeder extends Seeder
             // standard RF multiplier table:
             //
             //   DISTANCE → distance_multiplier = distance / 100 (4, 5, 6, 7)
-            //   GONG     → 1:1.00, 2:1.30, 3:1.50, 4:1.80, 5:2.00 (G1 biggest, G5 smallest)
+            //   GONG     → 1:1.00, 2:1.25, 3:1.50, 4:1.75, 5:2.00 (G1 biggest, G5 smallest)
             //
             // Score per hit = distance_multiplier × gong.multiplier.
             // Idempotent: fills in missing rows, overwrites stored multipliers
             // on existing gong rows to match the canonical table.
             $rfDistances = [400, 500, 600, 700];
-            $gongMultipliers = ['1.00', '1.30', '1.50', '1.80', '2.00'];
+            $gongMultipliers = ['1.00', '1.25', '1.50', '1.75', '2.00'];
             foreach ($rfDistances as $i => $distance) {
                 $ts = TargetSet::firstOrCreate(
                     ['match_id' => $match->id, 'distance_meters' => $distance],
@@ -263,7 +263,7 @@ class RoyalFlush18April2026Seeder extends Seeder
                     }
                 }
             }
-            $this->command?->info('Target sets ensured: 400/500/600/700 m × 5 gongs with RF multipliers (1/1.3/1.5/1.8/2).');
+            $this->command?->info('Target sets ensured: 400/500/600/700 m × 5 gongs with RF multipliers (1/1.25/1.5/1.75/2).');
 
             // Full wipe of any existing shooters on this match (any squad, including
             // stale duplicates manually created on prior runs). Otherwise idempotent

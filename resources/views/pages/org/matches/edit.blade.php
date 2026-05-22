@@ -472,7 +472,7 @@ new #[Layout('components.layouts.app')]
     /**
      * Quick preset for Royal Flush matches: create 400/500/600/700 m target
      * sets, each with 5 gongs using the canonical RF multiplier table
-     * (G1:1.00, G2:1.30, G3:1.50, G4:1.80, G5:2.00). Idempotent — fills
+     * (G1:1.00, G2:1.25, G3:1.50, G4:1.75, G5:2.00). Idempotent — fills
      * missing distances and snaps existing gong multipliers to the table.
      */
     public function addRoyalFlushPresets(): void
@@ -482,7 +482,7 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
-        $gongMultipliers = ['1.00', '1.30', '1.50', '1.80', '2.00'];
+        $gongMultipliers = ['1.00', '1.25', '1.50', '1.75', '2.00'];
         $created = 0;
         foreach ([400, 500, 600, 700] as $distance) {
             $ts = $this->match->targetSets()->where('distance_meters', $distance)->first();

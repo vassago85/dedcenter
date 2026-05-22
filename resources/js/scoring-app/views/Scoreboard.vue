@@ -791,7 +791,7 @@
                                         <span
                                             v-if="shooter.in_pot"
                                             class="rounded-full bg-amber-600/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 whitespace-nowrap"
-                                        >In</span>
+                                        >In · tap to remove</span>
                                         <span v-else class="text-[10px] uppercase tracking-wider text-muted whitespace-nowrap">Tap to add</span>
                                     </button>
                                 </li>
@@ -799,6 +799,47 @@
                         </template>
                     </template>
                 </template>
+
+                <!-- Confirm-removal modal. Renders at the root of the
+                     scoreboard view (above other content) whenever
+                     `pendingBuyOut` is set. Only the explicit "Remove"
+                     button writes the change; tapping the backdrop or
+                     "Cancel" leaves the shooter in the pot. -->
+                <div
+                    v-if="pendingBuyOut"
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    @click.self="cancelRemoveBuyIn"
+                >
+                    <div class="w-full max-w-sm rounded-2xl border border-amber-700/50 bg-surface p-6 shadow-2xl">
+                        <div class="mb-4 flex items-start gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-600/15 text-amber-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+                                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-base font-bold text-primary">Remove from the pot?</h3>
+                                <p class="mt-1 text-sm text-muted">
+                                    <span class="font-semibold text-amber-300">{{ pendingBuyOut.name }}</span><span v-if="pendingBuyOut.bib_number" class="text-muted"> (Bib {{ pendingBuyOut.bib_number }})</span> will no longer be in the side bet for this match.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                @click="cancelRemoveBuyIn"
+                                class="flex-1 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-surface-2/80"
+                            >Cancel</button>
+                            <button
+                                type="button"
+                                @click="confirmRemoveBuyIn"
+                                class="flex-1 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700"
+                            >Remove</button>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- =================== ROYAL FLUSH =================== -->
                 <template v-else-if="viewMode === 'royalflush'">
@@ -897,6 +938,10 @@ const togglingIds = ref(new Set());
 // Offline queue surface — when the device has no signal, toggles get
 // stashed in IndexedDB and replayed on the next 'online' event.
 const buyInsPendingOffline = ref(0);
+// Shooter pending removal (buy-out) — non-null shows the confirm modal.
+// Adding to the pot is one-tap, removing requires this second tap so a
+// fat-finger doesn't silently pull someone out of the side bet.
+const pendingBuyOut = ref(null);
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
 const matchName = ref('');
@@ -1171,7 +1216,38 @@ function onEnterBuyIns() {
     flushSideBetQueue();
 }
 
+// Adding to the pot is one-tap (the common, low-risk action). Removing
+// requires a second deliberate confirm tap so a fat-finger doesn't
+// silently pull a shooter out of the pot mid-match.
 async function toggleBuyIn(shooter) {
+    if (buyInsLocked.value || togglingIds.value.has(shooter.id)) return;
+    if (shooter.in_pot) {
+        // Removal — show the confirm modal and let the user explicitly
+        // confirm or cancel. The actual write goes through
+        // `confirmRemoveBuyIn` once they confirm.
+        pendingBuyOut.value = shooter;
+        return;
+    }
+    await performBuyInWrite(shooter, true);
+}
+
+async function confirmRemoveBuyIn() {
+    const shooter = pendingBuyOut.value;
+    if (!shooter) return;
+    pendingBuyOut.value = null;
+    await performBuyInWrite(shooter, false);
+}
+
+function cancelRemoveBuyIn() {
+    pendingBuyOut.value = null;
+}
+
+/**
+ * The actual optimistic-write path shared by both add (single tap) and
+ * confirmed remove. `desiredIn` is the target state — true means the
+ * shooter should end up IN the pot, false means OUT.
+ */
+async function performBuyInWrite(shooter, desiredIn) {
     if (buyInsLocked.value || togglingIds.value.has(shooter.id)) return;
 
     // Optimistic flip so the tap feels instant on a phone — kept even on
@@ -1181,11 +1257,13 @@ async function toggleBuyIn(shooter) {
     newSet.add(shooter.id);
     togglingIds.value = newSet;
 
-    shooter.in_pot = !previous;
-    buyInsTotals.value = {
-        ...buyInsTotals.value,
-        in: Math.max(0, buyInsTotals.value.in + (shooter.in_pot ? 1 : -1)),
-    };
+    shooter.in_pot = !!desiredIn;
+    if (previous !== shooter.in_pot) {
+        buyInsTotals.value = {
+            ...buyInsTotals.value,
+            in: Math.max(0, buyInsTotals.value.in + (shooter.in_pot ? 1 : -1)),
+        };
+    }
 
     try {
         const { data } = await axios.post(

@@ -335,7 +335,7 @@ new #[Layout('components.layouts.app')]
 
     /**
      * Quick preset for RF matches: create 400/500/600/700 m × 5 gongs each
-     * with canonical RF multipliers (G1:1.00, G2:1.30, G3:1.50, G4:1.80, G5:2.00).
+     * with canonical RF multipliers (G1:1.00, G2:1.25, G3:1.50, G4:1.75, G5:2.00).
      * Idempotent: fills missing rows, refreshes multipliers on existing ones.
      */
     public function addRoyalFlushPresets(): void
@@ -345,7 +345,7 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
-        $gongMultipliers = ['1.00', '1.30', '1.50', '1.80', '2.00'];
+        $gongMultipliers = ['1.00', '1.25', '1.50', '1.75', '2.00'];
         $created = 0;
         foreach ([400, 500, 600, 700] as $distance) {
             $ts = $this->match->targetSets()->where('distance_meters', $distance)->first();
