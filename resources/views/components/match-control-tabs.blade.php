@@ -52,12 +52,12 @@
             'reports'   => ['label' => 'Reports',   'icon' => 'file-text',        'href' => route('org.matches.reports', [$organization, $match]),   'active' => $currentRoute === 'org.matches.reports'],
         ];
 
-        // Side Bet tab: only when the match has it enabled. Inserted after
-        // Squadding so it falls naturally next to the roster the MD just
-        // managed, and stays out of the way for non-RF matches. Kept off
+        // Side Bet tab: Royal Flush org matches only, and only once side-bet
+        // is actually enabled on the match. Inserted after Squadding so it
+        // falls naturally next to the roster the MD just managed. Kept off
         // admin context because no admin.matches.side-bet route exists —
         // owners can still reach it via the org route.
-        if ($match->side_bet_enabled) {
+        if ($organization?->isRoyalFlushOrg() && $match->side_bet_enabled) {
             $sideBetTab = ['side_bet' => [
                 'label'  => 'Side Bet',
                 'icon'   => 'trophy',

@@ -94,7 +94,7 @@
                         Score Sheet
                     </button>
                     <button
-                        v-if="sideBetEnabled && isMd && !isElr"
+                        v-if="sideBetEnabled && royalFlushEnabled && isMd && !isElr"
                         @click="viewMode = 'sidebet'"
                         class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
                         :class="viewMode === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
