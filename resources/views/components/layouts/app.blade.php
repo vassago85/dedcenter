@@ -176,13 +176,19 @@
                 </div>
                 @auth
                     @if($authUser->canScore())
-                        {{-- External target (scoring SPA in a new window). Never wire:navigate this. --}}
-                        <a href="https://{{ config('domains.app') }}/score" target="_blank" rel="noopener" class="inline-flex min-h-[44px] flex-col items-start justify-center rounded-lg px-3 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent" style="background:#ff2b2b;">
-                            <span class="inline-flex items-center gap-2 text-sm font-semibold">
+                        {{-- External target (scoring SPA in a new window). Never wire:navigate this.
+                             Compact on phones (icon + "Score") so it doesn't crowd out the context
+                             label in the sticky header; full two-line CTA at sm and up. --}}
+                        <a href="https://{{ config('domains.app') }}/score" target="_blank" rel="noopener"
+                            title="Open scoring app — separate window for tablet speed"
+                            class="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-lg px-2.5 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-accent sm:min-h-[44px] sm:flex-col sm:items-start sm:px-3"
+                            style="background:#ff2b2b;">
+                            <span class="inline-flex items-center gap-1.5 text-xs font-semibold sm:gap-2 sm:text-sm">
                                 <x-icon name="play" class="h-4 w-4" />
-                                Open scoring app
+                                <span class="sm:hidden">Score</span>
+                                <span class="hidden sm:inline">Open scoring app</span>
                             </span>
-                            <span class="text-[10px] uppercase tracking-wider text-white/80">Separate window for tablet speed</span>
+                            <span class="hidden text-[10px] uppercase tracking-wider text-white/80 sm:block">Separate window for tablet speed</span>
                         </a>
                     @endif
 
