@@ -75,79 +75,149 @@ class SquadScoreCorrectionService
                     continue;
                 }
 
-                $existing = Score::where('shooter_id', $shooterId)
-                    ->whereIn('gong_id', array_keys($gongStates))
-                    ->get()
-                    ->keyBy('gong_id');
-
-                foreach ($gongStates as $gongId => $desired) {
-                    $gongId = (int) $gongId;
-                    if (! isset($validGongIds[$gongId])) {
-                        continue;
-                    }
-
-                    /** @var Score|null $current */
-                    $current = $existing->get($gongId);
-
-                    if ($desired === null) {
-                        if ($current === null) {
-                            $stats['unchanged']++;
-
-                            continue;
-                        }
-                        ScoreAuditService::logDeleted($match->id, $current, $reason);
-                        $current->delete();
-                        $stats['deleted']++;
-
-                        continue;
-                    }
-
-                    $desiredBool = (bool) $desired;
-
-                    if ($current === null) {
-                        $new = Score::create([
-                            'shooter_id' => $shooterId,
-                            'gong_id' => $gongId,
-                            'is_hit' => $desiredBool,
-                            'recorded_by' => $actorUserId,
-                            'recorded_at' => now(),
-                        ]);
-                        ScoreAuditService::logCreated($match->id, $new);
-                        // Stamp the reason as a dedicated "created via
-                        // correction" entry as well so the audit log
-                        // always carries the note, not just the raw
-                        // creation payload.
-                        ScoreAuditService::log(
-                            $match->id,
-                            $new,
-                            'correction',
-                            null,
-                            ['is_hit' => $desiredBool],
-                            $reason,
-                        );
-                        $stats['created']++;
-
-                        continue;
-                    }
-
-                    if ((bool) $current->is_hit === $desiredBool) {
-                        $stats['unchanged']++;
-
-                        continue;
-                    }
-
-                    $old = $current->toArray();
-                    $current->update([
-                        'is_hit' => $desiredBool,
-                        'recorded_by' => $actorUserId,
-                        'recorded_at' => now(),
-                    ]);
-                    ScoreAuditService::logUpdated($match->id, $current, $old, $reason);
-                    $stats['updated']++;
-                }
+                $this->applyShooterGongStates(
+                    $match,
+                    $shooterId,
+                    $gongStates,
+                    $reason,
+                    $actorUserId,
+                    $validGongIds,
+                    $stats,
+                );
             }
         });
 
         return $stats;
+    }
+
+    /**
+     * Apply corrections for a single shooter across a single stage. Used
+     * by the API's "tap a row on the stage summary → fix one shooter"
+     * flow so we don't make the MD scroll back through a whole squad
+     * just to flip one cell. Reuses the same diff+audit semantics as
+     * the squad-wide editor.
+     *
+     * @param  array<int, bool|null>  $gongStates  gong_id => true|false|null
+     * @return array{created:int,updated:int,deleted:int,unchanged:int}
+     */
+    public function applyForShooter(
+        ShootingMatch $match,
+        Shooter $shooter,
+        array $gongStates,
+        string $reason,
+        int $actorUserId,
+    ): array {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new \InvalidArgumentException('A correction note is required.');
+        }
+
+        if (! $shooter->squad || $shooter->squad->match_id !== $match->id) {
+            throw new \InvalidArgumentException('Shooter does not belong to this match.');
+        }
+
+        $validGongIds = DB::table('gongs')
+            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+            ->where('target_sets.match_id', $match->id)
+            ->pluck('gongs.id')
+            ->all();
+        $validGongIds = array_flip($validGongIds);
+
+        $stats = ['created' => 0, 'updated' => 0, 'deleted' => 0, 'unchanged' => 0];
+
+        DB::transaction(function () use ($match, $shooter, $gongStates, $reason, $actorUserId, $validGongIds, &$stats) {
+            $this->applyShooterGongStates(
+                $match,
+                (int) $shooter->id,
+                $gongStates,
+                $reason,
+                $actorUserId,
+                $validGongIds,
+                $stats,
+            );
+        });
+
+        return $stats;
+    }
+
+    /**
+     * Inner per-shooter loop shared by the squad-wide and single-shooter
+     * entry points.
+     */
+    private function applyShooterGongStates(
+        ShootingMatch $match,
+        int $shooterId,
+        array $gongStates,
+        string $reason,
+        int $actorUserId,
+        array $validGongIds,
+        array &$stats,
+    ): void {
+        $existing = Score::where('shooter_id', $shooterId)
+            ->whereIn('gong_id', array_keys($gongStates))
+            ->get()
+            ->keyBy('gong_id');
+
+        foreach ($gongStates as $gongId => $desired) {
+            $gongId = (int) $gongId;
+            if (! isset($validGongIds[$gongId])) {
+                continue;
+            }
+
+            /** @var Score|null $current */
+            $current = $existing->get($gongId);
+
+            if ($desired === null) {
+                if ($current === null) {
+                    $stats['unchanged']++;
+
+                    continue;
+                }
+                ScoreAuditService::logDeleted($match->id, $current, $reason);
+                $current->delete();
+                $stats['deleted']++;
+
+                continue;
+            }
+
+            $desiredBool = (bool) $desired;
+
+            if ($current === null) {
+                $new = Score::create([
+                    'shooter_id' => $shooterId,
+                    'gong_id' => $gongId,
+                    'is_hit' => $desiredBool,
+                    'recorded_by' => $actorUserId,
+                    'recorded_at' => now(),
+                ]);
+                ScoreAuditService::logCreated($match->id, $new);
+                ScoreAuditService::log(
+                    $match->id,
+                    $new,
+                    'correction',
+                    null,
+                    ['is_hit' => $desiredBool],
+                    $reason,
+                );
+                $stats['created']++;
+
+                continue;
+            }
+
+            if ((bool) $current->is_hit === $desiredBool) {
+                $stats['unchanged']++;
+
+                continue;
+            }
+
+            $old = $current->toArray();
+            $current->update([
+                'is_hit' => $desiredBool,
+                'recorded_by' => $actorUserId,
+                'recorded_at' => now(),
+            ]);
+            ScoreAuditService::logUpdated($match->id, $current, $old, $reason);
+            $stats['updated']++;
+        }
     }
 }

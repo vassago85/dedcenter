@@ -136,6 +136,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
     Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
     Route::post('matches/{match}/reopen', [ScoreManagementController::class, 'reopenMatch']);
+    // Single-shooter correction: powers the inline "tap a row on the
+    // stage summary → fix this shooter" modal across native, PWA, and
+    // web. Both standard and PRS scoring routed through here.
+    Route::post('matches/{match}/shooters/{shooter}/correct', [ScoreManagementController::class, 'correctSingleShooter']);
 
     // Side-bet buy-in management (MD only) — drives the scoring-app's
     // Buy-Ins sub-tab so the MD can add/remove shooters from the pot

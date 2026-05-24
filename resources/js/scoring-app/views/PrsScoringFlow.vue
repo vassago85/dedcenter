@@ -537,6 +537,18 @@
                                 <div class="text-xs text-slate-400">Score was recorded against the wrong stage.</div>
                             </div>
                         </button>
+                        <button
+                            @click="correctScoresFromActionModal"
+                            class="flex w-full items-center gap-3 rounded-xl border border-emerald-700/40 bg-emerald-900/10 px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-900/30"
+                        >
+                            <svg class="h-5 w-5 flex-shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13L2.25 21.75l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                            </svg>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-white">Correct scores</div>
+                                <div class="text-xs text-slate-400">Flip one or two shots — keeps the rest of the row.</div>
+                            </div>
+                        </button>
                     </div>
                     <div class="mt-4 flex">
                         <button @click="closeShooterActionModal" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
@@ -571,12 +583,24 @@
         </Teleport>
 
         <ScoringSponsorship />
+
+        <CorrectShooterModal
+            :open="correctionOpen"
+            mode="prs"
+            :match-id="props.matchId"
+            :shooter="correctionTarget?.shooter"
+            :stage="correctionTarget?.stage"
+            :existing-prs-shots="correctionTarget?.existingPrsShots ?? []"
+            :existing-prs-time="correctionTarget?.existingPrsTime ?? null"
+            @close="correctionTarget = null"
+            @corrected="onPrsCorrectionApplied"
+        />
     </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import { usePrsScoringStore } from '../stores/prsScoringStore';
@@ -584,12 +608,15 @@ import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
+import CorrectShooterModal from '../components/CorrectShooterModal.vue';
+import { getCorrectionQueue, removeCorrectionQueueEntry } from '../lib/offlineDb.js';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
 });
 
 const router = useRouter();
+const route = useRoute();
 
 const matchStore = useMatchStore();
 const prsStore = usePrsScoringStore();
@@ -624,6 +651,13 @@ const correctionLogEntries = ref([]);
 // Already-scored shooter action panel
 const showShooterActionModal = ref(false);
 const shooterActionTarget = ref(null); // { shooter, stageId, stageName, completion, totalShots }
+
+// Single-shooter shot-by-shot correction modal (shared with standard
+// scoring). Opened from the shooter action panel's "Correct scores"
+// button — sits alongside Reshoot / Reassign / Move as the gentle
+// option that doesn't blow away the existing row.
+const correctionTarget = ref(null); // { shooter, stage, existingPrsShots, existingPrsTime }
+const correctionOpen = computed(() => correctionTarget.value !== null);
 
 const squads = computed(() => matchStore.currentMatch?.squads ?? []);
 const targetSets = computed(() => matchStore.currentMatch?.target_sets ?? []);
@@ -966,6 +1000,76 @@ function moveFromActionModal() {
     openMoveModal(target.shooter, target.stageId);
 }
 
+// Open the shot-by-shot correction modal for the shooter currently on
+// the action panel. Doesn't clear the stage completion the way the
+// reshoot path does — the modal lets the MD flip one or two shots
+// instead of having to restart the entire stage scoring flow.
+async function correctScoresFromActionModal() {
+    const target = shooterActionTarget.value;
+    if (!target) return;
+
+    let existingShots = [];
+    let existingTime = null;
+    try {
+        const { data } = await axios.get(`/api/matches/${props.matchId}/stages/${target.stageId}/scores`);
+        const shots = data?.shots?.[String(target.shooter.id)] ?? data?.shots?.[target.shooter.id] ?? [];
+        existingShots = Array.isArray(shots) ? shots : [];
+        const result = (data?.results ?? []).find(r => (r.shooter_id ?? r.shooterId) === target.shooter.id);
+        existingTime = result?.raw_time_seconds ?? null;
+    } catch {
+        existingShots = [];
+    }
+
+    const stageObj = targetSets.value.find(ts => ts.id === target.stageId);
+    correctionTarget.value = {
+        shooter: target.shooter,
+        stage: stageObj,
+        existingPrsShots: existingShots,
+        existingPrsTime: existingTime,
+    };
+    closeShooterActionModal();
+}
+
+async function onPrsCorrectionApplied() {
+    try {
+        await matchStore.fetchMatch(props.matchId);
+        // Pull the per-stage scores so the local store sees the updated
+        // completion immediately — otherwise the shooter would still
+        // appear with the old hit count until the next 15s refresh.
+        const stageId = correctionTarget.value?.stage?.id;
+        if (stageId) {
+            const { data } = await axios.get(`/api/matches/${props.matchId}/stages/${stageId}/scores`);
+            const result = (data?.results ?? []).find(r => (r.shooter_id ?? r.shooterId) === correctionTarget.value.shooter.id);
+            if (result) {
+                prsStore.stageCompletions.set(`${correctionTarget.value.shooter.id}-${stageId}`, {
+                    hits: result.hits,
+                    misses: result.misses,
+                    notTaken: result.not_taken,
+                    time: result.raw_time_seconds,
+                    officialTime: result.official_time_seconds,
+                });
+            }
+        }
+    } catch { /* transient refresh failure — next sync will catch up */ }
+}
+
+async function drainCorrectionQueue() {
+    if (!navigator.onLine) return;
+    const entries = await getCorrectionQueue(props.matchId);
+    for (const entry of entries) {
+        try {
+            await axios.post(
+                `/api/matches/${entry.match_id}/shooters/${entry.shooter_id}/correct`,
+                entry.payload,
+            );
+            await removeCorrectionQueueEntry(entry.id);
+        } catch (e) {
+            if (e.response?.status === 423) continue;
+            break;
+        }
+    }
+}
+
 function goBack() {
     // Simplified back stack — the old version walked the user through
     // scoring → shooter-list → stage-select → squad-select → match-home →
@@ -1235,12 +1339,48 @@ onMounted(async () => {
         if (prsStore.pendingCount > 0) {
             await prsStore.syncPendingResults();
         }
+        await drainCorrectionQueue();
         try {
             await matchStore.fetchMatch(props.matchId);
             const freshResults = matchStore.currentMatch?.prs_stage_results ?? [];
             await prsStore.refreshCompletions(props.matchId, freshResults);
         } catch { /* offline or transient failure */ }
     }, 15000);
+
+    drainCorrectionQueue();
+
+    // Deep-link entry: `/score/{matchId}?correct=<shooterId>&stage=<stageId>`
+    // opens the correction modal straight away. Mirror of the standard
+    // flow's handler so the web MD can deep-link into PRS corrections
+    // without navigating the whole scoring tree.
+    const correctShooterId = Number(route.query.correct);
+    const correctStageId = Number(route.query.stage);
+    if (correctShooterId && correctStageId) {
+        const stageObj = targetSets.value.find(ts => ts.id === correctStageId);
+        let shooterObj = null;
+        for (const sq of squads.value) {
+            shooterObj = (sq.shooters ?? []).find(s => s.id === correctShooterId);
+            if (shooterObj) break;
+        }
+        if (stageObj && shooterObj) {
+            let existingShots = [];
+            let existingTime = null;
+            try {
+                const { data } = await axios.get(`/api/matches/${props.matchId}/stages/${correctStageId}/scores`);
+                const shots = data?.shots?.[String(correctShooterId)] ?? data?.shots?.[correctShooterId] ?? [];
+                existingShots = Array.isArray(shots) ? shots : [];
+                const result = (data?.results ?? []).find(r => (r.shooter_id ?? r.shooterId) === correctShooterId);
+                existingTime = result?.raw_time_seconds ?? null;
+            } catch { /* fall through with empty prefill */ }
+
+            correctionTarget.value = {
+                shooter: shooterObj,
+                stage: stageObj,
+                existingPrsShots: existingShots,
+                existingPrsTime: existingTime,
+            };
+        }
+    }
 });
 
 onUnmounted(() => {

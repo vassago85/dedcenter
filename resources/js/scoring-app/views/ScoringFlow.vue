@@ -225,6 +225,7 @@
                                 <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
                                 <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
                                 <th class="px-3 py-2.5 text-right font-bold">Score</th>
+                                <th class="px-2 py-2.5 text-right font-medium text-slate-500" aria-label="Fix"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-700/50">
@@ -252,6 +253,19 @@
                                 <td class="px-3 py-2 text-center tabular-nums text-green-400 font-medium">{{ row.hits }}</td>
                                 <td class="px-3 py-2 text-center tabular-nums text-red-400 font-medium">{{ row.misses }}</td>
                                 <td class="px-3 py-2 text-right tabular-nums font-bold text-amber-400">{{ row.total }}</td>
+                                <td class="px-2 py-2 text-right">
+                                    <button
+                                        type="button"
+                                        @click="openCorrectionFor(row.shooter)"
+                                        class="rounded-md p-1.5 text-slate-500 hover:bg-slate-700 hover:text-amber-400"
+                                        :title="'Correct ' + row.shooter.name"
+                                        :aria-label="'Correct ' + row.shooter.name"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13L2.25 21.75l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                        </svg>
+                                    </button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -343,6 +357,7 @@
                                 <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
                                 <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
                                 <th class="px-3 py-2.5 text-right font-bold">Score</th>
+                                <th class="px-2 py-2.5 text-right font-medium text-slate-500" aria-label="Fix"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-700/50">
@@ -370,6 +385,19 @@
                                 <td class="px-3 py-2 text-center tabular-nums text-green-400 font-medium">{{ row.hits }}</td>
                                 <td class="px-3 py-2 text-center tabular-nums text-red-400 font-medium">{{ row.misses }}</td>
                                 <td class="px-3 py-2 text-right tabular-nums font-bold text-amber-400">{{ row.total }}</td>
+                                <td class="px-2 py-2 text-right">
+                                    <button
+                                        type="button"
+                                        @click="openCorrectionFor(row.shooter)"
+                                        class="rounded-md p-1.5 text-slate-500 hover:bg-slate-700 hover:text-amber-400"
+                                        :title="'Correct ' + row.shooter.name"
+                                        :aria-label="'Correct ' + row.shooter.name"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13L2.25 21.75l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                        </svg>
+                                    </button>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -599,6 +627,18 @@
         </template>
 
         <ScoringSponsorship />
+
+        <CorrectShooterModal
+            :open="correctionOpen"
+            mode="standard"
+            :match-id="props.matchId"
+            :shooter="correctionTarget?.shooter"
+            :target-set="correctionTarget?.targetSet"
+            :existing-scores="correctionTarget?.existingScores ?? []"
+            :existing-stage-time="correctionTarget?.existingStageTime ?? null"
+            @close="correctionTarget = null"
+            @corrected="onCorrectionApplied"
+        />
     </div>
 </template>
 
@@ -607,10 +647,13 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
+import axios from 'axios';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
+import CorrectShooterModal from '../components/CorrectShooterModal.vue';
+import { getCorrectionQueue, removeCorrectionQueueEntry } from '../lib/offlineDb.js';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
@@ -624,6 +667,12 @@ const matchStore = useMatchStore();
 const scoringStore = useScoringStore();
 const ready = ref(false);
 const currentView = ref('scoring');
+
+// Inline single-shooter correction modal — opened by tapping the
+// pencil on a relay/stage-summary row. Reuses CorrectShooterModal so
+// the same UX is shared with PRS and the web deep-link entry point.
+const correctionTarget = ref(null); // { shooter, targetSet, existingScores, existingStageTime }
+const correctionOpen = computed(() => correctionTarget.value !== null);
 
 const STATE_KEY = 'dc_relay_state';
 
@@ -1108,6 +1157,70 @@ function goBack() {
     }
 }
 
+// Open the correction modal for one shooter on the current summary
+// stage. Used by the pencil button on relay-summary / stage-summary
+// rows. We snapshot the current per-gong state from scoringStore so
+// the modal can pre-fill HIT / MISS / blank for every gong.
+function openCorrectionFor(shooter) {
+    const ts = currentTargetSet.value;
+    if (!ts || !shooter) return;
+    const existingScores = [];
+    for (const g of (ts.gongs ?? [])) {
+        const s = scoringStore.getScore(shooter.id, g.id);
+        if (s && s.isHit !== undefined && s.isHit !== null) {
+            existingScores.push({ gong_id: g.id, is_hit: !!s.isHit });
+        }
+    }
+    const stTime = scoringStore.getStageTime(shooter.id, ts.id);
+    correctionTarget.value = {
+        shooter,
+        targetSet: ts,
+        existingScores,
+        existingStageTime: stTime?.timeSeconds ?? null,
+    };
+}
+
+async function onCorrectionApplied(response) {
+    // Pull the latest scores so the summary recomputes off the server
+    // state (which is now authoritative). Fall back to a local-only
+    // patch if the refresh fails (e.g. transient network blip).
+    try {
+        await matchStore.fetchMatch(props.matchId);
+        const freshScores = matchStore.currentMatch?.scores ?? [];
+        await scoringStore.refreshScores(props.matchId, freshScores);
+        syncLocalScoresToMatch();
+    } catch {
+        if (Array.isArray(response?.scores)) {
+            for (const s of response.scores) {
+                await scoringStore.recordScore(s.shooter_id ?? correctionTarget.value?.shooter?.id, s.gong_id, !!s.is_hit);
+            }
+        }
+    }
+}
+
+// Drain any corrections that were queued while offline. Called from
+// the periodic sync loop. Safe to call when online too — if the queue
+// is empty we no-op fast.
+async function drainCorrectionQueue() {
+    if (!navigator.onLine) return;
+    const entries = await getCorrectionQueue(props.matchId);
+    for (const entry of entries) {
+        try {
+            await axios.post(
+                `/api/matches/${entry.match_id}/shooters/${entry.shooter_id}/correct`,
+                entry.payload,
+            );
+            await removeCorrectionQueueEntry(entry.id);
+        } catch (e) {
+            // 423 = match completed: leave queued so the MD can decide
+            // whether to reopen. Anything else: bail this cycle, try
+            // again on the next tick.
+            if (e.response?.status === 423) continue;
+            break;
+        }
+    }
+}
+
 let syncInterval;
 
 function syncLocalScoresToMatch() {
@@ -1143,6 +1256,7 @@ onMounted(async () => {
         if (scoringStore.pendingCount > 0) {
             await scoringStore.syncScores();
         }
+        await drainCorrectionQueue();
         try {
             await matchStore.fetchMatch(props.matchId);
             const freshScores = matchStore.currentMatch?.scores ?? [];
@@ -1150,6 +1264,24 @@ onMounted(async () => {
             syncLocalScoresToMatch();
         } catch { /* offline or transient failure */ }
     }, 15000);
+
+    drainCorrectionQueue();
+
+    // Deep-link entry: `/score/{matchId}?correct=<shooterId>&stage=<targetSetId>`
+    // opens the correction modal straight away. Used by the web MD's
+    // "Correct shooter" link in the corrections feed so the MD doesn't
+    // have to navigate the whole flow just to fix one score.
+    const correctShooterId = Number(route.query.correct);
+    const correctStageId = Number(route.query.stage);
+    if (correctShooterId && correctStageId) {
+        const ts = targetSets.value.find(t => t.id === correctStageId);
+        if (ts) {
+            scoringStore.currentTargetSetIndex = Math.max(0, targetSets.value.indexOf(ts));
+        }
+        const allShooters = matchStore.allShooters ?? [];
+        const target = allShooters.find(s => s.id === correctShooterId);
+        if (target) openCorrectionFor(target);
+    }
 });
 
 onUnmounted(() => {

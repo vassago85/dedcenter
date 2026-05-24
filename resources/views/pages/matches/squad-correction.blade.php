@@ -48,6 +48,15 @@ new #[Layout('components.layouts.app')]
      */
     public array $cells = [];
 
+    /**
+     * When set, the grid below is filtered to just this one shooter on
+     * this one squad. Lets the MD jump straight from the corrections
+     * feed to a single row instead of scrolling through the whole
+     * squad. Two-way bound to a select at the top so it's still easy
+     * to flip back to the full grid.
+     */
+    public ?int $focusShooterId = null;
+
     public function mount(ShootingMatch $match, Squad $squad): void
     {
         if ($squad->match_id !== $match->id) {
@@ -60,6 +69,21 @@ new #[Layout('components.layouts.app')]
 
         $this->match = $match;
         $this->squad = $squad;
+
+        // Pre-select a shooter from `?focus=<id>` so the MD's deep-link
+        // from the corrections feed lands directly on the one row they
+        // care about. Using the `request()` helper with a key argument
+        // returns the value directly (mixed), which Intelephense is
+        // happier with than `request()->query()` in Volt scope.
+        $focusRaw = request('focus');
+        $focusFromQuery = is_scalar($focusRaw) ? (int) $focusRaw : 0;
+        if ($focusFromQuery > 0) {
+            $belongs = $squad->shooters()->whereKey($focusFromQuery)->exists();
+            if ($belongs) {
+                $this->focusShooterId = $focusFromQuery;
+            }
+        }
+
         $this->seedCells();
     }
 
@@ -160,10 +184,18 @@ new #[Layout('components.layouts.app')]
             ->orderBy('sort_order')
             ->get();
 
-        $shooters = $this->squad->shooters()
+        $allShooters = $this->squad->shooters()
             ->with('user:id,email,name')
             ->orderBy('sort_order')
             ->get();
+
+        // When the MD has picked a single shooter from the dropdown, hide
+        // every other row in the grid so they can focus on the one fix
+        // without scrolling. The full roster is still kept around for
+        // the dropdown's option list.
+        $shooters = $this->focusShooterId
+            ? $allShooters->where('id', $this->focusShooterId)->values()
+            : $allShooters;
 
         // Compute Royal-Flush "armed" status from the dirty working state
         // (the cells the user has toggled, not the DB). This is what
@@ -174,8 +206,19 @@ new #[Layout('components.layouts.app')]
         return [
             'targetSets' => $targetSets,
             'shooters' => $shooters,
+            'allShooters' => $allShooters,
             'rfArmed' => $rfStatus,
         ];
+    }
+
+    /**
+     * Reset the focus filter back to the full squad grid. Triggered by
+     * the "Show all shooters" button when the MD is in single-shooter
+     * mode.
+     */
+    public function clearFocus(): void
+    {
+        $this->focusShooterId = null;
     }
 
     /**
@@ -258,11 +301,50 @@ new #[Layout('components.layouts.app')]
         </div>
     @endif
 
+    {{-- Single-shooter quick filter. Saves the MD from scrolling through
+         a 24-shooter squad when they only need to fix one row. The grid
+         below reacts immediately via the `focusShooterId` two-way bind. --}}
+    @if($allShooters->isNotEmpty())
+        <div class="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+            <div class="min-w-[16rem] flex-1">
+                <label for="focus-shooter" class="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+                    Correct one shooter
+                </label>
+                <select id="focus-shooter" wire:model.live="focusShooterId"
+                        class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:outline-none">
+                    <option :value="null" value="">All shooters on this squad</option>
+                    @foreach($allShooters as $s)
+                        <option value="{{ $s->id }}">
+                            {{ $s->name }}@if($s->bib_number) &middot; #{{ $s->bib_number }}@endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @if($focusShooterId)
+                <button type="button" wire:click="clearFocus"
+                        class="rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs font-semibold text-muted hover:border-accent hover:text-accent transition-colors">
+                    Show all shooters
+                </button>
+            @endif
+            <p class="basis-full text-xs text-muted">
+                @if($focusShooterId)
+                    Focused on one row — flip the cells, add a note, save. The rest of the squad is hidden.
+                @else
+                    Pick a shooter above to jump straight to their row, or scroll the full squad below.
+                @endif
+            </p>
+        </div>
+    @endif
+
     @if($shooters->isEmpty() || $targetSets->isEmpty())
         <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
             <p class="text-muted">
                 @if($shooters->isEmpty())
-                    This squad has no shooters yet.
+                    @if($focusShooterId)
+                        Selected shooter could not be found on this squad. Pick another from the dropdown above.
+                    @else
+                        This squad has no shooters yet.
+                    @endif
                 @else
                     This match has no target sets yet — add at least one before correcting scores.
                 @endif

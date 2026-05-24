@@ -23,6 +23,21 @@ db.version(2).stores({
     sideBetQueue: '++id, &[match_id+shooter_id], match_id, queued_at',
 });
 
+// v3: single-shooter correction queue. Used by CorrectShooterModal when
+// the MD applies a stage correction while offline. Coalesced on
+// (match_id, shooter_id, stage_id) — the latest correction for that
+// (shooter, stage) wins, because the server replays correction state
+// idempotently (target gong/shot states + reason).
+db.version(3).stores({
+    matches: 'id, status, date, scoring_type',
+    registrations: 'id, match_id, user_id',
+    scoreboards: 'match_id',
+    notifications: 'id, read_at',
+    userProfile: 'id',
+    sideBetQueue: '++id, &[match_id+shooter_id], match_id, queued_at',
+    correctionQueue: '++id, &[match_id+shooter_id+stage_id], match_id, queued_at',
+});
+
 export default db;
 
 export async function cacheMatches(matches) {
@@ -80,6 +95,7 @@ export async function clearAllOfflineData() {
         db.notifications.clear(),
         db.userProfile.clear(),
         db.sideBetQueue.clear(),
+        db.correctionQueue.clear(),
     ]);
 }
 
@@ -128,4 +144,49 @@ export async function removeSideBetQueueEntry(id) {
 
 export async function clearSideBetQueueForMatch(matchId) {
     await db.sideBetQueue.where('match_id').equals(matchId).delete();
+}
+
+// ─── Single-shooter correction offline queue ───────────────────────────────
+// Used by CorrectShooterModal when the MD makes a stage correction while
+// offline. We store the *desired* end state for that shooter+stage along
+// with the reason, then replay it against
+//   POST /api/matches/{match}/shooters/{shooter}/correct
+// when connectivity returns. Server is idempotent because it computes a
+// diff against the current Score rows.
+
+export async function queueShooterCorrection(matchId, shooterId, stageId, payload) {
+    await db.transaction('rw', db.correctionQueue, async () => {
+        const existing = await db.correctionQueue
+            .where('[match_id+shooter_id+stage_id]')
+            .equals([matchId, shooterId, stageId])
+            .first();
+        if (existing) {
+            await db.correctionQueue.delete(existing.id);
+        }
+        await db.correctionQueue.add({
+            match_id: matchId,
+            shooter_id: shooterId,
+            stage_id: stageId,
+            payload,
+            queued_at: Date.now(),
+        });
+    });
+}
+
+export async function getCorrectionQueue(matchId = null) {
+    if (matchId == null) return db.correctionQueue.orderBy('queued_at').toArray();
+    return db.correctionQueue.where('match_id').equals(matchId).sortBy('queued_at');
+}
+
+export async function getCorrectionQueueCount(matchId = null) {
+    if (matchId == null) return db.correctionQueue.count();
+    return db.correctionQueue.where('match_id').equals(matchId).count();
+}
+
+export async function removeCorrectionQueueEntry(id) {
+    await db.correctionQueue.delete(id);
+}
+
+export async function clearCorrectionQueueForMatch(matchId) {
+    await db.correctionQueue.where('match_id').equals(matchId).delete();
 }

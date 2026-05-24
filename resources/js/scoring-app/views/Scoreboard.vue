@@ -903,7 +903,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import axios from 'axios';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
@@ -942,6 +942,13 @@ const buyInsPendingOffline = ref(0);
 // Adding to the pot is one-tap, removing requires this second tap so a
 // fat-finger doesn't silently pull someone out of the side bet.
 const pendingBuyOut = ref(null);
+// Server-time cursor from the last buy-ins response. Used by the fast
+// poll loop to ask the server "anything changed since this point?" so
+// observers converge in ~3s without hammering the endpoint for the
+// full roster body when nothing changed.
+const buyInsServerTime = ref(null);
+let buyInsFastInterval = null;
+let buyInsVisibilityHandler = null;
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
 const matchName = ref('');
@@ -1191,6 +1198,7 @@ async function loadBuyIns() {
         buyIns.value = data.shooters ?? [];
         buyInsTotals.value = data.totals ?? { in: 0, total: 0 };
         buyInsLocked.value = !!data.locked;
+        if (data.server_time) buyInsServerTime.value = data.server_time;
         await applyPendingQueueOverlay();
     } catch (e) {
         const msg = e?.response?.data?.message;
@@ -1208,13 +1216,66 @@ async function loadBuyIns() {
     }
 }
 
+// Fast poll while the MD is actively watching the Buy-Ins sub-tab.
+// Sends ?since= so the server can short-circuit when nothing changed;
+// when something has changed we re-apply the full roster (server is
+// the source of truth) plus the pending offline overlay so locally-
+// queued toggles still look applied.
+async function pollBuyInsFast() {
+    if (sideBetSubView.value !== 'buyins') return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (togglingIds.value.size > 0) return;
+    try {
+        const params = buyInsServerTime.value ? { since: buyInsServerTime.value } : {};
+        const { data } = await axios.get(`/api/matches/${props.matchId}/side-bet/buy-ins`, { params });
+        if (data.server_time) buyInsServerTime.value = data.server_time;
+        if (!data.changes_since && buyIns.value.length) {
+            // Nothing flipped since our last cursor — skip the re-render
+            // so we don't bounce focus on the search field.
+            return;
+        }
+        buyIns.value = data.shooters ?? [];
+        buyInsTotals.value = data.totals ?? { in: 0, total: 0 };
+        buyInsLocked.value = !!data.locked;
+        await applyPendingQueueOverlay();
+    } catch {
+        // Transient — let the next tick (or the slow 12s refresh) catch up.
+    }
+}
+
+function startBuyInsFastPoll() {
+    if (buyInsFastInterval) return;
+    buyInsFastInterval = setInterval(pollBuyInsFast, 3000);
+}
+
+function stopBuyInsFastPoll() {
+    if (buyInsFastInterval) {
+        clearInterval(buyInsFastInterval);
+        buyInsFastInterval = null;
+    }
+}
+
 function onEnterBuyIns() {
     sideBetSubView.value = 'buyins';
     // Refresh on each entry so a different phone's toggles show up.
     loadBuyIns();
     // Best-effort flush of anything stuck offline from a previous visit.
     flushSideBetQueue();
+    startBuyInsFastPoll();
 }
+
+// React to leaving / re-entering the buy-ins tab so the fast poll
+// stops while the MD is somewhere else on the scoreboard. Also
+// pauses when the tab is hidden so a background phone doesn't burn
+// requests.
+watch(sideBetSubView, (next) => {
+    if (next === 'buyins') {
+        startBuyInsFastPoll();
+    } else {
+        stopBuyInsFastPoll();
+    }
+});
 
 // Adding to the pot is one-tap (the common, low-risk action). Removing
 // requires a second deliberate confirm tap so a fat-finger doesn't
@@ -1366,10 +1427,27 @@ onMounted(() => {
     refreshPendingCount();
     flushSideBetQueue();
     window.addEventListener('online', onOnlineFlushTrigger);
+
+    // Pause the fast buy-in poll when the tab goes to the background so
+    // a phone in the MD's pocket doesn't keep hammering the server. We
+    // also opportunistically pull on resume so re-foregrounding feels
+    // instantly fresh.
+    buyInsVisibilityHandler = () => {
+        if (document.visibilityState === 'visible' && sideBetSubView.value === 'buyins') {
+            pollBuyInsFast();
+        }
+    };
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', buyInsVisibilityHandler);
+    }
 });
 
 onUnmounted(() => {
     clearInterval(refreshInterval);
     window.removeEventListener('online', onOnlineFlushTrigger);
+    stopBuyInsFastPoll();
+    if (buyInsVisibilityHandler && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', buyInsVisibilityHandler);
+    }
 });
 </script>

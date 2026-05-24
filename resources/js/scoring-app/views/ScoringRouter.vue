@@ -7,7 +7,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import ScoringFlow from './ScoringFlow.vue';
 import PrsScoringFlow from './PrsScoringFlow.vue';
@@ -18,6 +18,7 @@ const props = defineProps({
 });
 
 const router = useRouter();
+const route = useRoute();
 const matchStore = useMatchStore();
 const ready = ref(false);
 
@@ -38,8 +39,11 @@ onMounted(async () => {
     }
     // Bounce deep-links into a live scoring flow back to the overview when the
     // match is already scored — UI makes the state obvious, banner explains why,
-    // and MDs still get the 'Re-open' path.
-    if (matchStore.currentMatch?.status === 'completed') {
+    // and MDs still get the 'Re-open' path. Exception: when the deep-link is
+    // specifically asking us to open the correction modal (?correct=<id>), we
+    // let the child component through so the modal can offer its own one-tap
+    // reopen-and-fix path instead of dumping the MD on the match overview.
+    if (matchStore.currentMatch?.status === 'completed' && !route.query.correct) {
         router.replace({ name: 'match-overview', params: { matchId: props.matchId } });
         return;
     }

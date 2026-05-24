@@ -133,7 +133,8 @@ class ShootingMatch extends Model
 
     public function sideBetShooters(): BelongsToMany
     {
-        return $this->belongsToMany(Shooter::class, 'side_bet_shooters', 'match_id', 'shooter_id');
+        return $this->belongsToMany(Shooter::class, 'side_bet_shooters', 'match_id', 'shooter_id')
+            ->withTimestamps();
     }
 
     public function shooters(): HasManyThrough

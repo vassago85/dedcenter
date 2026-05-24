@@ -98,7 +98,17 @@
 
         $shooter = $row->shooter->name ?? 'Unknown shooter';
 
+        // Pull the shooter_id and the relevant stage/target_set id off
+        // the resolved row so we can build a per-row deep-link into the
+        // scoring app's correction modal. `stageId` is the target_set_id
+        // for standard scoring and the prs_stages.id for PRS — both are
+        // the unit the modal expects in its `stage_id` / `target_set_id`
+        // param, so the consuming view just passes whichever it gets.
+        $shooterId = $row->shooter?->id ?? null;
+        $stageId = null;
+
         if ($type === Score::class && $row) {
+            $stageId = $row->gong?->targetSet?->id ?? $row->gong?->target_set_id ?? null;
             $stage = $row->gong?->targetSet?->label ?? "Stage";
             $distance = $row->gong?->targetSet?->distance_meters;
             $gongNumber = $row->gong?->number ?? '?';
@@ -111,10 +121,14 @@
             return [
                 'subject' => "{$shooter} · {$stageLabel} · gong #{$gongNumber}",
                 'change' => $change,
+                'shooter_id' => $shooterId,
+                'stage_id' => $stageId,
+                'kind' => 'standard',
             ];
         }
 
         if ($type === PrsShotScore::class && $row) {
+            $stageId = $row->stage?->id ?? $row->prs_stage_id ?? null;
             $stage = $row->stage?->label ?? 'Stage';
             $shot = $row->shot_number;
             $oldR = $entry->old_values['result'] ?? '?';
@@ -122,10 +136,14 @@
             return [
                 'subject' => "{$shooter} · {$stage} · shot {$shot}",
                 'change' => $entry->action === 'deleted' ? 'cleared' : "{$oldR} → {$newR}",
+                'shooter_id' => $shooterId,
+                'stage_id' => $stageId,
+                'kind' => 'prs',
             ];
         }
 
         if ($type === PrsStageResult::class && $row) {
+            $stageId = $row->stage?->id ?? $row->prs_stage_id ?? null;
             $stage = $row->stage?->label ?? 'Stage';
             $oldHits = $entry->old_values['hits'] ?? null;
             $newHits = $entry->new_values['hits'] ?? null;
@@ -135,23 +153,51 @@
             return [
                 'subject' => "{$shooter} · {$stage} · stage result",
                 'change' => $change,
+                'shooter_id' => $shooterId,
+                'stage_id' => $stageId,
+                'kind' => 'prs',
             ];
         }
 
         if ($type === StageTime::class && $row) {
+            $stageId = $row->targetSet?->id ?? $row->target_set_id ?? null;
             $stage = $row->targetSet?->label ?? 'Stage';
             $oldT = isset($entry->old_values['time_seconds']) ? number_format((float) $entry->old_values['time_seconds'], 1) . 's' : '?';
             $newT = isset($entry->new_values['time_seconds']) ? number_format((float) $entry->new_values['time_seconds'], 1) . 's' : '?';
             return [
                 'subject' => "{$shooter} · {$stage} · stage time",
                 'change' => "{$oldT} → {$newT}",
+                'shooter_id' => $shooterId,
+                'stage_id' => $stageId,
+                'kind' => 'standard',
             ];
         }
 
         return [
             'subject' => 'Score row (deleted source)',
             'change' => $entry->action,
+            'shooter_id' => null,
+            'stage_id' => null,
+            'kind' => null,
         ];
+    };
+
+    /**
+     * Build the deep-link into the scoring app for a single shooter +
+     * stage. The PWA reads `?correct=<shooter>&stage=<id>` on mount
+     * (see ScoringFlow.vue / PrsScoringFlow.vue) and auto-opens the
+     * correction modal — saving the MD from manually finding the
+     * shooter row in a 24-shooter relay.
+     */
+    $buildCorrectUrl = function (?int $shooterId, ?int $stageId) use ($match): ?string {
+        if (!$shooterId) {
+            return null;
+        }
+        $params = ['correct' => $shooterId];
+        if ($stageId) {
+            $params['stage'] = $stageId;
+        }
+        return url('/score/' . $match->id . '/scoring') . '?' . http_build_query($params);
     };
 
     $actionPalette = [
@@ -200,6 +246,9 @@
                     $when = $entry->created_at?->diffForHumans() ?? '—';
                     $whenAbs = $entry->created_at?->format('D, j M Y · H:i:s') ?? '';
                 @endphp
+                @php
+                    $rowDeepLink = $buildCorrectUrl($info['shooter_id'] ?? null, $info['stage_id'] ?? null);
+                @endphp
                 <li class="rounded-xl border border-border bg-surface-2 {{ $padding }}">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
@@ -224,6 +273,19 @@
                     @else
                         <div class="mt-2 text-[11px] text-muted/70">
                             <span class="opacity-60">No note recorded — change was made directly without a correction reason.</span>
+                        </div>
+                    @endif
+
+                    @if($rowDeepLink)
+                        <div class="mt-2 flex justify-end">
+                            <a
+                                href="{{ $rowDeepLink }}"
+                                class="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-semibold text-secondary transition-colors hover:border-accent/60 hover:text-accent"
+                                title="Open this shooter directly in the scoring app's correction modal"
+                            >
+                                <x-icon name="edit" class="h-3 w-3" />
+                                Correct shooter
+                            </a>
                         </div>
                     @endif
                 </li>
