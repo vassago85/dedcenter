@@ -38,7 +38,7 @@ class ScoreboardController extends Controller
         }
 
         if ($match->isElr()) {
-            return $this->elrScoreboard($match);
+            return $this->elrScoreboard($match, $request);
         }
 
         if ($match->isPrs()) {
@@ -52,10 +52,14 @@ class ScoreboardController extends Controller
         return $this->standardScoreboard($match, $request);
     }
 
-    private function elrScoreboard(ShootingMatch $match)
+    private function elrScoreboard(ShootingMatch $match, Request $request)
     {
         $service = new \App\Services\Scoring\ELRScoringService();
-        return response()->json($service->calculateStandings($match));
+        $division = $request->query('division');
+
+        return response()->json(
+            $service->calculateStandings($match, ['division' => $division])
+        );
     }
 
     private function detailedScoreboard(ShootingMatch $match, Request $request)

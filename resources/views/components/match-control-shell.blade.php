@@ -58,11 +58,18 @@
         surfaces in the first place — defensive, not load-bearing.
     --}}
     @auth
-    <flux:modal name="complete-match-password" class="md:max-w-md">
-        <div class="space-y-5">
+    {{--
+        Modal panel is force-themed to the DeadCenter dark sidebar surface
+        directly on the wrapper. We pin background + text colours here as a
+        guardrail so a stale Flux DOM (e.g. a Flux release that renames the
+        modal-content attribute we override in app.css) can't silently
+        regress us to "white panel + near-white body copy = unreadable".
+    --}}
+    <flux:modal name="complete-match-password" class="md:max-w-md !bg-sidebar !text-secondary !border !border-border">
+        <div class="space-y-5 text-secondary">
             <div class="space-y-1">
-                <flux:heading size="lg">Confirm Match Completion</flux:heading>
-                <flux:text class="text-sm text-muted">
+                <flux:heading size="lg" class="!text-primary">Confirm Match Completion</flux:heading>
+                <flux:text class="text-sm !text-secondary/80">
                     Completing this match locks scores, awards achievements and fires
                     post-match emails. Enter your password to confirm.
                 </flux:text>
@@ -100,7 +107,16 @@
 
                 <div class="flex items-center justify-end gap-2 pt-2">
                     <flux:modal.close>
-                        <flux:button type="button" variant="ghost">Cancel</flux:button>
+                        {{-- variant="ghost" inherits a light text colour that
+                             vanishes on a light-mode panel and is weak on the
+                             dark panel too. An explicit Tailwind button gives
+                             us reliable contrast on both. --}}
+                        <button
+                            type="button"
+                            class="inline-flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-secondary hover:bg-surface-2 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        >
+                            Cancel
+                        </button>
                     </flux:modal.close>
                     <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
                         Complete Match

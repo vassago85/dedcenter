@@ -156,6 +156,9 @@ class MatchResource extends JsonResource
                 'created_at' => $dq->created_at?->toIso8601String(),
             ])),
             'scoring_sponsor' => $this->resolveScoringsSponsor(),
+            'elr_engagement_mode' => ($this->elr_engagement_mode?->value) ?? 'target_by_target',
+            'elr_targets_per_shooter' => $this->elr_targets_per_shooter !== null ? (int) $this->elr_targets_per_shooter : null,
+            'elr_shots_per_target' => (int) ($this->elr_shots_per_target ?? 3),
             'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => $s->label,

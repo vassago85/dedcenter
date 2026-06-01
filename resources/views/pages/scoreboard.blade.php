@@ -394,19 +394,47 @@ new #[Layout('components.layouts.app')]
         }
 
         $isTeamEvent = $this->match->isTeamEvent();
+        $isElr = $this->match->isElr();
         $teamLeaderboard = collect();
+        $teamCategories = collect();
         if ($isTeamEvent) {
             $teams = $this->match->teams()
-                ->with(['shooters' => fn ($q) => $q->with('squad')])
+                ->with(['shooters' => fn ($q) => $q->with(['squad', 'division'])])
                 ->orderBy('sort_order')
                 ->get();
 
-            $teamLeaderboard = $teams->map(function ($team) use ($shooters, $isPrs) {
-                $memberScores = $team->shooters->map(function ($member) use ($shooters, $isPrs) {
-                    $scored = $shooters->firstWhere('id', $member->id);
+            // For ELR matches build a per-shooter ELR points map (sum of hit
+            // points_awarded) once and reuse it across teams — beats N+1
+            // ELRScoringService calls when there are many teams.
+            $elrPointsByShooter = collect();
+            if ($isElr) {
+                $shooterIds = $teams->flatMap(fn ($t) => $t->shooters->pluck('id'))->unique()->values();
+                if ($shooterIds->isNotEmpty()) {
+                    $elrPointsByShooter = \App\Models\ElrShot::query()
+                        ->whereIn('shooter_id', $shooterIds)
+                        ->where('result', \App\Enums\ElrShotResult::Hit->value)
+                        ->select('shooter_id', \Illuminate\Support\Facades\DB::raw('SUM(points_awarded) as pts'))
+                        ->groupBy('shooter_id')
+                        ->pluck('pts', 'shooter_id')
+                        ->map(fn ($v) => (float) $v);
+                }
+            }
+
+            $teamLeaderboard = $teams->map(function ($team) use ($shooters, $isPrs, $isElr, $elrPointsByShooter) {
+                $memberScores = $team->shooters->map(function ($member) use ($shooters, $isElr, $elrPointsByShooter) {
+                    // ELR uses real ELR points (not the gong-based display_score
+                    // accessor, which is always 0 for ELR matches). Standard/PRS
+                    // keep using display_score so the team tab matches the per-
+                    // shooter scoreboard on those scoring types.
+                    if ($isElr) {
+                        $score = (float) ($elrPointsByShooter[$member->id] ?? 0);
+                    } else {
+                        $scored = $shooters->firstWhere('id', $member->id);
+                        $score = $scored?->display_score ?? 0;
+                    }
                     return (object) [
                         'name' => $member->name,
-                        'score' => $scored?->display_score ?? 0,
+                        'score' => $score,
                     ];
                 })->sortByDesc('score')->values();
 
@@ -415,8 +443,20 @@ new #[Layout('components.layouts.app')]
                     'members' => $memberScores,
                     'total_score' => $memberScores->sum('score'),
                     'member_count' => $memberScores->count(),
+                    'category' => $team->divisionCategoryLabel(),
                 ];
             })->sortByDesc('total_score')->values();
+
+            // Group teams by division-pairing category for the Peregrine-style
+            // category breakdown shown above the leaderboard. Null category
+            // (no divisions configured / Forster) collapses to a single
+            // "All teams" group automatically because the view only renders
+            // categories when this collection is non-empty.
+            $teamCategories = $teamLeaderboard
+                ->filter(fn ($e) => $e->category !== null)
+                ->groupBy('category')
+                ->map(fn ($group) => $group->sortByDesc('total_score')->values())
+                ->sortKeys();
         }
 
         // Unclaimed-results count: shooters whose row hasn't been claimed by
@@ -516,6 +556,8 @@ new #[Layout('components.layouts.app')]
             'customFieldMap' => $customFieldMap,
             'isTeamEvent' => $isTeamEvent,
             'teamLeaderboard' => $teamLeaderboard,
+            'teamCategories' => $teamCategories,
+            'isElr' => $isElr,
             'unclaimedCount' => $unclaimedCount,
             'stageProgress' => $stageProgress,
         ];
@@ -622,6 +664,15 @@ new #[Layout('components.layouts.app')]
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
                         <x-icon name="download" class="h-3.5 w-3.5" />
                         RF Shots CSV (1/0)
+                    </a>
+                </div>
+            @endif
+            @if($match->isElr() && $canExport)
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <a href="{{ route('scoreboard.export.elr-shots', $match) }}"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                        <x-icon name="download" class="h-3.5 w-3.5" />
+                        ELR Shots CSV (1/0)
                     </a>
                 </div>
             @endif
@@ -737,48 +788,55 @@ new #[Layout('components.layouts.app')]
     @endif
 
     @if($isTeamEvent && $activeTab === 'teams')
-        <div class="space-y-4">
-            @forelse($teamLeaderboard as $index => $entry)
-                <div class="rounded-2xl border border-border bg-surface overflow-hidden" x-data="{ open: false }">
-                    <button @click="open = !open" class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface-2/50 transition-colors sm:px-6 sm:py-4">
-                        <div class="flex items-center gap-3 min-w-0">
-                            @php
-                                $medal = match($index) { 0 => 'text-amber-400', 1 => 'text-zinc-300', 2 => 'text-amber-700', default => 'text-muted' };
-                            @endphp
-                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-sm font-black {{ $medal }} sm:h-10 sm:w-10 sm:text-base">{{ $index + 1 }}</span>
-                            <div class="min-w-0">
-                                <p class="truncate text-sm font-bold text-primary sm:text-base">{{ $entry->team->name }}</p>
-                                <p class="text-xs text-muted">{{ $entry->member_count }} {{ Str::plural('member', $entry->member_count) }}</p>
-                            </div>
+        @php
+            // Reusable team-row partial. We render it once flat AND once grouped
+            // by division-pairing category so the page works for matches with
+            // or without divisions (Forster vs Peregrine).
+            $renderTeamEntry = function ($entry, $index) use ($isPrs) {
+                return view('components.empty')->render(); // placeholder, never used
+            };
+        @endphp
+
+        <div class="space-y-6">
+            {{-- Category breakdown (Minor/Minor, Minor/Major, Major/Major) when divisions are configured --}}
+            @if($teamCategories->isNotEmpty())
+                @foreach($teamCategories as $categoryLabel => $teamsInCategory)
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold uppercase tracking-wider text-secondary">{{ $categoryLabel }}</h3>
+                            <span class="text-xs text-muted">{{ $teamsInCategory->count() }} {{ Str::plural('team', $teamsInCategory->count()) }}</span>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-lg font-black text-amber-400 tabular-nums sm:text-2xl">{{ $isPrs ? $entry->total_score : number_format($entry->total_score, 1) }}</span>
-                            <x-icon name="chevron-down" x-bind:class="open && 'rotate-180'" class="h-5 w-5 text-muted transition-transform" />
-                        </div>
-                    </button>
-                    <div x-show="open" x-collapse>
-                        <div class="border-t border-border px-4 py-3 sm:px-6">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="text-left text-muted"><th class="pb-1 font-medium">Shooter</th><th class="pb-1 font-medium text-right">Score</th></tr>
-                                </thead>
-                                <tbody class="divide-y divide-border/30">
-                                    @foreach($entry->members as $member)
-                                        <tr>
-                                            <td class="py-1.5 text-secondary">{{ $member->name }}</td>
-                                            <td class="py-1.5 text-right font-bold tabular-nums text-primary">{{ $isPrs ? $member->score : number_format($member->score, 1) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                        <div class="space-y-3">
+                            @foreach($teamsInCategory as $index => $entry)
+                                @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
+                            @endforeach
                         </div>
                     </div>
+                @endforeach
+
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-secondary">Overall (all categories)</h3>
+                    <div class="space-y-3">
+                        @forelse($teamLeaderboard as $index => $entry)
+                            @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
+                        @empty
+                            <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
+                                <p class="text-muted">No teams set up for this event.</p>
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
-            @empty
-                <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
-                    <p class="text-muted">No teams set up for this event.</p>
+            @else
+                <div class="space-y-3">
+                    @forelse($teamLeaderboard as $index => $entry)
+                        @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
+                    @empty
+                        <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
+                            <p class="text-muted">No teams set up for this event.</p>
+                        </div>
+                    @endforelse
                 </div>
-            @endforelse
+            @endif
         </div>
     @elseif($isStandard && $activeTab === 'detailed')
         <div class="space-y-3">

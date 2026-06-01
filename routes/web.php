@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/scoreboard/{match}/export/standings', [MatchExportController::class, 'standings'])->name('scoreboard.export.standings');
     Route::get('/scoreboard/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('scoreboard.export.detailed');
     Route::get('/scoreboard/{match}/export/rf-shots', [MatchExportController::class, 'royalFlushShots'])->name('scoreboard.export.rf-shots');
+    Route::get('/scoreboard/{match}/export/elr-shots', [MatchExportController::class, 'elrShots'])->name('scoreboard.export.elr-shots');
     Route::get('/matches/{match}/report/royal-flush', [MatchExportController::class, 'royalFlushReport'])->name('matches.report.royal-flush');
 });
 Volt::route('/live/{match}', 'live')->name('live');

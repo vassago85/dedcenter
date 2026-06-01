@@ -15,6 +15,8 @@ class ElrStage extends Model
     protected $fillable = [
         'match_id',
         'label',
+        'sponsor',
+        'color',
         'stage_type',
         'elr_scoring_profile_id',
         'sort_order',

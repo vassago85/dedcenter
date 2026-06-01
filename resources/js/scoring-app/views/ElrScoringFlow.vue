@@ -220,7 +220,8 @@
                         <span>Stage {{ currentStageIndex + 1 }}/{{ stages.length }}</span>
                         <span v-if="isMultiSquad">Squad {{ currentSquadIndex + 1 }}/{{ sortedSquads.length }}</span>
                         <span>Shooter {{ currentShooterIndex + 1 }}/{{ shooters.length }}</span>
-                        <span>Target {{ currentTargetIndex + 1 }}/{{ currentTargets.length }}</span>
+                        <span v-if="engagementMode === 'full_string'">{{ stringShotsEntered }}/{{ stringTotalShots }} shots</span>
+                        <span v-else>Target {{ currentTargetIndex + 1 }}/{{ currentTargets.length }}</span>
                     </div>
                     <div class="mt-1 h-1.5 rounded-full bg-surface-2">
                         <div class="h-full rounded-full bg-emerald-500 transition-all duration-300" :style="{ width: progressPercent + '%' }"></div>
@@ -238,6 +239,57 @@
                         <p v-if="isMultiSquad && currentSquad" class="text-xs text-muted">{{ currentSquad.name }}</p>
                     </div>
 
+                    <!-- FULL STRING: all assigned targets on one screen -->
+                    <template v-if="engagementMode === 'full_string'">
+                        <div class="mb-3 flex items-center justify-between">
+                            <p class="text-sm text-muted">Full string &mdash; {{ currentStage?.label }}</p>
+                            <p class="text-xs font-medium" :class="allStringEntered ? 'text-green-400' : 'text-muted'">
+                                {{ stringShotsEntered }}/{{ stringTotalShots }} shots
+                            </p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div v-for="target in currentTargets" :key="target.id" class="rounded-xl border border-border bg-surface p-4">
+                                <div class="mb-3 flex items-center justify-between">
+                                    <div>
+                                        <p class="text-lg font-bold">{{ target.name }}</p>
+                                        <p class="text-sm text-emerald-400">{{ target.distance_m }}m</p>
+                                    </div>
+                                    <span class="rounded-full px-2 py-0.5 text-xs font-bold"
+                                          :class="stringTargetEntered(target) >= target.max_shots ? 'bg-green-600/20 text-green-400' : 'bg-surface-2 text-muted'">
+                                        {{ stringTargetEntered(target) }}/{{ target.max_shots }}
+                                    </span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div v-for="n in target.max_shots" :key="n" class="flex items-center gap-2">
+                                        <span class="w-16 shrink-0 text-xs font-medium text-muted">Shot {{ n }}</span>
+                                        <button @click="recordStringShot(target, n, 'hit')"
+                                            class="flex-1 rounded-lg py-2.5 text-sm font-black transition-all active:scale-95"
+                                            :class="shotResultFor(target.id, n) === 'hit' ? 'bg-emerald-600 text-white shadow' : 'bg-surface-2 text-muted hover:bg-emerald-600/20'">
+                                            HIT
+                                        </button>
+                                        <button @click="recordStringShot(target, n, 'miss')"
+                                            class="flex-1 rounded-lg py-2.5 text-sm font-black transition-all active:scale-95"
+                                            :class="shotResultFor(target.id, n) === 'miss' ? 'bg-red-700 text-white shadow' : 'bg-surface-2 text-muted hover:bg-red-700/20'">
+                                            MISS
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-5">
+                            <button @click="nextShooterFromString"
+                                class="w-full rounded-2xl py-4 text-base font-black text-white shadow-lg transition-all active:scale-95"
+                                :class="allStringEntered ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-600/50'">
+                                <span v-if="allStringEntered">Next Shooter &rarr;</span>
+                                <span v-else>Next Shooter ({{ stringShotsEntered }}/{{ stringTotalShots }})</span>
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- TARGET BY TARGET: one target at a time -->
+                    <template v-else>
                     <!-- Target info -->
                     <div class="mb-4 text-center">
                         <p class="text-sm text-muted">Target</p>
@@ -290,6 +342,7 @@
                             End Stage / Not Taken
                         </button>
                     </div>
+                    </template>
 
                     <!-- Nav -->
                     <div class="mt-3 flex gap-3">
@@ -375,6 +428,58 @@ const pointsForCurrentShot = computed(() => {
     const mult = profile.value.multipliers?.[currentShotNumber.value - 1] ?? 0;
     return Math.round(parseFloat(currentTarget.value.base_points) * mult * 100) / 100;
 });
+
+// ── Engagement mode (target_by_target | full_string) ──
+const engagementMode = computed(() => matchStore.currentMatch?.elr_engagement_mode ?? 'target_by_target');
+
+function pointsForShotOnTarget(target, shotNumber) {
+    if (!target || !profile.value) return 0;
+    const mult = profile.value.multipliers?.[shotNumber - 1] ?? 0;
+    return Math.round(parseFloat(target.base_points) * mult * 100) / 100;
+}
+
+function shotResultFor(targetId, shotNumber) {
+    const shot = elrStore.getShotsForTarget(currentShooter.value?.id, targetId)
+        .find(s => s.shotNumber === shotNumber);
+    return shot ? shot.result : null;
+}
+
+function stringTargetEntered(target) {
+    return elrStore.getShotsForTarget(currentShooter.value?.id, target.id)
+        .filter(s => s.shotNumber <= target.max_shots).length;
+}
+
+// Total shots = assigned targets × shots-per-target (per-target max_shots),
+// never hardcoded — driven entirely by the configured targets.
+const stringTotalShots = computed(() =>
+    currentTargets.value.reduce((sum, t) => sum + (t.max_shots || 0), 0)
+);
+
+const stringShotsEntered = computed(() =>
+    currentTargets.value.reduce((sum, t) => sum + stringTargetEntered(t), 0)
+);
+
+const allStringEntered = computed(() =>
+    stringTotalShots.value > 0 && stringShotsEntered.value >= stringTotalShots.value
+);
+
+async function recordStringShot(target, shotNumber, result) {
+    if (!currentShooter.value || !target) return;
+    const points = result === 'hit' ? pointsForShotOnTarget(target, shotNumber) : 0;
+    await elrStore.recordShot({
+        matchId: props.matchId,
+        shooterId: currentShooter.value.id,
+        elrTargetId: target.id,
+        shotNumber,
+        result,
+        pointsAwarded: points,
+    });
+    saveElrProgress();
+}
+
+function nextShooterFromString() {
+    skipToNextShooterOrSquad();
+}
 
 const targetLocked = computed(() => {
     if (!currentStage.value || currentStage.value.stage_type !== 'ladder') return false;

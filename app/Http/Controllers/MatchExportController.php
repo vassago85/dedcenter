@@ -17,6 +17,7 @@ use App\Services\PdfDocumentRenderer;
 use App\Services\RoyalFlushHighlightsService;
 use App\Services\Scoring\ELRScoringService;
 use App\Services\SponsorPlacementResolver;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -31,14 +32,19 @@ class MatchExportController extends Controller
      * tampering (e.g. mixing an org slug the user CAN admin with a match
      * that belongs to a DIFFERENT org).
      */
-    public function standings(?Organization $organization, ShootingMatch $match): StreamedResponse
+    public function standings(?Organization $organization, ShootingMatch $match, Request $request): StreamedResponse
     {
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
         if ($match->isElr()) {
-            return $this->streamCsv("{$slug}-standings.csv", fn ($out) => $this->elrStandings($match, $out));
+            $division = $request->query('division');
+            $suffix = $division ? '-' . Str::slug((string) $division) : '';
+            return $this->streamCsv(
+                "{$slug}-standings{$suffix}.csv",
+                fn ($out) => $this->elrStandings($match, $out, $division),
+            );
         }
 
         if ($match->isPrs()) {
@@ -48,14 +54,19 @@ class MatchExportController extends Controller
         return $this->streamCsv("{$slug}-standings.csv", fn ($out) => $this->standardStandings($match, $out));
     }
 
-    public function detailed(?Organization $organization, ShootingMatch $match): StreamedResponse
+    public function detailed(?Organization $organization, ShootingMatch $match, Request $request): StreamedResponse
     {
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
         if ($match->isElr()) {
-            return $this->streamCsv("{$slug}-detailed.csv", fn ($out) => $this->elrDetailed($match, $out));
+            $division = $request->query('division');
+            $suffix = $division ? '-' . Str::slug((string) $division) : '';
+            return $this->streamCsv(
+                "{$slug}-detailed{$suffix}.csv",
+                fn ($out) => $this->elrDetailed($match, $out, $division),
+            );
         }
 
         if ($match->isPrs()) {
@@ -75,6 +86,30 @@ class MatchExportController extends Controller
         $slug = Str::slug($match->name);
 
         return $this->streamCsv("{$slug}-rf-shots.csv", fn ($out) => $this->rfShots($match, $out));
+    }
+
+    /**
+     * ELR shots CSV: Name, Caliber, Shot 1 … Shot N (1 = hit, 0 = miss/unscored).
+     *
+     * Canonical shot order is elr_stages.sort_order ASC -> elr_targets.sort_order
+     * ASC -> shot_number 1..max_shots. Same shape as the Royal Flush export so
+     * downstream tooling (JD's analytics spreadsheet, etc.) can treat both
+     * formats interchangeably.
+     */
+    public function elrShots(Request $request, ShootingMatch $match): StreamedResponse
+    {
+        $this->authorizeExport($match);
+
+        abort_unless($match->isElr(), 404, 'This export is only available for ELR matches.');
+
+        $divisionFilter = $request->query('division');
+        $slug = Str::slug($match->name);
+        $suffix = $divisionFilter ? '-' . Str::slug((string) $divisionFilter) : '';
+
+        return $this->streamCsv(
+            "{$slug}-elr-shots{$suffix}.csv",
+            fn ($out) => $this->elrShotsRows($match, $out, $divisionFilter),
+        );
     }
 
     // ── Standard ────────────────────────────────────────────────
@@ -583,15 +618,121 @@ class MatchExportController extends Controller
 
     // ── ELR ─────────────────────────────────────────────────────
 
-    private function elrStandings(ShootingMatch $match, $out): void
+    /**
+     * ELR shots CSV row writer.
+     *
+     * Canonical shot order = elr_stages.sort_order ASC × elr_targets.sort_order
+     * ASC × shot_number 1..target.max_shots. Cell = 1 if an ElrShot exists with
+     * result=hit, else 0. Caliber sourced from match_registrations.caliber with
+     * the same "Name — Caliber" fallback used by the Royal Flush export.
+     *
+     * Optional $divisionFilter limits the export to a single Minor/Major
+     * division when JD needs a per-division roll-up.
+     */
+    private function elrShotsRows(ShootingMatch $match, $out, ?string $divisionFilter = null): void
     {
-        $data = (new ELRScoringService)->calculateStandings($match);
+        $stages = $match->elrStages()
+            ->with(['targets' => fn ($q) => $q->orderBy('sort_order')])
+            ->orderBy('sort_order')
+            ->get();
 
-        fputcsv($out, ['Rank', 'Name', 'Squad', 'Total Points', 'Total Hits', '1st Round Hits', '2nd Round Hits', 'Furthest Hit (m)']);
+        // Flat ordered list of (target_id, shot_number) pairs — one per CSV column.
+        // Header label keeps stage + target name so the file is self-describing
+        // even when imported into a sheet that hides the row context.
+        $shotColumns = [];
+        $headers = ['Name', 'Caliber'];
+        foreach ($stages as $stage) {
+            foreach ($stage->targets as $target) {
+                $maxShots = max(1, (int) $target->max_shots);
+                for ($n = 1; $n <= $maxShots; $n++) {
+                    $shotColumns[] = ['target_id' => (int) $target->id, 'shot_number' => $n];
+                    $headers[] = "{$stage->label} - {$target->name} S{$n}";
+                }
+            }
+        }
+
+        // Shooters in squad/sort order so the CSV mirrors the running order
+        // ROs see in the scoring app.
+        $shooterQuery = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('match_divisions', 'shooters.match_division_id', '=', 'match_divisions.id')
+            ->leftJoin('match_registrations', function ($j) use ($match) {
+                $j->on('match_registrations.user_id', '=', 'shooters.user_id')
+                    ->where('match_registrations.match_id', '=', $match->id);
+            })
+            ->where('squads.match_id', $match->id)
+            ->orderBy('squads.sort_order')
+            ->orderBy('shooters.sort_order')
+            ->select(
+                'shooters.id',
+                'shooters.name',
+                'shooters.user_id',
+                'match_divisions.name as division_name',
+                'match_registrations.caliber as reg_caliber',
+            );
+
+        if ($divisionFilter !== null && $divisionFilter !== '') {
+            // Accept either a division id or a name match so callers can pass
+            // ?division=2 or ?division=Minor — same convention as the standard
+            // scoreboard filter.
+            if (ctype_digit((string) $divisionFilter)) {
+                $shooterQuery->where('shooters.match_division_id', (int) $divisionFilter);
+            } else {
+                $shooterQuery->where('match_divisions.name', $divisionFilter);
+            }
+        }
+
+        $shooters = $shooterQuery->get();
+
+        $targetIds = collect($shotColumns)->pluck('target_id')->unique()->values();
+
+        // Pre-index hits by (shooter_id, target_id, shot_number) so we can fill
+        // the matrix in one pass without N+1 queries per cell.
+        $hitIndex = [];
+        if ($shooters->isNotEmpty() && $targetIds->isNotEmpty()) {
+            $shots = \App\Models\ElrShot::query()
+                ->whereIn('shooter_id', $shooters->pluck('id'))
+                ->whereIn('elr_target_id', $targetIds)
+                ->where('result', \App\Enums\ElrShotResult::Hit->value)
+                ->get(['shooter_id', 'elr_target_id', 'shot_number']);
+            foreach ($shots as $s) {
+                $hitIndex[(int) $s->shooter_id][(int) $s->elr_target_id][(int) $s->shot_number] = true;
+            }
+        }
+
+        fputcsv($out, $headers, ',', '"', '\\');
+
+        foreach ($shooters as $shooter) {
+            // Prefer the registration caliber; fall back to the "Name — Caliber"
+            // suffix convention shared with the RF importer.
+            $caliber = $shooter->reg_caliber;
+            $displayName = $shooter->name;
+            if (str_contains($displayName, ' — ')) {
+                [$displayName, $suffix] = array_pad(explode(' — ', $displayName, 2), 2, '');
+                if (empty($caliber)) {
+                    $caliber = $suffix;
+                }
+            }
+
+            $row = [$displayName, $caliber ?? ''];
+            $shotsForShooter = $hitIndex[(int) $shooter->id] ?? [];
+            foreach ($shotColumns as $col) {
+                $row[] = isset($shotsForShooter[$col['target_id']][$col['shot_number']]) ? 1 : 0;
+            }
+            fputcsv($out, $row, ',', '"', '\\');
+        }
+    }
+
+    private function elrStandings(ShootingMatch $match, $out, ?string $division = null): void
+    {
+        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division]);
+
+        fputcsv($out, ['Rank', 'Name', 'Squad', 'Division', 'Total Points', 'Total Hits', '1st Round Hits', '2nd Round Hits', 'Furthest Hit (m)']);
 
         foreach ($data['standings'] as $s) {
             fputcsv($out, [
                 $s['rank'], $s['name'], $s['squad_name'],
+                $s['division'] ?? '',
                 $s['total_points'], $s['total_hits'],
                 $s['first_round_hits'], $s['second_round_hits'],
                 $s['furthest_hit_m'],
@@ -599,12 +740,12 @@ class MatchExportController extends Controller
         }
     }
 
-    private function elrDetailed(ShootingMatch $match, $out): void
+    private function elrDetailed(ShootingMatch $match, $out, ?string $division = null): void
     {
-        $data = (new ELRScoringService)->calculateStandings($match);
+        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division]);
         $stages = $data['stages'];
 
-        $header = ['Rank', 'Name', 'Squad'];
+        $header = ['Rank', 'Name', 'Squad', 'Division'];
         foreach ($stages as $stage) {
             foreach ($stage['targets'] as $target) {
                 for ($s = 1; $s <= $target['max_shots']; $s++) {
@@ -617,7 +758,7 @@ class MatchExportController extends Controller
         fputcsv($out, $header);
 
         foreach ($data['standings'] as $entry) {
-            $row = [$entry['rank'], $entry['name'], $entry['squad_name']];
+            $row = [$entry['rank'], $entry['name'], $entry['squad_name'], $entry['division'] ?? ''];
 
             foreach ($stages as $si => $stage) {
                 $entryStage = $entry['stages'][$si] ?? null;

@@ -393,21 +393,40 @@ dialog:not([open]) {
 
 /* ── Modal / dialog ──
    `data-flux-modal` sits on <ui-modal>; Flux uses bg-white + dark:bg-zinc-800 on <dialog>. When `dark:`
-   utilities miss, the panel stays white while labels use light-theme tints — unreadable. Pin the panel. */
-html.dark ui-modal[data-flux-modal] > dialog:not([data-flux-flyout]) {
+   utilities miss (compiler skipped them, or Flux moved the attribute), the panel stays white while
+   our text-muted tokens are near-white — totally unreadable. Pin the panel from every angle Flux
+   currently uses, plus belt-and-braces native <dialog> rules so a future Flux DOM refactor can't
+   regress us silently. */
+html.dark ui-modal[data-flux-modal] > dialog:not([data-flux-flyout]),
+html.dark dialog[data-flux-modal]:not([data-flux-flyout]),
+html.dark dialog[data-flux-dialog]:not([data-flux-flyout]) {
     background: var(--color-sidebar) !important;
     color: var(--color-secondary) !important;
     border-color: var(--color-border) !important;
     --tw-ring-color: var(--color-border) !important;
 }
-html.dark ui-modal[data-flux-modal] [data-flux-modal-content] {
+html.dark ui-modal[data-flux-modal] [data-flux-modal-content],
+html.dark [data-flux-modal-content],
+html.dark [data-flux-dialog-content] {
     background: var(--color-sidebar) !important;
     color: var(--color-secondary) !important;
 }
-:where([data-flux-dialog-panel]) {
+html.dark [data-flux-dialog-panel],
+html.dark [data-flux-modal-panel] {
     color: var(--color-secondary) !important;
     background: var(--color-sidebar) !important;
     border-color: var(--color-border) !important;
+}
+/* `text-muted` resolves to #eef3ff in this app — a near-white tint that's
+   only legible on a dark surface. When a Flux modal slips through with a
+   bg-white panel (eg. stale CSS / future DOM refactor) the body copy is
+   invisible. Inside any modal/dialog, force muted text up to `secondary`
+   so it stays readable regardless of which surface it lands on. */
+html.dark :where([data-flux-modal], [data-flux-dialog]) .text-muted {
+    color: var(--color-secondary) !important;
+}
+html.dark :where([data-flux-modal], [data-flux-dialog]) [data-flux-heading] {
+    color: var(--color-primary) !important;
 }
 
 /* ── Dropdown / menu ── */

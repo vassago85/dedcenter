@@ -342,8 +342,13 @@ it('returns ELR scoreboard from the scoreboard endpoint', function () {
 
     $response->assertOk()
         ->assertJsonPath('match.scoring_type', 'elr')
-        ->assertJsonPath('standings.0.total_points', 20.0)
         ->assertJsonPath('standings.0.total_hits', 1);
+
+    // PHP json_encode normalises 20.0 -> "20" (no JSON_PRESERVE_ZERO_FRACTION
+    // in Laravel's default response), so we compare the numeric value
+    // explicitly instead of using a strict JSON path assertion that breaks
+    // on whole-number floats.
+    expect((float) $response->json('standings.0.total_points'))->toBe(20.0);
 });
 
 // ── Match API with ELR stages ──

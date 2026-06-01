@@ -26,6 +26,20 @@
                     <p v-if="seasonDates" class="text-sm text-muted">{{ seasonDates }}</p>
                 </div>
 
+                <div v-if="divisions.length" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                    <span class="text-xs uppercase tracking-wide text-muted">Division</span>
+                    <button type="button" @click="setDivision(null)"
+                            class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                            :class="!activeDivision ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2'">
+                        All
+                    </button>
+                    <button v-for="div in divisions" :key="div.name" type="button" @click="setDivision(div.name)"
+                            class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                            :class="activeDivision === div.name ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2'">
+                        {{ div.name }}
+                    </button>
+                </div>
+
                 <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                     <p class="text-muted">No standings yet. Matches need to be scored and assigned to this season.</p>
                 </div>
@@ -33,7 +47,7 @@
                 <div v-else>
                     <p class="mb-3 text-center text-xs text-muted">
                         Each match scored out of its own points value (regular = 100, final = 200).
-                        Season total = sum of your <strong>best 3</strong> results.
+                        Season total = sum of your <strong>best {{ bestOf }}</strong> results.
                         Match ranking by score; ties broken by matches played.
                     </p>
 
@@ -53,7 +67,7 @@
                                         <div class="truncate max-w-[110px]">{{ match.match_name }}</div>
                                         <div class="text-[10px] text-muted">/ {{ match.points_value }}</div>
                                     </th>
-                                    <th class="px-3 py-3 text-right text-amber-400 font-bold whitespace-nowrap">Best 3 / {{ seasonCap }}</th>
+                                    <th class="px-3 py-3 text-right text-amber-400 font-bold whitespace-nowrap">Best {{ bestOf }} / {{ seasonCap }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-border">
@@ -112,6 +126,14 @@ const seasonName = ref('');
 const seasonDates = ref('');
 const loading = ref(true);
 const error = ref(null);
+// Divisions union across the season's matches; only rendered as chip tabs
+// when populated. `null` activeDivision = "All shooters" (no filter).
+const divisions = ref([]);
+const activeDivision = ref(null);
+// Dynamic best-of value (org preference, defaulted server-side). Used in the
+// header copy and the rightmost column label so "Best 3" doesn't lie when an
+// org has set best_of to 4.
+const bestOf = ref(3);
 
 // Derive the season's match columns from the first entry that has match_results.
 // Every shooter's match_results contain the same set of matches (missing = DNS).
@@ -132,13 +154,16 @@ const matchColumns = computed(() => {
     return Array.from(seen.values()).sort((a, b) => (a.match_date || '').localeCompare(b.match_date || ''));
 });
 
-// Season cap = top 3 points_values across all matches, summed.
+// Season cap = top `bestOf` points_values across all matches, summed.
+// Matches the maximum a perfect bestOf-of-N would score so the right-column
+// header reads honestly for orgs that don't use the default 3.
 const seasonCap = computed(() => {
+    const n = Math.max(1, bestOf.value || 3);
     return matchColumns.value
         .map((m) => m.points_value)
         .sort((a, b) => b - a)
-        .slice(0, 3)
-        .reduce((a, b) => a + b, 0) || 300;
+        .slice(0, n)
+        .reduce((a, b) => a + b, 0) || (n * 100);
 });
 
 function getResult(entry, matchId) {
@@ -159,18 +184,32 @@ function rankRowClass(rank) {
     return '';
 }
 
-onMounted(async () => {
+async function fetchStandings() {
+    loading.value = true;
+    error.value = null;
     try {
-        const { data } = await axios.get(`/api/seasons/${props.seasonId}/standings`);
+        const qs = activeDivision.value ? `?division=${encodeURIComponent(activeDivision.value)}` : '';
+        const { data } = await axios.get(`/api/seasons/${props.seasonId}/standings${qs}`);
         seasonName.value = data.season?.name ?? '';
         if (data.season?.start_date && data.season?.end_date) {
             seasonDates.value = `${data.season.start_date} — ${data.season.end_date}`;
         }
+        if (data.season?.best_of) {
+            bestOf.value = data.season.best_of;
+        }
+        divisions.value = data.divisions ?? [];
         standings.value = data.standings ?? [];
     } catch (e) {
         error.value = 'Unable to load season standings.';
     } finally {
         loading.value = false;
     }
-});
+}
+
+function setDivision(name) {
+    activeDivision.value = name;
+    fetchStandings();
+}
+
+onMounted(fetchStandings);
 </script>

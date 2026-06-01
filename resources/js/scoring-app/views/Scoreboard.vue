@@ -255,6 +255,21 @@
 
                 <!-- =================== ELR SUMMARY LEADERBOARD =================== -->
                 <template v-else-if="viewMode === 'summary' && isElr">
+                    <!-- Division filter chips — only rendered when the match has divisions -->
+                    <div v-if="elrDivisions.length" class="mb-3 flex flex-wrap items-center gap-2">
+                        <span class="text-xs uppercase tracking-wide text-muted">Division</span>
+                        <button type="button" @click="setElrDivision(null)"
+                                class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                                :class="!activeElrDivision ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2'">
+                            All
+                        </button>
+                        <button v-for="div in elrDivisions" :key="div.id" type="button" @click="setElrDivision(div.id)"
+                                class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                                :class="activeElrDivision === div.id ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2'">
+                            {{ div.name }}
+                        </button>
+                    </div>
+
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -266,6 +281,7 @@
                                     <th class="px-3 py-3 text-center w-10">#</th>
                                     <th class="px-3 py-3">Shooter</th>
                                     <th class="px-3 py-3">Relay</th>
+                                    <th v-if="elrDivisions.length" class="px-3 py-3">Division</th>
                                     <th class="px-3 py-3 text-center">Points</th>
                                     <th class="px-3 py-3 text-center">Hits</th>
                                     <th class="px-3 py-3 text-center">1st Rd</th>
@@ -290,6 +306,9 @@
                                     </td>
                                     <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
                                     <td class="px-3 py-3 text-muted">{{ entry.squad_name }}</td>
+                                    <td v-if="elrDivisions.length" class="px-3 py-3 text-muted">
+                                        {{ entry.division || '—' }}
+                                    </td>
                                     <td class="px-3 py-3 text-center tabular-nums font-bold">{{ entry.total_points }}</td>
                                     <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.total_hits }}</td>
                                     <td class="px-3 py-3 text-center tabular-nums">{{ entry.first_round_hits }}</td>
@@ -956,6 +975,12 @@ const matchDate = ref('');
 const isPrs = ref(false);
 const isElr = ref(false);
 const elrStages = ref([]);
+// ELR divisions surfaced as chip filters above the leaderboard. `null` =
+// "All shooters" (no filter); selecting a chip refetches with ?division=ID
+// so the API ranks within the filtered set rather than us re-ranking
+// client-side.
+const elrDivisions = ref([]);
+const activeElrDivision = ref(null);
 const viewMode = ref('summary');
 const loading = ref(false);
 const error = ref(null);
@@ -998,13 +1023,27 @@ function elrTargetPoints(target) {
     return target.shots?.reduce((sum, s) => sum + (s.result === 'hit' ? (s.points ?? 0) : 0), 0) ?? 0;
 }
 
+// Switch which ELR division the leaderboard is showing and refetch. Setting
+// to `null` clears the filter and returns to the all-shooters list.
+function setElrDivision(id) {
+    activeElrDivision.value = id;
+    fetchData();
+}
+
 async function fetchData() {
     loading.value = true;
     error.value = null;
     try {
         const scoringType = isPrs.value ? 'prs' : (isElr.value ? 'elr' : null);
-        const detailParam = scoringType === 'prs' ? '' : '?detailed=1';
-        const { data } = await axios.get(`/api/matches/${props.matchId}/scoreboard${detailParam}`);
+        // PRS doesn't support detailed=1; ELR carries an optional division
+        // filter so chip changes refetch within-division standings.
+        const params = new URLSearchParams();
+        if (scoringType !== 'prs') params.set('detailed', '1');
+        if (isElr.value && activeElrDivision.value) {
+            params.set('division', String(activeElrDivision.value));
+        }
+        const qs = params.toString();
+        const { data } = await axios.get(`/api/matches/${props.matchId}/scoreboard${qs ? '?' + qs : ''}`);
 
         matchName.value = data.match?.name ?? '';
         matchDate.value = data.match?.date ?? '';
@@ -1029,6 +1068,7 @@ async function fetchData() {
             if (isElr.value) {
                 standings.value = data.standings ?? [];
                 elrStages.value = data.stages ?? [];
+                elrDivisions.value = data.divisions ?? [];
             } else if (isPrs.value) {
                 targetSets.value = data.target_sets ?? [];
                 standings.value = data.leaderboard ?? [];

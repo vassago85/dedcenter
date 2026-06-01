@@ -7,6 +7,7 @@ use App\Models\Season;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use App\Services\Scoring\ELRScoringService;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,7 +32,10 @@ class SeasonStandingsService
     /** Default number of "best" scores to count when an org has no best_of preference. */
     public const DEFAULT_BEST_OF = 3;
 
-    public function calculate(Season $season): array
+    /**
+     * @param  string|int|null  $divisionFilter  Restrict to a single division (id or name) — only meaningful when every match shares the division.
+     */
+    public function calculate(Season $season, $divisionFilter = null): array
     {
         $matches = $season->matches()
             ->whereIn('status', ['active', 'completed'])
@@ -42,7 +46,7 @@ class SeasonStandingsService
         // Season standings follow the owning organisation's preferences.
         $org = $season->organization ?? $matches->first()?->organization;
 
-        return $this->standingsFromMatches($matches, $org);
+        return $this->standingsFromMatches($matches, $org, $divisionFilter);
     }
 
     /**
@@ -56,7 +60,7 @@ class SeasonStandingsService
      *
      * @param  Collection<int>|array<int>  $orgIds
      */
-    public function calculateForOrganizations($orgIds): array
+    public function calculateForOrganizations($orgIds, $divisionFilter = null): array
     {
         $ids = collect($orgIds)->all();
         if (count($ids) === 0) {
@@ -72,13 +76,13 @@ class SeasonStandingsService
 
         $hostOrg = Organization::find($ids[0]);
 
-        return $this->standingsFromMatches($matches, $hostOrg);
+        return $this->standingsFromMatches($matches, $hostOrg, $divisionFilter);
     }
 
     /**
      * Shared core used by both season and org-scoped calculations.
      */
-    private function standingsFromMatches(Collection $matches, ?Organization $hostOrg = null): array
+    private function standingsFromMatches(Collection $matches, ?Organization $hostOrg = null, $divisionFilter = null): array
     {
         if ($matches->isEmpty()) {
             return [];
@@ -90,7 +94,7 @@ class SeasonStandingsService
         $userScores = [];
 
         foreach ($matches as $match) {
-            $matchStandings = $this->matchStandings($match);
+            $matchStandings = $this->matchStandings($match, $divisionFilter);
             $winnerScore = max((float) collect($matchStandings)->max('total_score'), 1.0);
             $pointsValue = max(1, (int) ($match->leaderboard_points ?? 100));
 
@@ -198,8 +202,21 @@ class SeasonStandingsService
         return [$raw, null];
     }
 
-    private function matchStandings(ShootingMatch $match): array
+    /**
+     * @param  string|int|null  $divisionFilter
+     */
+    private function matchStandings(ShootingMatch $match, $divisionFilter = null): array
     {
+        // ELR matches store points in `elr_shots`, not `scores`. Using the
+        // gong pipeline below for an ELR match returns 0 for everyone, so the
+        // series leaderboard would silently flatten to zeros. Delegate to the
+        // dedicated scoring engine, then map its output back to the standard
+        // {user_id, name, total_score, hits, misses} shape this aggregator
+        // expects.
+        if ($match->isElr()) {
+            return $this->elrMatchStandings($match, $divisionFilter);
+        }
+
         $targetSets = $match->targetSets;
         $allGongs = $targetSets->flatMap->gongs;
 
@@ -254,5 +271,48 @@ class SeasonStandingsService
                 'misses' => $misses,
             ];
         })->toArray();
+    }
+
+    /**
+     * Per-match standings for ELR scoring, shaped for the season aggregator.
+     *
+     * Delegates to ELRScoringService (the same engine that backs the
+     * scoreboard and CSVs) so series totals stay consistent with what
+     * shooters see on screen during a match. DQ / no-show shooters are
+     * filtered out to match the gong-pipeline behaviour above.
+     *
+     * `total_score` carries forward as ELR points; `misses` is derived
+     * across all stages/targets as (total target shots actually fired
+     * minus hits) — anything not yet recorded is left out so partial
+     * matches don't penalise a shooter twice (once for the unrecorded
+     * shot, once for the eventual hit).
+     *
+     * @param  string|int|null  $divisionFilter
+     */
+    private function elrMatchStandings(ShootingMatch $match, $divisionFilter = null): array
+    {
+        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $divisionFilter]);
+
+        return collect($data['standings'] ?? [])
+            ->filter(fn ($row) => ! in_array($row['status'] ?? 'active', ['dq', 'no_show'], true))
+            ->map(function ($row) {
+                $totalHits = (int) ($row['total_hits'] ?? 0);
+                $shotsFired = 0;
+                foreach ($row['stages'] ?? [] as $stage) {
+                    foreach ($stage['targets'] ?? [] as $target) {
+                        $shotsFired += count($target['shots'] ?? []);
+                    }
+                }
+
+                return [
+                    'user_id' => $row['user_id'] ?? null,
+                    'name' => $row['name'],
+                    'total_score' => round((float) ($row['total_points'] ?? 0), 2),
+                    'hits' => $totalHits,
+                    'misses' => max(0, $shotsFired - $totalHits),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

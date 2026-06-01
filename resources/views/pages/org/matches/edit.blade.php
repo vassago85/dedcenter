@@ -54,6 +54,7 @@ new #[Layout('components.layouts.app')]
     public string $scoring_type = 'standard';
     public bool $scores_published = true;
     public int $leaderboard_points = 100;
+    public ?int $season_id = null;
     public bool $royal_flush_enabled = false;
     public bool $side_bet_enabled = false;
     public int $concurrent_relays = 2;
@@ -139,6 +140,11 @@ new #[Layout('components.layouts.app')]
 
     public string $elrProfileMultipliers = '1.00, 0.70, 0.50';
 
+    // ELR engagement settings
+    public string $elrEngagementMode = 'target_by_target';
+    public string $elrTargetsPerShooter = '';
+    public string $elrShotsPerTarget = '3';
+
     // Messaging
     public string $msgSubject = '';
     public string $msgBody = '';
@@ -168,6 +174,7 @@ new #[Layout('components.layouts.app')]
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
+            $this->season_id = $match->season_id;
             $this->royal_flush_enabled = (bool) $match->royal_flush_enabled;
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
             $this->self_squadding_enabled = (bool) ($match->self_squadding_enabled ?? true);
@@ -176,6 +183,10 @@ new #[Layout('components.layouts.app')]
             $this->sideBetShooterIds = $match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->toArray();
             $this->registrationFieldsConfig = $match->registration_fields_config ?? $this->registrationFieldsConfig;
             $this->matchDays = $match->match_days ?? 1;
+            $this->elrEngagementMode = $match->elr_engagement_mode?->value ?? 'target_by_target';
+            $this->elrTargetsPerShooter = $match->elr_targets_per_shooter !== null ? (string) $match->elr_targets_per_shooter : '';
+            $this->elrShotsPerTarget = (string) ($match->elr_shots_per_target ?? 3);
+            $this->elrTargetMaxShots = (string) ($match->elr_shots_per_target ?? 3);
             $this->loadCustomFields();
         } else {
             $this->entry_fee = $organization->entry_fee_default ? (string) $organization->entry_fee_default : '';
@@ -206,6 +217,18 @@ new #[Layout('components.layouts.app')]
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
         $validated['scores_published'] = $this->scores_published;
         $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
+        // Only assign a season when the org actually owns the chosen season —
+        // prevents tampered requests from attaching a match to another org's
+        // series. Nullable so MD can clear it.
+        if ($this->season_id) {
+            $belongs = \App\Models\Season::query()
+                ->whereKey((int) $this->season_id)
+                ->where('organization_id', $this->organization->id)
+                ->exists();
+            $validated['season_id'] = $belongs ? (int) $this->season_id : null;
+        } else {
+            $validated['season_id'] = null;
+        }
         $validated['self_squadding_enabled'] = $this->self_squadding_enabled;
         $validated['team_event'] = $this->team_event;
         $validated['team_size'] = max(2, $this->team_size);
@@ -1013,6 +1036,27 @@ new #[Layout('components.layouts.app')]
         $this->match->refresh();
     }
 
+    public function updateElrSettings(): void
+    {
+        $validated = $this->validate([
+            'elrEngagementMode' => 'required|in:target_by_target,full_string',
+            'elrTargetsPerShooter' => 'nullable|integer|min:1|max:50',
+            'elrShotsPerTarget' => 'required|integer|min:1|max:50',
+        ]);
+
+        $this->match->update([
+            'elr_engagement_mode' => $validated['elrEngagementMode'],
+            'elr_targets_per_shooter' => $validated['elrTargetsPerShooter'] !== '' && $validated['elrTargetsPerShooter'] !== null
+                ? (int) $validated['elrTargetsPerShooter']
+                : null,
+            'elr_shots_per_target' => (int) $validated['elrShotsPerTarget'],
+        ]);
+
+        $this->elrTargetMaxShots = (string) $validated['elrShotsPerTarget'];
+        $this->match->refresh();
+        Flux::toast('ELR engagement settings saved.', variant: 'success');
+    }
+
     public function addSquad(): void
     {
         $this->validate(['squadName' => 'required|string|max:255']);
@@ -1607,6 +1651,36 @@ new #[Layout('components.layouts.app')]
                         <flux:switch wire:model.live="self_squadding_enabled" label="Self-Squadding" description="Allow shooters to pick their own squad when squadding opens" />
                     </div>
 
+                    @php
+                        // List this org's seasons (newest first) so the MD can
+                        // assign the match without needing platform admin.
+                        $orgSeasons = \App\Models\Season::query()
+                            ->where('organization_id', $organization->id)
+                            ->orderByDesc('year')
+                            ->orderBy('name')
+                            ->get(['id', 'name', 'year']);
+                    @endphp
+                    <div class="border-t border-border pt-4">
+                        <div class="flex items-start gap-4">
+                            <div class="w-64">
+                                <label class="block text-sm font-medium text-secondary mb-1">Season</label>
+                                <select wire:model="season_id"
+                                        class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
+                                    <option value="">No season</option>
+                                    @foreach($orgSeasons as $season)
+                                        <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <p class="text-xs text-muted flex-1">
+                                Optional — assign this match to a season/series for aggregate standings.
+                                @if($orgSeasons->isEmpty())
+                                    <span class="block mt-1 text-[11px] text-amber-400">No seasons yet — create one under Organization → Seasons.</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
                     <div class="border-t border-border pt-4">
                         <div class="flex items-center gap-4">
                             <div class="w-32">
@@ -1618,7 +1692,7 @@ new #[Layout('components.layouts.app')]
                                 </select>
                             </div>
                             <p class="text-xs text-muted flex-1">
-                                Defines how much this match is worth on the season leaderboard. The season total is a shooter's best 3 scaled scores.
+                                Defines how much this match is worth on the season leaderboard. The season total is a shooter's best {{ max(1, (int) ($organization->best_of ?? 3)) }} scaled scores.
                                 <span class="block mt-1 text-[11px] text-muted/80">scaled = round(shooter_score / winner_score × points)</span>
                             </p>
                         </div>
@@ -2399,6 +2473,57 @@ new #[Layout('components.layouts.app')]
                 @if($match->elrScoringProfile)
                     <p class="mt-2 text-xs text-secondary">Active: {{ $match->elrScoringProfile->name }} — [{{ implode(', ', $match->elrScoringProfile->multipliers) }}]</p>
                 @endif
+            </div>
+
+            {{-- Engagement settings --}}
+            <div class="rounded-xl border border-border bg-surface p-4">
+                <h3 class="mb-3 text-sm font-semibold text-secondary uppercase tracking-wider">Engagement</h3>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-muted mb-1.5">How shooters engage targets</label>
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <button type="button" wire:click="$set('elrEngagementMode', 'target_by_target')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $elrEngagementMode === 'target_by_target' ? 'border-emerald-500 bg-emerald-600/10' : 'border-border bg-app hover:border-emerald-500/50' }}">
+                                <span class="block text-sm font-semibold text-primary">Target by target</span>
+                                <span class="mt-0.5 block text-xs text-muted">Fire all shots on one target, then move to the next.</span>
+                            </button>
+                            <button type="button" wire:click="$set('elrEngagementMode', 'full_string')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $elrEngagementMode === 'full_string' ? 'border-emerald-500 bg-emerald-600/10' : 'border-border bg-app hover:border-emerald-500/50' }}">
+                                <span class="block text-sm font-semibold text-primary">Full string</span>
+                                <span class="mt-0.5 block text-xs text-muted">Engage all assigned targets as one string, scored on one screen.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Targets per shooter / station</label>
+                            <input type="number" wire:model="elrTargetsPerShooter" placeholder="Auto (use stage targets)" min="1" max="50"
+                                   class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                            <p class="mt-1 text-[11px] text-muted">Leave blank to use each stage's configured targets.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Shots per target</label>
+                            <input type="number" wire:model="elrShotsPerTarget" placeholder="3" min="1" max="50"
+                                   class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                            <p class="mt-1 text-[11px] text-muted">Default used when adding new targets.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs text-muted">
+                            @if($elrTargetsPerShooter !== '' && (int) $elrShotsPerTarget > 0)
+                                Total = {{ (int) $elrTargetsPerShooter * (int) $elrShotsPerTarget }} shots per shooter per station.
+                            @else
+                                Total shots = assigned targets × shots per target.
+                            @endif
+                        </p>
+                        <button wire:click="updateElrSettings" class="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+                            Save Engagement
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {{-- Existing stages --}}

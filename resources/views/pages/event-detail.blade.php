@@ -447,6 +447,13 @@ new #[Layout('components.layouts.app')]
                     RF Shots (CSV, 1/0)
                 </a>
             @endif
+            @if($match->isElr())
+                <a href="{{ route('scoreboard.export.elr-shots', $match) }}"
+                   class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
+                    <x-icon name="download" class="h-3.5 w-3.5" />
+                    ELR Shots (CSV, 1/0)
+                </a>
+            @endif
             <a href="{{ route('scoreboard', $match) }}" target="_blank"
                class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-white">
                 <x-icon name="external-link" class="h-3.5 w-3.5" />

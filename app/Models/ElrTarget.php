@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ElrTarget extends Model
@@ -43,8 +44,45 @@ class ElrTarget extends Model
     }
 
     /**
-     * Calculate points awarded for a hit on a given shot number,
-     * using the resolved scoring profile from the stage or match.
+     * Divisions for which this target is in play.
+     *
+     * Empty pivot rows mean "every division shoots this target" — see
+     * the elr_division_targets migration for the rationale. The pivot
+     * is only consulted by the scoring service when it needs to filter
+     * a shooter to their division's target subset (Minor T1–T3 etc.).
+     */
+    public function divisions(): BelongsToMany
+    {
+        return $this->belongsToMany(MatchDivision::class, 'elr_division_targets');
+    }
+
+    /**
+     * Resolved multiplier for the given shot number from the stage's profile.
+     * Returns 0 if no profile is configured.
+     */
+    public function multiplierForShot(int $shotNumber): float
+    {
+        $profile = $this->stage?->resolvedProfile();
+        if (! $profile) {
+            return 0.0;
+        }
+
+        return (float) $profile->multiplierForShot($shotNumber);
+    }
+
+    /**
+     * Calculate points awarded for a hit on a given shot number.
+     *
+     * Two scoring modes:
+     *   - distance × multiplier (Peregrine ELR Challenge): used when the
+     *     parent match has `elr_distance_based_scoring = true`. Score is
+     *     raw metres × the profile multiplier. base_points is ignored.
+     *   - base_points × multiplier (legacy): the original DeadCenter ELR
+     *     behaviour. Kept for backwards compatibility with existing
+     *     matches set up before the toggle.
+     *
+     * Returns 0 with no profile so a half-configured match can't write
+     * accidental points.
      */
     public function pointsForShot(int $shotNumber): float
     {
@@ -54,7 +92,13 @@ class ElrTarget extends Model
         }
 
         $multiplier = $profile->multiplierForShot($shotNumber);
+        $match = $this->stage?->match;
+        $useDistance = (bool) ($match?->elr_distance_based_scoring ?? false);
 
-        return round((float) $this->base_points * $multiplier, 2);
+        $baseValue = $useDistance
+            ? (float) $this->distance_m
+            : (float) $this->base_points;
+
+        return round($baseValue * $multiplier, 2);
     }
 }

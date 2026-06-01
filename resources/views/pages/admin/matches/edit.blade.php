@@ -104,6 +104,11 @@ new #[Layout('components.layouts.app')]
 
     public string $elrProfileMultipliers = '1.00, 0.70, 0.50';
 
+    // ELR engagement settings
+    public string $elrEngagementMode = 'target_by_target';
+    public string $elrTargetsPerShooter = '';
+    public string $elrShotsPerTarget = '3';
+
     public function mount(?ShootingMatch $match = null): void
     {
         if ($match && $match->exists) {
@@ -124,6 +129,10 @@ new #[Layout('components.layouts.app')]
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
             $this->season_id = $match->season_id;
+            $this->elrEngagementMode = $match->elr_engagement_mode?->value ?? 'target_by_target';
+            $this->elrTargetsPerShooter = $match->elr_targets_per_shooter !== null ? (string) $match->elr_targets_per_shooter : '';
+            $this->elrShotsPerTarget = (string) ($match->elr_shots_per_target ?? 3);
+            $this->elrTargetMaxShots = (string) ($match->elr_shots_per_target ?? 3);
             $this->loadCustomFields();
         }
     }
@@ -829,6 +838,27 @@ new #[Layout('components.layouts.app')]
             $this->match->update(['elr_scoring_profile_id' => $profile->id]);
         }
         $this->match->refresh();
+    }
+
+    public function updateElrSettings(): void
+    {
+        $validated = $this->validate([
+            'elrEngagementMode' => 'required|in:target_by_target,full_string',
+            'elrTargetsPerShooter' => 'nullable|integer|min:1|max:50',
+            'elrShotsPerTarget' => 'required|integer|min:1|max:50',
+        ]);
+
+        $this->match->update([
+            'elr_engagement_mode' => $validated['elrEngagementMode'],
+            'elr_targets_per_shooter' => $validated['elrTargetsPerShooter'] !== '' && $validated['elrTargetsPerShooter'] !== null
+                ? (int) $validated['elrTargetsPerShooter']
+                : null,
+            'elr_shots_per_target' => (int) $validated['elrShotsPerTarget'],
+        ]);
+
+        $this->elrTargetMaxShots = (string) $validated['elrShotsPerTarget'];
+        $this->match->refresh();
+        Flux::toast('ELR engagement settings saved.', variant: 'success');
     }
 
     // ── Squads ──
@@ -1894,6 +1924,57 @@ new #[Layout('components.layouts.app')]
                 @if($match->elrScoringProfile)
                     <p class="mt-2 text-xs text-secondary">Active: {{ $match->elrScoringProfile->name }} — [{{ implode(', ', $match->elrScoringProfile->multipliers) }}]</p>
                 @endif
+            </div>
+
+            {{-- Engagement settings --}}
+            <div class="rounded-xl border border-border bg-surface p-4">
+                <h3 class="mb-3 text-sm font-semibold text-secondary uppercase tracking-wider">Engagement</h3>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-muted mb-1.5">How shooters engage targets</label>
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <button type="button" wire:click="$set('elrEngagementMode', 'target_by_target')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $elrEngagementMode === 'target_by_target' ? 'border-emerald-500 bg-emerald-600/10' : 'border-border bg-app hover:border-emerald-500/50' }}">
+                                <span class="block text-sm font-semibold text-primary">Target by target</span>
+                                <span class="mt-0.5 block text-xs text-muted">Fire all shots on one target, then move to the next.</span>
+                            </button>
+                            <button type="button" wire:click="$set('elrEngagementMode', 'full_string')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $elrEngagementMode === 'full_string' ? 'border-emerald-500 bg-emerald-600/10' : 'border-border bg-app hover:border-emerald-500/50' }}">
+                                <span class="block text-sm font-semibold text-primary">Full string</span>
+                                <span class="mt-0.5 block text-xs text-muted">Engage all assigned targets as one string, scored on one screen.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Targets per shooter / station</label>
+                            <input type="number" wire:model="elrTargetsPerShooter" placeholder="Auto (use stage targets)" min="1" max="50"
+                                   class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                            <p class="mt-1 text-[11px] text-muted">Leave blank to use each stage's configured targets.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Shots per target</label>
+                            <input type="number" wire:model="elrShotsPerTarget" placeholder="3" min="1" max="50"
+                                   class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                            <p class="mt-1 text-[11px] text-muted">Default used when adding new targets.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs text-muted">
+                            @if($elrTargetsPerShooter !== '' && (int) $elrShotsPerTarget > 0)
+                                Total = {{ (int) $elrTargetsPerShooter * (int) $elrShotsPerTarget }} shots per shooter per station.
+                            @else
+                                Total shots = assigned targets × shots per target.
+                            @endif
+                        </p>
+                        <button wire:click="updateElrSettings" class="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+                            Save Engagement
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {{-- Existing stages --}}

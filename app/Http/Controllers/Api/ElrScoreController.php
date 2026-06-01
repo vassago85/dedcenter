@@ -60,6 +60,10 @@ class ElrScoreController extends Controller
 
             $result = ElrShotResult::from($shotData['result']);
             $pointsAwarded = 0;
+            // Snapshot the multiplier and distance used for THIS scoring
+            // event so later edits to the profile / target don't rewrite
+            // already-published points. Mirrors ELRScoringService::recordShot.
+            $multiplier = $target->multiplierForShot($shotData['shot_number']);
 
             if ($result === ElrShotResult::Hit) {
                 $pointsAwarded = $target->pointsForShot($shotData['shot_number']);
@@ -80,6 +84,8 @@ class ElrScoreController extends Controller
                 [
                     'result' => $result,
                     'points_awarded' => $pointsAwarded,
+                    'distance_at_score' => (int) $target->distance_m,
+                    'multiplier_at_score' => $multiplier,
                     'recorded_by' => $user->id,
                     'device_id' => $shotData['device_id'],
                     'recorded_at' => $shotData['recorded_at'],

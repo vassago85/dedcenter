@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AdvertisingMode;
+use App\Enums\ElrEngagementMode;
 use App\Enums\MatchStatus;
 use App\Enums\MdPackageStatus;
 use App\Enums\PlacementKey;
@@ -37,6 +38,10 @@ class ShootingMatch extends Model
         'concurrent_relays',
         'max_squad_size',
         'elr_scoring_profile_id',
+        'elr_engagement_mode',
+        'elr_targets_per_shooter',
+        'elr_shots_per_target',
+        'elr_distance_based_scoring',
         'notes',
         'public_bio',
         'created_by',
@@ -91,6 +96,10 @@ class ShootingMatch extends Model
             'team_size' => 'integer',
             'match_days' => 'integer',
             'registration_fields_config' => 'array',
+            'elr_engagement_mode' => ElrEngagementMode::class,
+            'elr_targets_per_shooter' => 'integer',
+            'elr_shots_per_target' => 'integer',
+            'elr_distance_based_scoring' => 'boolean',
         ];
     }
 
@@ -335,6 +344,11 @@ class ShootingMatch extends Model
     public function isElr(): bool
     {
         return $this->scoring_type === 'elr';
+    }
+
+    public function elrEngagementMode(): ElrEngagementMode
+    {
+        return $this->elr_engagement_mode ?? ElrEngagementMode::TargetByTarget;
     }
 
     public function scoresArePublic(): bool

@@ -28,10 +28,29 @@ class SeasonController extends Controller
         return response()->json(['seasons' => $seasons]);
     }
 
-    public function standings(Season $season)
+    public function standings(Season $season, Request $request)
     {
         $service = new SeasonStandingsService();
-        $standings = $service->calculate($season);
+        $division = $request->query('division');
+        $standings = $service->calculate($season, $division);
+
+        // Surface the union of MatchDivision names across this season's
+        // matches so the Vue leaderboard can render tabs without a second
+        // round-trip. We dedupe by lowercase name so "Minor" and "minor"
+        // don't render twice for two different match definitions.
+        $divisions = $season->matches()
+            ->with('divisions:id,match_id,name')
+            ->get()
+            ->flatMap(fn ($m) => $m->divisions)
+            ->unique(fn ($d) => strtolower($d->name))
+            ->values()
+            ->map(fn ($d) => ['name' => $d->name])
+            ->all();
+
+        $org = $season->organization;
+        $bestOf = $org && $org->best_of > 0
+            ? (int) $org->best_of
+            : SeasonStandingsService::DEFAULT_BEST_OF;
 
         return response()->json([
             'season' => [
@@ -40,7 +59,10 @@ class SeasonController extends Controller
                 'year' => $season->year,
                 'start_date' => $season->start_date?->toDateString(),
                 'end_date' => $season->end_date?->toDateString(),
+                'best_of' => $bestOf,
             ],
+            'divisions' => $divisions,
+            'active_division' => $division,
             'standings' => $standings,
         ]);
     }

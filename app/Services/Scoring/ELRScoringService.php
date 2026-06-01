@@ -12,6 +12,15 @@ use Illuminate\Support\Facades\DB;
 
 class ELRScoringService implements ScoringEngineInterface
 {
+    /**
+     * Build ELR standings for a match.
+     *
+     * Supports an optional `division` filter (passed as either a division id
+     * or a name) so the scoreboard, exports, and series aggregator can rank
+     * Minor and Major separately for matches that run multiple divisions.
+     * Ranks are always assigned within the filtered set so a Minor podium
+     * never inherits a Major shooter's #1 from the global list.
+     */
     public function calculateStandings(ShootingMatch $match, array $filters = []): array
     {
         $stages = $match->elrStages()
@@ -20,19 +29,62 @@ class ELRScoringService implements ScoringEngineInterface
 
         $allTargetIds = $stages->flatMap(fn ($s) => $s->targets->pluck('id'))->toArray();
 
-        $shooters = Shooter::query()
+        $shooterQuery = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('match_divisions', 'shooters.match_division_id', '=', 'match_divisions.id')
+            ->leftJoin('teams', 'shooters.team_id', '=', 'teams.id')
+            // match_registrations.caliber is the canonical source for shooter
+            // caliber (see MatchExportController). Join on user_id so the
+            // leaderboard can show "300 PRC" / ".408 CT" without a per-row
+            // lookup. shooters without a registration (walk-ins) get null,
+            // which the UI renders as a blank cell.
+            ->leftJoin('match_registrations', function ($join) use ($match) {
+                $join->on('match_registrations.user_id', '=', 'shooters.user_id')
+                    ->where('match_registrations.match_id', '=', $match->id);
+            })
             ->where('squads.match_id', $match->id)
-            ->select('shooters.id', 'shooters.name', 'shooters.bib_number', 'shooters.status', 'squads.name as squad_name')
-            ->get();
+            ->select(
+                'shooters.id',
+                'shooters.user_id',
+                'shooters.name',
+                'shooters.bib_number',
+                'shooters.status',
+                'shooters.match_division_id',
+                'shooters.team_id',
+                'squads.name as squad_name',
+                'teams.name as team_name',
+                'match_divisions.name as division_name',
+                'match_registrations.caliber as caliber',
+            );
+
+        $divisionFilter = $filters['division'] ?? null;
+        if ($divisionFilter !== null && $divisionFilter !== '') {
+            // Accept either an id or a name so the controller can pass through
+            // whatever query string the API client sent.
+            if (is_numeric($divisionFilter)) {
+                $shooterQuery->where('shooters.match_division_id', (int) $divisionFilter);
+            } else {
+                $shooterQuery->where('match_divisions.name', $divisionFilter);
+            }
+        }
+
+        $shooters = $shooterQuery->get();
 
         if ($shooters->isEmpty() || empty($allTargetIds)) {
             return [
                 'match' => $this->matchMeta($match),
                 'stages' => $this->serializeStages($stages),
                 'standings' => [],
+                'divisions' => $this->serializeDivisions($match),
+                'active_division' => $divisionFilter,
             ];
         }
+
+        // Per-division target whitelist (Peregrine: Minor=T1-T3, Major=T2-T4).
+        // Lazy-loaded; only populated for divisions that have explicit pivot
+        // rows. Divisions with no rows mean "no restriction" \u2014 see
+        // MatchDivision::elrTargets() docstring.
+        $divisionTargetWhitelist = $this->resolveDivisionTargetWhitelist($shooters);
 
         $allShots = ElrShot::query()
             ->whereIn('shooter_id', $shooters->pluck('id'))
@@ -40,15 +92,21 @@ class ELRScoringService implements ScoringEngineInterface
             ->get()
             ->groupBy('shooter_id');
 
-        $standings = $shooters->map(function ($shooter) use ($allShots, $stages) {
+        $standings = $shooters->map(function ($shooter) use ($allShots, $stages, $divisionTargetWhitelist) {
             $shooterShots = $allShots->get($shooter->id, collect());
             $shotsByTarget = $shooterShots->groupBy('elr_target_id');
 
+            $allowedTargetIds = $shooter->match_division_id !== null
+                ? ($divisionTargetWhitelist[$shooter->match_division_id] ?? null)
+                : null;
+
             $totalPoints = 0;
             $totalHits = 0;
+            $shotsFired = 0;
             $firstRoundHits = 0;
             $secondRoundHits = 0;
             $furthestHitM = 0;
+            $furthestFirstRoundHitM = 0;
             $stageResults = [];
 
             foreach ($stages as $stage) {
@@ -56,10 +114,23 @@ class ELRScoringService implements ScoringEngineInterface
                 $stageTargets = [];
 
                 foreach ($stage->targets as $target) {
+                    // Skip targets this shooter's division doesn't engage.
+                    // Whitelist is null => no restriction => include all.
+                    if ($allowedTargetIds !== null && ! isset($allowedTargetIds[$target->id])) {
+                        continue;
+                    }
+
                     $targetShots = $shotsByTarget->get($target->id, collect())->sortBy('shot_number');
                     $targetResult = [];
 
                     foreach ($targetShots as $shot) {
+                        // Only Hit and Miss count toward shots-fired for
+                        // hit-rate %. NotTaken means "round skipped" and is
+                        // excluded from both numerator and denominator.
+                        if ($shot->result !== ElrShotResult::NotTaken) {
+                            $shotsFired++;
+                        }
+
                         $targetResult[] = [
                             'shot_number' => $shot->shot_number,
                             'result' => $shot->result->value,
@@ -71,14 +142,24 @@ class ELRScoringService implements ScoringEngineInterface
                             $stagePoints += (float) $shot->points_awarded;
                             $totalPoints += (float) $shot->points_awarded;
 
+                            // Furthest impact uses the snapshotted distance
+                            // where present so changing target distances
+                            // mid-match doesn't retroactively change history.
+                            $hitDistance = $shot->distance_at_score !== null
+                                ? (int) $shot->distance_at_score
+                                : (int) $target->distance_m;
+
                             if ($shot->shot_number === 1) {
                                 $firstRoundHits++;
+                                if ($hitDistance > $furthestFirstRoundHitM) {
+                                    $furthestFirstRoundHitM = $hitDistance;
+                                }
                             } elseif ($shot->shot_number === 2) {
                                 $secondRoundHits++;
                             }
 
-                            if ($target->distance_m > $furthestHitM) {
-                                $furthestHitM = $target->distance_m;
+                            if ($hitDistance > $furthestHitM) {
+                                $furthestHitM = $hitDistance;
                             }
                         }
                     }
@@ -102,17 +183,30 @@ class ELRScoringService implements ScoringEngineInterface
                 ];
             }
 
+            $hitRatePct = $shotsFired > 0
+                ? round(($totalHits / $shotsFired) * 100, 1)
+                : 0.0;
+
             return [
                 'id' => $shooter->id,
+                'user_id' => $shooter->user_id,
                 'name' => $shooter->name,
                 'bib_number' => $shooter->bib_number,
                 'squad_name' => $shooter->squad_name,
+                'team_id' => $shooter->team_id ? (int) $shooter->team_id : null,
+                'team' => $shooter->team_name,
+                'caliber' => $shooter->caliber,
+                'division_id' => $shooter->match_division_id ? (int) $shooter->match_division_id : null,
+                'division' => $shooter->division_name,
                 'status' => $shooter->status ?? 'active',
                 'total_points' => round($totalPoints, 2),
                 'total_hits' => $totalHits,
+                'shots_fired' => $shotsFired,
+                'hit_rate_pct' => $hitRatePct,
                 'first_round_hits' => $firstRoundHits,
                 'second_round_hits' => $secondRoundHits,
                 'furthest_hit_m' => $furthestHitM,
+                'furthest_first_round_hit_m' => $furthestFirstRoundHitM,
                 'stages' => $stageResults,
             ];
         });
@@ -148,7 +242,22 @@ class ELRScoringService implements ScoringEngineInterface
             'match' => $this->matchMeta($match),
             'stages' => $this->serializeStages($stages),
             'standings' => $ranked->toArray(),
+            'divisions' => $this->serializeDivisions($match),
+            'active_division' => $divisionFilter,
         ];
+    }
+
+    /**
+     * List a match's divisions for the API payload so the Vue scoreboard can
+     * render a chip filter without needing a second round trip.
+     */
+    private function serializeDivisions(ShootingMatch $match): array
+    {
+        return $match->divisions()
+            ->orderBy('sort_order')
+            ->get(['id', 'name'])
+            ->map(fn ($d) => ['id' => (int) $d->id, 'name' => $d->name])
+            ->all();
     }
 
     private function matchMeta(ShootingMatch $match): array
@@ -179,7 +288,45 @@ class ELRScoringService implements ScoringEngineInterface
     }
 
     /**
-     * Validate and record a single ELR shot, computing points from profile.
+     * Build a per-division allowed-target map for this match's shooters.
+     *
+     * Shape: `[ match_division_id => [ elr_target_id => true, ... ], ... ]`
+     * \u2014 the inner array is keyed by id for O(1) lookup in the per-shot loop.
+     * Divisions without any pivot rows are deliberately omitted so the
+     * caller falls back to "include every target".
+     */
+    private function resolveDivisionTargetWhitelist(\Illuminate\Support\Collection $shooters): array
+    {
+        $divisionIds = $shooters
+            ->pluck('match_division_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($divisionIds->isEmpty()) {
+            return [];
+        }
+
+        $rows = DB::table('elr_division_targets')
+            ->whereIn('match_division_id', $divisionIds)
+            ->get(['match_division_id', 'elr_target_id']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->match_division_id][(int) $row->elr_target_id] = true;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Validate and record a single ELR shot, computing points from profile
+     * and snapshotting the distance + multiplier in effect at this moment.
+     *
+     * The snapshot is what makes historical scores immutable: even if a
+     * match director later edits a target's distance or the profile's
+     * shot-1 multiplier, the points already on the leaderboard came from
+     * THESE numbers and stay reproducible.
      */
     public function recordShot(
         Shooter $shooter,
@@ -190,6 +337,7 @@ class ELRScoringService implements ScoringEngineInterface
         ?string $deviceId = null,
     ): ElrShot {
         $pointsAwarded = 0;
+        $multiplier = $target->multiplierForShot($shotNumber);
 
         if ($result === ElrShotResult::Hit) {
             $pointsAwarded = $target->pointsForShot($shotNumber);
@@ -204,6 +352,8 @@ class ELRScoringService implements ScoringEngineInterface
             [
                 'result' => $result,
                 'points_awarded' => $pointsAwarded,
+                'distance_at_score' => (int) $target->distance_m,
+                'multiplier_at_score' => $multiplier,
                 'recorded_by' => $recordedBy,
                 'device_id' => $deviceId,
                 'recorded_at' => now(),
