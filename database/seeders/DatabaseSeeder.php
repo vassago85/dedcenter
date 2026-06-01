@@ -71,5 +71,6 @@ class DatabaseSeeder extends Seeder
         $this->call(PrsDemoMatchSeeder::class);
         $this->call(ElrDemoMatchSeeder::class);
         $this->call(ClbPretoriaMatchSeeder::class);
+        $this->call(DemoEliteSeasonsSeeder::class);
     }
 }

@@ -1,4 +1,5 @@
-FROM php:8.3-fpm-alpine
+# composer.lock requires php >= 8.4 (symfony/* 8.x line) so the base image is pinned to 8.4-alpine.
+FROM php:8.4-fpm-alpine
 
 # Avoid dl-cdn TLS/transient failures during apk (common when install-php-extensions runs apk update)
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirror.leaseweb.com|g' /etc/apk/repositories
