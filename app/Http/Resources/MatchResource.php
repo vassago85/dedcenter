@@ -159,6 +159,11 @@ class MatchResource extends JsonResource
             'elr_engagement_mode' => ($this->elr_engagement_mode?->value) ?? 'target_by_target',
             'elr_targets_per_shooter' => $this->elr_targets_per_shooter !== null ? (int) $this->elr_targets_per_shooter : null,
             'elr_shots_per_target' => (int) ($this->elr_shots_per_target ?? 3),
+            // Mirrors matches.elr_distance_based_scoring so the native app's
+            // importer can carry the flag offline and score distance × multiplier
+            // for non-seeded ELR matches (seeded matches set base_points =
+            // distance, so the result matches either way).
+            'elr_distance_based_scoring' => (bool) ($this->elr_distance_based_scoring ?? false),
             'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => $s->label,

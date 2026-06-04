@@ -1,0 +1,663 @@
+{
+    "peregrine": {
+        "match_name": "Peregrine ELR Challenge — Test Match (Jun 2026)",
+        "match_date": "2026-06-06",
+        "stations": [
+            {
+                "label": "Warrior",
+                "sponsor": "Warrior",
+                "targets": [
+                    594,
+                    827,
+                    916,
+                    1679
+                ]
+            },
+            {
+                "label": "Brothers Arms",
+                "sponsor": "Brothers Arms",
+                "targets": [
+                    531,
+                    800,
+                    1259,
+                    2163
+                ]
+            },
+            {
+                "label": "Integrix",
+                "sponsor": "Integrix",
+                "targets": [
+                    567,
+                    958,
+                    1617,
+                    2090
+                ]
+            },
+            {
+                "label": "Delta Optics",
+                "sponsor": "Delta Optics",
+                "targets": [
+                    620,
+                    1190,
+                    1234,
+                    1502
+                ]
+            },
+            {
+                "label": "Zeiss Optics",
+                "sponsor": "Zeiss Optics",
+                "targets": [
+                    715,
+                    888,
+                    1420,
+                    1574
+                ]
+            }
+        ],
+        "multipliers": [
+            1.5,
+            1.25,
+            1
+        ],
+        "shooters": [
+            {
+                "squad": 1,
+                "name": "Brian Koen",
+                "team": "321 systems",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 1,
+                "name": "Francois Davel",
+                "team": "321 systems",
+                "caliber": "284 Win",
+                "class": "Minor"
+            },
+            {
+                "squad": 1,
+                "name": "Henk Rykaart",
+                "team": "Brothers Arms",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 1,
+                "name": "Nicki Barnard",
+                "team": "Brothers Arms",
+                "caliber": "7 Shehane",
+                "class": "Minor"
+            },
+            {
+                "squad": 1,
+                "name": "JP Ferreira",
+                "team": "Ellisras ELR 3",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 1,
+                "name": "Gerhard Lotter",
+                "team": "Ellisras ELR 3",
+                "caliber": "6.5x284",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Thys De Beer",
+                "team": "Impact Xtreme 2",
+                "caliber": "30 SMF",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Ed Knibbs",
+                "team": "Impact Xtreme 2",
+                "caliber": "30 SMF",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Henry King",
+                "team": "Out There Adventures ELR",
+                "caliber": "300 PRC",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Eddie Engelbrecht",
+                "team": "Out There Adventures ELR",
+                "caliber": "300 PRC",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Neehan Uys",
+                "team": "Team Pittstop",
+                "caliber": "300 Norma Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Freddie Uys",
+                "team": "Team Pittstop",
+                "caliber": "338 LMI",
+                "class": "Major"
+            },
+            {
+                "squad": 1,
+                "name": "Anton De Jager",
+                "team": "Wind Likkewane",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 1,
+                "name": "Brian Beeming",
+                "team": "Wind Likkewane",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 2,
+                "name": "Mujaahid Abdulla",
+                "team": "Abdullas",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 2,
+                "name": "Adbdul Abdulia",
+                "team": "Abdullas",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 2,
+                "name": "Koos Grobler",
+                "team": "Cold Bore Crew",
+                "caliber": "300 PRC",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Henry Pienaar",
+                "team": "Cold Bore Crew",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 2,
+                "name": "Marnus Kruger",
+                "team": "Ellisras ELR 4",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 2,
+                "name": "Pikkie Grundlingh",
+                "team": "Ellisras ELR 4",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 2,
+                "name": "Theo Botha",
+                "team": "Impact Xtreme 3",
+                "caliber": "300 Norma Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Arthur Coleby",
+                "team": "Impact Xtreme 3",
+                "caliber": "33 XC",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Johan Coetzee",
+                "team": "Peregrine Brothers Arms",
+                "caliber": "375 CheyTac",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Rudi Barnard",
+                "team": "Peregrine Brothers Arms",
+                "caliber": "375 EnabELR",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Gerhard Malan",
+                "team": "Teamwork Dreamwork",
+                "caliber": "338 Lapua Magnum",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Pieter Meyer",
+                "team": "Teamwork Dreamwork",
+                "caliber": "300 PRC",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Antonie Van Rensburg",
+                "team": "Wind Readers",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 2,
+                "name": "Christi Louw",
+                "team": "Wind Readers",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 3,
+                "name": "Jan Nel",
+                "team": "Assegaai",
+                "caliber": "284 Win",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Carel Coetzee",
+                "team": "Assegaai",
+                "caliber": "6.5x47 Lapua",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Werick Venter",
+                "team": "Deadzero",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Gert Loots",
+                "team": "Deadzero",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Bertie Zaaiman",
+                "team": "Hot Shots",
+                "caliber": "6.5 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Leon Swartz",
+                "team": "Hot Shots",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Jaco Harmse",
+                "team": "Impact Xtreme 4",
+                "caliber": "300 PRC",
+                "class": "Major"
+            },
+            {
+                "squad": 3,
+                "name": "Alan Hewetson",
+                "team": "Impact Xtreme 4",
+                "caliber": "30 SMF",
+                "class": "Major"
+            },
+            {
+                "squad": 3,
+                "name": "Jaco Venter",
+                "team": "Pro en Probeerder",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Ruben Aucamp",
+                "team": "Pro en Probeerder",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Angelo Kordom",
+                "team": "Terrible twins",
+                "caliber": "7 Blaser Mag",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Jimmy Erasmus",
+                "team": "Terrible Twins",
+                "caliber": "7 Blaser Mag",
+                "class": "Minor"
+            },
+            {
+                "squad": 3,
+                "name": "Dw De Klerk",
+                "team": "Young Guns",
+                "caliber": "375 CheyTac",
+                "class": "Major"
+            },
+            {
+                "squad": 3,
+                "name": "Chané Jacobsohn",
+                "team": "Young Guns",
+                "caliber": "7 RSAUM",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Carl Louw",
+                "team": "Biltong Ballistics",
+                "caliber": "7 RSAUM",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Dewaal Uys",
+                "team": "Biltong Ballistics",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Floris Booysen",
+                "team": "Ellisras ELR 1",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 4,
+                "name": "Arno V Niekerk",
+                "team": "Ellisras ELR 1",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 4,
+                "name": "Chris Cronje",
+                "team": "Huismoles",
+                "caliber": "7 RSAUM",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Wiehahn Coetzee",
+                "team": "Huismoles",
+                "caliber": "6.5 Creedmoor",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Danie Koch",
+                "team": "Lights Out",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 4,
+                "name": "JD Els",
+                "team": "Lights Out",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 4,
+                "name": "Vernon Harms",
+                "team": "Trigger titans",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Dirk Pio",
+                "team": "Trigger titans",
+                "caliber": "6.5 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Andre vd Westhuizen",
+                "team": "Veld Snipers",
+                "caliber": "6.5 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 4,
+                "name": "Willem vd Nest",
+                "team": "Veld Snipers",
+                "caliber": "300 Norma MagMajor",
+                "class": "Major"
+            },
+            {
+                "squad": 5,
+                "name": "Dries Bekker",
+                "team": "Broers met Roers",
+                "caliber": "7 RSAUM",
+                "class": "Minor"
+            },
+            {
+                "squad": 5,
+                "name": "Pieter-Bekker",
+                "team": "Broers met Roers",
+                "caliber": "7 RSAUM",
+                "class": "Minor"
+            },
+            {
+                "squad": 5,
+                "name": "Okkert Van Wyk",
+                "team": "Ellisras ELR 2",
+                "caliber": "7 Rem Mag",
+                "class": "Minor"
+            },
+            {
+                "squad": 5,
+                "name": "Koos Duvenhage",
+                "team": "Ellisras ELR 2",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 5,
+                "name": "Brendan Fike",
+                "team": "Impact Xtreme 1",
+                "caliber": "30 SMF",
+                "class": "Major"
+            },
+            {
+                "squad": 5,
+                "name": "Shaun Flink",
+                "team": "Impact Xtreme 1",
+                "caliber": "30 SMF",
+                "class": "Major"
+            },
+            {
+                "squad": 5,
+                "name": "Monica Makkink",
+                "team": "Makkinkies",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            },
+            {
+                "squad": 5,
+                "name": "Dewald Makkink",
+                "team": "Makkinkies",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 5,
+                "name": "Herman Boshoff",
+                "team": "Rookie Snipers",
+                "caliber": "338 LMI",
+                "class": "Major"
+            },
+            {
+                "squad": 5,
+                "name": "Christiaan Liebenberg",
+                "team": "Rookie Snipers",
+                "caliber": "7 RSAUM",
+                "class": "Minor"
+            },
+            {
+                "squad": 5,
+                "name": "Albert Stoel",
+                "team": "Slagpen",
+                "caliber": "338 Lapua Mag",
+                "class": "Major"
+            },
+            {
+                "squad": 5,
+                "name": "Steven Coombs",
+                "team": "Slagpen",
+                "caliber": "7 PRC",
+                "class": "Minor"
+            }
+        ]
+    },
+    "forster": {
+        "match_name": "Forster 2 Mile Challenge — Test Match (Jun 2026)",
+        "match_date": "2026-06-06",
+        "stations": [
+            {
+                "label": "Station A",
+                "distance": 2024
+            },
+            {
+                "label": "Station B",
+                "distance": 2478
+            },
+            {
+                "label": "Station C",
+                "distance": 2836
+            },
+            {
+                "label": "Station D",
+                "distance": 3272
+            }
+        ],
+        "multipliers": [
+            2,
+            1.75,
+            1.5,
+            1.25,
+            1
+        ],
+        "shooters": [
+            {
+                "bib": 1,
+                "name": "Steven Coombs",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 2,
+                "name": "Arthur Coleby",
+                "caliber": "37XC"
+            },
+            {
+                "bib": 3,
+                "name": "JP Ferriera",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 4,
+                "name": "Gert Loots",
+                "caliber": "416 Hellfire"
+            },
+            {
+                "bib": 5,
+                "name": "Werick Venter",
+                "caliber": "37XC"
+            },
+            {
+                "bib": 6,
+                "name": "Henk Rykaart",
+                "caliber": "37XC"
+            },
+            {
+                "bib": 7,
+                "name": "JD Els",
+                "caliber": "338 Lapua Mag"
+            },
+            {
+                "bib": 8,
+                "name": "DW de Klerk",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 9,
+                "name": "Thys de Beer",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 10,
+                "name": "Vernon Harms",
+                "caliber": "338 Lapua Mag"
+            },
+            {
+                "bib": 11,
+                "name": "Karl van Eck",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 12,
+                "name": "Arno van Niekerk",
+                "caliber": "416 Hellfire"
+            },
+            {
+                "bib": 13,
+                "name": "Pieter Meyer",
+                "caliber": "37XC"
+            },
+            {
+                "bib": 14,
+                "name": "Shaun Flink",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 15,
+                "name": "Floris Booysen",
+                "caliber": "338 Lapua Mag"
+            },
+            {
+                "bib": 16,
+                "name": "Brendan Fike",
+                "caliber": "37XC"
+            },
+            {
+                "bib": 17,
+                "name": "Rudi Barnard",
+                "caliber": "375 EnabELR"
+            },
+            {
+                "bib": 18,
+                "name": "Danie Koch",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 19,
+                "name": "Ed Knibbs",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 20,
+                "name": "Antonie van Rensburg",
+                "caliber": "375 CheyTac"
+            },
+            {
+                "bib": 21,
+                "name": "Johan Coetzee",
+                "caliber": "375 CheyTac"
+            }
+        ]
+    }
+}
