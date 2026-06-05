@@ -668,12 +668,19 @@
                     <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Get notified when registration opens, when squadding is live, and when your match results are published. Control exactly which notifications you receive from your settings.</p>
                 </div>
 
-                <div class="rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
+                <div class="flex flex-col rounded-2xl p-8" style="border: 1px solid var(--lp-border); background: var(--lp-surface);">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/10">
                         <x-icon name="smartphone" class="h-6 w-6 text-blue-500" />
                     </div>
                     <h3 class="mb-2 text-lg font-semibold" style="color: var(--lp-text);">Install as App</h3>
-                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Add DeadCenter to your home screen on any phone. Works as a standalone app with offline support and built-in navigation. Also available as a native Android app on the Play Store.</p>
+                    <p class="text-sm leading-relaxed" style="color: var(--lp-text-soft);">Add DeadCenter to your home screen on any phone, or install the native Android app for offline match-day scoring at the range.</p>
+                    <a href="{{ asset('downloads/deadcenter.apk') }}" download
+                       class="mt-5 inline-flex items-center justify-center gap-2 self-start rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                       style="background: var(--lp-red);">
+                        <x-icon name="download" class="h-4 w-4" />
+                        Download Android App
+                    </a>
+                    <span class="mt-2 text-xs" style="color: var(--lp-text-muted);">APK &middot; v1.0.0 &middot; ~3.7&nbsp;MB &middot; Android 8+</span>
                 </div>
             </div>
         </div>
