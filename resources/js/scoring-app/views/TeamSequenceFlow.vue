@@ -175,6 +175,9 @@
                             </span>
                             <span class="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{{ currentTeam?.name }}</span>
                         </div>
+                        <button v-if="canChangeLeadoff" @click="changeLeadoff" class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-400 hover:text-emerald-300">
+                            Change leadoff
+                        </button>
                     </div>
 
                     <!-- Gong info -->
@@ -622,20 +625,32 @@ function selectStage(idx) {
 
 async function selectTeam(teamId) {
     currentTeamId.value = teamId;
-    // If this team's stage is already underway (started, or any shots recorded),
-    // jump straight back into guided scoring — don't let the leadoff change once
-    // entry has begun. Otherwise ask who shoots first.
-    const entry = currentStage.value ? elrStore.getTeamStageEntry(teamId, currentStage.value.id) : null;
+    // Only lock the leadoff once a real shot has been entered. A bare
+    // `startedAt` (e.g. left over from a previous device or accidental tap) is
+    // not enough — MDs must always be able to pick who shoots first.
     const hasShots = legs.value.some(l => enteredShots(l).length > 0);
-    if (entry?.startedAt || hasShots) {
+    if (hasShots) {
         currentLegIndex.value = firstIncompleteLegIndex();
         currentView.value = 'scoring';
-        await ensureStarted();
     } else {
         currentView.value = 'shooter-select';
     }
     saveProgress();
 }
+
+// Always allow a leadoff change as long as no shots have been recorded for
+// this team-stage. The "Change leadoff" button in the scoring view calls this.
+function changeLeadoff() {
+    currentView.value = 'shooter-select';
+    saveProgress();
+}
+
+// True when the current team-stage has zero recorded shots — controls visibility
+// of "Change leadoff" and the safe re-pick path.
+const canChangeLeadoff = computed(() => {
+    if (!currentTeam.value || !currentStage.value) return false;
+    return !legs.value.some(l => enteredShots(l).length > 0);
+});
 
 // Team picked who leads — lock that order, start the timer and enter guided scoring.
 async function selectFirstShooter(shooterId) {
