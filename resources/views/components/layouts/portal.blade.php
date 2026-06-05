@@ -124,6 +124,12 @@
                 <div class="flex gap-4 text-sm text-muted">
                     <a href="{{ route('portal.matches', $org) }}" class="hover:text-secondary transition-colors">Matches</a>
                     <a href="{{ route('portal.leaderboard', $org) }}" class="hover:text-secondary transition-colors">Leaderboard</a>
+                    <a href="{{ asset('downloads/deadcenter.apk') }}" download
+                       class="inline-flex items-center gap-1 hover:text-secondary transition-colors"
+                       title="Download the DeadCenter native Android scoring app">
+                        <x-icon name="download" class="h-3.5 w-3.5" />
+                        <span>Android App</span>
+                    </a>
                 </div>
             </div>
         </div>

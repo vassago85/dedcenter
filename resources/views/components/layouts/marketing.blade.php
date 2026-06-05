@@ -148,6 +148,12 @@
                         <a href="{{ route('advertise') }}" class="hover:!text-white transition-colors">Advertise</a>
                     @endif
                     <a href="{{ app_url('/login') }}" class="hover:!text-white transition-colors">Sign In</a>
+                    <a href="{{ asset('downloads/deadcenter.apk') }}" download
+                       class="inline-flex items-center gap-1.5 hover:!text-white transition-colors"
+                       title="Download the DeadCenter native Android scoring app">
+                        <x-icon name="download" class="h-3.5 w-3.5" />
+                        <span>Android App</span>
+                    </a>
                     <span style="opacity: 0.5;">deadcenter.co.za</span>
                 </div>
             </div>
