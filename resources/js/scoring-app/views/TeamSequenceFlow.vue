@@ -105,6 +105,47 @@
             </div>
         </div>
 
+        <!-- STEP 2.5: WHO SHOOTS FIRST -->
+        <div v-else-if="currentView === 'shooter-select'" class="flex flex-1 flex-col px-4 py-6">
+            <div class="mx-auto w-full max-w-lg space-y-4">
+                <div class="text-center">
+                    <p class="text-xs font-medium uppercase tracking-widest text-muted">Firing order</p>
+                    <h2 class="text-xl font-bold">Who shoots first?</h2>
+                    <p class="text-sm text-muted">{{ currentStage?.label }} &mdash; {{ currentTeam?.name }}</p>
+                </div>
+
+                <div class="space-y-3">
+                    <button
+                        v-for="shooter in orderedTeamMembers"
+                        :key="shooter.id"
+                        @click="selectFirstShooter(shooter.id)"
+                        class="flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all active:scale-[0.99]"
+                        :class="suggestedFirstShooterId === shooter.id ? 'border-emerald-600 bg-emerald-600/10' : 'border-border bg-surface hover:border-emerald-500/50'"
+                    >
+                        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-surface-2 text-sm font-bold text-muted">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="flex flex-wrap items-center gap-1.5 text-sm font-bold">
+                                {{ shooter.name }}
+                                <span v-if="shooter.division" class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" :class="divisionBadgeClass(shooter.division)">{{ shooter.division }}</span>
+                                <span v-if="suggestedFirstShooterId === shooter.id" class="rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-400">Suggested</span>
+                            </p>
+                            <p class="text-xs text-muted">Leads off &mdash; fires first on every gong</p>
+                        </div>
+                        <svg class="h-5 w-5 flex-shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                    </button>
+                </div>
+
+                <button @click="enterOnGrid" class="block w-full rounded-xl border border-border py-3 text-center text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-primary">
+                    Enter all shots on a grid
+                </button>
+                <button @click="goToTeamSelect" class="block w-full py-1 text-center text-xs font-semibold text-muted transition-colors hover:text-primary">
+                    &larr; Back to teams
+                </button>
+            </div>
+        </div>
+
         <!-- STEP 3 + 4: SCORING -->
         <template v-else-if="currentView === 'scoring'">
             <!-- Progress + timer bar -->
@@ -204,7 +245,7 @@
                     </div>
                     <h2 class="text-xl font-bold">{{ currentTeam?.name }} &mdash; {{ currentStage?.label }}</h2>
                     <p v-if="currentTimedOut" class="text-sm font-semibold text-red-400">Timed out</p>
-                    <p class="text-sm text-muted">Tap any shot to correct it</p>
+                    <p class="text-sm text-muted">Tap a shot to set Hit / Miss / clear</p>
                 </div>
 
                 <!-- Team total -->
@@ -347,15 +388,41 @@ function activeMembers(team) {
     return (team?.shooters ?? []).filter(s => (s.status ?? 'active') === 'active');
 }
 
+// Team members in their base firing order (by sort_order), independent of the
+// current leadoff pick — used by the "Who shoots first?" selection screen.
+const orderedTeamMembers = computed(() =>
+    activeMembers(currentTeam.value)
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.id - b.id))
+);
+
 // ── First shooter / rotation ──
+// Non-binding leadoff suggestion for the selection screen. Prefer real rotation:
+// whoever led the *previous* stage should go second here, so suggest the other
+// shooter. Falls back to the deterministic stage-parity default.
+const suggestedFirstShooterId = computed(() => {
+    if (!currentTeam.value || !currentStage.value) return null;
+    const active = orderedTeamMembers.value;
+    if (active.length === 0) return null;
+
+    const prevStage = stages.value[currentStageIndex.value - 1];
+    if (prevStage) {
+        const prevFirst = elrStore.getTeamStageEntry(currentTeam.value.id, prevStage.id)?.firstShooterId;
+        if (prevFirst) {
+            return (active.find(s => s.id !== prevFirst) ?? active.find(s => s.id === prevFirst))?.id ?? null;
+        }
+    }
+    return defaultFirstShooterId(currentTeam.value, currentStageIndex.value);
+});
+
 const firstShooterId = computed(() => {
     if (!currentTeam.value || !currentStage.value) return null;
     // A saved entry wins so a stage in progress keeps its leadoff shooter.
     const entry = elrStore.getTeamStageEntry(currentTeam.value.id, currentStage.value.id);
     if (entry?.firstShooterId) return entry.firstShooterId;
-    // Otherwise alternate deterministically by stage: whoever led last stage
-    // goes second this stage.
-    return defaultFirstShooterId(currentTeam.value, currentStageIndex.value);
+    // No pick yet — use the (non-binding) suggested leadoff so the guided flow
+    // still has a sensible default order.
+    return suggestedFirstShooterId.value;
 });
 
 // ── Legs ──
@@ -532,7 +599,7 @@ function restoreProgress() {
         if (!raw) return false;
         const s = JSON.parse(raw);
         if (s.matchId !== props.matchId) return false;
-        const validViews = ['stage-select', 'team-select', 'scoring', 'summary'];
+        const validViews = ['stage-select', 'team-select', 'shooter-select', 'scoring', 'summary'];
         currentView.value = validViews.includes(s.view) ? s.view : 'stage-select';
         currentStageIndex.value = Math.min(s.stageIdx ?? 0, Math.max(0, stages.value.length - 1));
         currentTeamId.value = s.teamId ?? null;
@@ -555,9 +622,48 @@ function selectStage(idx) {
 
 async function selectTeam(teamId) {
     currentTeamId.value = teamId;
+    // If this team's stage is already underway (started, or any shots recorded),
+    // jump straight back into guided scoring — don't let the leadoff change once
+    // entry has begun. Otherwise ask who shoots first.
+    const entry = currentStage.value ? elrStore.getTeamStageEntry(teamId, currentStage.value.id) : null;
+    const hasShots = legs.value.some(l => enteredShots(l).length > 0);
+    if (entry?.startedAt || hasShots) {
+        currentLegIndex.value = firstIncompleteLegIndex();
+        currentView.value = 'scoring';
+        await ensureStarted();
+    } else {
+        currentView.value = 'shooter-select';
+    }
+    saveProgress();
+}
+
+// Team picked who leads — lock that order, start the timer and enter guided scoring.
+async function selectFirstShooter(shooterId) {
+    if (!currentTeam.value || !currentStage.value) return;
+    await elrStore.saveTeamStageEntry({
+        matchId: props.matchId,
+        teamId: currentTeam.value.id,
+        elrStageId: currentStage.value.id,
+        squadId: currentSquad.value?.id ?? null,
+        firstShooterId: shooterId,
+        position: teams.value.findIndex(t => t.id === currentTeam.value.id) + 1 || null,
+        startedAt: new Date().toISOString(),
+    });
     currentLegIndex.value = firstIncompleteLegIndex();
     currentView.value = 'scoring';
+    saveProgress();
+}
+
+// Skip guided entry and go straight to the editable 9-shot grid (free / out-of-
+// order entry). ensureStarted() persists the entry so legs + timer are stable.
+async function enterOnGrid() {
     await ensureStarted();
+    currentView.value = 'summary';
+    saveProgress();
+}
+
+function goToTeamSelect() {
+    currentView.value = 'team-select';
     saveProgress();
 }
 
@@ -576,7 +682,7 @@ function goToStageSelect() {
 }
 
 function handleHeaderBack() {
-    if (currentView.value === 'scoring' || currentView.value === 'summary') {
+    if (currentView.value === 'scoring' || currentView.value === 'summary' || currentView.value === 'shooter-select') {
         currentView.value = 'team-select';
         saveProgress();
     } else if (currentView.value === 'team-select') {
@@ -706,36 +812,45 @@ function goToSummary() {
     saveProgress();
 }
 
-// ── Corrections from summary ──
+// ── Editable grid (free entry + corrections) ──
 async function correctShot(shooter, target, shotNumber) {
     const shot = summaryShot(shooter.id, target.id, shotNumber);
-    // Cycle: (none/not_taken) -> hit -> miss -> hit ...
+    // Cycle: (none/not_taken) -> hit -> miss -> clear (back to not_taken).
     let next;
     if (!shot || shot.result === 'not_taken') next = 'hit';
     else if (shot.result === 'hit') next = 'miss';
-    else next = 'hit';
+    else next = 'not_taken';
 
-    await elrStore.recordShot({
-        matchId: props.matchId,
-        shooterId: shooter.id,
-        elrTargetId: target.id,
-        shotNumber,
-        result: next,
-        pointsAwarded: 0,
-        impactNumber: null,
-    });
+    if (next === 'not_taken') {
+        // Clear the slot entirely so it reads as un-shot.
+        await elrStore.removeShot({ shooterId: shooter.id, elrTargetId: target.id, shotNumber });
+    } else {
+        await elrStore.recordShot({
+            matchId: props.matchId,
+            shooterId: shooter.id,
+            elrTargetId: target.id,
+            shotNumber,
+            result: next,
+            pointsAwarded: 0,
+            impactNumber: null,
+        });
+    }
     await persistLeg({ shooter, target, shots: target.max_shots || 3 });
 
-    // A correction after completion reopens the team's stage entry server-side;
-    // mirror that locally so the summary reflects the reopened state.
+    // Only an edit to an *already completed* team reopens its stage entry
+    // (mirrors the server). During pre-completion grid entry we leave the entry
+    // open so the team isn't marked done after the first tap.
     if (currentTeam.value && currentStage.value) {
-        await elrStore.saveTeamStageEntry({
-            matchId: props.matchId,
-            teamId: currentTeam.value.id,
-            elrStageId: currentStage.value.id,
-            completedAt: new Date().toISOString(),
-            timedOut: currentTimedOut.value,
-        });
+        const entry = elrStore.getTeamStageEntry(currentTeam.value.id, currentStage.value.id);
+        if (entry?.completedAt) {
+            await elrStore.saveTeamStageEntry({
+                matchId: props.matchId,
+                teamId: currentTeam.value.id,
+                elrStageId: currentStage.value.id,
+                completedAt: new Date().toISOString(),
+                timedOut: currentTimedOut.value,
+            });
+        }
     }
     elrStore.syncShots();
 }
