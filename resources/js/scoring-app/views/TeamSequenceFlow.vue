@@ -148,14 +148,20 @@
 
         <!-- STEP 3 + 4: SCORING -->
         <template v-else-if="currentView === 'scoring'">
-            <!-- Progress + timer bar -->
+            <!-- Progress + timer + layout toggle -->
             <div class="bg-surface px-4 py-2">
                 <div class="mx-auto max-w-lg">
-                    <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center justify-between gap-3 text-xs">
                         <span class="text-muted">Step {{ currentLegIndex + 1 }} of {{ legs.length }}</span>
-                        <span v-if="timeLimitSeconds" class="font-bold tabular-nums" :class="timerCritical ? 'text-red-400' : timerWarning ? 'text-amber-400' : 'text-emerald-400'">
-                            {{ formattedTime }}
-                        </span>
+                        <div class="ml-auto flex items-center gap-3">
+                            <div class="flex rounded-full bg-surface-2 p-0.5">
+                                <button @click="setScoringLayout('guided')" class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'guided' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Guided</button>
+                                <button @click="setScoringLayout('grid')" class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'grid' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Full stage</button>
+                            </div>
+                            <span v-if="timeLimitSeconds" class="font-bold tabular-nums" :class="timerCritical ? 'text-red-400' : timerWarning ? 'text-amber-400' : 'text-emerald-400'">
+                                {{ formattedTime }}
+                            </span>
+                        </div>
                     </div>
                     <div class="mt-1 h-1.5 rounded-full bg-surface-2">
                         <div class="h-full rounded-full bg-emerald-500 transition-all duration-300" :style="{ width: legProgressPercent + '%' }"></div>
@@ -239,8 +245,27 @@
             </main>
         </template>
 
-        <!-- STEP 4: STAGE SUMMARY -->
-        <div v-else-if="currentView === 'summary'" class="flex flex-1 flex-col px-4 py-6">
+        <!-- STEP 4: STAGE SUMMARY / FULL-STAGE GRID -->
+        <template v-else-if="currentView === 'summary'">
+            <!-- Layout toggle + timer mirror the scoring view so MDs can flip freely. -->
+            <div class="bg-surface px-4 py-2">
+                <div class="mx-auto max-w-lg">
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <span class="text-muted">{{ currentTeam?.name }} &mdash; {{ currentStage?.label }}</span>
+                        <div class="ml-auto flex items-center gap-3">
+                            <div class="flex rounded-full bg-surface-2 p-0.5">
+                                <button @click="switchToGuidedFromGrid" class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'guided' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Guided</button>
+                                <button @click="setScoringLayout('grid')" class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'grid' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Full stage</button>
+                            </div>
+                            <span v-if="timeLimitSeconds && !currentEntry?.completedAt" class="font-bold tabular-nums" :class="timerCritical ? 'text-red-400' : timerWarning ? 'text-amber-400' : 'text-emerald-400'">
+                                {{ formattedTime }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <div class="flex flex-1 flex-col px-4 py-6">
             <div class="mx-auto w-full max-w-lg space-y-4">
                 <div class="text-center">
                     <div class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-600/20">
@@ -289,6 +314,7 @@
                 </div>
             </div>
         </div>
+        </template>
 
         <ScoringSponsorship />
     </div>
@@ -328,6 +354,41 @@ let timerInterval = null;
 let syncInterval = null;
 
 const STATE_KEY = 'dc_elr_team_state';
+const LAYOUT_KEY = 'dc_elr_scoring_layout';
+
+// 'guided'  = one-shooter-at-a-time flow (default).
+// 'grid'    = whole-stage editable grid (both shooters x all gongs x all shots).
+// Persisted per device — MDs typically pick one and stick with it for the match.
+const scoringLayout = ref(
+    (typeof localStorage !== 'undefined' && localStorage.getItem(LAYOUT_KEY)) === 'grid' ? 'grid' : 'guided'
+);
+
+function setScoringLayout(layout) {
+    if (layout !== 'guided' && layout !== 'grid') return;
+    scoringLayout.value = layout;
+    try { localStorage.setItem(LAYOUT_KEY, layout); } catch { /* ignore */ }
+
+    // Flip the active view to match the chosen layout (only while scoring a team).
+    if (currentTeamId.value && currentStage.value) {
+        if (layout === 'grid' && currentView.value === 'scoring') {
+            // Jump into the grid for the current team-stage.
+            // ensureStarted() keeps the timer accurate; fire-and-forget is fine.
+            ensureStarted();
+            currentView.value = 'summary';
+            saveProgress();
+        } else if (layout === 'guided' && currentView.value === 'summary') {
+            currentLegIndex.value = firstIncompleteLegIndex();
+            currentView.value = 'scoring';
+            saveProgress();
+        }
+    }
+}
+
+// Toggle handler that's safe to call from the grid even when guided mode is the
+// chosen pref but the user landed here via shooter-select's "Enter on grid".
+function switchToGuidedFromGrid() {
+    setScoringLayout('guided');
+}
 
 // ── Match data ──
 const match = computed(() => matchStore.currentMatch);
@@ -652,7 +713,9 @@ const canChangeLeadoff = computed(() => {
     return !legs.value.some(l => enteredShots(l).length > 0);
 });
 
-// Team picked who leads — lock that order, start the timer and enter guided scoring.
+// Team picked who leads — lock that order, start the timer and enter the
+// shooter's preferred scoring layout (guided one-at-a-time, or the whole-stage
+// grid with both shooters visible).
 async function selectFirstShooter(shooterId) {
     if (!currentTeam.value || !currentStage.value) return;
     await elrStore.saveTeamStageEntry({
@@ -665,14 +728,18 @@ async function selectFirstShooter(shooterId) {
         startedAt: new Date().toISOString(),
     });
     currentLegIndex.value = firstIncompleteLegIndex();
-    currentView.value = 'scoring';
+    currentView.value = scoringLayout.value === 'grid' ? 'summary' : 'scoring';
     saveProgress();
 }
 
-// Skip guided entry and go straight to the editable 9-shot grid (free / out-of-
-// order entry). ensureStarted() persists the entry so legs + timer are stable.
+// Skip guided entry and go straight to the editable whole-stage grid (both
+// shooters x all gongs x all shots). ensureStarted() persists the entry so
+// legs + timer are stable. Flipping the persisted layout means the toggle
+// pill at the top reflects the user's choice.
 async function enterOnGrid() {
     await ensureStarted();
+    scoringLayout.value = 'grid';
+    try { localStorage.setItem(LAYOUT_KEY, 'grid'); } catch { /* ignore */ }
     currentView.value = 'summary';
     saveProgress();
 }
