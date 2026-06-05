@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('login', [AuthController::class, 'login']);
 
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
+Route::get('matches/{match}/elr-rankings', [\App\Http\Controllers\Api\ElrRankingController::class, 'show']);
 
 Route::get('matches/{match}/badges', function (ShootingMatch $match) {
     $badges = UserAchievement::where('match_id', $match->id)
@@ -123,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
     Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
     Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
+    Route::post('matches/{match}/elr-team-stage', [ElrScoreController::class, 'teamStage']);
 
     Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);
     Route::get('matches/{match}/stages/{stage}/scores', [PrsScoreController::class, 'show']);

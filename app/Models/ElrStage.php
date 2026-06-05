@@ -40,6 +40,11 @@ class ElrStage extends Model
         return $this->hasMany(ElrTarget::class)->orderBy('sort_order');
     }
 
+    public function divisionRanges(): HasMany
+    {
+        return $this->hasMany(ElrStageDivisionRange::class);
+    }
+
     public function scoringProfile(): BelongsTo
     {
         return $this->belongsTo(ElrScoringProfile::class, 'elr_scoring_profile_id');

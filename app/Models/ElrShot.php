@@ -15,6 +15,7 @@ class ElrShot extends Model
         'shooter_id',
         'elr_target_id',
         'shot_number',
+        'impact_number',
         'result',
         'points_awarded',
         'distance_at_score',
@@ -31,6 +32,7 @@ class ElrShot extends Model
     {
         return [
             'shot_number' => 'integer',
+            'impact_number' => 'integer',
             'result' => ElrShotResult::class,
             'points_awarded' => 'decimal:2',
             'distance_at_score' => 'integer',

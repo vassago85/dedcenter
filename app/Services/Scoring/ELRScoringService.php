@@ -242,9 +242,63 @@ class ELRScoringService implements ScoringEngineInterface
             'match' => $this->matchMeta($match),
             'stages' => $this->serializeStages($stages),
             'standings' => $ranked->toArray(),
+            'teams' => $this->buildTeamStandings($match, $ranked),
             'divisions' => $this->serializeDivisions($match),
             'active_division' => $divisionFilter,
         ];
+    }
+
+    /**
+     * Per-team leaderboard for team gong-sequence matches. Returns [] for
+     * every other mode so the scoreboard can hide the team tab cleanly.
+     * Built from the already-ranked individual standings so it costs no
+     * extra queries beyond loading team names/divisions.
+     *
+     * @param  \Illuminate\Support\Collection  $standings  ranked shooter rows
+     */
+    private function buildTeamStandings(ShootingMatch $match, \Illuminate\Support\Collection $standings): array
+    {
+        if (! $match->elrEngagementMode()->isTeamSequence()) {
+            return [];
+        }
+
+        $teamMeta = $match->teams()->with('shooters.division')->get()->keyBy('id');
+
+        $teams = $standings
+            ->filter(fn ($s) => ! empty($s['team_id']))
+            ->groupBy('team_id')
+            ->map(function ($members, $teamId) use ($teamMeta) {
+                $members = $members->sortByDesc('total_points')->values();
+                $meta = $teamMeta->get((int) $teamId);
+
+                return [
+                    'team_id' => (int) $teamId,
+                    'team' => $meta?->name ?? ($members[0]['team'] ?? null),
+                    'division_category' => $meta?->divisionCategoryLabel(),
+                    'team_total_score' => round($members->sum('total_points'), 2),
+                    'team_total_hits' => $members->sum('total_hits'),
+                    'shooter_1_id' => $members[0]['id'] ?? null,
+                    'shooter_1_name' => $members[0]['name'] ?? null,
+                    'shooter_1_score' => $members[0]['total_points'] ?? 0,
+                    'shooter_2_id' => $members[1]['id'] ?? null,
+                    'shooter_2_name' => $members[1]['name'] ?? null,
+                    'shooter_2_score' => $members[1]['total_points'] ?? 0,
+                    'members' => $members->map(fn ($m) => [
+                        'id' => $m['id'],
+                        'name' => $m['name'],
+                        'division' => $m['division'],
+                        'total_points' => $m['total_points'],
+                    ])->all(),
+                ];
+            })
+            ->sortByDesc('team_total_score')
+            ->values();
+
+        return $teams->map(function ($team, $index) {
+            $team['rank'] = $index + 1;
+
+            return $team;
+        })->all();
     }
 
     /**
@@ -360,6 +414,42 @@ class ELRScoringService implements ScoringEngineInterface
                 'synced_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Recompute impact-based points for every shot a shooter has on a single
+     * gong (team gong-sequence mode). Hits are numbered 1..N in shot order
+     * and take the multiplier for that IMPACT; misses get impact_number null
+     * and zero points so they never consume a multiplier slot. Idempotent —
+     * safe to call after any correction to the gong.
+     *
+     * Only rows whose impact_number / points / multiplier actually change are
+     * saved, so the audit trail isn't polluted with no-op writes.
+     */
+    public function recomputeTargetImpacts(int $shooterId, ElrTarget $target): void
+    {
+        $shots = ElrShot::where('shooter_id', $shooterId)
+            ->where('elr_target_id', $target->id)
+            ->orderBy('shot_number')
+            ->get();
+
+        $impact = 0;
+        foreach ($shots as $shot) {
+            if ($shot->result === ElrShotResult::Hit) {
+                $impact++;
+                $shot->impact_number = $impact;
+                $shot->multiplier_at_score = $target->multiplierForShot($impact);
+                $shot->points_awarded = $target->pointsForImpact($impact);
+            } else {
+                $shot->impact_number = null;
+                $shot->multiplier_at_score = 0;
+                $shot->points_awarded = 0;
+            }
+
+            if ($shot->isDirty()) {
+                $shot->save();
+            }
+        }
     }
 
     /**

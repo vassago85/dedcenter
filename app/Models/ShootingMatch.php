@@ -41,7 +41,9 @@ class ShootingMatch extends Model
         'elr_engagement_mode',
         'elr_targets_per_shooter',
         'elr_shots_per_target',
+        'elr_team_time_limit_seconds',
         'elr_distance_based_scoring',
+        'alternate_scoring',
         'notes',
         'public_bio',
         'created_by',
@@ -99,7 +101,9 @@ class ShootingMatch extends Model
             'elr_engagement_mode' => ElrEngagementMode::class,
             'elr_targets_per_shooter' => 'integer',
             'elr_shots_per_target' => 'integer',
+            'elr_team_time_limit_seconds' => 'integer',
             'elr_distance_based_scoring' => 'boolean',
+            'alternate_scoring' => 'boolean',
         ];
     }
 
@@ -174,6 +178,18 @@ class ShootingMatch extends Model
     public function elrScoringProfile(): BelongsTo
     {
         return $this->belongsTo(ElrScoringProfile::class, 'elr_scoring_profile_id');
+    }
+
+    public function elrTeamStageEntries(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            ElrTeamStageEntry::class,
+            ElrStage::class,
+            'match_id',
+            'elr_stage_id',
+            'id',
+            'id',
+        );
     }
 
     public function prsShots(): HasMany

@@ -108,6 +108,12 @@ new #[Layout('components.layouts.app')]
     public string $elrEngagementMode = 'target_by_target';
     public string $elrTargetsPerShooter = '';
     public string $elrShotsPerTarget = '3';
+    public string $elrTeamTimeLimitMinutes = '';
+    public bool $alternateScoring = false;
+
+    // Per-stage, per-division gong ranges (team gong-sequence mode).
+    // Shape: gongRanges[stageId][divisionId] = ['start' => '', 'end' => ''].
+    public array $gongRanges = [];
 
     public function mount(?ShootingMatch $match = null): void
     {
@@ -132,7 +138,12 @@ new #[Layout('components.layouts.app')]
             $this->elrEngagementMode = $match->elr_engagement_mode?->value ?? 'target_by_target';
             $this->elrTargetsPerShooter = $match->elr_targets_per_shooter !== null ? (string) $match->elr_targets_per_shooter : '';
             $this->elrShotsPerTarget = (string) ($match->elr_shots_per_target ?? 3);
+            $this->elrTeamTimeLimitMinutes = $match->elr_team_time_limit_seconds !== null
+                ? rtrim(rtrim((string) round($match->elr_team_time_limit_seconds / 60, 2), '0'), '.')
+                : ($match->elr_engagement_mode?->value === 'team_sequence' ? '12' : '');
+            $this->alternateScoring = (bool) $match->alternate_scoring;
             $this->elrTargetMaxShots = (string) ($match->elr_shots_per_target ?? 3);
+            $this->hydrateGongRanges();
             $this->loadCustomFields();
         }
     }
@@ -740,12 +751,14 @@ new #[Layout('components.layouts.app')]
         $this->elrStageLabel = '';
         $this->elrStageType = 'ladder';
         $this->match->refresh();
+        $this->hydrateGongRanges();
     }
 
     public function removeElrStage(int $stageId): void
     {
         $this->match->elrStages()->where('id', $stageId)->delete();
         $this->match->refresh();
+        $this->hydrateGongRanges();
     }
 
     public function addElrTarget(): void
@@ -775,13 +788,25 @@ new #[Layout('components.layouts.app')]
         $this->elrTargetMaxShots = '3';
         $this->elrTargetMustHit = true;
         $this->addingElrTargetToStageId = null;
+        // Adding a gong shifts ordinal positions, so re-materialise the pivot.
+        app(\App\Services\Scoring\ElrTeamRangeService::class)->materializeStage($stage->fresh(['targets', 'divisionRanges']));
         $this->match->refresh();
+        $this->hydrateGongRanges();
     }
 
     public function removeElrTarget(int $targetId): void
     {
+        $target = \App\Models\ElrTarget::find($targetId);
+        $stageId = $target?->elr_stage_id;
         \App\Models\ElrTarget::where('id', $targetId)->delete();
+        if ($stageId) {
+            $stage = \App\Models\ElrStage::with(['targets', 'divisionRanges'])->find($stageId);
+            if ($stage) {
+                app(\App\Services\Scoring\ElrTeamRangeService::class)->materializeStage($stage);
+            }
+        }
         $this->match->refresh();
+        $this->hydrateGongRanges();
     }
 
     public function applyElrTemplate(): void
@@ -843,9 +868,10 @@ new #[Layout('components.layouts.app')]
     public function updateElrSettings(): void
     {
         $validated = $this->validate([
-            'elrEngagementMode' => 'required|in:target_by_target,full_string',
+            'elrEngagementMode' => 'required|in:target_by_target,full_string,team_sequence',
             'elrTargetsPerShooter' => 'nullable|integer|min:1|max:50',
             'elrShotsPerTarget' => 'required|integer|min:1|max:50',
+            'elrTeamTimeLimitMinutes' => 'nullable|numeric|min:0|max:120',
         ]);
 
         $this->match->update([
@@ -854,11 +880,66 @@ new #[Layout('components.layouts.app')]
                 ? (int) $validated['elrTargetsPerShooter']
                 : null,
             'elr_shots_per_target' => (int) $validated['elrShotsPerTarget'],
+            'elr_team_time_limit_seconds' => $validated['elrTeamTimeLimitMinutes'] !== '' && $validated['elrTeamTimeLimitMinutes'] !== null && (float) $validated['elrTeamTimeLimitMinutes'] > 0
+                ? (int) round((float) $validated['elrTeamTimeLimitMinutes'] * 60)
+                : null,
+            'alternate_scoring' => $this->alternateScoring,
         ]);
 
         $this->elrTargetMaxShots = (string) $validated['elrShotsPerTarget'];
         $this->match->refresh();
         Flux::toast('ELR engagement settings saved.', variant: 'success');
+    }
+
+    /**
+     * Rebuild the editable gong-range matrix from stored ranges so the team
+     * gong-sequence editor shows the current per-stage, per-division config.
+     */
+    public function hydrateGongRanges(): void
+    {
+        $this->gongRanges = [];
+
+        if (! $this->match || ! $this->match->exists) {
+            return;
+        }
+
+        $stages = $this->match->elrStages()->with('divisionRanges')->get();
+        $divisions = $this->match->divisions()->orderBy('sort_order')->get();
+
+        foreach ($stages as $stage) {
+            $ranges = $stage->divisionRanges->keyBy('match_division_id');
+            foreach ($divisions as $div) {
+                $r = $ranges->get($div->id);
+                $this->gongRanges[$stage->id][$div->id] = [
+                    'start' => $r?->gong_start !== null ? (string) $r->gong_start : '',
+                    'end' => $r?->gong_end !== null ? (string) $r->gong_end : '',
+                ];
+            }
+        }
+    }
+
+    public function saveStageRanges(int $stageId): void
+    {
+        $stage = \App\Models\ElrStage::with('targets')->findOrFail($stageId);
+        $gongCount = $stage->targets->count();
+        $service = app(\App\Services\Scoring\ElrTeamRangeService::class);
+
+        foreach ($this->match->divisions()->get() as $div) {
+            $vals = $this->gongRanges[$stageId][$div->id] ?? null;
+            $start = ($vals['start'] ?? '') === '' ? null : (int) $vals['start'];
+            $end = ($vals['end'] ?? '') === '' ? null : (int) $vals['end'];
+
+            if ($start !== null && $end !== null && $gongCount > 0) {
+                $start = max(1, min($start, $gongCount));
+                $end = max(1, min($end, $gongCount));
+            }
+
+            $service->saveRange($stage, $div->id, $start, $end);
+        }
+
+        $this->match->refresh();
+        $this->hydrateGongRanges();
+        Flux::toast('Division gong ranges saved.', variant: 'success');
     }
 
     // ── Squads ──
@@ -1006,6 +1087,7 @@ new #[Layout('components.layouts.app')]
         $maxSort = $this->match->divisions()->max('sort_order') ?? 0;
         $this->match->divisions()->create(['name' => $this->divisionName, 'sort_order' => $maxSort + 1]);
         $this->reset('divisionName');
+        $this->hydrateGongRanges();
         Flux::toast('Division added.', variant: 'success');
     }
 
@@ -1014,6 +1096,7 @@ new #[Layout('components.layouts.app')]
         $maxSort = $this->match->divisions()->max('sort_order') ?? 0;
         $this->match->divisions()->create(['name' => 'Minor (.30 cal and below)', 'sort_order' => $maxSort + 1]);
         $this->match->divisions()->create(['name' => 'Major (above .30 cal)', 'sort_order' => $maxSort + 2]);
+        $this->hydrateGongRanges();
         Flux::toast('Minor/Major divisions added.', variant: 'success');
     }
 
@@ -1026,6 +1109,7 @@ new #[Layout('components.layouts.app')]
     public function deleteDivision(int $id): void
     {
         MatchDivision::where('id', $id)->where('match_id', $this->match->id)->delete();
+        $this->hydrateGongRanges();
         Flux::toast('Division deleted.', variant: 'success');
     }
 
@@ -1933,7 +2017,7 @@ new #[Layout('components.layouts.app')]
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs text-muted mb-1.5">How shooters engage targets</label>
-                        <div class="grid gap-2 sm:grid-cols-2">
+                        <div class="grid gap-2 sm:grid-cols-3">
                             <button type="button" wire:click="$set('elrEngagementMode', 'target_by_target')"
                                     class="rounded-lg border p-3 text-left transition-colors {{ $elrEngagementMode === 'target_by_target' ? 'border-emerald-500 bg-emerald-600/10' : 'border-border bg-app hover:border-emerald-500/50' }}">
                                 <span class="block text-sm font-semibold text-primary">Target by target</span>
@@ -1944,8 +2028,29 @@ new #[Layout('components.layouts.app')]
                                 <span class="block text-sm font-semibold text-primary">Full string</span>
                                 <span class="mt-0.5 block text-xs text-muted">Engage all assigned targets as one string, scored on one screen.</span>
                             </button>
+                            <button type="button" wire:click="$set('elrEngagementMode', 'team_sequence')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $elrEngagementMode === 'team_sequence' ? 'border-emerald-500 bg-emerald-600/10' : 'border-border bg-app hover:border-emerald-500/50' }}">
+                                <span class="block text-sm font-semibold text-primary">Team gong sequence</span>
+                                <span class="mt-0.5 block text-xs text-muted">Two-shooter teams; calibre gates gongs. S1 x3 then S2 x3 per shared gong.</span>
+                            </button>
                         </div>
                     </div>
+
+                    @if($elrEngagementMode === 'team_sequence')
+                    <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/5 p-3">
+                        <label class="block text-xs text-muted mb-1">Time limit per team (minutes)</label>
+                        <input type="number" wire:model="elrTeamTimeLimitMinutes" placeholder="12" min="0" max="120" step="0.5"
+                               class="w-full rounded-lg border border-border bg-app px-3 py-2 text-sm text-primary placeholder-muted focus:border-accent focus:outline-none" />
+                        <p class="mt-1 text-[11px] text-muted">Countdown for each team's whole turn at a stage. Defaults to 12 minutes; leave blank for no limit. Gong assignment uses each shooter's registered division and the per-stage gong ranges configured below.</p>
+                    </div>
+                    <label class="flex items-start gap-2 rounded-lg border border-border bg-app p-3 cursor-pointer">
+                        <input type="checkbox" wire:model="alternateScoring" class="mt-0.5 rounded border-border bg-app text-accent focus:ring-accent" />
+                        <span>
+                            <span class="block text-sm font-medium text-primary">Alternate scoring</span>
+                            <span class="block text-[11px] text-muted">Captured for a future alternate team scoring mode. No change to scoring yet — teams currently score individually.</span>
+                        </span>
+                    </label>
+                    @endif
 
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
@@ -2012,6 +2117,41 @@ new #[Layout('components.layouts.app')]
                     <div class="px-6 py-3 text-sm text-muted">No targets yet.</div>
                     @endforelse
                 </div>
+
+                {{-- Per-division gong ranges (team gong-sequence mode) --}}
+                @if($elrEngagementMode === 'team_sequence')
+                <div class="border-t border-border bg-surface-2/20 px-6 py-3">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-muted">Division gong ranges</span>
+                        <span class="text-[11px] text-muted">Gongs 1–{{ $stage->targets->count() }} (by order above)</span>
+                    </div>
+                    @if($divisions->isEmpty())
+                        <p class="text-xs text-muted">Add divisions on the Configuration tab to set per-division gong ranges.</p>
+                    @elseif($stage->targets->isEmpty())
+                        <p class="text-xs text-muted">Add gongs (targets) above before assigning division ranges.</p>
+                    @else
+                        <div class="space-y-2">
+                            @foreach($divisions as $div)
+                            <div class="flex flex-wrap items-center gap-2" wire:key="range-{{ $stage->id }}-{{ $div->id }}">
+                                <span class="w-40 truncate text-sm text-primary">{{ $div->name }}</span>
+                                <span class="text-xs text-muted">Start</span>
+                                <input type="number" min="1" max="{{ $stage->targets->count() }}"
+                                       wire:model="gongRanges.{{ $stage->id }}.{{ $div->id }}.start"
+                                       class="w-16 rounded-lg border border-border bg-app px-2 py-1 text-sm text-primary focus:border-accent focus:outline-none" />
+                                <span class="text-xs text-muted">End</span>
+                                <input type="number" min="1" max="{{ $stage->targets->count() }}"
+                                       wire:model="gongRanges.{{ $stage->id }}.{{ $div->id }}.end"
+                                       class="w-16 rounded-lg border border-border bg-app px-2 py-1 text-sm text-primary focus:border-accent focus:outline-none" />
+                            </div>
+                            @endforeach
+                        </div>
+                        <div class="mt-3 flex items-center gap-3">
+                            <button wire:click="saveStageRanges({{ $stage->id }})" class="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover">Save Ranges</button>
+                            <span class="text-[11px] text-muted">Leave both blank to clear a division. Ranges may overlap between divisions.</span>
+                        </div>
+                    @endif
+                </div>
+                @endif
 
                 {{-- Add target form --}}
                 @if($addingElrTargetToStageId === $stage->id)

@@ -15,6 +15,7 @@ export const useElrScoringStore = defineStore('elrScoring', {
     state: () => ({
         matchId: null,
         shots: new Map(),
+        teamStageEntries: new Map(), // key: `${teamId}-${elrStageId}`
         syncing: false,
         pendingCount: 0,
         deviceId: generateDeviceId(),
@@ -33,12 +34,18 @@ export const useElrScoringStore = defineStore('elrScoring', {
             }
             return result.sort((a, b) => a.shotNumber - b.shotNumber);
         },
+
+        teamStageKey: () => (teamId, elrStageId) => `${teamId}-${elrStageId}`,
+
+        getTeamStageEntry: (state) => (teamId, elrStageId) =>
+            state.teamStageEntries.get(`${teamId}-${elrStageId}`) ?? null,
     },
 
     actions: {
         async initForMatch(matchId) {
             this.matchId = matchId;
             this.shots = new Map();
+            this.teamStageEntries = new Map();
             this.authExpired = false;
 
             try {
@@ -51,16 +58,26 @@ export const useElrScoringStore = defineStore('elrScoring', {
                 // elrShots table may not exist yet
             }
 
+            try {
+                const localEntries = await db.elrTeamStageEntries.where('matchId').equals(matchId).toArray();
+                for (const e of localEntries) {
+                    this.teamStageEntries.set(`${e.teamId}-${e.elrStageId}`, e);
+                }
+            } catch {
+                // table may not exist yet
+            }
+
             await this.updatePendingCount();
         },
 
-        async recordShot({ matchId, shooterId, elrTargetId, shotNumber, result, pointsAwarded }) {
+        async recordShot({ matchId, shooterId, elrTargetId, shotNumber, result, pointsAwarded, impactNumber = null }) {
             const key = `${shooterId}-${elrTargetId}-${shotNumber}`;
             const shot = {
                 shooterId,
                 elrTargetId,
                 matchId: matchId || this.matchId,
                 shotNumber,
+                impactNumber,
                 result,
                 pointsAwarded,
                 deviceId: this.deviceId,
@@ -80,6 +97,70 @@ export const useElrScoringStore = defineStore('elrScoring', {
             await this.updatePendingCount();
         },
 
+        // Undo a shot. Unsynced shots are deleted outright (never sent); a
+        // shot already synced to the server is neutralized with a not_taken
+        // overwrite (0 points, no impact) so the server can't keep stale
+        // points, while the UI treats the slot as open for re-entry.
+        async removeShot({ shooterId, elrTargetId, shotNumber }) {
+            const key = `${shooterId}-${elrTargetId}-${shotNumber}`;
+            const existing = this.shots.get(key);
+            this.shots.delete(key);
+
+            try {
+                await db.elrShots.where('[shooterId+elrTargetId+shotNumber]').equals([shooterId, elrTargetId, shotNumber]).delete();
+            } catch {
+                // db not ready
+            }
+
+            if (existing?.synced) {
+                await this.recordShot({
+                    matchId: this.matchId,
+                    shooterId,
+                    elrTargetId,
+                    shotNumber,
+                    result: 'not_taken',
+                    pointsAwarded: 0,
+                    impactNumber: null,
+                });
+            }
+
+            await this.updatePendingCount();
+        },
+
+        // Upsert a team's per-stage lifecycle row (timer + rotation). Merges
+        // with any existing entry so partial updates (e.g. just completed_at)
+        // don't wipe started_at / first_shooter.
+        async saveTeamStageEntry({ matchId, teamId, elrStageId, squadId, firstShooterId, position, startedAt, completedAt, timedOut }) {
+            const key = `${teamId}-${elrStageId}`;
+            const existing = this.teamStageEntries.get(key) ?? {};
+            const entry = {
+                ...existing,
+                matchId: matchId || this.matchId,
+                teamId,
+                elrStageId,
+                squadId: squadId !== undefined ? squadId : existing.squadId ?? null,
+                firstShooterId: firstShooterId !== undefined ? firstShooterId : existing.firstShooterId ?? null,
+                position: position !== undefined ? position : existing.position ?? null,
+                startedAt: startedAt !== undefined ? startedAt : existing.startedAt ?? null,
+                completedAt: completedAt !== undefined ? completedAt : existing.completedAt ?? null,
+                timedOut: timedOut !== undefined ? timedOut : existing.timedOut ?? false,
+                deviceId: this.deviceId,
+                synced: false,
+            };
+
+            this.teamStageEntries.set(key, entry);
+
+            try {
+                await db.elrTeamStageEntries
+                    .where('[teamId+elrStageId]').equals([teamId, elrStageId]).delete();
+                await db.elrTeamStageEntries.add(entry);
+            } catch {
+                // db not ready
+            }
+
+            await this.updatePendingCount();
+        },
+
         async refreshShots(matchId) {
             const merged = new Map();
             try {
@@ -90,16 +171,33 @@ export const useElrScoringStore = defineStore('elrScoring', {
                 }
             } catch { /* table may not exist */ }
             this.shots = merged;
+
+            const mergedEntries = new Map();
+            try {
+                const localEntries = await db.elrTeamStageEntries.where('matchId').equals(matchId).toArray();
+                for (const e of localEntries) {
+                    mergedEntries.set(`${e.teamId}-${e.elrStageId}`, e);
+                }
+            } catch { /* table may not exist */ }
+            this.teamStageEntries = mergedEntries;
+
             await this.updatePendingCount();
         },
 
         async updatePendingCount() {
             try {
-                const pending = await db.elrShots
+                const pendingShots = await db.elrShots
                     .where('matchId').equals(this.matchId)
                     .filter(s => !s.synced)
                     .count();
-                this.pendingCount = pending;
+                let pendingEntries = 0;
+                try {
+                    pendingEntries = await db.elrTeamStageEntries
+                        .where('matchId').equals(this.matchId)
+                        .filter(e => !e.synced)
+                        .count();
+                } catch { /* table may not exist */ }
+                this.pendingCount = pendingShots + pendingEntries;
             } catch {
                 this.pendingCount = 0;
             }
@@ -115,30 +213,31 @@ export const useElrScoringStore = defineStore('elrScoring', {
                     .filter(s => !s.synced)
                     .toArray();
 
-                if (!unsynced.length) { this.syncing = false; return; }
+                if (unsynced.length) {
+                    const payload = {
+                        shots: unsynced.map(s => ({
+                            shooter_id: s.shooterId,
+                            elr_target_id: s.elrTargetId,
+                            shot_number: s.shotNumber,
+                            result: s.result,
+                            device_id: s.deviceId,
+                            recorded_at: s.recordedAt,
+                        })),
+                    };
 
-                const payload = {
-                    shots: unsynced.map(s => ({
-                        shooter_id: s.shooterId,
-                        elr_target_id: s.elrTargetId,
-                        shot_number: s.shotNumber,
-                        result: s.result,
-                        device_id: s.deviceId,
-                        recorded_at: s.recordedAt,
-                    })),
-                };
+                    await axios.post(`/api/matches/${this.matchId}/elr-shots`, payload);
 
-                await axios.post(`/api/matches/${this.matchId}/elr-shots`, payload);
-
-                for (const s of unsynced) {
-                    await db.elrShots.update(s.localId, { synced: true });
-                    const key = `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
-                    const current = this.shots.get(key);
-                    if (current) {
-                        this.shots.set(key, { ...current, synced: true });
+                    for (const s of unsynced) {
+                        await db.elrShots.update(s.localId, { synced: true });
+                        const key = `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
+                        const current = this.shots.get(key);
+                        if (current) {
+                            this.shots.set(key, { ...current, synced: true });
+                        }
                     }
                 }
 
+                await this.syncTeamStageEntries();
                 await this.updatePendingCount();
             } catch (e) {
                 if (e.response?.status === 401 || e.response?.status === 419) {
@@ -148,6 +247,47 @@ export const useElrScoringStore = defineStore('elrScoring', {
                 }
             } finally {
                 this.syncing = false;
+            }
+        },
+
+        async syncTeamStageEntries() {
+            let unsynced = [];
+            try {
+                unsynced = await db.elrTeamStageEntries
+                    .where('matchId').equals(this.matchId)
+                    .filter(e => !e.synced)
+                    .toArray();
+            } catch {
+                return; // table may not exist
+            }
+
+            for (const e of unsynced) {
+                try {
+                    await axios.post(`/api/matches/${this.matchId}/elr-team-stage`, {
+                        team_id: e.teamId,
+                        elr_stage_id: e.elrStageId,
+                        squad_id: e.squadId ?? null,
+                        first_shooter_id: e.firstShooterId ?? null,
+                        position: e.position ?? null,
+                        started_at: e.startedAt ?? null,
+                        completed_at: e.completedAt ?? null,
+                        timed_out: !!e.timedOut,
+                        device_id: e.deviceId,
+                    });
+
+                    await db.elrTeamStageEntries.update(e.localId, { synced: true });
+                    const key = `${e.teamId}-${e.elrStageId}`;
+                    const current = this.teamStageEntries.get(key);
+                    if (current) {
+                        this.teamStageEntries.set(key, { ...current, synced: true });
+                    }
+                } catch (err) {
+                    if (err.response?.status === 401 || err.response?.status === 419) {
+                        this.authExpired = true;
+                        return;
+                    }
+                    // leave unsynced; will retry on next sync
+                }
             }
         },
     },

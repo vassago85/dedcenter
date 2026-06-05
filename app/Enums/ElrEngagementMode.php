@@ -17,11 +17,22 @@ enum ElrEngagementMode: string
      */
     case FullString = 'full_string';
 
+    /**
+     * Team-based gong sequence (Peregrine team event). Two shooters per
+     * team; calibre class (Minor/Major) gates which gongs each shooter
+     * engages. For every shared gong, shooter 1 fires 3 shots, then
+     * shooter 2 fires 3 shots, before advancing to the next gong. A
+     * per-team countdown timer bounds the team's turn, and points use
+     * impact-based multipliers (a miss never consumes a multiplier slot).
+     */
+    case TeamSequence = 'team_sequence';
+
     public function label(): string
     {
         return match ($this) {
             self::TargetByTarget => 'Target by target',
             self::FullString => 'Full string',
+            self::TeamSequence => 'Team gong sequence',
         };
     }
 
@@ -30,6 +41,12 @@ enum ElrEngagementMode: string
         return match ($this) {
             self::TargetByTarget => 'Shooter fires all shots on one target, then moves to the next target.',
             self::FullString => 'Shooter engages all assigned targets as one string; the whole string is scored on one screen.',
+            self::TeamSequence => 'Two-shooter teams. Calibre class gates each shooter\'s gongs; per shared gong, shooter 1 fires 3 then shooter 2 fires 3. Per-team timer and impact-based scoring.',
         };
+    }
+
+    public function isTeamSequence(): bool
+    {
+        return $this === self::TeamSequence;
     }
 }

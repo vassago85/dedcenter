@@ -12,6 +12,7 @@ import { useMatchStore } from '../stores/matchStore';
 import ScoringFlow from './ScoringFlow.vue';
 import PrsScoringFlow from './PrsScoringFlow.vue';
 import ElrScoringFlow from './ElrScoringFlow.vue';
+import TeamSequenceFlow from './TeamSequenceFlow.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
@@ -28,7 +29,7 @@ const scoringComponent = computed(() => {
         return PrsScoringFlow;
     }
     if (match && match.scoring_type === 'elr') {
-        return ElrScoringFlow;
+        return match.elr_engagement_mode === 'team_sequence' ? TeamSequenceFlow : ElrScoringFlow;
     }
     return ScoringFlow;
 });

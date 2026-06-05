@@ -50,6 +50,12 @@ const routes = [
         props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
     {
+        path: '/score/:matchId/rankings',
+        name: 'elr-rankings',
+        component: () => import('../views/ElrRankings.vue'),
+        props: (route) => ({ matchId: Number(route.params.matchId) }),
+    },
+    {
         path: '/score/:matchId/matrix',
         name: 'scoring-matrix',
         component: () => import('../views/ScoringMatrix.vue'),

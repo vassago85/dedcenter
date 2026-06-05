@@ -221,7 +221,7 @@
                         <span v-if="isMultiSquad">Squad {{ currentSquadIndex + 1 }}/{{ sortedSquads.length }}</span>
                         <span>Shooter {{ currentShooterIndex + 1 }}/{{ shooters.length }}</span>
                         <span v-if="engagementMode === 'full_string'">{{ stringShotsEntered }}/{{ stringTotalShots }} shots</span>
-                        <span v-else>Target {{ currentTargetIndex + 1 }}/{{ currentTargets.length }}</span>
+                        <span v-else>Round {{ currentTargetIndex + 1 }}/{{ roundCount }}</span>
                     </div>
                     <div class="mt-1 h-1.5 rounded-full bg-surface-2">
                         <div class="h-full rounded-full bg-emerald-500 transition-all duration-300" :style="{ width: progressPercent + '%' }"></div>
@@ -235,8 +235,17 @@
                     <div class="mb-4 rounded-xl border border-border bg-surface p-4 text-center">
                         <p class="text-sm text-muted">Shooter</p>
                         <p class="text-2xl font-bold">{{ currentShooter?.name }}</p>
-                        <p v-if="currentShooter?.bib_number" class="text-xs text-muted">Bib #{{ currentShooter.bib_number }}</p>
-                        <p v-if="isMultiSquad && currentSquad" class="text-xs text-muted">{{ currentSquad.name }}</p>
+                        <div class="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
+                            <span v-if="currentShooter?.division"
+                                  class="rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                                  :class="divisionBadgeClass(currentShooter.division)">
+                                {{ currentShooter.division }}
+                            </span>
+                            <span v-if="currentShooter?.team" class="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">
+                                {{ currentShooter.team }}
+                            </span>
+                        </div>
+                        <p v-if="isMultiSquad && currentSquad" class="mt-1 text-xs text-muted">{{ currentSquad.name }}</p>
                     </div>
 
                     <!-- FULL STRING: all assigned targets on one screen -->
@@ -339,7 +348,7 @@
                         </div>
                         <button @click="endStageForShooter"
                             class="w-full rounded-xl border border-border py-3 text-sm font-medium text-muted transition-colors hover:bg-surface">
-                            End Stage / Not Taken
+                            Skip Shooter / Not Taken
                         </button>
                     </div>
                     </template>
@@ -399,9 +408,52 @@ const currentSquad = computed(() => isMultiSquad.value ? sortedSquads.value[curr
 // ── Stages / targets ──
 const stages = computed(() => matchStore.currentMatch?.elr_stages ?? []);
 const currentStage = computed(() => stages.value[currentStageIndex.value]);
-const currentTargets = computed(() => currentStage.value?.targets ?? []);
-const currentTarget = computed(() => currentTargets.value[currentTargetIndex.value]);
 const profile = computed(() => currentStage.value?.profile ?? null);
+
+// Resolve the ordered list of targets a shooter actually engages at a station,
+// driven by their division. Peregrine: Minor shoots T1-T3, Major shoots T2-T4.
+//
+// Priority:
+//   1. Explicit per-target `division_ids` from the cloud payload (the
+//      elr_division_targets pivot) — the authoritative gating.
+//   2. Fallback to the division-name convention (Minor = nearest 3, Major =
+//      farthest 3) so offline/native matches without the pivot still rotate
+//      correctly.
+//   3. No division / single-target station → every target.
+function shooterTargetsFor(shooter, stage) {
+    const targets = [...(stage?.targets ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    if (targets.length === 0) return [];
+
+    const divId = shooter?.division_id ?? null;
+    const hasGating = targets.some(t => Array.isArray(t.division_ids) && t.division_ids.length > 0);
+    if (hasGating && divId != null) {
+        const filtered = targets.filter(t => Array.isArray(t.division_ids) && t.division_ids.includes(divId));
+        if (filtered.length > 0) return filtered;
+    }
+
+    const name = (shooter?.division ?? '').toLowerCase();
+    if (targets.length >= 4) {
+        if (name.includes('major')) return targets.slice(1);      // drop nearest rung
+        if (name.includes('minor')) return targets.slice(0, -1);  // drop farthest rung
+    }
+    return targets;
+}
+
+// Targets for the shooter currently being scored. `currentTargetIndex` indexes
+// into this list as the engagement ROUND (round 0 = each shooter's first target).
+const currentTargets = computed(() => shooterTargetsFor(currentShooter.value, currentStage.value));
+const currentTarget = computed(() => currentTargets.value[currentTargetIndex.value]);
+
+// Number of engagement rounds at this station = the most targets any shooter in
+// the squad engages (3 for Peregrine Minor/Major, 1 for Forster).
+const roundCount = computed(() => {
+    let max = 0;
+    for (const sh of shooters.value) {
+        const n = shooterTargetsFor(sh, currentStage.value).length;
+        if (n > max) max = n;
+    }
+    return max || 1;
+});
 
 // ── Shooters: squad-aware ──
 const shooters = computed(() => {
@@ -431,6 +483,15 @@ const pointsForCurrentShot = computed(() => {
 
 // ── Engagement mode (target_by_target | full_string) ──
 const engagementMode = computed(() => matchStore.currentMatch?.elr_engagement_mode ?? 'target_by_target');
+
+// Colour the Minor / Major chip so the RO can tell the two divisions apart
+// at a glance (Major = warm amber, Minor = cool sky, anything else neutral).
+function divisionBadgeClass(division) {
+    const name = (division ?? '').toLowerCase();
+    if (name.includes('major')) return 'bg-amber-500/20 text-amber-300';
+    if (name.includes('minor')) return 'bg-sky-500/20 text-sky-300';
+    return 'bg-surface-2 text-muted';
+}
 
 function pointsForShotOnTarget(target, shotNumber) {
     if (!target || !profile.value) return 0;
@@ -491,14 +552,16 @@ const targetLocked = computed(() => {
 });
 
 const progressPercent = computed(() => {
-    const total = stages.value.length * (isMultiSquad.value ? sortedSquads.value.length : 1) * shooters.value.length * (currentTargets.value.length || 1);
+    const squadsN = isMultiSquad.value ? sortedSquads.value.length : 1;
+    const rounds = roundCount.value || 1;
+    const sh = shooters.value.length || 1;
+    const total = stages.value.length * squadsN * rounds * sh;
     if (total === 0) return 0;
-    let step = currentStageIndex.value * (isMultiSquad.value ? sortedSquads.value.length : 1) * shooters.value.length * (currentTargets.value.length || 1);
-    if (isMultiSquad.value) {
-        step += currentSquadIndex.value * shooters.value.length * (currentTargets.value.length || 1);
-    }
-    step += currentShooterIndex.value * (currentTargets.value.length || 1);
-    step += currentTargetIndex.value;
+    // Round-major: rounds are the outer loop, shooters the inner loop.
+    let step = currentStageIndex.value * squadsN * rounds * sh;
+    if (isMultiSquad.value) step += currentSquadIndex.value * rounds * sh;
+    step += currentTargetIndex.value * sh;
+    step += currentShooterIndex.value;
     return Math.round((step / total) * 100);
 });
 
@@ -566,13 +629,13 @@ function activeShootersInSquad(squad) {
 function isSquadDoneAtStage(squad, stageIdx) {
     const stage = stages.value[stageIdx];
     if (!stage) return false;
-    const targets = stage.targets ?? [];
     const active = squad
         ? (squad.shooters ?? []).filter(s => s.status === 'active')
         : matchStore.allShooters;
     if (active.length === 0) return true;
+    // A shooter is done when every target their division engages has a shot.
     return active.every(shooter =>
-        targets.every(target => elrStore.getShotsForTarget(shooter.id, target.id).length > 0)
+        shooterTargetsFor(shooter, stage).every(target => elrStore.getShotsForTarget(shooter.id, target.id).length > 0)
     );
 }
 
@@ -683,8 +746,7 @@ function flashPoints(pts) {
 
 async function recordShot(result) {
     if (!currentShooter.value || !currentTarget.value) return;
-    let points = 0;
-    if (result === 'hit') points = pointsForCurrentShot.value;
+    const points = result === 'hit' ? pointsForCurrentShot.value : 0;
 
     await elrStore.recordShot({
         matchId: props.matchId,
@@ -695,32 +757,79 @@ async function recordShot(result) {
         pointsAwarded: points,
     });
 
-    if (result === 'hit') {
-        flashPoints(points);
-        advanceAfterHit();
-    } else {
-        advanceAfterMiss();
+    if (result === 'hit') flashPoints(points);
+    advanceAfterShot(result);
+}
+
+function advanceAfterShot(result) {
+    // Ladder stages keep the legacy "a hit advances, must-hit to continue" rule.
+    if (currentStage.value?.stage_type === 'ladder') {
+        advanceLadder(result);
+        return;
     }
-}
-
-function advanceAfterHit() {
-    advanceToNextTarget();
-}
-
-function advanceAfterMiss() {
-    if (currentShotNumber.value < currentTarget.value.max_shots) {
+    // Static / target-by-target (Peregrine, Forster): every shot is taken AND
+    // scored — a hit no longer skips the remaining shots. After the last shot at
+    // this target, hand over to the next shooter for the same engagement round.
+    if (currentShotNumber.value < (currentTarget.value?.max_shots ?? 1)) {
         currentShotNumber.value++;
         saveElrProgress();
         return;
     }
-    if (currentStage.value.stage_type === 'ladder' && currentTarget.value.must_hit_to_advance) {
-        skipToNextShooterOrSquad();
-    } else {
-        advanceToNextTarget();
-    }
+    nextShooterInRound();
 }
 
-function advanceToNextTarget() {
+// Round-major rotation: shooter shoots this round's target (3 shots), then the
+// next shooter; once the whole squad has shot the round, advance the round; once
+// all rounds are done the squad has finished the station.
+function nextShooterInRound() {
+    currentShotNumber.value = 1;
+    if (currentShooterIndex.value < shooters.value.length - 1) {
+        currentShooterIndex.value++;
+        saveElrProgress();
+        return;
+    }
+    currentShooterIndex.value = 0;
+    if (currentTargetIndex.value < roundCount.value - 1) {
+        currentTargetIndex.value++;
+        saveElrProgress();
+        return;
+    }
+    currentTargetIndex.value = 0;
+    finishStageForSquad();
+}
+
+function finishStageForSquad() {
+    if (isMultiSquad.value) {
+        currentView.value = 'squad-summary';
+        saveElrProgress();
+        return;
+    }
+    if (currentStageIndex.value < stages.value.length - 1) {
+        currentStageIndex.value++;
+        currentShooterIndex.value = 0;
+        currentTargetIndex.value = 0;
+        currentShotNumber.value = 1;
+        saveElrProgress();
+        return;
+    }
+    currentView.value = 'complete';
+    clearElrProgress();
+}
+
+// ── Legacy ladder progression (one shooter clears their own ladder before the
+//    next shooter). Preserved for any match still configured as ladder. ──
+function advanceLadder(result) {
+    if (result === 'hit') { ladderNextTarget(); return; }
+    if (currentShotNumber.value < (currentTarget.value?.max_shots ?? 1)) {
+        currentShotNumber.value++;
+        saveElrProgress();
+        return;
+    }
+    if (currentTarget.value?.must_hit_to_advance) skipToNextShooterOrSquad();
+    else ladderNextTarget();
+}
+
+function ladderNextTarget() {
     currentShotNumber.value = 1;
     if (currentTargetIndex.value < currentTargets.value.length - 1) {
         currentTargetIndex.value++;
@@ -739,24 +848,16 @@ function skipToNextShooterOrSquad() {
         return;
     }
     currentShooterIndex.value = 0;
-
-    if (isMultiSquad.value) {
-        currentView.value = 'squad-summary';
-        saveElrProgress();
-        return;
-    }
-
-    if (currentStageIndex.value < stages.value.length - 1) {
-        currentStageIndex.value++;
-        saveElrProgress();
-        return;
-    }
-    currentView.value = 'complete';
-    clearElrProgress();
+    finishStageForSquad();
 }
 
+// "Skip / Not Taken" — the current shooter forgoes the rest of this target.
 function endStageForShooter() {
-    skipToNextShooterOrSquad();
+    if (currentStage.value?.stage_type === 'ladder') {
+        skipToNextShooterOrSquad();
+    } else {
+        nextShooterInRound();
+    }
 }
 
 function dismissSquadSummary() {
@@ -777,8 +878,29 @@ function dismissSquadSummary() {
 
 function goBack() {
     if (currentShotNumber.value > 1) { currentShotNumber.value--; saveElrProgress(); return; }
-    if (currentTargetIndex.value > 0) { currentTargetIndex.value--; currentShotNumber.value = 1; saveElrProgress(); return; }
-    if (currentShooterIndex.value > 0) { currentShooterIndex.value--; currentTargetIndex.value = Math.max(0, currentTargets.value.length - 1); currentShotNumber.value = 1; saveElrProgress(); return; }
+
+    const isLadder = currentStage.value?.stage_type === 'ladder';
+    if (!isLadder) {
+        // Round-major reverse: previous shooter in this round, then previous round.
+        if (currentShooterIndex.value > 0) {
+            currentShooterIndex.value--;
+            currentShotNumber.value = currentTarget.value?.max_shots ?? 1;
+            saveElrProgress();
+            return;
+        }
+        if (currentTargetIndex.value > 0) {
+            currentTargetIndex.value--;
+            currentShooterIndex.value = Math.max(0, shooters.value.length - 1);
+            currentShotNumber.value = currentTarget.value?.max_shots ?? 1;
+            saveElrProgress();
+            return;
+        }
+    } else {
+        // Ladder reverse: previous target for this shooter, then previous shooter.
+        if (currentTargetIndex.value > 0) { currentTargetIndex.value--; currentShotNumber.value = 1; saveElrProgress(); return; }
+        if (currentShooterIndex.value > 0) { currentShooterIndex.value--; currentTargetIndex.value = Math.max(0, currentTargets.value.length - 1); currentShotNumber.value = 1; saveElrProgress(); return; }
+    }
+
     if (isMultiSquad.value && currentSquadIndex.value > 0) {
         currentSquadIndex.value--;
         const prevActive = (sortedSquads.value[currentSquadIndex.value]?.shooters ?? []).filter(s => s.status === 'active');

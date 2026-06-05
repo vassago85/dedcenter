@@ -122,21 +122,55 @@ class DemoJuneTestMatchesSeeder extends Seeder
 
         $this->applyElrMatchSettings($match, $profile, shotsPerTarget: 3);
 
+        // Peregrine is the canonical team gong-sequence test match: two-shooter
+        // teams alternate down a shared gong ladder, 12-minute team timer.
+        $teamSeqUpdate = [
+            'elr_engagement_mode'         => ElrEngagementMode::TeamSequence,
+            'elr_team_time_limit_seconds' => 720, // 12 minutes
+        ];
+        if (Schema::hasColumn('matches', 'alternate_scoring')) {
+            $teamSeqUpdate['alternate_scoring'] = false;
+        }
+        $match->update($teamSeqUpdate);
+
         $this->seedLadderStations($match, $profile, $payload['stations'] ?? [], maxShots: 3);
 
         $minor = MatchDivision::updateOrCreate(
             ['match_id' => $match->id, 'name' => 'Minor'],
-            ['sort_order' => 1, 'description' => 'Minor — engages T1, T2 and T3 on every station.']
+            ['sort_order' => 1, 'description' => 'Minor — engages gongs 1, 2 and 3 on every station.']
         );
         $major = MatchDivision::updateOrCreate(
             ['match_id' => $match->id, 'name' => 'Major'],
-            ['sort_order' => 2, 'description' => 'Major — engages T2, T3 and T4 on every station.']
+            ['sort_order' => 2, 'description' => 'Major — engages gongs 2, 3 and 4 on every station.']
         );
 
-        $this->mapDivisionTargets($match, $minor, [1, 2, 3]);
-        $this->mapDivisionTargets($match, $major, [2, 3, 4]);
+        // Minor shoots gongs 1-3, Major shoots 2-4 — so gongs 2 & 3 are shared
+        // overlap (on Warrior: 827 m and 916 m). Persist as per-stage gong ranges
+        // (the admin source of truth) which also materialises elr_division_targets.
+        $this->mapPeregrineGongRanges($match, $minor, $major);
 
         $this->populatePeregrineRoster($match, $payload['shooters'], $minor, $major);
+    }
+
+    /**
+     * Persist Minor (gongs 1-3) and Major (gongs 2-4) ranges on every Peregrine
+     * stage via ElrTeamRangeService so the gong-range editor shows them and the
+     * elr_division_targets pivot stays in sync. Falls back to the legacy direct
+     * pivot mapping if the ranges table isn't migrated yet.
+     */
+    private function mapPeregrineGongRanges(ShootingMatch $match, MatchDivision $minor, MatchDivision $major): void
+    {
+        if (! Schema::hasTable('elr_stage_division_ranges')) {
+            $this->mapDivisionTargets($match, $minor, [1, 2, 3]);
+            $this->mapDivisionTargets($match, $major, [2, 3, 4]);
+            return;
+        }
+
+        $rangeService = app(\App\Services\Scoring\ElrTeamRangeService::class);
+        foreach ($match->elrStages()->orderBy('sort_order')->get() as $stage) {
+            $rangeService->saveRange($stage, $minor->id, 1, 3);
+            $rangeService->saveRange($stage, $major->id, 2, 4);
+        }
     }
 
     // ───────────────────────── Forster ─────────────────────────

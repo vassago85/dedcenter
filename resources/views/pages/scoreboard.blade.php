@@ -668,12 +668,13 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endif
             @if($match->isElr() && $canExport)
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div class="mt-3 flex flex-wrap items-center gap-2">
                     <a href="{{ route('scoreboard.export.elr-shots', $match) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
                         <x-icon name="download" class="h-3.5 w-3.5" />
-                        ELR Shots CSV (1/0)
+                        ELR Shots Template (1/0)
                     </a>
+                    <span class="text-[11px] text-muted">Fill engaged gongs with 1 = impact, 0 = miss. “—” = gong this division doesn’t shoot.</span>
                 </div>
             @endif
         </div>

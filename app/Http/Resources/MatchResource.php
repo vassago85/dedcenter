@@ -115,6 +115,7 @@ class MatchResource extends JsonResource
                     'sort_order' => $sh->sort_order,
                     'division_id' => $sh->match_division_id,
                     'division' => $sh->division?->name,
+                    'team' => $sh->relationLoaded('team') ? $sh->team?->name : null,
                     'category_ids' => $sh->relationLoaded('categories') ? $sh->categories->pluck('id')->values() : [],
                     'status' => $sh->status ?? 'active',
                 ]),
@@ -159,11 +160,43 @@ class MatchResource extends JsonResource
             'elr_engagement_mode' => ($this->elr_engagement_mode?->value) ?? 'target_by_target',
             'elr_targets_per_shooter' => $this->elr_targets_per_shooter !== null ? (int) $this->elr_targets_per_shooter : null,
             'elr_shots_per_target' => (int) ($this->elr_shots_per_target ?? 3),
+            // Per-team countdown (seconds) for team gong-sequence mode; null = no limit.
+            'elr_team_time_limit_seconds' => $this->elr_team_time_limit_seconds !== null ? (int) $this->elr_team_time_limit_seconds : null,
+            // Teams + members (with calibre division) so the team-sequence flow
+            // can build the gong sequence offline. Only loaded for team mode.
+            'teams' => $this->whenLoaded('teams', fn () => $this->teams->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'sort_order' => $t->sort_order,
+                'division_category' => $t->divisionCategoryLabel(),
+                'shooters' => $t->shooters->map(fn ($sh) => [
+                    'id' => $sh->id,
+                    'name' => $sh->name,
+                    'bib_number' => $sh->bib_number,
+                    'sort_order' => $sh->sort_order,
+                    'division_id' => $sh->match_division_id,
+                    'division' => $sh->division?->name,
+                    'status' => $sh->status ?? 'active',
+                ])->values(),
+            ])),
+            'elr_team_stage_entries' => $this->whenLoaded('elrTeamStageEntries', fn () => $this->elrTeamStageEntries->map(fn ($e) => [
+                'team_id' => $e->team_id,
+                'elr_stage_id' => $e->elr_stage_id,
+                'squad_id' => $e->squad_id,
+                'first_shooter_id' => $e->first_shooter_id,
+                'position' => $e->position,
+                'started_at' => $e->started_at?->toIso8601String(),
+                'completed_at' => $e->completed_at?->toIso8601String(),
+                'timed_out' => (bool) $e->timed_out,
+            ])),
             // Mirrors matches.elr_distance_based_scoring so the native app's
             // importer can carry the flag offline and score distance × multiplier
             // for non-seeded ELR matches (seeded matches set base_points =
             // distance, so the result matches either way).
             'elr_distance_based_scoring' => (bool) ($this->elr_distance_based_scoring ?? false),
+            // Captured-only flag for a future alternate team scoring mode. The
+            // scoring flow reads it but no alternate logic is implemented yet.
+            'alternate_scoring' => (bool) ($this->alternate_scoring ?? false),
             'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => $s->label,
@@ -181,6 +214,13 @@ class MatchResource extends JsonResource
                     'max_shots' => $t->max_shots,
                     'must_hit_to_advance' => $t->must_hit_to_advance,
                     'sort_order' => $t->sort_order,
+                    // Divisions that engage this target (Minor T1-T3, Major T2-T4).
+                    // Empty = every division shoots it. Drives the scoring flow's
+                    // per-shooter target rotation; the cloud scoreboard uses the
+                    // same pivot for gated standings.
+                    'division_ids' => $t->relationLoaded('divisions')
+                        ? $t->divisions->pluck('id')->values()
+                        : [],
                 ]),
             ])),
         ];

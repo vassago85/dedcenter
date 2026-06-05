@@ -16,6 +16,7 @@ use App\Services\MatchStandingsService;
 use App\Services\PdfDocumentRenderer;
 use App\Services\RoyalFlushHighlightsService;
 use App\Services\Scoring\ELRScoringService;
+use App\Services\Scoring\ElrRankingService;
 use App\Services\SponsorPlacementResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -110,6 +111,92 @@ class MatchExportController extends Controller
             "{$slug}-elr-shots{$suffix}.csv",
             fn ($out) => $this->elrShotsRows($match, $out, $divisionFilter),
         );
+    }
+
+    /**
+     * ELR ranking CSV for one of the three views: overall | teams | divisions.
+     * Columns include a score-per-completed-stage breakdown plus the total,
+     * matching the on-screen ranking tables.
+     */
+    public function elrRankings(?Organization $organization, ShootingMatch $match, Request $request): StreamedResponse
+    {
+        $this->ensureOrgMatch($organization, $match);
+        $this->authorizeExport($match);
+        abort_unless($match->isElr(), 404, 'This export is only available for ELR matches.');
+
+        $view = in_array($request->query('view'), ['overall', 'teams', 'divisions'], true)
+            ? $request->query('view')
+            : 'overall';
+        $slug = Str::slug($match->name);
+        $data = app(ElrRankingService::class)->build($match);
+
+        return $this->streamCsv(
+            "{$slug}-rankings-{$view}.csv",
+            fn ($out) => $this->elrRankingRows($data, $view, $out, $request->query('division')),
+        );
+    }
+
+    private function elrRankingRows(array $data, string $view, $out, $divisionFilter = null): void
+    {
+        $stages = $data['stages'];
+        $stageLabels = array_map(fn ($s) => $s['label'], $stages);
+        $stageIds = array_map(fn ($s) => $s['stage_id'], $stages);
+
+        $rankLabel = fn (array $r) => ($r['joint'] ?? false) ? '=' . $r['rank'] : (string) $r['rank'];
+        $cell = fn ($v) => $v === null ? '' : (string) $v;
+
+        if ($view === 'teams') {
+            fputcsv($out, array_merge(['Rank', 'Team', 'Divisions'], $stageLabels, ['Total']));
+            foreach ($data['teams'] as $r) {
+                $row = [$rankLabel($r), $r['team'], $r['division_composition']];
+                foreach ($stageIds as $sid) {
+                    $row[] = $cell($r['stage_scores'][$sid] ?? null);
+                }
+                $row[] = $r['total_score'];
+                fputcsv($out, $row);
+            }
+
+            return;
+        }
+
+        if ($view === 'divisions') {
+            fputcsv($out, array_merge(['Division', 'Rank', 'Name', 'Team'], $stageLabels, ['Total']));
+            foreach ($data['divisions'] as $div) {
+                if ($divisionFilter !== null && $divisionFilter !== ''
+                    && ! $this->divisionMatchesFilter($div, $divisionFilter)) {
+                    continue;
+                }
+                foreach ($div['rows'] as $r) {
+                    $row = [$div['division'], $rankLabel($r), $r['name'], $r['team']];
+                    foreach ($stageIds as $sid) {
+                        $row[] = $cell($r['stage_scores'][$sid] ?? null);
+                    }
+                    $row[] = $r['total_score'];
+                    fputcsv($out, $row);
+                }
+            }
+
+            return;
+        }
+
+        fputcsv($out, array_merge(['Rank', 'Name', 'Division', 'Team'], $stageLabels, ['Total']));
+        foreach ($data['overall'] as $r) {
+            $row = [$rankLabel($r), $r['name'], $r['division'] ?? '', $r['team'] ?? ''];
+            foreach ($stageIds as $sid) {
+                $row[] = $cell($r['stage_scores'][$sid] ?? null);
+            }
+            $row[] = $r['total_score'];
+            fputcsv($out, $row);
+        }
+    }
+
+    private function divisionMatchesFilter(array $division, $filter): bool
+    {
+        if (is_numeric($filter)) {
+            return (int) $division['division_id'] === (int) $filter;
+        }
+
+        return strcasecmp((string) $division['division'], (string) $filter) === 0;
     }
 
     // ── Standard ────────────────────────────────────────────────
@@ -619,18 +706,33 @@ class MatchExportController extends Controller
     // ── ELR ─────────────────────────────────────────────────────
 
     /**
-     * ELR shots CSV row writer.
+     * ELR shots CSV row writer — doubles as the fillable match-day template.
      *
      * Canonical shot order = elr_stages.sort_order ASC × elr_targets.sort_order
-     * ASC × shot_number 1..target.max_shots. Cell = 1 if an ElrShot exists with
-     * result=hit, else 0. Caliber sourced from match_registrations.caliber with
-     * the same "Name — Caliber" fallback used by the Royal Flush export.
+     * ASC × shot_number 1..target.max_shots. Each cell is one of:
+     *   - "1"  shot recorded as a hit (impact)
+     *   - "0"  shot recorded as a miss
+     *   - ""   gong the shooter's division ENGAGES but isn't scored yet — this is
+     *          the blank a scorer fills in with 1 (impact) or 0 (miss)
+     *   - "—"  gong the shooter's division does NOT engage (don't score it)
+     *
+     * The engaged-gong set per shooter mirrors ELRScoringService exactly: the
+     * flat per-division elr_division_targets whitelist (no rows = every gong).
+     * So on Peregrine's Warrior stage a Minor shooter (gongs 594/827/916) shows
+     * "—" under the 1679 gong, a Major shooter (827/916/1679) shows "—" under
+     * 594, and the shared 827/916 gongs are fillable for both.
+     *
+     * Caliber sourced from match_registrations.caliber with the same
+     * "Name — Caliber" fallback used by the Royal Flush export.
      *
      * Optional $divisionFilter limits the export to a single Minor/Major
      * division when JD needs a per-division roll-up.
      */
     private function elrShotsRows(ShootingMatch $match, $out, ?string $divisionFilter = null): void
     {
+        // Marker for a gong a shooter's division never engages.
+        $notEngaged = '—';
+
         $stages = $match->elrStages()
             ->with(['targets' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('sort_order')
@@ -667,6 +769,7 @@ class MatchExportController extends Controller
                 'shooters.id',
                 'shooters.name',
                 'shooters.user_id',
+                'shooters.match_division_id',
                 'match_divisions.name as division_name',
                 'match_registrations.caliber as reg_caliber',
             );
@@ -686,20 +789,36 @@ class MatchExportController extends Controller
 
         $targetIds = collect($shotColumns)->pluck('target_id')->unique()->values();
 
-        // Pre-index hits by (shooter_id, target_id, shot_number) so we can fill
-        // the matrix in one pass without N+1 queries per cell.
-        $hitIndex = [];
+        // Per-division engaged-gong whitelist, identical to ELRScoringService:
+        // a flat set of target ids per division; a division with NO rows engages
+        // every gong (null whitelist).
+        $divisionWhitelist = [];
+        $divisionIds = $shooters->pluck('match_division_id')->filter()->unique()->values();
+        if ($divisionIds->isNotEmpty()) {
+            $rows = \Illuminate\Support\Facades\DB::table('elr_division_targets')
+                ->whereIn('match_division_id', $divisionIds)
+                ->get(['match_division_id', 'elr_target_id']);
+            foreach ($rows as $r) {
+                $divisionWhitelist[(int) $r->match_division_id][(int) $r->elr_target_id] = true;
+            }
+        }
+
+        // Pre-index every recorded shot result by (shooter, target, shot_number)
+        // so a scored cell shows 1/0 and an unscored engaged cell stays blank.
+        $resultIndex = [];
         if ($shooters->isNotEmpty() && $targetIds->isNotEmpty()) {
             $shots = \App\Models\ElrShot::query()
                 ->whereIn('shooter_id', $shooters->pluck('id'))
                 ->whereIn('elr_target_id', $targetIds)
-                ->where('result', \App\Enums\ElrShotResult::Hit->value)
-                ->get(['shooter_id', 'elr_target_id', 'shot_number']);
+                ->get(['shooter_id', 'elr_target_id', 'shot_number', 'result']);
             foreach ($shots as $s) {
-                $hitIndex[(int) $s->shooter_id][(int) $s->elr_target_id][(int) $s->shot_number] = true;
+                $resultIndex[(int) $s->shooter_id][(int) $s->elr_target_id][(int) $s->shot_number]
+                    = $s->result instanceof \App\Enums\ElrShotResult ? $s->result->value : (string) $s->result;
             }
         }
 
+        // UTF-8 BOM so Excel renders the "—" not-engaged marker correctly.
+        fwrite($out, "\xEF\xBB\xBF");
         fputcsv($out, $headers, ',', '"', '\\');
 
         foreach ($shooters as $shooter) {
@@ -714,10 +833,29 @@ class MatchExportController extends Controller
                 }
             }
 
+            $divisionId = $shooter->match_division_id ? (int) $shooter->match_division_id : null;
+            // null whitelist => no per-division restriction => engages every gong.
+            $allowed = $divisionId !== null ? ($divisionWhitelist[$divisionId] ?? null) : null;
+
             $row = [$displayName, $caliber ?? ''];
-            $shotsForShooter = $hitIndex[(int) $shooter->id] ?? [];
+            $resultsForShooter = $resultIndex[(int) $shooter->id] ?? [];
             foreach ($shotColumns as $col) {
-                $row[] = isset($shotsForShooter[$col['target_id']][$col['shot_number']]) ? 1 : 0;
+                $engaged = $allowed === null || isset($allowed[$col['target_id']]);
+                if (! $engaged) {
+                    $row[] = $notEngaged;
+                    continue;
+                }
+
+                $result = $resultsForShooter[$col['target_id']][$col['shot_number']] ?? null;
+                if ($result === \App\Enums\ElrShotResult::Hit->value) {
+                    $row[] = 1;
+                } elseif ($result === \App\Enums\ElrShotResult::Miss->value) {
+                    $row[] = 0;
+                } else {
+                    // Engaged gong not scored yet (or round skipped) — leave blank
+                    // for the scorer to fill in with 1 (impact) or 0 (miss).
+                    $row[] = '';
+                }
             }
             fputcsv($out, $row, ',', '"', '\\');
         }
@@ -793,6 +931,24 @@ class MatchExportController extends Controller
         $data = $this->buildPdfStandingsData($match);
 
         return $renderer->stream('exports.pdf-standings', $data, "{$slug}-standings.pdf");
+    }
+
+    public function pdfElrRankings(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
+    {
+        $this->ensureOrgMatch($organization, $match);
+        $this->authorizeExport($match);
+        abort_unless($match->isElr(), 404, 'This export is only available for ELR matches.');
+
+        $slug = Str::slug($match->name);
+        $resolver = app(SponsorPlacementResolver::class);
+
+        $data = [
+            'match' => $match->load('organization'),
+            'rankings' => app(ElrRankingService::class)->build($match),
+            'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
+        ];
+
+        return $renderer->stream('exports.pdf-elr-rankings', $data, "{$slug}-rankings.pdf");
     }
 
     public function pdfDetailed(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)

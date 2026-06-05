@@ -101,4 +101,28 @@ class ElrTarget extends Model
 
         return round($baseValue * $multiplier, 2);
     }
+
+    /**
+     * Points awarded for a hit that lands as the Nth IMPACT on this gong
+     * (team gong-sequence mode). Identical math to pointsForShot() but the
+     * multiplier is indexed by impact number (hits only) rather than shot
+     * number, so a miss never burns a multiplier slot.
+     */
+    public function pointsForImpact(int $impactNumber): float
+    {
+        $profile = $this->stage?->resolvedProfile();
+        if (! $profile) {
+            return $impactNumber === 1 ? (float) $this->base_points : 0;
+        }
+
+        $multiplier = $profile->multiplierForShot($impactNumber);
+        $match = $this->stage?->match;
+        $useDistance = (bool) ($match?->elr_distance_based_scoring ?? false);
+
+        $baseValue = $useDistance
+            ? (float) $this->distance_m
+            : (float) $this->base_points;
+
+        return round($baseValue * $multiplier, 2);
+    }
 }

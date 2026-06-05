@@ -64,6 +64,7 @@ class MatchController extends Controller
             'squads' => fn ($q) => $q->orderBy('sort_order'),
             'squads.shooters' => fn ($q) => $q->orderBy('sort_order'),
             'squads.shooters.division',
+            'squads.shooters.team',
             'squads.shooters.categories',
             'divisions' => fn ($q) => $q->orderBy('sort_order'),
             'categories' => fn ($q) => $q->orderBy('sort_order'),
@@ -72,8 +73,19 @@ class MatchController extends Controller
         if ($match->isElr()) {
             $eagerLoads['elrStages'] = fn ($q) => $q->orderBy('sort_order');
             $eagerLoads['elrStages.targets'] = fn ($q) => $q->orderBy('sort_order');
+            $eagerLoads['elrStages.targets.divisions'] = fn ($q) => $q;
             $eagerLoads['elrStages.scoringProfile'] = fn ($q) => $q;
             $eagerLoads['elrScoringProfile'] = fn ($q) => $q;
+
+            // Team gong-sequence matches need their teams (with members +
+            // calibre division) and any in-flight team-stage entries so the
+            // scoring SPA can build the sequence and resume the timer offline.
+            if ($match->elrEngagementMode()->isTeamSequence()) {
+                $eagerLoads['teams'] = fn ($q) => $q->orderBy('sort_order');
+                $eagerLoads['teams.shooters'] = fn ($q) => $q->orderBy('sort_order');
+                $eagerLoads['teams.shooters.division'] = fn ($q) => $q;
+                $eagerLoads['elrTeamStageEntries'] = fn ($q) => $q;
+            }
         } else {
             $eagerLoads['targetSets'] = fn ($q) => $q->orderBy('sort_order');
             $eagerLoads['targetSets.gongs'] = fn ($q) => $q->orderBy('number');
