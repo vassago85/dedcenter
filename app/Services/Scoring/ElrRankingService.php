@@ -25,7 +25,7 @@ class ElrRankingService
 
     public function build(ShootingMatch $match): array
     {
-        $base = $this->scoring->calculateStandings($match);
+        $base = $this->scoring->calculateStandings($match, [], completedOnly: true);
         $shooterRows = $base['standings'] ?? [];
 
         // (team_id => [stage_id => true]) for completed team stages only.

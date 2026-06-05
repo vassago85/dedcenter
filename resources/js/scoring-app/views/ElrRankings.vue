@@ -204,7 +204,7 @@ const stages = ref([]);
 
 let refreshTimer = null;
 
-const canExport = computed(() => matchStore.currentMatch?.can_manage === true);
+const canExport = computed(() => matchStore.currentMatch?.can_export === true);
 
 const showDivisionSelector = computed(() => data.divisions.length >= 3);
 

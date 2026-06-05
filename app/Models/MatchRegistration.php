@@ -150,4 +150,52 @@ class MatchRegistration extends Model
     {
         return $query->where('share_rifle_with', $name);
     }
+
+    /**
+     * When a registration is confirmed, copy division_id to the shooter's
+     * match_division_id so squadding and ELR gating stay in sync.
+     */
+    public function syncDivisionToShooter(): void
+    {
+        if (! $this->division_id || ! $this->user_id) {
+            return;
+        }
+
+        $shooters = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $this->match_id))
+            ->where('user_id', $this->user_id)
+            ->get();
+
+        foreach ($shooters as $shooter) {
+            if ((int) $shooter->match_division_id === (int) $this->division_id) {
+                continue;
+            }
+
+            $previous = $shooter->match_division_id;
+            $shooter->update(['match_division_id' => $this->division_id]);
+
+            if ($previous !== null) {
+                \App\Services\ScoreAuditService::log(
+                    $this->match_id,
+                    $shooter,
+                    'division_synced',
+                    ['match_division_id' => $previous],
+                    ['match_division_id' => $this->division_id],
+                    'Copied from confirmed registration division',
+                    null,
+                );
+            }
+        }
+    }
+
+    protected static function booted(): void
+    {
+        static::updated(function (self $reg) {
+            if ($reg->wasChanged('payment_status') && $reg->payment_status === 'confirmed') {
+                $reg->syncDivisionToShooter();
+            } elseif ($reg->wasChanged('division_id') && $reg->isConfirmed()) {
+                $reg->syncDivisionToShooter();
+            }
+        });
+    }
 }

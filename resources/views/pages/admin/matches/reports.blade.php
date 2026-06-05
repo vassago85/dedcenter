@@ -88,6 +88,13 @@ new #[Layout('components.layouts.app')]
                     'postMatch'        => route('admin.matches.export.pdf-post-match', $this->match),
                     'executiveSummary' => route('admin.matches.export.pdf-executive-summary', $this->match),
                 ],
+                'elrExports' => $isElr ? [
+                    'rankingsOverall'   => route('admin.matches.export.elr-rankings', $this->match).'?view=overall',
+                    'rankingsTeams'     => route('admin.matches.export.elr-rankings', $this->match).'?view=teams',
+                    'rankingsDivisions' => route('admin.matches.export.elr-rankings', $this->match).'?view=divisions',
+                    'shotsTemplate'     => route('scoreboard.export.elr-shots', $this->match),
+                    'pdfRankings'       => route('admin.matches.export.pdf-elr-rankings', $this->match),
+                ] : null,
             ];
         }
     }; ?>
@@ -222,6 +229,30 @@ new #[Layout('components.layouts.app')]
                     </a>
                 @endif
             </div>
+            @if($isElr && ! empty($elrExports))
+                <div class="mt-4 border-t border-border pt-4">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-muted">ELR exports</p>
+                    <div class="mt-3 grid gap-2 sm:grid-cols-3">
+                        <a href="{{ $elrExports['shotsTemplate'] }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2">
+                            <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                            <div class="min-w-0"><p class="text-sm font-semibold text-primary">Shots template</p><p class="text-[11px] text-muted">1/0 fill sheet</p></div>
+                        </a>
+                        <a href="{{ $elrExports['rankingsOverall'] }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2">
+                            <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                            <div class="min-w-0"><p class="text-sm font-semibold text-primary">Rankings CSV</p><p class="text-[11px] text-muted">overall / teams / divisions</p></div>
+                        </a>
+                        <a href="{{ $elrExports['pdfRankings'] }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2">
+                            <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                            <div class="min-w-0"><p class="text-sm font-semibold text-primary">Rankings PDF</p><p class="text-[11px] text-muted">print-ready</p></div>
+                        </a>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
+                        <a href="{{ $elrExports['rankingsTeams'] }}" class="text-accent hover:underline">Teams CSV</a>
+                        <span class="text-muted">·</span>
+                        <a href="{{ $elrExports['rankingsDivisions'] }}" class="text-accent hover:underline">Divisions CSV</a>
+                    </div>
+                </div>
+            @endif
         </section>
 
         <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">

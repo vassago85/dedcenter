@@ -39,6 +39,17 @@ new #[Layout('components.layouts.app')]
     public function with(): array
     {
         $isPrs = $this->match->isPrs();
+        $isElr = $this->match->isElr();
+
+        $elrStandingsById = collect();
+        if ($isElr) {
+            $elrData = (new \App\Services\Scoring\ELRScoringService())->calculateStandings(
+                $this->match,
+                ['division' => $this->activeDivision ? (string) $this->activeDivision : null],
+                completedOnly: false,
+            );
+            $elrStandingsById = collect($elrData['standings'] ?? [])->keyBy('id');
+        }
 
         $usedDivisionIds = $this->match->shooters()->whereNotNull('match_division_id')->distinct()->pluck('match_division_id')->toArray();
         $divisions = $this->match->divisions()->whereIn('id', $usedDivisionIds)->orderBy('sort_order')->get();
@@ -88,7 +99,7 @@ new #[Layout('components.layouts.app')]
         $shooterQuery = $this->match->shooters()
             ->with(['squad', 'division', 'user:id,email,name']);
 
-        if (!$isPrs) {
+        if (!$isPrs && !$isElr) {
             $shooterQuery->withCount([
                 'scores as hits_count' => fn ($q) => $q->where('is_hit', true),
                 'scores as misses_count' => fn ($q) => $q->where('is_hit', false),
@@ -133,7 +144,7 @@ new #[Layout('components.layouts.app')]
         }
 
         $shooters = $shooterQuery->get()
-            ->map(function ($shooter) use ($isPrs, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots) {
+            ->map(function ($shooter) use ($isPrs, $isElr, $elrStandingsById, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots) {
                 if ($isPrs) {
                     $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
                     $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
@@ -150,6 +161,13 @@ new #[Layout('components.layouts.app')]
                         $grid[$shot->stage_id][$shot->shot_number] = $result;
                     }
                     $shooter->shot_grid = $grid;
+                } elseif ($isElr) {
+                    $row = $elrStandingsById->get($shooter->id, []);
+                    $shooter->display_score = (float) ($row['total_points'] ?? 0);
+                    $shooter->hits_count = (int) ($row['total_hits'] ?? 0);
+                    $shooter->misses_count = max(0, (int) ($row['shots_fired'] ?? 0) - $shooter->hits_count);
+                    $shooter->display_time = 0;
+                    $shooter->elr_stages = $row['stages'] ?? [];
                 } else {
                     $shooter->display_score = (float) $shooter->scores()
                         ->where('is_hit', true)
@@ -394,7 +412,6 @@ new #[Layout('components.layouts.app')]
         }
 
         $isTeamEvent = $this->match->isTeamEvent();
-        $isElr = $this->match->isElr();
         $teamLeaderboard = collect();
         $teamCategories = collect();
         if ($isTeamEvent) {
@@ -674,6 +691,18 @@ new #[Layout('components.layouts.app')]
                         <x-icon name="download" class="h-3.5 w-3.5" />
                         ELR Shots Template (1/0)
                     </a>
+                    @if($match->scoresArePublic())
+                        <a href="{{ route('scoreboard.export.elr-rankings', $match) }}?view=overall"
+                           class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                            <x-icon name="download" class="h-3.5 w-3.5" />
+                            Rankings CSV
+                        </a>
+                        <a href="{{ route('scoreboard.export.pdf-elr-rankings', $match) }}"
+                           class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-surface-2 hover:text-primary">
+                            <x-icon name="download" class="h-3.5 w-3.5" />
+                            Rankings PDF
+                        </a>
+                    @endif
                     <span class="text-[11px] text-muted">Fill engaged gongs with 1 = impact, 0 = miss. “—” = gong this division doesn’t shoot.</span>
                 </div>
             @endif

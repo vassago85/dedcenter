@@ -217,6 +217,8 @@ class ElrScoreController extends Controller
 
         $entry->save();
 
+        app(\App\Services\Scoring\ElrSquadTeamOrderService::class)->recordFromTeamStageEntry($entry);
+
         // Snapshot the team's per-stage scores when it finishes; clear them if
         // a correction reopens the entry. Rankings still compute live from
         // shots — these stored values are for record + exports.
@@ -372,5 +374,23 @@ class ElrScoreController extends Controller
         ]);
 
         return response()->json(['data' => $progress]);
+    }
+
+    public function firingOrder(Request $request, ShootingMatch $match)
+    {
+        abort_unless($match->isElr() && $match->elrEngagementMode()?->isTeamSequence(), 404);
+
+        $validated = $request->validate([
+            'squad_id' => 'required|integer',
+            'elr_stage_id' => 'required|integer',
+        ]);
+
+        $order = \App\Services\Scoring\ElrSquadTeamOrderService::getNextFiringOrder(
+            $match,
+            (int) $validated['squad_id'],
+            (int) $validated['elr_stage_id'],
+        );
+
+        return response()->json(['order' => $order]);
     }
 }

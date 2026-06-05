@@ -137,6 +137,10 @@ class MatchResource extends JsonResource
                 || $this->created_by === $request->user()->id
                 || ($this->organization && $request->user()->isOrgAdmin($this->organization))
             ),
+            'can_export' => $request->user() && (
+                $request->user()->isAdmin()
+                || ($this->organization && $request->user()->isOrgMatchDirector($this->organization))
+            ),
             'prs_stage_results' => $this->whenLoaded('prsResults', fn () => $this->prsResults->map(fn ($r) => [
                 'shooter_id' => $r->shooter_id,
                 'stage_id' => $r->stage_id,
@@ -197,11 +201,30 @@ class MatchResource extends JsonResource
             // Captured-only flag for a future alternate team scoring mode. The
             // scoring flow reads it but no alternate logic is implemented yet.
             'alternate_scoring' => (bool) ($this->alternate_scoring ?? false),
+            'alternate_scoring_pairs' => $this->when(
+                ($this->alternate_scoring ?? false)
+                    && ($this->elr_engagement_mode?->value ?? '') === 'team_sequence'
+                    && $this->relationLoaded('teams'),
+                fn () => $this->teams
+                    ->sortBy('sort_order')
+                    ->values()
+                    ->chunk(2)
+                    ->map(fn ($pair) => [
+                        'team_ids' => $pair->pluck('id')->values()->all(),
+                        'team_names' => $pair->pluck('name')->values()->all(),
+                    ])
+                    ->values()
+                    ->all(),
+            ),
             'elr_stages' => $this->whenLoaded('elrStages', fn () => $this->elrStages->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => $s->label,
+                'sponsor' => $s->sponsor,
+                'color' => $s->color,
                 'stage_type' => $s->stage_type->value,
                 'sort_order' => $s->sort_order,
+                'match_day' => $s->match_day,
+                'elr_scoring_profile_id' => $s->elr_scoring_profile_id,
                 'profile' => $s->resolvedProfile() ? [
                     'name' => $s->resolvedProfile()->name,
                     'multipliers' => $s->resolvedProfile()->multipliers,

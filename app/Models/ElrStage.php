@@ -20,6 +20,7 @@ class ElrStage extends Model
         'stage_type',
         'elr_scoring_profile_id',
         'sort_order',
+        'match_day',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class ElrStage extends Model
         return [
             'stage_type' => ElrStageType::class,
             'sort_order' => 'integer',
+            'match_day' => 'integer',
         ];
     }
 

@@ -21,13 +21,28 @@ class ELRScoringService implements ScoringEngineInterface
      * Ranks are always assigned within the filtered set so a Minor podium
      * never inherits a Major shooter's #1 from the global list.
      */
-    public function calculateStandings(ShootingMatch $match, array $filters = []): array
+    public function calculateStandings(ShootingMatch $match, array $filters = [], bool $completedOnly = false): array
     {
         $stages = $match->elrStages()
             ->with(['targets' => fn ($q) => $q->orderBy('sort_order'), 'scoringProfile'])
+            ->orderBy('sort_order')
             ->get();
 
         $allTargetIds = $stages->flatMap(fn ($s) => $s->targets->pluck('id'))->toArray();
+
+        // When true, only stages a shooter's team has completed count toward
+        // totals (team gong-sequence rankings). ElrRankingService passes true;
+        // scoreboard/season/CSV standings pass false explicitly.
+        $completedByTeam = [];
+        if ($completedOnly) {
+            \App\Models\ElrTeamStageEntry::query()
+                ->whereHas('stage', fn ($q) => $q->where('match_id', $match->id))
+                ->whereNotNull('completed_at')
+                ->get(['team_id', 'elr_stage_id'])
+                ->each(function ($entry) use (&$completedByTeam) {
+                    $completedByTeam[$entry->team_id][$entry->elr_stage_id] = true;
+                });
+        }
 
         $shooterQuery = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
@@ -92,7 +107,7 @@ class ELRScoringService implements ScoringEngineInterface
             ->get()
             ->groupBy('shooter_id');
 
-        $standings = $shooters->map(function ($shooter) use ($allShots, $stages, $divisionTargetWhitelist) {
+        $standings = $shooters->map(function ($shooter) use ($allShots, $stages, $divisionTargetWhitelist, $completedOnly, $completedByTeam) {
             $shooterShots = $allShots->get($shooter->id, collect());
             $shotsByTarget = $shooterShots->groupBy('elr_target_id');
 
@@ -110,6 +125,20 @@ class ELRScoringService implements ScoringEngineInterface
             $stageResults = [];
 
             foreach ($stages as $stage) {
+                if ($completedOnly && $shooter->team_id) {
+                    if (! isset($completedByTeam[$shooter->team_id][$stage->id])) {
+                        $stageResults[] = [
+                            'stage_id' => $stage->id,
+                            'label' => $stage->label,
+                            'stage_type' => $stage->stage_type->value,
+                            'points' => 0.0,
+                            'targets' => [],
+                            'completed' => false,
+                        ];
+                        continue;
+                    }
+                }
+
                 $stagePoints = 0;
                 $stageTargets = [];
 
@@ -180,6 +209,7 @@ class ELRScoringService implements ScoringEngineInterface
                     'stage_type' => $stage->stage_type->value,
                     'points' => round($stagePoints, 2),
                     'targets' => $stageTargets,
+                    'completed' => ! $completedOnly || ! $shooter->team_id || isset($completedByTeam[$shooter->team_id][$stage->id]),
                 ];
             }
 

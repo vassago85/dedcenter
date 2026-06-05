@@ -291,7 +291,7 @@ class SeasonStandingsService
      */
     private function elrMatchStandings(ShootingMatch $match, $divisionFilter = null): array
     {
-        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $divisionFilter]);
+        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $divisionFilter], completedOnly: false);
 
         return collect($data['standings'] ?? [])
             ->filter(fn ($row) => ! in_array($row['status'] ?? 'active', ['dq', 'no_show'], true))

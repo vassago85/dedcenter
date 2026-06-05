@@ -4,6 +4,7 @@ use App\Concerns\HandlesMatchLifecycleTransitions;
 use App\Enums\MatchStatus;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use App\Services\MatchDashboardService;
 use App\Services\MatchStandingsService;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
@@ -66,6 +67,25 @@ new #[Layout('components.layouts.app')]
             Flux::toast("{$shooter->name} {$label}.", variant: $status === 'active' ? 'success' : 'warning');
         }
 
+        public function toggleScoresPublished(): void
+        {
+            $newValue = ! $this->match->scores_published;
+            $this->match->update(['scores_published' => $newValue]);
+
+            if ($newValue) {
+                try {
+                    \App\Services\AchievementService::evaluateMatchCompletion($this->match);
+                    if ($this->match->royal_flush_enabled) {
+                        \App\Services\AchievementService::evaluateRoyalFlushCompletion($this->match);
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Achievement evaluation failed on publish', ['match' => $this->match->id, 'error' => $e->getMessage()]);
+                }
+            }
+
+            Flux::toast($newValue ? 'Scores are now live.' : 'Scores hidden from public.', variant: 'success');
+        }
+
         public function with(): array
         {
             $status = $this->match->status;
@@ -98,15 +118,18 @@ new #[Layout('components.layouts.app')]
             $squadsCount = $this->match->squads()->count();
             $sideBetBoughtIn = $this->match->side_bet_enabled ? $this->match->sideBetShooters()->count() : 0;
 
+            $user = auth()->user();
+            $canExport = $user && $user->isAdmin();
+
+            $dashboard = (new MatchDashboardService())->build($this->match);
+
             return [
                 'status' => $status,
+                'dashboard' => $dashboard,
+                'canExport' => $canExport,
                 'topStandings' => $topStandings,
                 'allShooters' => $allShooters,
                 'attendanceCounts' => $attendanceCounts,
-                'registrationsCount' => $this->match->registrations()->count(),
-                'shootersCount' => $this->match->shooters()->count(),
-                'scoresCount' => \App\Models\Score::whereIn('shooter_id', $this->match->shooters()->pluck('shooters.id'))->count(),
-                'squadsCount' => $squadsCount,
                 'sideBetBoughtIn' => $sideBetBoughtIn,
                 'isCompleted' => $status === MatchStatus::Completed,
                 'isPreActive' => $status->ordinal() < MatchStatus::Active->ordinal(),
@@ -114,6 +137,8 @@ new #[Layout('components.layouts.app')]
                 'setupUrl' => route('admin.matches.edit', $this->match),
                 'squaddingUrl' => route('admin.matches.squadding', $this->match),
                 'scoringUrl' => route('admin.matches.scoring', $this->match),
+                'scoreboardUrl' => route('scoreboard', $this->match),
+                'rankingsUrl' => $this->match->isElr() ? url('/score/'.$this->match->id.'/rankings') : null,
                 'reportsUrl' => route('admin.matches.reports', $this->match),
                 'sideBetReportUrl' => $this->match->side_bet_enabled ? route('admin.matches.side-bet-report', $this->match) : null,
             ];
@@ -123,108 +148,18 @@ new #[Layout('components.layouts.app')]
 <div>
     <x-match-control-shell :match="$match">
 
-        {{-- ─── Key stats ─────────────────────────────────────────────── --}}
-        <section class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div class="rounded-xl border border-border bg-surface p-4">
-                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">Registrations</p>
-                <p class="mt-1 text-2xl font-bold text-primary tabular-nums">{{ $registrationsCount }}</p>
-                <p class="mt-1 text-[11px] text-muted">total sign-ups</p>
-            </div>
-            <div class="rounded-xl border border-border bg-surface p-4">
-                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">Shooters</p>
-                <p class="mt-1 text-2xl font-bold text-primary tabular-nums">{{ $shootersCount }}</p>
-                <p class="mt-1 text-[11px] text-muted">{{ $squadsCount }} {{ \Illuminate\Support\Str::plural('squad', $squadsCount) }}</p>
-            </div>
-            <div class="rounded-xl border border-border bg-surface p-4">
-                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">Shots recorded</p>
-                <p class="mt-1 text-2xl font-bold text-primary tabular-nums">{{ $scoresCount }}</p>
-                <p class="mt-1 text-[11px] text-muted">{{ $match->scores_published ? 'live to public' : 'staff-only' }}</p>
-            </div>
-            @if($match->side_bet_enabled)
-                <a href="{{ $sideBetReportUrl }}" wire:navigate
-                   class="rounded-xl border border-amber-500/40 bg-amber-500/8 p-4 transition-colors hover:border-amber-400 hover:bg-amber-500/15">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-amber-300">Side Bet Buy-In</p>
-                    <p class="mt-1 text-2xl font-bold text-amber-200 tabular-nums">{{ $sideBetBoughtIn }}</p>
-                    <p class="mt-1 text-[11px] text-amber-200/70">of {{ $shootersCount }} shooters</p>
-                </a>
-            @else
-                <div class="rounded-xl border border-border bg-surface p-4">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">Attendance</p>
-                    <p class="mt-1 text-2xl font-bold text-primary tabular-nums">{{ $attendanceCounts['active'] }}</p>
-                    <p class="mt-1 text-[11px] text-muted">
-                        @if($attendanceCounts['no_show']) {{ $attendanceCounts['no_show'] }} no-show · @endif
-                        @if($attendanceCounts['dq']) {{ $attendanceCounts['dq'] }} DQ · @endif
-                        active
-                    </p>
-                </div>
-            @endif
-        </section>
-
-        {{-- ─── Lifecycle-aware quick actions ─────────────────────────── --}}
-        @php
-            $cards = [];
-
-            if ($status === MatchStatus::Draft || $status === MatchStatus::PreRegistration) {
-                $cards[] = ['icon' => 'settings',  'title' => 'Finish Setup',     'subtitle' => 'Stages, squads capacity, scoring, fees.', 'href' => $setupUrl,    'tone' => 'accent'];
-            }
-
-            if (in_array($status, [MatchStatus::RegistrationOpen, MatchStatus::RegistrationClosed], true)) {
-                $cards[] = ['icon' => 'settings',  'title' => 'Review Setup',     'subtitle' => 'Tweak stages or scoring before squadding.', 'href' => $setupUrl,  'tone' => 'muted'];
-                $cards[] = ['icon' => 'users',     'title' => 'Plan Squadding',   'subtitle' => 'Build relays and capacity for the day.',    'href' => $squaddingUrl, 'tone' => 'accent'];
-            }
-
-            if (in_array($status, [MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready], true)) {
-                $cards[] = ['icon' => 'users',     'title' => 'Squadding',        'subtitle' => 'Squads, walk-ins, randomize relays.',       'href' => $squaddingUrl, 'tone' => 'accent'];
-                $cards[] = ['icon' => 'target',    'title' => 'Scoring',          'subtitle' => 'Open the scoring app + lock visibility.',   'href' => $scoringUrl,   'tone' => 'muted'];
-            }
-
-            if ($status === MatchStatus::Active) {
-                $cards[] = ['icon' => 'target',    'title' => 'Scoring',          'subtitle' => 'Open the app, publish/hide live scores.',  'href' => $scoringUrl, 'tone' => 'accent'];
-                $cards[] = ['icon' => 'users',     'title' => 'Squadding',        'subtitle' => 'Late additions / move shooters mid-match.', 'href' => $squaddingUrl, 'tone' => 'muted'];
-            }
-
-            if ($status === MatchStatus::Completed) {
-                $cards[] = ['icon' => 'file-text', 'title' => 'Reports',          'subtitle' => 'Send shooter emails, download CSVs / PDFs.', 'href' => $reportsUrl,  'tone' => 'accent'];
-                $cards[] = ['icon' => 'target',    'title' => 'Score corrections','subtitle' => 'Fix recording errors after the fact.',       'href' => $scoringUrl,  'tone' => 'muted'];
-            }
-
-            if ($match->side_bet_enabled && $status->ordinal() >= MatchStatus::SquaddingOpen->ordinal()) {
-                $cards[] = ['icon' => 'trophy', 'title' => $status === MatchStatus::Completed ? 'Side Bet Result' : 'Side Bet Buy-In', 'subtitle' => $status === MatchStatus::Completed ? 'Winner + cascade payouts.' : "{$sideBetBoughtIn} in the pot so far.", 'href' => $sideBetReportUrl, 'tone' => 'amber'];
-            }
-        @endphp
-
-        @if(! empty($cards))
-            <section class="mt-4">
-                <h2 class="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted">What's next</h2>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach($cards as $card)
-                        @php
-                            $cardCls = match ($card['tone']) {
-                                'accent' => 'border-accent/40 bg-accent/5 hover:border-accent hover:bg-accent/10',
-                                'amber'  => 'border-amber-500/40 bg-amber-500/5 hover:border-amber-400 hover:bg-amber-500/10',
-                                default  => 'border-border bg-surface hover:border-accent/40 hover:bg-surface-2/40',
-                            };
-                            $iconCls = match ($card['tone']) {
-                                'accent' => 'border-accent/30 bg-accent/15 text-accent',
-                                'amber'  => 'border-amber-500/30 bg-amber-500/15 text-amber-300',
-                                default  => 'border-border bg-surface-2 text-muted',
-                            };
-                        @endphp
-                        <a href="{{ $card['href'] }}" wire:navigate
-                           class="group flex items-center gap-3 rounded-xl border p-4 transition-colors {{ $cardCls }}">
-                            <div class="grid h-10 w-10 shrink-0 place-items-center rounded-lg border {{ $iconCls }}">
-                                <x-icon name="{{ $card['icon'] }}" class="h-5 w-5" />
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-semibold text-primary truncate">{{ $card['title'] }}</p>
-                                <p class="mt-0.5 text-[11px] text-muted truncate">{{ $card['subtitle'] }}</p>
-                            </div>
-                            <x-icon name="arrow-right" class="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
-                        </a>
-                    @endforeach
-                </div>
-            </section>
-        @endif
+        <x-match-dashboard
+            :match="$match"
+            :dashboard="$dashboard"
+            :setup-url="$setupUrl"
+            :squadding-url="$squaddingUrl"
+            :scoring-url="$scoringUrl"
+            :scoreboard-url="$scoreboardUrl"
+            :reports-url="$reportsUrl"
+            :can-export="$canExport"
+            export-prefix="admin.matches.export"
+            :rankings-url="$rankingsUrl"
+        />
 
         {{-- ─── Top 5 standings ───────────────────────────────────────── --}}
         @if($topStandings->isNotEmpty())

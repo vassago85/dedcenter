@@ -257,6 +257,7 @@ import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
+import axios from 'axios';
 import {
     buildLegs, sortedTargets, defaultFirstShooterId, recomputeLeg,
     pointsForImpact, multiplierForImpact,
@@ -282,6 +283,7 @@ let timerInterval = null;
 let syncInterval = null;
 
 const STATE_KEY = 'dc_elr_team_state';
+const firingOrder = ref([]);
 
 // ── Match data ──
 const match = computed(() => matchStore.currentMatch);
@@ -291,9 +293,19 @@ const profile = computed(() => currentStage.value?.profile ?? null);
 const distanceBased = computed(() => !!match.value?.elr_distance_based_scoring);
 const timeLimitSeconds = computed(() => match.value?.elr_team_time_limit_seconds ?? null);
 
-const teams = computed(() =>
-    [...(match.value?.teams ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-);
+const teams = computed(() => {
+    const list = [...(match.value?.teams ?? [])];
+    if (firingOrder.value.length === 0) {
+        return list.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    }
+    const pos = new Map(firingOrder.value.map(o => [o.team_id, o.position]));
+    return list.sort((a, b) => (pos.get(a.id) ?? 999) - (pos.get(b.id) ?? 999));
+});
+const squadId = computed(() => {
+    const team = currentTeam.value ?? teams.value[0];
+    const shooter = team?.shooters?.[0];
+    return shooter?.squad_id ?? match.value?.squads?.[0]?.id ?? null;
+});
 const currentTeam = computed(() => teams.value.find(t => t.id === currentTeamId.value) ?? null);
 
 function activeMembers(team) {
@@ -305,6 +317,8 @@ const firstShooterId = computed(() => {
     if (!currentTeam.value || !currentStage.value) return null;
     const entry = elrStore.getTeamStageEntry(currentTeam.value.id, currentStage.value.id);
     if (entry?.firstShooterId) return entry.firstShooterId;
+    const orderEntry = firingOrder.value.find(o => o.team_id === currentTeam.value.id);
+    if (orderEntry?.first_shooter_id) return orderEntry.first_shooter_id;
     return defaultFirstShooterId(currentTeam.value, currentStageIndex.value);
 });
 
@@ -451,6 +465,19 @@ const recommendedTeamId = computed(() => {
     return pending?.id ?? null;
 });
 
+async function loadFiringOrder() {
+    firingOrder.value = [];
+    if (!currentStage.value || !squadId.value) return;
+    try {
+        const { data } = await axios.get(`/api/matches/${props.matchId}/elr-firing-order`, {
+            params: { squad_id: squadId.value, elr_stage_id: currentStage.value.id },
+        });
+        firingOrder.value = data.order ?? [];
+    } catch {
+        firingOrder.value = [];
+    }
+}
+
 // ── Visual helpers ──
 function divisionBadgeClass(division) {
     const name = (division ?? '').toLowerCase();
@@ -495,11 +522,12 @@ function clearProgress() {
 }
 
 // ── Navigation ──
-function selectStage(idx) {
+async function selectStage(idx) {
     currentStageIndex.value = idx;
     currentTeamId.value = null;
     currentLegIndex.value = 0;
     currentView.value = 'team-select';
+    await loadFiringOrder();
     saveProgress();
 }
 
@@ -740,6 +768,8 @@ onMounted(async () => {
     ready.value = true;
     if (!restoreProgress()) {
         currentView.value = 'stage-select';
+    } else if (currentStage.value) {
+        await loadFiringOrder();
     }
 
     startTimerLoop();

@@ -58,7 +58,7 @@ class ScoreboardController extends Controller
         $division = $request->query('division');
 
         return response()->json(
-            $service->calculateStandings($match, ['division' => $division])
+            $service->calculateStandings($match, ['division' => $division], completedOnly: false)
         );
     }
 

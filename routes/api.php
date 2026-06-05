@@ -124,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
     Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
     Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
+    Route::get('matches/{match}/elr-firing-order', [ElrScoreController::class, 'firingOrder']);
     Route::post('matches/{match}/elr-team-stage', [ElrScoreController::class, 'teamStage']);
 
     Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);

@@ -863,7 +863,7 @@ class MatchExportController extends Controller
 
     private function elrStandings(ShootingMatch $match, $out, ?string $division = null): void
     {
-        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division]);
+        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division], completedOnly: false);
 
         fputcsv($out, ['Rank', 'Name', 'Squad', 'Division', 'Total Points', 'Total Hits', '1st Round Hits', '2nd Round Hits', 'Furthest Hit (m)']);
 
@@ -880,7 +880,7 @@ class MatchExportController extends Controller
 
     private function elrDetailed(ShootingMatch $match, $out, ?string $division = null): void
     {
-        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division]);
+        $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division], completedOnly: false);
         $stages = $data['stages'];
 
         $header = ['Rank', 'Name', 'Squad', 'Division'];
