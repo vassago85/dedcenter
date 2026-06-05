@@ -28,7 +28,10 @@ RUN apk add --no-cache \
 ENV TZ=Africa/Johannesburg
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Install PHP extensions (install-php-extensions handles build deps + cleanup automatically)
+# Install PHP extensions (install-php-extensions handles build deps + cleanup automatically).
+# NOTE: redis is intentionally excluded here — pecl.php.net release listings/downloads are
+# intermittently unavailable and break the build. We compile phpredis from its GitHub release
+# tarball below instead, which avoids PECL entirely.
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN install-php-extensions \
     pdo_mysql \
@@ -38,8 +41,24 @@ RUN install-php-extensions \
     gd \
     zip \
     intl \
-    opcache \
-    redis
+    opcache
+
+# Install phpredis from GitHub source (PECL is unreliable). Pin to a known release.
+ENV PHPREDIS_VERSION=6.3.0
+RUN set -eux; \
+    apk add --no-cache --virtual .phpredis-build-deps $PHPIZE_DEPS; \
+    curl -fsSL "https://github.com/phpredis/phpredis/archive/refs/tags/${PHPREDIS_VERSION}.tar.gz" -o /tmp/phpredis.tar.gz; \
+    mkdir -p /tmp/phpredis; \
+    tar -xzf /tmp/phpredis.tar.gz -C /tmp/phpredis --strip-components=1; \
+    cd /tmp/phpredis; \
+    phpize; \
+    ./configure; \
+    make -j"$(nproc)"; \
+    make install; \
+    docker-php-ext-enable redis; \
+    cd /; \
+    rm -rf /tmp/phpredis /tmp/phpredis.tar.gz; \
+    apk del .phpredis-build-deps
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
