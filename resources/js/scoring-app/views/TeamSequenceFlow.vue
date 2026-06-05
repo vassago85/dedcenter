@@ -11,6 +11,7 @@
                     <div class="flex items-center gap-2 text-[11px] text-muted">
                         <span class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Team</span>
                         <span v-if="currentStage">{{ currentStage.label }}</span>
+                        <span v-if="currentSquad">&bull; {{ currentSquad.name }}</span>
                         <span v-if="currentTeam" class="text-emerald-400">&bull; {{ currentTeam.name }}</span>
                     </div>
                 </div>
@@ -82,9 +83,10 @@
                             <template v-else>{{ team.sort_order ?? '' }}</template>
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-bold">
+                            <p class="flex items-center gap-1.5 text-sm font-bold">
                                 {{ team.name }}
-                                <span v-if="recommendedTeamId === team.id && !teamDone(team)" class="ml-1.5 rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-400">Next</span>
+                                <span v-if="teamSquad(team)" class="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted">{{ teamSquad(team).name }}</span>
+                                <span v-if="recommendedTeamId === team.id && !teamDone(team)" class="rounded bg-emerald-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-400">Next</span>
                             </p>
                             <p class="text-xs text-muted">
                                 <span v-if="team.division_category">{{ team.division_category }} &bull; </span>
@@ -257,10 +259,9 @@ import OnlineIndicator from '../components/OnlineIndicator.vue';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
-import axios from 'axios';
 import {
     buildLegs, sortedTargets, defaultFirstShooterId, recomputeLeg,
-    pointsForImpact, multiplierForImpact,
+    pointsForImpact, multiplierForImpact, rotateTeamsForStage,
 } from '../composables/useTeamSequence';
 
 const props = defineProps({
@@ -283,7 +284,6 @@ let timerInterval = null;
 let syncInterval = null;
 
 const STATE_KEY = 'dc_elr_team_state';
-const firingOrder = ref([]);
 
 // ── Match data ──
 const match = computed(() => matchStore.currentMatch);
@@ -293,20 +293,55 @@ const profile = computed(() => currentStage.value?.profile ?? null);
 const distanceBased = computed(() => !!match.value?.elr_distance_based_scoring);
 const timeLimitSeconds = computed(() => match.value?.elr_team_time_limit_seconds ?? null);
 
-const teams = computed(() => {
-    const list = [...(match.value?.teams ?? [])];
-    if (firingOrder.value.length === 0) {
-        return list.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+// Map every shooter id to its squad so a team's squad can be derived by
+// matching shooter ids (the team payload carries no squad_id, and this works
+// identically on the cloud PWA and the offline native hub).
+const squadByShooterId = computed(() => {
+    const map = new Map();
+    for (const squad of (match.value?.squads ?? [])) {
+        for (const sh of (squad.shooters ?? [])) {
+            map.set(sh.id, squad);
+        }
     }
-    const pos = new Map(firingOrder.value.map(o => [o.team_id, o.position]));
-    return list.sort((a, b) => (pos.get(a.id) ?? 999) - (pos.get(b.id) ?? 999));
+    return map;
 });
-const squadId = computed(() => {
-    const team = currentTeam.value ?? teams.value[0];
-    const shooter = team?.shooters?.[0];
-    return shooter?.squad_id ?? match.value?.squads?.[0]?.id ?? null;
+
+function teamSquad(team) {
+    for (const sh of (team?.shooters ?? [])) {
+        const squad = squadByShooterId.value.get(sh.id);
+        if (squad) return squad;
+    }
+    return null;
+}
+
+// Teams in firing order: scoped to the locked squad (if any), grouped by squad,
+// and rotated per stage so the team that shot first last stage shoots last this
+// stage. Squads are concatenated in their own sort order.
+const teams = computed(() => {
+    let list = [...(match.value?.teams ?? [])];
+    if (matchStore.lockedSquadId) {
+        list = list.filter(t => teamSquad(t)?.id === matchStore.lockedSquadId);
+    }
+
+    const bySquad = new Map();
+    for (const t of list) {
+        const squad = teamSquad(t);
+        const key = squad?.id ?? 0;
+        if (!bySquad.has(key)) {
+            bySquad.set(key, { sortOrder: squad?.sort_order ?? 999, teams: [] });
+        }
+        bySquad.get(key).teams.push(t);
+    }
+
+    const groups = [...bySquad.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+    const ordered = [];
+    for (const group of groups) {
+        ordered.push(...rotateTeamsForStage(group.teams, currentStageIndex.value));
+    }
+    return ordered;
 });
 const currentTeam = computed(() => teams.value.find(t => t.id === currentTeamId.value) ?? null);
+const currentSquad = computed(() => teamSquad(currentTeam.value));
 
 function activeMembers(team) {
     return (team?.shooters ?? []).filter(s => (s.status ?? 'active') === 'active');
@@ -315,10 +350,11 @@ function activeMembers(team) {
 // ── First shooter / rotation ──
 const firstShooterId = computed(() => {
     if (!currentTeam.value || !currentStage.value) return null;
+    // A saved entry wins so a stage in progress keeps its leadoff shooter.
     const entry = elrStore.getTeamStageEntry(currentTeam.value.id, currentStage.value.id);
     if (entry?.firstShooterId) return entry.firstShooterId;
-    const orderEntry = firingOrder.value.find(o => o.team_id === currentTeam.value.id);
-    if (orderEntry?.first_shooter_id) return orderEntry.first_shooter_id;
+    // Otherwise alternate deterministically by stage: whoever led last stage
+    // goes second this stage.
     return defaultFirstShooterId(currentTeam.value, currentStageIndex.value);
 });
 
@@ -465,19 +501,6 @@ const recommendedTeamId = computed(() => {
     return pending?.id ?? null;
 });
 
-async function loadFiringOrder() {
-    firingOrder.value = [];
-    if (!currentStage.value || !squadId.value) return;
-    try {
-        const { data } = await axios.get(`/api/matches/${props.matchId}/elr-firing-order`, {
-            params: { squad_id: squadId.value, elr_stage_id: currentStage.value.id },
-        });
-        firingOrder.value = data.order ?? [];
-    } catch {
-        firingOrder.value = [];
-    }
-}
-
 // ── Visual helpers ──
 function divisionBadgeClass(division) {
     const name = (division ?? '').toLowerCase();
@@ -522,12 +545,11 @@ function clearProgress() {
 }
 
 // ── Navigation ──
-async function selectStage(idx) {
+function selectStage(idx) {
     currentStageIndex.value = idx;
     currentTeamId.value = null;
     currentLegIndex.value = 0;
     currentView.value = 'team-select';
-    await loadFiringOrder();
     saveProgress();
 }
 
@@ -574,9 +596,9 @@ async function ensureStarted() {
         matchId: props.matchId,
         teamId: currentTeam.value.id,
         elrStageId: currentStage.value.id,
-        squadId: null,
+        squadId: currentSquad.value?.id ?? null,
         firstShooterId: firstShooterId.value,
-        position: currentTeam.value.sort_order ?? null,
+        position: teams.value.findIndex(t => t.id === currentTeam.value.id) + 1 || null,
         startedAt: new Date().toISOString(),
     });
 }
@@ -768,8 +790,6 @@ onMounted(async () => {
     ready.value = true;
     if (!restoreProgress()) {
         currentView.value = 'stage-select';
-    } else if (currentStage.value) {
-        await loadFiringOrder();
     }
 
     startTimerLoop();

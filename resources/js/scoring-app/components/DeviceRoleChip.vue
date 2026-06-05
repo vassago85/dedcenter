@@ -23,10 +23,23 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 const syncStatus = ref(null);
 let interval = null;
 
+function stopPolling() {
+    if (interval) {
+        clearInterval(interval);
+        interval = null;
+    }
+}
+
 async function fetchStatus() {
     try {
         const resp = await fetch('/api/sync-status');
-        if (resp.ok) syncStatus.value = await resp.json();
+        if (resp.ok) {
+            syncStatus.value = await resp.json();
+        } else if (resp.status === 404) {
+            // Native-only endpoint; on the cloud PWA stop polling after the
+            // first 404 instead of hammering it every 10 seconds.
+            stopPolling();
+        }
     } catch { /* offline */ }
 }
 
@@ -34,7 +47,7 @@ onMounted(() => {
     fetchStatus();
     interval = setInterval(fetchStatus, 10000);
 });
-onUnmounted(() => { if (interval) clearInterval(interval); });
+onUnmounted(stopPolling);
 
 const role = computed(() => {
     if (!syncStatus.value) return null;

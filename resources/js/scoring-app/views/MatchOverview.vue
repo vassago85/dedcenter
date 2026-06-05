@@ -118,7 +118,7 @@
                             </div>
                             <div>
                                 <span class="text-slate-400">Stages</span>
-                                <p class="font-medium">{{ matchStore.targetSets.length }}</p>
+                                <p class="font-medium">{{ stageCount }}</p>
                             </div>
                             <div>
                                 <span class="text-slate-400">Shooters</span>
@@ -131,8 +131,24 @@
                         </div>
                     </div>
 
+                    <!-- ELR stage summary -->
+                    <div v-if="isElr" class="rounded-xl border border-slate-700 bg-slate-800 p-4">
+                        <h3 class="mb-3 text-sm font-semibold text-slate-400 uppercase tracking-wider">Stages</h3>
+                        <div v-if="elrStages.length" class="space-y-2">
+                            <div
+                                v-for="stage in elrStages"
+                                :key="stage.id"
+                                class="flex items-center justify-between rounded-lg bg-slate-700/40 px-3 py-2 text-sm"
+                            >
+                                <span class="font-medium">{{ stage.label }}</span>
+                                <span class="text-slate-400">{{ (stage.targets?.length ?? 0) }} gongs</span>
+                            </div>
+                        </div>
+                        <p v-else class="text-sm text-slate-500">No stages configured for this match yet.</p>
+                    </div>
+
                     <!-- Target sets summary -->
-                    <div class="rounded-xl border border-slate-700 bg-slate-800 p-4">
+                    <div v-else class="rounded-xl border border-slate-700 bg-slate-800 p-4">
                         <h3 class="mb-3 text-sm font-semibold text-slate-400 uppercase tracking-wider">Target Sets</h3>
                         <div class="space-y-2">
                             <div
@@ -369,7 +385,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
@@ -382,6 +398,12 @@ const props = defineProps({
 
 const router = useRouter();
 const matchStore = useMatchStore();
+
+// ELR matches keep their stages in elr_stages, not target_sets, so the overview
+// must read the right collection or it reports "0 stages" for every ELR match.
+const isElr = computed(() => matchStore.currentMatch?.scoring_type === 'elr');
+const elrStages = computed(() => matchStore.currentMatch?.elr_stages ?? []);
+const stageCount = computed(() => (isElr.value ? elrStages.value.length : matchStore.targetSets.length));
 
 const showDeviceSettings = ref(false);
 const showCompleteConfirm = ref(false);

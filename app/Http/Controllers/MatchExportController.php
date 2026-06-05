@@ -730,33 +730,75 @@ class MatchExportController extends Controller
      */
     private function elrShotsRows(ShootingMatch $match, $out, ?string $divisionFilter = null): void
     {
-        // Marker for a gong a shooter's division never engages.
-        $notEngaged = '—';
+        // Peregrine match-day layout. Every shooter only engages THREE gongs
+        // (their calibre class's subset), so the sheet shows exactly three
+        // "Target" groups per stage with three impact spots each — never a
+        // column per absolute gong. The absolute distance behind each relative
+        // target differs per class (Minor 594/827/916, Major 827/916/1679),
+        // so a distance sub-header row is emitted for each division.
+        $impactsPerTarget = 3;
 
         $stages = $match->elrStages()
             ->with(['targets' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('sort_order')
             ->get();
 
-        // Flat ordered list of (target_id, shot_number) pairs — one per CSV column.
-        // Header label keeps stage + target name so the file is self-describing
-        // even when imported into a sheet that hides the row context.
-        $shotColumns = [];
-        $headers = ['Name', 'Caliber'];
+        // Divisions in their own order — one distance sub-header row each.
+        $divisions = $match->divisions()->orderBy('id')->get(['id', 'name']);
+
+        // Per-division engaged-gong whitelist, identical to ELRScoringService:
+        // a flat set of target ids per division; a division with NO rows engages
+        // every gong (null whitelist).
+        $divisionWhitelist = [];
+        if ($divisions->isNotEmpty()) {
+            $rows = \Illuminate\Support\Facades\DB::table('elr_division_targets')
+                ->whereIn('match_division_id', $divisions->pluck('id'))
+                ->get(['match_division_id', 'elr_target_id']);
+            foreach ($rows as $r) {
+                $divisionWhitelist[(int) $r->match_division_id][(int) $r->elr_target_id] = true;
+            }
+        }
+
+        // Ordered list of the gongs a division actually engages on a stage.
+        $engagedTargets = function (?int $divisionId, $stage) use ($divisionWhitelist) {
+            $allowed = $divisionId !== null ? ($divisionWhitelist[$divisionId] ?? null) : null;
+
+            return $stage->targets
+                ->filter(fn ($t) => $allowed === null || isset($allowed[(int) $t->id]))
+                ->values();
+        };
+
+        // Relative-target count per stage = the widest division's engaged set
+        // (3 for Peregrine) so every shooter's columns line up.
+        $relCountByStage = [];
+        $engagedCache = [];
         foreach ($stages as $stage) {
-            foreach ($stage->targets as $target) {
-                $maxShots = max(1, (int) $target->max_shots);
-                for ($n = 1; $n <= $maxShots; $n++) {
-                    $shotColumns[] = ['target_id' => (int) $target->id, 'shot_number' => $n];
-                    $headers[] = "{$stage->label} - {$target->name} S{$n}";
+            $max = 1;
+            foreach ($divisions as $div) {
+                $targets = $engagedTargets((int) $div->id, $stage);
+                $engagedCache[(int) $div->id][$stage->id] = $targets;
+                $max = max($max, $targets->count());
+            }
+            if ($divisions->isEmpty()) {
+                $max = max($max, $stage->targets->count());
+            }
+            $relCountByStage[$stage->id] = $max;
+        }
+
+        // Flatten every (stage, relative target, impact spot) into one column.
+        $slots = [];
+        foreach ($stages as $stage) {
+            for ($rel = 0; $rel < $relCountByStage[$stage->id]; $rel++) {
+                for ($n = 1; $n <= $impactsPerTarget; $n++) {
+                    $slots[] = ['stage' => $stage, 'rel' => $rel, 'impact' => $n];
                 }
             }
         }
 
-        // Shooters in squad/sort order so the CSV mirrors the running order
-        // ROs see in the scoring app.
+        // Shooters in squad/sort order so the CSV mirrors the running order.
         $shooterQuery = Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->leftJoin('teams', 'shooters.team_id', '=', 'teams.id')
             ->leftJoin('match_divisions', 'shooters.match_division_id', '=', 'match_divisions.id')
             ->leftJoin('match_registrations', function ($j) use ($match) {
                 $j->on('match_registrations.user_id', '=', 'shooters.user_id')
@@ -770,6 +812,8 @@ class MatchExportController extends Controller
                 'shooters.name',
                 'shooters.user_id',
                 'shooters.match_division_id',
+                'squads.name as squad_name',
+                'teams.name as team_name',
                 'match_divisions.name as division_name',
                 'match_registrations.caliber as reg_caliber',
             );
@@ -787,39 +831,67 @@ class MatchExportController extends Controller
 
         $shooters = $shooterQuery->get();
 
-        $targetIds = collect($shotColumns)->pluck('target_id')->unique()->values();
-
-        // Per-division engaged-gong whitelist, identical to ELRScoringService:
-        // a flat set of target ids per division; a division with NO rows engages
-        // every gong (null whitelist).
-        $divisionWhitelist = [];
-        $divisionIds = $shooters->pluck('match_division_id')->filter()->unique()->values();
-        if ($divisionIds->isNotEmpty()) {
-            $rows = \Illuminate\Support\Facades\DB::table('elr_division_targets')
-                ->whereIn('match_division_id', $divisionIds)
-                ->get(['match_division_id', 'elr_target_id']);
-            foreach ($rows as $r) {
-                $divisionWhitelist[(int) $r->match_division_id][(int) $r->elr_target_id] = true;
-            }
-        }
-
-        // Pre-index every recorded shot result by (shooter, target, shot_number)
-        // so a scored cell shows 1/0 and an unscored engaged cell stays blank.
+        // Pre-index recorded shots by (shooter, target, shot_number) for the
+        // 1/0 impact cells, and total points per shooter for the trailing column.
         $resultIndex = [];
-        if ($shooters->isNotEmpty() && $targetIds->isNotEmpty()) {
-            $shots = \App\Models\ElrShot::query()
-                ->whereIn('shooter_id', $shooters->pluck('id'))
-                ->whereIn('elr_target_id', $targetIds)
-                ->get(['shooter_id', 'elr_target_id', 'shot_number', 'result']);
-            foreach ($shots as $s) {
-                $resultIndex[(int) $s->shooter_id][(int) $s->elr_target_id][(int) $s->shot_number]
-                    = $s->result instanceof \App\Enums\ElrShotResult ? $s->result->value : (string) $s->result;
+        $pointsByShooter = [];
+        if ($shooters->isNotEmpty()) {
+            $targetIds = $stages->flatMap(fn ($s) => $s->targets->pluck('id'))->unique()->values();
+            if ($targetIds->isNotEmpty()) {
+                $shots = \App\Models\ElrShot::query()
+                    ->whereIn('shooter_id', $shooters->pluck('id'))
+                    ->whereIn('elr_target_id', $targetIds)
+                    ->get(['shooter_id', 'elr_target_id', 'shot_number', 'result', 'points_awarded']);
+                foreach ($shots as $s) {
+                    $resultIndex[(int) $s->shooter_id][(int) $s->elr_target_id][(int) $s->shot_number]
+                        = $s->result instanceof \App\Enums\ElrShotResult ? $s->result->value : (string) $s->result;
+                    $pointsByShooter[(int) $s->shooter_id] = ($pointsByShooter[(int) $s->shooter_id] ?? 0) + (float) $s->points_awarded;
+                }
             }
         }
 
-        // UTF-8 BOM so Excel renders the "—" not-engaged marker correctly.
+        // UTF-8 BOM so Excel renders cleanly.
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, $headers, ',', '"', '\\');
+
+        // Title row (match name + date), mirroring the printed scoresheet.
+        $titleRow = array_fill(0, 5 + count($slots) + 1, '');
+        $titleRow[0] = $match->name;
+        $titleRow[1] = optional($match->date)->format('j M Y') ?? '';
+        fputcsv($out, $titleRow, ',', '"', '\\');
+
+        // Header row 1: stage + relative target labels (on the first impact cell
+        // of each target group).
+        $labelRow = ['', '', '', '', ''];
+        foreach ($slots as $slot) {
+            $labelRow[] = $slot['impact'] === 1 ? "{$slot['stage']->label} - Target " . ($slot['rel'] + 1) : '';
+        }
+        $labelRow[] = '';
+        fputcsv($out, $labelRow, ',', '"', '\\');
+
+        // Header rows: one per division giving the absolute distance behind each
+        // relative target for that class.
+        foreach ($divisions as $div) {
+            $distRow = ['', '', '', '', $div->name];
+            foreach ($slots as $slot) {
+                if ($slot['impact'] !== 1) {
+                    $distRow[] = '';
+                    continue;
+                }
+                $targets = $engagedCache[(int) $div->id][$slot['stage']->id] ?? collect();
+                $target = $targets[$slot['rel']] ?? null;
+                $distRow[] = $target ? (int) $target->distance_m : '';
+            }
+            $distRow[] = '';
+            fputcsv($out, $distRow, ',', '"', '\\');
+        }
+
+        // Column header row.
+        $headerRow = ['Squad', 'Shooter', 'Team', 'Cartridge', 'Class'];
+        foreach ($slots as $slot) {
+            $headerRow[] = 'W';
+        }
+        $headerRow[] = 'Total Points';
+        fputcsv($out, $headerRow, ',', '"', '\\');
 
         foreach ($shooters as $shooter) {
             // Prefer the registration caliber; fall back to the "Name — Caliber"
@@ -834,29 +906,41 @@ class MatchExportController extends Controller
             }
 
             $divisionId = $shooter->match_division_id ? (int) $shooter->match_division_id : null;
-            // null whitelist => no per-division restriction => engages every gong.
-            $allowed = $divisionId !== null ? ($divisionWhitelist[$divisionId] ?? null) : null;
-
-            $row = [$displayName, $caliber ?? ''];
             $resultsForShooter = $resultIndex[(int) $shooter->id] ?? [];
-            foreach ($shotColumns as $col) {
-                $engaged = $allowed === null || isset($allowed[$col['target_id']]);
-                if (! $engaged) {
-                    $row[] = $notEngaged;
+
+            $row = [
+                $shooter->squad_name ?? '',
+                $displayName,
+                $shooter->team_name ?? '',
+                $caliber ?? '',
+                $shooter->division_name ?? '',
+            ];
+
+            foreach ($slots as $slot) {
+                $targets = $divisionId !== null
+                    ? ($engagedCache[$divisionId][$slot['stage']->id] ?? $engagedTargets(null, $slot['stage']))
+                    : $engagedTargets(null, $slot['stage']);
+                $target = $targets[$slot['rel']] ?? null;
+                if (! $target) {
+                    // This class engages fewer gongs than the widest division.
+                    $row[] = '';
                     continue;
                 }
 
-                $result = $resultsForShooter[$col['target_id']][$col['shot_number']] ?? null;
+                $result = $resultsForShooter[(int) $target->id][$slot['impact']] ?? null;
                 if ($result === \App\Enums\ElrShotResult::Hit->value) {
                     $row[] = 1;
                 } elseif ($result === \App\Enums\ElrShotResult::Miss->value) {
                     $row[] = 0;
                 } else {
-                    // Engaged gong not scored yet (or round skipped) — leave blank
-                    // for the scorer to fill in with 1 (impact) or 0 (miss).
+                    // Engaged gong not scored yet — blank for the scorer to fill
+                    // in with 1 (impact) or 0 (miss).
                     $row[] = '';
                 }
             }
+
+            $total = $pointsByShooter[(int) $shooter->id] ?? 0;
+            $row[] = $total > 0 ? rtrim(rtrim(number_format($total, 2, '.', ''), '0'), '.') : '';
             fputcsv($out, $row, ',', '"', '\\');
         }
     }

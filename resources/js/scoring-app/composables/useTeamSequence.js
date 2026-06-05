@@ -61,6 +61,20 @@ export function defaultFirstShooterId(team, stageIndex) {
     return active[stageIndex % active.length].id;
 }
 
+// Deterministic team firing order within a squad for a given stage. Teams are
+// ordered by sort_order, then rotated LEFT by stageIndex so the team that led
+// on a stage moves to last on the next stage (and the rest move up one). This
+// is computed entirely client-side so the cloud PWA and the offline native hub
+// rotate identically without a server round-trip.
+export function rotateTeamsForStage(teams, stageIndex) {
+    const ordered = [...(teams ?? [])]
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.id - b.id));
+    const n = ordered.length;
+    if (n === 0) return [];
+    const shift = (((stageIndex ?? 0) % n) + n) % n;
+    return [...ordered.slice(shift), ...ordered.slice(0, shift)];
+}
+
 // Full leg list for a team at a stage. Each leg = { shooter, target, shots }.
 //
 // Current ordering is "alternating": per gong, each shooter fires before

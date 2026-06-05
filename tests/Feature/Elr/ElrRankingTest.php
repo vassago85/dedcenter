@@ -201,8 +201,9 @@ it('exports a rankings CSV for staff', function () {
     expect($response->headers->get('content-type'))->toContain('text/csv');
 });
 
-it('marks non-engaged gongs and leaves engaged-but-unscored gongs blank in the shots template', function () {
-    // Minor engages gongs 1-3, Major engages 2-4 (so 2 & 3 are shared).
+it('renders the Peregrine shots template: 3 relative targets per class with per-division distances', function () {
+    // Minor engages gongs 1-3 (900/1000/1100m), Major engages 2-4
+    // (1000/1100/1200m) — each class shoots exactly THREE relative targets.
     app(ElrTeamRangeService::class)->saveRange($this->stage, $this->minor->id, 1, 3);
     app(ElrTeamRangeService::class)->saveRange($this->stage, $this->major->id, 2, 4);
 
@@ -229,31 +230,48 @@ it('marks non-engaged gongs and leaves engaged-but-unscored gongs blank in the s
     $lines = array_values(array_filter(explode("\n", trim($body))));
     $rows = array_map(fn ($l) => str_getcsv(trim($l, "\r"), ',', '"', '\\'), $lines);
 
-    // Header: Name, Caliber, then G1 S1..G4 S3 (12 shot columns).
-    expect($rows[0])->toBe([
-        'Name', 'Caliber',
-        'Station 1 - G1 S1', 'Station 1 - G1 S2', 'Station 1 - G1 S3',
-        'Station 1 - G2 S1', 'Station 1 - G2 S2', 'Station 1 - G2 S3',
-        'Station 1 - G3 S1', 'Station 1 - G3 S2', 'Station 1 - G3 S3',
-        'Station 1 - G4 S1', 'Station 1 - G4 S2', 'Station 1 - G4 S3',
+    // Row 0: title (match name + date).
+    expect($rows[0][0])->toBe($this->match->name);
+
+    // Row 1: relative target labels (on the first impact cell of each group).
+    expect($rows[1])->toBe([
+        '', '', '', '', '',
+        'Station 1 - Target 1', '', '',
+        'Station 1 - Target 2', '', '',
+        'Station 1 - Target 3', '', '',
+        '',
     ]);
 
-    $byName = collect($rows)->keyBy(fn ($r) => $r[0]);
+    // Rows 2-3: per-division absolute distances behind each relative target.
+    expect($rows[2])->toBe(['', '', '', '', 'Minor', '900', '', '', '1000', '', '', '1100', '', '', '']);
+    expect($rows[3])->toBe(['', '', '', '', 'Major', '1000', '', '', '1100', '', '', '1200', '', '', '']);
 
-    // Alice (Minor): G1 scored (1, 0, blank), G2/G3 engaged-unscored (blank),
-    // G4 not engaged (—).
-    expect(array_slice($byName['Alice'], 2))->toBe([
-        '1', '0', '',        // G1
-        '', '', '',          // G2 (shared, unscored)
-        '', '', '',          // G3 (shared, unscored)
-        '—', '—', '—',       // G4 (Major-only)
+    // Row 4: column header.
+    expect($rows[4])->toBe([
+        'Squad', 'Shooter', 'Team', 'Cartridge', 'Class',
+        'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W',
+        'Total Points',
     ]);
 
-    // Bob (Major): G1 not engaged (—); G2/G3/G4 engaged-unscored (blank).
-    expect(array_slice($byName['Bob'], 2))->toBe([
-        '—', '—', '—',       // G1 (Minor-only)
-        '', '', '',          // G2
-        '', '', '',          // G3
-        '', '', '',          // G4
+    $byName = collect($rows)->keyBy(fn ($r) => $r[1]);
+
+    // Alice (Minor): fixed columns + Target 1 scored (1,0,blank), Targets 2/3
+    // engaged-unscored (blank), then her 10-point total.
+    expect($byName['Alice'])->toBe([
+        'Squad A', 'Alice', 'Alpha', '', 'Minor',
+        '1', '0', '',
+        '', '', '',
+        '', '', '',
+        '10',
+    ]);
+
+    // Bob (Major): his three relative targets (G2/G3/G4) all engaged-unscored,
+    // no points yet.
+    expect($byName['Bob'])->toBe([
+        'Squad A', 'Bob', 'Alpha', '', 'Major',
+        '', '', '',
+        '', '', '',
+        '', '', '',
+        '',
     ]);
 });

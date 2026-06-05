@@ -4,7 +4,18 @@ export function useSyncStatus() {
     const syncStatus = ref(null);
     const syncing = ref(false);
     const error = ref(null);
+    // /api/sync-status only exists on the native Android hub. On the cloud PWA
+    // it 404s, so once we see that we stop polling to avoid a flood of failed
+    // requests every 5 seconds.
+    const supported = ref(true);
     let interval = null;
+
+    function stopPolling() {
+        if (interval) {
+            clearInterval(interval);
+            interval = null;
+        }
+    }
 
     async function fetchStatus() {
         try {
@@ -12,6 +23,9 @@ export function useSyncStatus() {
             if (resp.ok) {
                 syncStatus.value = await resp.json();
                 error.value = null;
+            } else if (resp.status === 404) {
+                supported.value = false;
+                stopPolling();
             }
         } catch (e) {
             error.value = e.message;
@@ -49,9 +63,7 @@ export function useSyncStatus() {
         interval = setInterval(fetchStatus, 5000);
     });
 
-    onUnmounted(() => {
-        if (interval) clearInterval(interval);
-    });
+    onUnmounted(stopPolling);
 
-    return { syncStatus, syncing, error, triggerSync, formatTimeAgo };
+    return { syncStatus, syncing, error, supported, triggerSync, formatTimeAgo };
 }
