@@ -22,6 +22,7 @@ new #[Layout('components.layouts.app')]
     public string $walkinBib = '';
     public string $walkinCaliber = '';
     public ?int $walkinRelayId = null;
+    public ?int $walkinDivisionId = null;
     public string $walkinSearch = '';
     public ?int $walkinUserId = null;
 
@@ -434,11 +435,22 @@ new #[Layout('components.layouts.app')]
 
     public function addWalkin(): void
     {
+        // Divisions are match-level (e.g. ELR Minor/Major). When the match has
+        // any, a walk-in must be assigned one so ELR target gating, rankings and
+        // the per-division CSV export treat them like a regular registration.
+        $divisionIds = $this->match->divisions()->pluck('id')->all();
+        $hasDivisions = count($divisionIds) > 0;
+
         $this->validate([
             'walkinName' => 'required|string|max:255',
             'walkinBib' => 'nullable|string|max:50',
             'walkinCaliber' => 'nullable|string|max:64',
             'walkinRelayId' => 'required|integer',
+            'walkinDivisionId' => [$hasDivisions ? 'required' : 'nullable', 'integer', \Illuminate\Validation\Rule::in($divisionIds)],
+        ], [], [
+            'walkinName' => 'name',
+            'walkinRelayId' => 'squad',
+            'walkinDivisionId' => 'division',
         ]);
 
         $squad = $this->match->squads()->findOrFail($this->walkinRelayId);
@@ -461,12 +473,15 @@ new #[Layout('components.layouts.app')]
         }
         $displayName = $caliber !== '' ? "{$baseName} — {$caliber}" : $baseName;
 
+        $divisionId = $hasDivisions ? $this->walkinDivisionId : null;
+
         $maxSort = Shooter::where('squad_id', $squad->id)->max('sort_order') ?? 0;
         $shooter = Shooter::create([
             'squad_id' => $squad->id,
             'name' => $displayName,
             'bib_number' => $this->walkinBib ?: null,
             'user_id' => $this->walkinUserId,
+            'match_division_id' => $divisionId,
             'sort_order' => $maxSort + 1,
             'status' => 'active',
         ]);
@@ -482,18 +497,22 @@ new #[Layout('components.layouts.app')]
                     'is_free_entry' => ($this->match->entry_fee ?? 0) == 0,
                     'admin_notes' => 'Walk-in added by admin on match day',
                     'caliber' => $caliber !== '' ? $caliber : null,
+                    'division_id' => $divisionId,
                 ]
             );
 
             // firstOrCreate skips attribute updates if the row already
-            // existed — backfill caliber if a registration was there but
-            // empty so reports see the captured value.
+            // existed — backfill caliber/division if a registration was there
+            // but empty so reports and ELR gating see the captured values.
             if ($caliber !== '' && empty($registration->caliber)) {
                 $registration->update(['caliber' => $caliber]);
             }
+            if ($divisionId && empty($registration->division_id)) {
+                $registration->update(['division_id' => $divisionId]);
+            }
         }
 
-        $this->reset('walkinName', 'walkinBib', 'walkinCaliber', 'walkinRelayId', 'walkinUserId', 'walkinSearch');
+        $this->reset('walkinName', 'walkinBib', 'walkinCaliber', 'walkinRelayId', 'walkinDivisionId', 'walkinUserId', 'walkinSearch');
         Flux::toast("{$shooter->name} added to {$squad->name}.", variant: 'success');
     }
 
@@ -1007,6 +1026,18 @@ new #[Layout('components.layouts.app')]
                         @endforeach
                     </select>
                 </div>
+                @if($match->divisions->isNotEmpty())
+                    <div>
+                        <label class="block text-sm font-medium text-secondary mb-1">Division <span class="text-accent">*</span></label>
+                        <select wire:model="walkinDivisionId"
+                                class="w-full rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]">
+                            <option value="">Select division</option>
+                            @foreach($match->divisions->sortBy('sort_order') as $div)
+                                <option value="{{ $div->id }}">{{ $div->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
             </div>
 
             {{-- Same curated caliber list used by the member equipment form
