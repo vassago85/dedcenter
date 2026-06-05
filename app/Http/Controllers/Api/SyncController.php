@@ -35,6 +35,42 @@ class SyncController extends Controller
             'updated_at' => $s->updated_at?->toIso8601String(),
         ]);
 
+        // Full roster on every pull (it's small) so devices that imported the
+        // match earlier converge on walk-ins added later, re-squads, division
+        // assignments, and status/DQ changes — without a destructive
+        // re-import. The device upserts by the cloud shooter id, so this is
+        // idempotent. Not `since`-filtered on purpose: a walk-in added between
+        // two device pulls must not be skipped just because the cursor moved.
+        $match->loadMissing([
+            'squads' => fn ($q) => $q->orderBy('sort_order'),
+            'squads.shooters' => fn ($q) => $q->orderBy('sort_order'),
+            'squads.shooters.division',
+            'squads.shooters.team',
+            'squads.shooters.categories',
+        ]);
+
+        $squadData = $match->squads->map(fn ($sq) => [
+            'id' => $sq->id,
+            'name' => $sq->name,
+            'sort_order' => $sq->sort_order,
+        ])->values();
+
+        $shooterData = $match->squads->flatMap(fn ($sq) => $sq->shooters->map(fn ($sh) => [
+            'id' => $sh->id,
+            'squad_id' => $sq->id,
+            'name' => $sh->name,
+            'bib_number' => $sh->bib_number,
+            'sort_order' => $sh->sort_order,
+            'division_id' => $sh->match_division_id,
+            // Division name doubles as the cross-device key — the offline DB
+            // has no cloud id for divisions, so the app maps by name.
+            'division' => $sh->division?->name,
+            'team' => $sh->team?->name,
+            'category_ids' => $sh->categories->pluck('id')->values(),
+            'status' => $sh->status ?? 'active',
+            'updated_at' => $sh->updated_at?->toIso8601String(),
+        ]))->values();
+
         $stageTimeData = $stageTimes->get()->map(fn ($st) => [
             'id' => $st->id,
             'shooter_id' => $st->shooter_id,
@@ -54,8 +90,14 @@ class SyncController extends Controller
                 'shooter_id' => $s->shooter_id,
                 'elr_target_id' => $s->elr_target_id,
                 'shot_number' => $s->shot_number,
+                // impact_number drives the per-target impact/multiplier grid in
+                // team gong-sequence scoring; without it pulled team shots can't
+                // reconstruct which multiplier slot each hit occupies.
+                'impact_number' => $s->impact_number,
                 'result' => $s->result instanceof \BackedEnum ? $s->result->value : $s->result,
                 'points_awarded' => (float) $s->points_awarded,
+                'distance_at_score' => $s->distance_at_score,
+                'multiplier_at_score' => $s->multiplier_at_score !== null ? (float) $s->multiplier_at_score : null,
                 'device_id' => $s->device_id,
                 'recorded_at' => $s->recorded_at?->toIso8601String(),
                 'updated_at' => $s->updated_at?->toIso8601String(),
@@ -95,6 +137,14 @@ class SyncController extends Controller
         }
 
         return response()->json([
+            // Volatile match-level flags so a device that imported the match
+            // earlier learns when the MD enables the side-bet pot / royal flush
+            // on the web — otherwise the local toggle would keep returning 422
+            // and those screens stay unusable on every device but the host.
+            'side_bet_enabled' => (bool) $match->side_bet_enabled,
+            'royal_flush_enabled' => (bool) $match->royal_flush_enabled,
+            'squads' => $squadData,
+            'shooters' => $shooterData,
             'scores' => $scoreData,
             'stage_times' => $stageTimeData,
             'elr_shots' => $elrShots,

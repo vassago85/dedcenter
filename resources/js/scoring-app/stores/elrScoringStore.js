@@ -67,7 +67,96 @@ export const useElrScoringStore = defineStore('elrScoring', {
                 // table may not exist yet
             }
 
+            // Pull any shots already recorded on the server / other devices into
+            // the local store so the impact grid reflects them — otherwise a
+            // device that imported a match with existing scores shows an empty
+            // scoresheet and the RO re-enters (double-scores) them.
+            await this.hydrateFromServer(matchId);
+
             await this.updatePendingCount();
+        },
+
+        // Fetch existing ELR shots from whichever server backs this app (the
+        // native local hub server, or the cloud) and merge them into Dexie.
+        // Local UNSYNCED shots always win — we never clobber a pending edit.
+        // Keyed by shooter+target+shotNumber so this can only upsert, never
+        // duplicate.
+        async hydrateFromServer(matchId) {
+            let serverShots = null;
+
+            // Native app / LAN hub: local Ktor feed (camelCase, returns all shots).
+            try {
+                const res = await axios.get('/api/sync/elr-shots', { params: { match_id: matchId } });
+                serverShots = (res.data?.data ?? []).map((s) => ({
+                    shooterId: s.shooterId,
+                    elrTargetId: s.elrTargetId,
+                    shotNumber: s.shotNumber,
+                    impactNumber: s.impactNumber ?? null,
+                    result: s.result,
+                    pointsAwarded: s.pointsAwarded ?? 0,
+                    deviceId: s.deviceId ?? null,
+                    recordedAt: s.recordedAt ?? null,
+                }));
+            } catch {
+                // Cloud PWA: incremental sync feed (snake_case).
+                try {
+                    const res = await axios.get(`/api/matches/${matchId}/scores/sync`);
+                    serverShots = (res.data?.elr_shots ?? []).map((s) => ({
+                        shooterId: s.shooter_id,
+                        elrTargetId: s.elr_target_id,
+                        shotNumber: s.shot_number,
+                        impactNumber: s.impact_number ?? null,
+                        result: s.result,
+                        pointsAwarded: s.points_awarded ?? 0,
+                        deviceId: s.device_id ?? null,
+                        recordedAt: s.recorded_at ?? null,
+                    }));
+                } catch (e) {
+                    if (e.response?.status === 401 || e.response?.status === 419) {
+                        this.authExpired = true;
+                    }
+                    return; // offline / unsupported — keep local-only view
+                }
+            }
+
+            for (const srv of serverShots) {
+                if (srv.shooterId == null || srv.elrTargetId == null || srv.shotNumber == null) continue;
+                const key = `${srv.shooterId}-${srv.elrTargetId}-${srv.shotNumber}`;
+
+                let local = this.shots.get(key);
+                try {
+                    local = await db.elrShots
+                        .where('[shooterId+elrTargetId+shotNumber]')
+                        .equals([srv.shooterId, srv.elrTargetId, srv.shotNumber])
+                        .first() ?? local;
+                } catch { /* db not ready — fall back to in-memory */ }
+
+                // Pending local edit wins over the server copy.
+                if (local && local.synced === false) continue;
+
+                const merged = {
+                    shooterId: srv.shooterId,
+                    elrTargetId: srv.elrTargetId,
+                    matchId,
+                    shotNumber: srv.shotNumber,
+                    impactNumber: srv.impactNumber,
+                    result: srv.result,
+                    pointsAwarded: srv.pointsAwarded,
+                    deviceId: srv.deviceId,
+                    recordedAt: srv.recordedAt,
+                    synced: true,
+                };
+
+                try {
+                    await db.elrShots
+                        .where('[shooterId+elrTargetId+shotNumber]')
+                        .equals([srv.shooterId, srv.elrTargetId, srv.shotNumber])
+                        .delete();
+                    await db.elrShots.add(merged);
+                } catch { /* db not ready */ }
+
+                this.shots.set(key, merged);
+            }
         },
 
         async recordShot({ matchId, shooterId, elrTargetId, shotNumber, result, pointsAwarded, impactNumber = null }) {
@@ -162,6 +251,10 @@ export const useElrScoringStore = defineStore('elrScoring', {
         },
 
         async refreshShots(matchId) {
+            // Pull server-side shots first so a refresh surfaces impacts entered
+            // on other devices / the cloud, then rebuild the in-memory map.
+            await this.hydrateFromServer(matchId);
+
             const merged = new Map();
             try {
                 const localShots = await db.elrShots.where('matchId').equals(matchId).toArray();
