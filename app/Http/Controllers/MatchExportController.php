@@ -1011,6 +1011,16 @@ class MatchExportController extends Controller
     {
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
+
+        // ELR matches don't populate `scores` or `target_sets` — the legacy
+        // Standings PDF query returns zero rows. Delegate to the ELR
+        // rankings PDF (overall + teams + divisions on one print-ready
+        // page) so the Standings PDF button on the Reports page yields a
+        // useful document for ELR matches instead of an empty leaderboard.
+        if ($match->isElr()) {
+            return $this->pdfElrRankings($organization, $match, $renderer);
+        }
+
         $slug = Str::slug($match->name);
         $data = $this->buildPdfStandingsData($match);
 
@@ -1039,6 +1049,16 @@ class MatchExportController extends Controller
     {
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
+
+        // ELR matches: the per-stage / per-target breakdown lives on the
+        // Full Match Report (heatmap + podium + per-stage stats), which is
+        // now ELR-aware. Send "Detailed PDF" there for ELR so the button
+        // produces a useful document instead of the empty target-set
+        // grid this method builds for standard matches.
+        if ($match->isElr()) {
+            return $this->pdfFullMatchReport($organization, $match, $renderer);
+        }
+
         $slug = Str::slug($match->name);
         $data = $this->buildPdfDetailedData($match);
 

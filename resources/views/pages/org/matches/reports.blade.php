@@ -301,48 +301,92 @@ new #[Layout('components.layouts.app')]
             </h3>
             <p class="mt-0.5 text-xs text-muted">Print-ready PDFs for the prize-giving table, sponsor packs, and post-match comms.</p>
 
-            <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <a
-                    href="{{ $pdf['standings'] }}"
-                    class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                >
-                    <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-primary">Standings PDF</p>
-                        <p class="text-[11px] text-muted">single-page leaderboard</p>
-                    </div>
-                </a>
-                <a
-                    href="{{ $pdf['detailed'] }}"
-                    class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                >
-                    <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-primary">Detailed PDF</p>
-                        <p class="text-[11px] text-muted">per-stage detail</p>
-                    </div>
-                </a>
-                <a
-                    href="{{ $pdf['postMatch'] }}"
-                    class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                >
-                    <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-primary">Post-match narrative</p>
-                        <p class="text-[11px] text-muted">storytelling format</p>
-                    </div>
-                </a>
-                <a
-                    href="{{ $pdf['executiveSummary'] }}"
-                    class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                >
-                    <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-primary">Executive summary</p>
-                        <p class="text-[11px] text-muted">sponsor / board pack</p>
-                    </div>
-                </a>
-            </div>
+            @if($isElr)
+                {{-- ELR has its own ranking / scoring data shape (stages,
+                     targets, distance-based points) so we surface ELR-native
+                     PDFs here instead of the standard target-set ones, which
+                     would render empty. The standard URLs (standings PDF /
+                     detailed PDF) still work for ELR — they now delegate to
+                     the ELR rankings / full match report PDFs — but the
+                     cards below point straight at the ELR-native endpoints
+                     so the MD sees the right label. --}}
+                <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <a
+                        href="{{ $elrExports['pdfRankings'] }}"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">ELR Rankings PDF</p>
+                            <p class="text-[11px] text-muted">overall · teams · divisions</p>
+                        </div>
+                    </a>
+                    <a
+                        href="{{ $pdf['executiveSummary'] }}"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">Full match report PDF</p>
+                            <p class="text-[11px] text-muted">podium · heatmap · per-stage</p>
+                        </div>
+                    </a>
+                    <a
+                        href="{{ $fullMatchReportUrl }}"
+                        target="_blank" rel="noopener"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="external-link" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">Full match report (HTML)</p>
+                            <p class="text-[11px] text-muted">share link · responsive</p>
+                        </div>
+                    </a>
+                </div>
+            @else
+                <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <a
+                        href="{{ $pdf['standings'] }}"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">Standings PDF</p>
+                            <p class="text-[11px] text-muted">single-page leaderboard</p>
+                        </div>
+                    </a>
+                    <a
+                        href="{{ $pdf['detailed'] }}"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">Detailed PDF</p>
+                            <p class="text-[11px] text-muted">per-stage detail</p>
+                        </div>
+                    </a>
+                    <a
+                        href="{{ $pdf['postMatch'] }}"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">Post-match narrative</p>
+                            <p class="text-[11px] text-muted">storytelling format</p>
+                        </div>
+                    </a>
+                    <a
+                        href="{{ $pdf['executiveSummary'] }}"
+                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    >
+                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-primary">Executive summary</p>
+                            <p class="text-[11px] text-muted">sponsor / board pack</p>
+                        </div>
+                    </a>
+                </div>
+            @endif
         </section>
 
         {{-- ─── Match audit log ───────────────────────────────────────
