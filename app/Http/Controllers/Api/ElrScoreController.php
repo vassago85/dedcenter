@@ -191,6 +191,10 @@ class ElrScoreController extends Controller
             'started_at' => ['nullable', 'date'],
             'completed_at' => ['nullable', 'date'],
             'timed_out' => ['nullable', 'boolean'],
+            // MD-captured reason for shooting past the team time limit. Free
+            // text so the field can carry quick reasons ("Equipment", "Target
+            // malfunction") or a longer note. Capped at the column length.
+            'overtime_reason' => ['nullable', 'string', 'max:500'],
             'device_id' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -206,13 +210,17 @@ class ElrScoreController extends Controller
                 $entry->{$field} = $validated[$field];
             }
         }
-        // completed_at / timed_out are explicitly settable to null so a
-        // correction can reopen a finished entry.
+        // completed_at / timed_out / overtime_reason are explicitly settable
+        // to null so a correction can reopen a finished entry or clear an
+        // overtime reason after the fact.
         if (array_key_exists('completed_at', $validated)) {
             $entry->completed_at = $validated['completed_at'];
         }
         if (array_key_exists('timed_out', $validated)) {
             $entry->timed_out = (bool) $validated['timed_out'];
+        }
+        if (array_key_exists('overtime_reason', $validated)) {
+            $entry->overtime_reason = $validated['overtime_reason'];
         }
 
         $entry->save();

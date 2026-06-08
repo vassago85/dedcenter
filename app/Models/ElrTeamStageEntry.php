@@ -23,6 +23,7 @@ class ElrTeamStageEntry extends Model
         'started_at',
         'completed_at',
         'timed_out',
+        'overtime_reason',
         'device_id',
         'team_total_score',
         'shooter_1_id',

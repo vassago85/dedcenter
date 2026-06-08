@@ -165,13 +165,16 @@
                                 <button @click="setScoringLayout('guided')" class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'guided' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Guided</button>
                                 <button @click="setScoringLayout('grid')" class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'grid' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Grid</button>
                             </div>
-                            <span v-if="timeLimitSeconds" class="font-bold tabular-nums" :class="timerCritical ? 'text-red-400' : timerWarning ? 'text-amber-400' : 'text-emerald-400'">
-                                {{ formattedTime }}
+                            <span v-if="timeLimitSeconds && timerRunning" class="font-bold tabular-nums" :class="timerOver ? 'text-red-500' : timerCritical ? 'text-red-400' : timerWarning ? 'text-amber-400' : 'text-emerald-400'">
+                                {{ timerOver ? 'OT ' : '' }}{{ formattedTime }}
+                            </span>
+                            <span v-else-if="timeLimitSeconds && !timerRunning" class="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                                Timer not started
                             </span>
                         </div>
                     </div>
                     <div class="mt-1 h-1 rounded-full bg-surface-2">
-                        <div class="h-full rounded-full bg-emerald-500 transition-all duration-300" :style="{ width: legProgressPercent + '%' }"></div>
+                        <div class="h-full rounded-full transition-all duration-300" :class="timerOver ? 'bg-red-500' : 'bg-emerald-500'" :style="{ width: legProgressPercent + '%' }"></div>
                     </div>
                     <!-- Up-next chip: tells the RO which team to set up. -->
                     <div class="mt-1 flex items-center justify-between gap-2 text-[10.5px]">
@@ -218,11 +221,27 @@
                         +{{ lastPointsFlash }} pts!
                     </div>
 
-                    <!-- Timed out banner -->
+                    <!-- Overtime banner: clock has crossed zero but scoring is still allowed. -->
+                    <div v-if="timerOver && currentEntry?.overtimeReason" class="mb-2 rounded-lg border border-red-700/70 bg-red-900/30 px-3 py-1.5 text-center">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-300">Overtime &middot; +{{ overtimeSeconds }}s</p>
+                        <p class="truncate text-[11px] text-red-200/90">Reason: {{ currentEntry.overtimeReason }}</p>
+                    </div>
+
+                    <!-- Manual stage-locked banner (only when the MD explicitly marks timed-out). -->
                     <div v-if="locked" class="mb-2 rounded-lg border border-red-700 bg-red-900/40 px-3 py-2 text-center">
-                        <p class="text-sm font-bold text-red-400">Time expired</p>
-                        <p class="text-xs text-red-300">Shot entry locked. Stage marked timed out.</p>
+                        <p class="text-sm font-bold text-red-400">Stage marked timed out</p>
+                        <p class="text-xs text-red-300">Shot entry locked by the MD.</p>
                         <button @click="goToSummary" class="mt-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white">View Summary</button>
+                    </div>
+
+                    <!-- Start timer (manual) — shows before the first beep so the MD controls when the clock starts. -->
+                    <div v-if="!locked && timeLimitSeconds && !timerRunning" class="mb-2">
+                        <button @click="startTimer"
+                            class="flex h-16 w-full items-center justify-center gap-3 rounded-xl bg-amber-500 text-zinc-950 shadow-lg transition-all active:scale-95 active:bg-amber-400">
+                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                            <span class="text-lg font-black uppercase tracking-wide">Start Timer</span>
+                            <span class="rounded-full bg-zinc-950/15 px-2 py-0.5 text-[11px] font-bold tabular-nums">{{ Math.floor(timeLimitSeconds/60) }}:{{ (timeLimitSeconds % 60).toString().padStart(2,'0') }}</span>
+                        </button>
                     </div>
 
                     <!-- HIT / MISS -->
@@ -339,6 +358,43 @@
 
         <ScoringSponsorship />
 
+        <!--
+          Overtime reason capture sheet.
+          Pops the first time a HIT/MISS is tapped after the team clock crosses
+          zero. The held shot is committed only once the MD picks/types a
+          reason — subsequent overtime shots in the same team-stage do NOT
+          re-prompt (the reason is persisted on the entry).
+        -->
+        <div v-if="pendingOvertimeShot" class="fixed inset-0 z-50 flex items-end justify-center bg-black/65 backdrop-blur-sm">
+            <div class="w-full max-w-md rounded-t-2xl border-t border-red-700/60 bg-surface p-4 pb-6 shadow-2xl">
+                <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-surface-2"></div>
+                <p class="text-center text-[11px] font-bold uppercase tracking-widest text-red-300">Overtime &middot; +{{ overtimeSeconds }}s</p>
+                <p class="text-center text-base font-bold">Reason for shooting over time?</p>
+                <p class="mt-0.5 text-center text-xs text-muted">Required before the next shot. Stored on the team-stage record.</p>
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    <button v-for="p in OVERTIME_PRESETS" :key="p"
+                        @click="pickOvertimePreset(p)"
+                        class="rounded-full border border-border bg-surface-2/60 px-2.5 py-1 text-[11px] font-semibold transition-colors"
+                        :class="overtimeReasonDraft === p ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'text-muted hover:border-amber-500/40 hover:text-primary'">
+                        {{ p }}
+                    </button>
+                </div>
+                <textarea v-model="overtimeReasonDraft" rows="2" maxlength="500"
+                    placeholder="Tap a preset above or type a quick note..."
+                    class="mt-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-muted focus:border-amber-500 focus:outline-none"></textarea>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    <button @click="cancelOvertimeReason" class="rounded-xl border border-border py-3 text-sm font-semibold text-muted transition-colors hover:bg-surface">
+                        Cancel shot
+                    </button>
+                    <button @click="confirmOvertimeReason"
+                        :disabled="!overtimeReasonDraft.trim()"
+                        class="rounded-xl bg-amber-500 py-3 text-sm font-bold text-zinc-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40">
+                        Save reason &amp; record shot
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Accidental-touch safeguard: edit action sheet for an already-recorded shot. -->
         <div v-if="pendingEdit" class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" @click.self="cancelPendingEdit">
             <div class="w-full max-w-md rounded-t-2xl border-t border-border bg-surface p-4 pb-6 shadow-2xl">
@@ -376,7 +432,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useElrScoringStore } from '../stores/elrScoringStore';
@@ -604,20 +660,83 @@ const elapsedSeconds = computed(() => {
     if (!startedAt) return 0;
     return Math.max(0, Math.floor((nowTick.value - new Date(startedAt).getTime()) / 1000));
 });
+// remainingSeconds can go NEGATIVE now — overtime is allowed, the MD just
+// has to capture a reason. UI uses absoluteOvertime to format "0:14 over".
 const remainingSeconds = computed(() => {
     if (!timeLimitSeconds.value) return null;
-    return Math.max(0, timeLimitSeconds.value - elapsedSeconds.value);
+    return timeLimitSeconds.value - elapsedSeconds.value;
 });
-const locked = computed(() => currentTimedOut.value || (remainingSeconds.value !== null && remainingSeconds.value <= 0));
+const timerRunning = computed(() => !!currentEntry.value?.startedAt);
+const inOvertime = computed(() => timerRunning.value && remainingSeconds.value !== null && remainingSeconds.value < 0);
+const overtimeSeconds = computed(() => (inOvertime.value ? Math.abs(remainingSeconds.value) : 0));
+// Old "locked" gate kept (but only fires on explicit timedOut now) so existing
+// banners + the recordShot guard still work. Wall-clock expiry NEVER blocks
+// entry anymore — that's the whole point of the overtime-reason flow.
+const locked = computed(() => currentTimedOut.value);
 const formattedTime = computed(() => {
     const r = remainingSeconds.value;
     if (r === null) return '';
-    const m = Math.floor(r / 60);
-    const s = r % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    const abs = Math.abs(r);
+    const m = Math.floor(abs / 60);
+    const s = abs % 60;
+    const stamp = `${m}:${s.toString().padStart(2, '0')}`;
+    return r < 0 ? `+${stamp}` : stamp;
 });
 const timerWarning = computed(() => remainingSeconds.value !== null && remainingSeconds.value <= 60 && remainingSeconds.value > 20);
-const timerCritical = computed(() => remainingSeconds.value !== null && remainingSeconds.value <= 20);
+const timerCritical = computed(() => remainingSeconds.value !== null && remainingSeconds.value <= 20 && remainingSeconds.value > 0);
+const timerOver = computed(() => inOvertime.value);
+
+// ── Audio cues (WebAudio so we don't need to ship any sound files) ──
+// AudioContext lives on the window — created lazily on first user gesture
+// (the Start timer tap counts) so mobile autoplay restrictions don't bite.
+let audioCtx = null;
+function getAudioCtx() {
+    try {
+        if (!audioCtx) {
+            const Ctor = window.AudioContext || window.webkitAudioContext;
+            if (!Ctor) return null;
+            audioCtx = new Ctor();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+    } catch { return null; }
+}
+function playTone({ freq, duration, type = 'sine', vol = 0.4 }) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+    } catch { /* silent fail — audio isn't critical to scoring */ }
+}
+// Short clean beep — "clock's running".
+function playBeep() {
+    playTone({ freq: 880, duration: 0.18, type: 'sine', vol: 0.55 });
+}
+// Two low square pulses — "time's up". Distinct from the start beep so the
+// RO can hear which one fired without looking at the screen.
+function playBuzzer() {
+    playTone({ freq: 220, duration: 0.35, type: 'square', vol: 0.5 });
+    setTimeout(() => playTone({ freq: 180, duration: 0.45, type: 'square', vol: 0.5 }), 380);
+}
+// Buzzer fires exactly once per team-stage run when the clock crosses 0.
+// Re-armed by startTimer() so a re-entry into the same team-stage replays.
+const buzzerArmed = ref(true);
+watch(remainingSeconds, (cur, prev) => {
+    if (!timerRunning.value) return;
+    if (prev === null || cur === null) return;
+    if (prev > 0 && cur <= 0 && buzzerArmed.value) {
+        playBuzzer();
+        buzzerArmed.value = false;
+    }
+});
 
 // ── Summary ──
 function legPoints(shooterId, target) {
@@ -802,9 +921,11 @@ const canChangeLeadoff = computed(() => {
     return !legs.value.some(l => enteredShots(l).length > 0);
 });
 
-// Team picked who leads — lock that order, start the timer and enter the
-// shooter's preferred scoring layout (guided one-at-a-time, or the whole-stage
-// grid with both shooters visible).
+// Team picked who leads — lock that order and enter the shooter's preferred
+// scoring layout (guided one-at-a-time, or the whole-stage grid with both
+// shooters visible). The team-stage timer is NOT started here; the MD has
+// to tap "Start timer" once the team is on the line so the clock matches
+// real-world setup time.
 async function selectFirstShooter(shooterId) {
     if (!currentTeam.value || !currentStage.value) return;
     await elrStore.saveTeamStageEntry({
@@ -814,11 +935,31 @@ async function selectFirstShooter(shooterId) {
         squadId: currentSquad.value?.id ?? null,
         firstShooterId: shooterId,
         position: teams.value.findIndex(t => t.id === currentTeam.value.id) + 1 || null,
-        startedAt: new Date().toISOString(),
     });
     currentLegIndex.value = firstIncompleteLegIndex();
     currentView.value = scoringLayout.value === 'grid' ? 'summary' : 'scoring';
     saveProgress();
+}
+
+// Manual timer start — stamps started_at on the team-stage entry and plays a
+// short beep so the team knows the clock is running. Decoupled from leadoff
+// selection so the MD can take time setting up the line.
+async function startTimer() {
+    if (!currentTeam.value || !currentStage.value) return;
+    const entry = elrStore.getTeamStageEntry(currentTeam.value.id, currentStage.value.id);
+    if (entry?.startedAt) return; // already running — no-op
+    await elrStore.saveTeamStageEntry({
+        matchId: props.matchId,
+        teamId: currentTeam.value.id,
+        elrStageId: currentStage.value.id,
+        squadId: currentSquad.value?.id ?? null,
+        firstShooterId: firstShooterId.value,
+        position: teams.value.findIndex(t => t.id === currentTeam.value.id) + 1 || null,
+        startedAt: new Date().toISOString(),
+    });
+    buzzerArmed.value = true; // re-arm the buzzer for this run
+    playBeep();
+    elrStore.syncShots();
 }
 
 // Skip guided entry and go straight to the editable whole-stage grid (both
@@ -865,10 +1006,13 @@ function handleHeaderBack() {
 }
 
 // ── Team stage lifecycle ──
+// Persist a team-stage entry without starting the timer. Used when the MD
+// drops into the grid layout from shooter-select; the timer still has to
+// be started explicitly with the "Start timer" button.
 async function ensureStarted() {
     if (!currentTeam.value || !currentStage.value) return;
     const entry = elrStore.getTeamStageEntry(currentTeam.value.id, currentStage.value.id);
-    if (entry?.startedAt) return;
+    if (entry) return;
     await elrStore.saveTeamStageEntry({
         matchId: props.matchId,
         teamId: currentTeam.value.id,
@@ -876,7 +1020,6 @@ async function ensureStarted() {
         squadId: currentSquad.value?.id ?? null,
         firstShooterId: firstShooterId.value,
         position: teams.value.findIndex(t => t.id === currentTeam.value.id) + 1 || null,
-        startedAt: new Date().toISOString(),
     });
 }
 
@@ -921,11 +1064,29 @@ async function persistLeg(leg) {
     }
 }
 
+// Pending guided-mode shot held while waiting on the MD to type an overtime
+// reason. Once the reason is captured we replay this shot through the normal
+// path. { leg, shotNumber, result } | null
+const pendingOvertimeShot = ref(null);
+
 async function recordShot(result) {
     if (locked.value || !currentLeg.value) return;
-    const leg = currentLeg.value;
-    const shotNumber = currentShotNumber.value;
 
+    // Overtime reason gate: once the clock has crossed zero and there's no
+    // recorded reason yet for this team-stage, hold the shot and pop the
+    // reason sheet. Subsequent shots inside the same overtime run go through
+    // unprompted (reason is persisted on the entry).
+    if (inOvertime.value && !currentEntry.value?.overtimeReason) {
+        pendingOvertimeShot.value = { leg: currentLeg.value, shotNumber: currentShotNumber.value, result };
+        overtimeReasonDraft.value = '';
+        return;
+    }
+
+    await commitShot(currentLeg.value, currentShotNumber.value, result);
+}
+
+// Single write path so the overtime-reason flow can replay a held shot.
+async function commitShot(leg, shotNumber, result) {
     await elrStore.recordShot({
         matchId: props.matchId,
         shooterId: leg.shooter.id,
@@ -947,12 +1108,44 @@ async function recordShot(result) {
         if (currentLegIndex.value < legs.value.length - 1) {
             currentLegIndex.value++;
         } else {
-            await finishStage();
+            await finishStage({ timedOut: inOvertime.value });
             currentView.value = 'summary';
         }
     }
     saveProgress();
     elrStore.syncShots();
+}
+
+// ── Overtime reason sheet ──
+const overtimeReasonDraft = ref('');
+const OVERTIME_PRESETS = [
+    'Equipment issue',
+    'Target malfunction',
+    'Time misread',
+    'Spotter delay',
+    'Other',
+];
+async function confirmOvertimeReason() {
+    const reason = (overtimeReasonDraft.value || '').trim();
+    if (!reason || !currentTeam.value || !currentStage.value) return;
+    await elrStore.saveTeamStageEntry({
+        matchId: props.matchId,
+        teamId: currentTeam.value.id,
+        elrStageId: currentStage.value.id,
+        overtimeReason: reason,
+    });
+    elrStore.syncShots();
+    // Replay the held shot now that the reason is on the entry.
+    const held = pendingOvertimeShot.value;
+    pendingOvertimeShot.value = null;
+    if (held) await commitShot(held.leg, held.shotNumber, held.result);
+}
+function cancelOvertimeReason() {
+    pendingOvertimeShot.value = null;
+    overtimeReasonDraft.value = '';
+}
+function pickOvertimePreset(preset) {
+    overtimeReasonDraft.value = preset === 'Other' ? '' : preset;
 }
 
 async function undoLast() {

@@ -219,7 +219,7 @@ export const useElrScoringStore = defineStore('elrScoring', {
         // Upsert a team's per-stage lifecycle row (timer + rotation). Merges
         // with any existing entry so partial updates (e.g. just completed_at)
         // don't wipe started_at / first_shooter.
-        async saveTeamStageEntry({ matchId, teamId, elrStageId, squadId, firstShooterId, position, startedAt, completedAt, timedOut }) {
+        async saveTeamStageEntry({ matchId, teamId, elrStageId, squadId, firstShooterId, position, startedAt, completedAt, timedOut, overtimeReason }) {
             const key = `${teamId}-${elrStageId}`;
             const existing = this.teamStageEntries.get(key) ?? {};
             const entry = {
@@ -233,6 +233,11 @@ export const useElrScoringStore = defineStore('elrScoring', {
                 startedAt: startedAt !== undefined ? startedAt : existing.startedAt ?? null,
                 completedAt: completedAt !== undefined ? completedAt : existing.completedAt ?? null,
                 timedOut: timedOut !== undefined ? timedOut : existing.timedOut ?? false,
+                // MD-captured note for shooting past the team time limit.
+                // Persisted on the entry so a tablet that takes a team into
+                // overtime carries the explanation to the server + other
+                // devices on the next sync.
+                overtimeReason: overtimeReason !== undefined ? overtimeReason : existing.overtimeReason ?? null,
                 deviceId: this.deviceId,
                 synced: false,
             };
@@ -365,6 +370,7 @@ export const useElrScoringStore = defineStore('elrScoring', {
                         started_at: e.startedAt ?? null,
                         completed_at: e.completedAt ?? null,
                         timed_out: !!e.timedOut,
+                        overtime_reason: e.overtimeReason ?? null,
                         device_id: e.deviceId,
                     });
 
