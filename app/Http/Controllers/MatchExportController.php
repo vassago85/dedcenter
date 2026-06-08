@@ -2113,6 +2113,17 @@ class MatchExportController extends Controller
     {
         $match->load('organization');
 
+        // ELR matches don't use target_sets / scores — they use elr_stages /
+        // elr_targets / elr_shots, and ranking comes from ELRScoringService.
+        // Without this branch every report that calls buildPostMatchReportData
+        // rendered empty for ELR matches (the full match report URL the MD
+        // hit was the immediate symptom). Same return shape as the standard
+        // path so every downstream consumer (executive summary, heatmap,
+        // stat cards) keeps working without per-template ELR conditionals.
+        if ($match->isElr()) {
+            return $this->buildElrPostMatchReportData($match);
+        }
+
         $targetSets = $match->targetSets()
             ->orderBy('sort_order')
             ->with(['gongs' => fn ($q) => $q->orderBy('number')])
@@ -2282,6 +2293,170 @@ class MatchExportController extends Controller
             'distanceTables' => $distanceTables,
             'rfLeaderboard' => $rfLeaderboard,
             'sideBetCascade' => $sideBetCascade,
+            'generatedAt' => now(),
+        ];
+    }
+
+    /**
+     * ELR-shaped post-match data, returned in the same envelope as the
+     * standard/PRS path so every downstream report (Full Match Report,
+     * Shooter Report, etc.) renders without per-template ELR branches.
+     *
+     * Source-of-truth is ELRScoringService::calculateStandings — the same
+     * service that powers the scoreboard — so the report never drifts from
+     * what shooters see live. Each ELR stage becomes one "distance table"
+     * column group in the heatmap; each target within the stage becomes a
+     * "gong" column. We use the stage id as the distance_meters key so each
+     * stage gets its own column group in the blade's distance grouping.
+     */
+    private function buildElrPostMatchReportData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+
+        $data = app(ELRScoringService::class)->calculateStandings($match);
+        $stages = $data['stages'] ?? [];
+        $rawStandings = $data['standings'] ?? [];
+
+        // Standings shaped like MatchStandingsService::standardStandings so
+        // buildExecutiveSummaryData's existing logic (relative score, stat
+        // cards, podium, heatmap) keeps working. We append the cartridge to
+        // the name when present so caliberFromShooterName() picks it up the
+        // same way it does for standard/PRS rows.
+        $standings = collect($rawStandings)->map(function ($s) {
+            $caliber = $s['caliber'] ?? null;
+            $name = $s['name'] ?? '';
+            $displayName = $caliber ? trim($name) . ' — ' . trim((string) $caliber) : $name;
+
+            return (object) [
+                'shooter_id' => (int) $s['id'],
+                'user_id' => $s['user_id'] ?? null,
+                'rank' => isset($s['status']) && in_array($s['status'], ['dq', 'no_show'], true)
+                    ? null
+                    : ($s['rank'] ?? null),
+                'name' => $displayName,
+                'squad' => $s['squad_name'] ?? null,
+                'status' => $s['status'] ?? 'active',
+                'total_score' => (float) ($s['total_points'] ?? 0),
+                'hits' => (int) ($s['total_hits'] ?? 0),
+                'misses' => max(0, (int) ($s['shots_fired'] ?? 0) - (int) ($s['total_hits'] ?? 0)),
+            ];
+        });
+
+        // Build a per-shooter stage map keyed by stage_id => targets[] so we
+        // can walk it once per (shooter, stage) when filling distanceTables.
+        $shooterStageMap = [];
+        foreach ($rawStandings as $s) {
+            $shooterId = (int) $s['id'];
+            $shooterStageMap[$shooterId] = [];
+            foreach (($s['stages'] ?? []) as $stage) {
+                $shooterStageMap[$shooterId][(int) $stage['stage_id']] = $stage['targets'] ?? [];
+            }
+        }
+
+        // One distance-table entry per ELR stage. The blade groups columns
+        // by distance_meters in the heatmap header, so we use the stage id
+        // as a synthetic distance key to guarantee a unique group per stage.
+        // distance_multiplier is fixed at 1 because ELR points are already
+        // computed per-shot (impact zone × shot multiplier) by the scoring
+        // service — we do NOT want the report to re-multiply them.
+        $distanceTables = [];
+        foreach ($stages as $stage) {
+            $stageId = (int) $stage['id'];
+            $targets = $stage['targets'] ?? [];
+
+            $gongs = [];
+            foreach ($targets as $idx => $target) {
+                $gongs[] = [
+                    'number' => $idx + 1,
+                    'label' => $target['name'] ?? ('T' . ($idx + 1)),
+                    // base_points doubles as the column "multiplier" badge so
+                    // the heatmap header still shows a meaningful per-target
+                    // number ("2×" / "3×") for ELR scorecards.
+                    'multiplier' => (float) ($target['base_points'] ?? 1),
+                    'points_per_hit' => (float) ($target['base_points'] ?? 1),
+                ];
+            }
+
+            $rows = [];
+            foreach ($standings as $standing) {
+                $shooterId = $standing->shooter_id;
+                $stageTargets = $shooterStageMap[$shooterId][$stageId] ?? [];
+                $targetsById = collect($stageTargets)->keyBy('target_id');
+
+                $cells = [];
+                $rowHits = 0;
+                $rowMisses = 0;
+                $rowSubtotal = 0.0;
+
+                foreach ($targets as $target) {
+                    $targetId = (int) $target['id'];
+                    $shooterTarget = $targetsById->get($targetId);
+                    $shots = $shooterTarget['shots'] ?? [];
+
+                    $anyHit = false;
+                    $anyShot = false;
+                    $points = 0.0;
+                    foreach ($shots as $shot) {
+                        if (($shot['result'] ?? null) === 'hit') {
+                            $anyHit = true;
+                            $anyShot = true;
+                            $points += (float) ($shot['points'] ?? 0);
+                        } elseif (($shot['result'] ?? null) === 'miss') {
+                            $anyShot = true;
+                        }
+                    }
+
+                    if ($anyHit) {
+                        $cells[] = ['state' => 'hit', 'points' => round($points, 2)];
+                        $rowHits++;
+                        $rowSubtotal += $points;
+                    } elseif ($anyShot) {
+                        $cells[] = ['state' => 'miss', 'points' => null];
+                        $rowMisses++;
+                    } else {
+                        $cells[] = ['state' => 'none', 'points' => null];
+                    }
+                }
+
+                $rows[] = [
+                    'shooter_id' => $shooterId,
+                    'user_id' => $standing->user_id,
+                    'rank' => $standing->rank,
+                    'name' => $standing->name,
+                    'caliber' => $this->caliberFromShooterName($standing->name),
+                    'squad' => $standing->squad,
+                    'status' => $standing->status,
+                    'cells' => $cells,
+                    'hits' => $rowHits,
+                    'misses' => $rowMisses,
+                    'subtotal' => round($rowSubtotal, 2),
+                ];
+            }
+
+            $distanceTables[] = [
+                'label' => $stage['label'] ?? ('Stage ' . $stageId),
+                // Synthetic distance key (stage id) ensures each ELR stage
+                // becomes its own column group in the heatmap header rather
+                // than colliding with other stages at the same nominal
+                // distance.
+                'distance_meters' => $stageId,
+                'distance_multiplier' => 1.0,
+                'gongs' => $gongs,
+                'rows' => $rows,
+            ];
+        }
+
+        return [
+            'match' => $match,
+            'standings' => $standings,
+            // ELR doesn't use the legacy target_sets table — pass an empty
+            // collection so the few consumers that iterate over it (none in
+            // the executive summary blade itself) cleanly render nothing
+            // instead of erroring.
+            'targetSets' => collect(),
+            'distanceTables' => $distanceTables,
+            'rfLeaderboard' => collect(),
+            'sideBetCascade' => null,
             'generatedAt' => now(),
         ];
     }
