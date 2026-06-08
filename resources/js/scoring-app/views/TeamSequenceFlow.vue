@@ -273,7 +273,7 @@
                     </div>
                     <h2 class="text-xl font-bold">{{ currentTeam?.name }} &mdash; {{ currentStage?.label }}</h2>
                     <p v-if="currentTimedOut" class="text-sm font-semibold text-red-400">Timed out</p>
-                    <p class="text-sm text-muted">Tap a shot to set Hit / Miss / clear</p>
+                    <p class="text-sm text-muted">Tap an empty cell to record a HIT. Tap a recorded shot to change it.</p>
                 </div>
 
                 <!-- Team total -->
@@ -288,13 +288,25 @@
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-bold">{{ member.shooter.name }}</span>
                             <span v-if="member.shooter.division" class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" :class="divisionBadgeClass(member.shooter.division)">{{ member.shooter.division }}</span>
+                            <span v-if="shooterAllComplete(member)" class="inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300">
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                All done
+                            </span>
                         </div>
                         <span class="text-sm font-bold text-emerald-400">{{ member.total }} pts</span>
                     </div>
                     <div class="divide-y divide-border/50">
-                        <div v-for="leg in member.legs" :key="leg.target.id" class="px-4 py-2.5">
-                            <div class="mb-1.5 flex items-center justify-between">
-                                <span class="text-xs font-semibold text-muted">{{ leg.target.name }} &bull; {{ leg.target.distance_m }}m</span>
+                        <div v-for="leg in member.legs" :key="leg.target.id"
+                             class="px-4 py-2.5 transition-colors"
+                             :class="legComplete(member.shooter.id, leg.target.id, leg.shots) ? 'bg-emerald-600/[0.04]' : ''">
+                            <div class="mb-1.5 flex items-center justify-between gap-2">
+                                <span class="flex items-center gap-1.5 text-xs font-semibold text-muted">
+                                    <svg v-if="legComplete(member.shooter.id, leg.target.id, leg.shots)" class="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                    </svg>
+                                    <span>{{ leg.target.name }} &bull; {{ leg.target.distance_m }}m</span>
+                                    <span v-if="legComplete(member.shooter.id, leg.target.id, leg.shots)" class="rounded bg-emerald-600/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">Complete</span>
+                                </span>
                                 <span class="text-xs font-bold">{{ leg.points }} pts</span>
                             </div>
                             <div class="flex gap-1.5">
@@ -317,6 +329,40 @@
         </template>
 
         <ScoringSponsorship />
+
+        <!-- Accidental-touch safeguard: edit action sheet for an already-recorded shot. -->
+        <div v-if="pendingEdit" class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" @click.self="cancelPendingEdit">
+            <div class="w-full max-w-md rounded-t-2xl border-t border-border bg-surface p-4 pb-6 shadow-2xl">
+                <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-surface-2"></div>
+                <p class="text-center text-xs font-semibold uppercase tracking-widest text-muted">{{ pendingEdit.shooter?.name }}</p>
+                <p class="text-center text-base font-bold">{{ pendingEdit.target?.name }} &bull; {{ pendingEdit.target?.distance_m }}m &bull; Shot {{ pendingEdit.shotNumber }}</p>
+                <p class="mt-1 text-center text-xs text-muted">
+                    Currently: <span class="font-bold" :class="pendingEdit.current === 'hit' ? 'text-emerald-400' : 'text-red-400'">{{ pendingEdit.current === 'hit' ? 'HIT' : 'MISS' }}</span> &mdash; tap a button to change it
+                </p>
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    <button @click="confirmPendingEdit('hit')"
+                        class="flex h-16 flex-col items-center justify-center rounded-xl bg-emerald-600 text-white transition-transform active:scale-95"
+                        :class="pendingEdit.current === 'hit' ? 'opacity-50' : ''">
+                        <span class="text-lg font-black">HIT</span>
+                    </button>
+                    <button @click="confirmPendingEdit('miss')"
+                        class="flex h-16 flex-col items-center justify-center rounded-xl bg-red-700 text-white transition-transform active:scale-95"
+                        :class="pendingEdit.current === 'miss' ? 'opacity-50' : ''">
+                        <span class="text-lg font-black">MISS</span>
+                    </button>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    <button @click="confirmPendingEdit('not_taken')"
+                        class="rounded-xl border border-amber-700/60 py-3 text-sm font-semibold text-amber-400 transition-colors hover:bg-amber-900/20">
+                        Clear shot
+                    </button>
+                    <button @click="cancelPendingEdit"
+                        class="rounded-xl border border-border py-3 text-sm font-semibold text-muted transition-colors hover:bg-surface-2">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -592,6 +638,25 @@ const teamTotal = computed(() =>
 
 function summaryShot(shooterId, targetId, shotNumber) {
     return elrStore.getShotsForTarget(shooterId, targetId).find(s => s.shotNumber === shotNumber) ?? null;
+}
+
+// A (shooter, target) leg is "complete" once every shot slot has a real result
+// (hit or miss). Drives the green checkmark + tinted row in the grid and the
+// "All done" badge per shooter — pairs with the accidental-touch safeguard so
+// finalized rows are visually obvious before someone taps them.
+function legComplete(shooterId, targetId, shotCount) {
+    if (!shotCount) return false;
+    const shots = elrStore.getShotsForTarget(shooterId, targetId);
+    if (shots.length < shotCount) return false;
+    for (let n = 1; n <= shotCount; n++) {
+        const shot = shots.find(s => s.shotNumber === n);
+        if (!shot || (shot.result !== 'hit' && shot.result !== 'miss')) return false;
+    }
+    return true;
+}
+
+function shooterAllComplete(member) {
+    return member.legs.every(l => legComplete(member.shooter.id, l.target.id, l.shots));
 }
 function summaryShotLabel(shooterId, targetId, shotNumber) {
     const shot = summaryShot(shooterId, targetId, shotNumber);
@@ -895,16 +960,48 @@ function goToSummary() {
 }
 
 // ── Editable grid (free entry + corrections) ──
+//
+// Accidental-touch safeguard: empty cells take the first tap as a HIT (fast
+// path for live scoring), but any tap on an already-recorded cell opens an
+// explicit Hit / Miss / Clear action sheet instead of silently cycling. This
+// stops a stray thumb brush on a finalized score from rewriting it.
+const pendingEdit = ref(null); // { shooter, target, shotNumber, current } | null
+
 async function correctShot(shooter, target, shotNumber) {
     const shot = summaryShot(shooter.id, target.id, shotNumber);
-    // Cycle: (none/not_taken) -> hit -> miss -> clear (back to not_taken).
-    let next;
-    if (!shot || shot.result === 'not_taken') next = 'hit';
-    else if (shot.result === 'hit') next = 'miss';
-    else next = 'not_taken';
+    const isPopulated = !!shot && shot.result !== 'not_taken';
 
-    if (next === 'not_taken') {
-        // Clear the slot entirely so it reads as un-shot.
+    if (isPopulated) {
+        // Open the action sheet — explicit choice required to mutate a recorded shot.
+        pendingEdit.value = {
+            shooter,
+            target,
+            shotNumber,
+            current: shot.result,
+        };
+        return;
+    }
+
+    // Empty slot — fast HIT entry, same as before.
+    await applyShotEdit(shooter, target, shotNumber, 'hit');
+}
+
+// Confirm the pending edit with one of the action-sheet buttons (or close it).
+async function confirmPendingEdit(nextResult) {
+    const edit = pendingEdit.value;
+    pendingEdit.value = null;
+    if (!edit || !nextResult) return;
+    if (nextResult === edit.current) return; // no-op confirmation
+    await applyShotEdit(edit.shooter, edit.target, edit.shotNumber, nextResult);
+}
+
+function cancelPendingEdit() {
+    pendingEdit.value = null;
+}
+
+// Single write path used by both the empty-cell fast tap and the action sheet.
+async function applyShotEdit(shooter, target, shotNumber, nextResult) {
+    if (nextResult === 'not_taken') {
         await elrStore.removeShot({ shooterId: shooter.id, elrTargetId: target.id, shotNumber });
     } else {
         await elrStore.recordShot({
@@ -912,7 +1009,7 @@ async function correctShot(shooter, target, shotNumber) {
             shooterId: shooter.id,
             elrTargetId: target.id,
             shotNumber,
-            result: next,
+            result: nextResult,
             pointsAwarded: 0,
             impactNumber: null,
         });
