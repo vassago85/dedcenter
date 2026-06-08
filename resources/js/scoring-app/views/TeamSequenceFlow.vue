@@ -147,97 +147,106 @@
         </div>
 
         <!-- STEP 3 + 4: SCORING -->
+        <!--
+          Phone-first density: everything below the app header is sized to fit
+          on a typical Android viewport (~640px tall after the system bars)
+          without scrolling. Spacing/typography is deliberately tighter than
+          the rest of the app — this is the one screen where the MD scores
+          mid-string and shouldn't have to scroll between shots.
+        -->
         <template v-else-if="currentView === 'scoring'">
-            <!-- Progress + timer + layout toggle -->
-            <div class="bg-surface px-4 py-2">
+            <!-- Progress + timer + layout toggle + "Up next" team chip -->
+            <div class="bg-surface px-3 py-1.5">
                 <div class="mx-auto max-w-lg">
-                    <div class="flex items-center justify-between gap-3 text-xs">
-                        <span class="text-muted">Step {{ currentLegIndex + 1 }} of {{ legs.length }}</span>
-                        <div class="ml-auto flex items-center gap-3">
+                    <div class="flex items-center justify-between gap-2 text-[11px]">
+                        <span class="text-muted">Step {{ currentLegIndex + 1 }}/{{ legs.length }}</span>
+                        <div class="ml-auto flex items-center gap-2">
                             <div class="flex rounded-full bg-surface-2 p-0.5">
-                                <button @click="setScoringLayout('guided')" class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'guided' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Guided</button>
-                                <button @click="setScoringLayout('grid')" class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'grid' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Full stage</button>
+                                <button @click="setScoringLayout('guided')" class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'guided' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Guided</button>
+                                <button @click="setScoringLayout('grid')" class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors" :class="scoringLayout === 'grid' ? 'bg-emerald-600 text-white' : 'text-muted hover:text-primary'">Grid</button>
                             </div>
                             <span v-if="timeLimitSeconds" class="font-bold tabular-nums" :class="timerCritical ? 'text-red-400' : timerWarning ? 'text-amber-400' : 'text-emerald-400'">
                                 {{ formattedTime }}
                             </span>
                         </div>
                     </div>
-                    <div class="mt-1 h-1.5 rounded-full bg-surface-2">
+                    <div class="mt-1 h-1 rounded-full bg-surface-2">
                         <div class="h-full rounded-full bg-emerald-500 transition-all duration-300" :style="{ width: legProgressPercent + '%' }"></div>
+                    </div>
+                    <!-- Up-next chip: tells the RO which team to set up. -->
+                    <div class="mt-1 flex items-center justify-between gap-2 text-[10.5px]">
+                        <span v-if="nextTeam" class="flex min-w-0 items-center gap-1.5">
+                            <span class="rounded bg-amber-500/15 px-1.5 py-0.5 font-bold uppercase tracking-wide text-amber-300">Up next</span>
+                            <span class="truncate font-semibold text-amber-200">{{ nextTeam.name }}</span>
+                            <span v-if="teamSquad(nextTeam)" class="hidden truncate text-muted xs:inline">&middot; {{ teamSquad(nextTeam).name }}</span>
+                        </span>
+                        <span v-else class="rounded bg-emerald-600/15 px-1.5 py-0.5 font-bold uppercase tracking-wide text-emerald-300">Last team on stage</span>
+                        <span class="shrink-0 text-muted">{{ currentTeam?.name }}</span>
                     </div>
                 </div>
             </div>
 
-            <main class="flex flex-1 flex-col px-4 py-6">
+            <main class="flex flex-1 flex-col px-3 py-3">
                 <div class="mx-auto flex w-full max-w-lg flex-1 flex-col">
-                    <!-- Active shooter -->
-                    <div class="mb-4 rounded-xl border border-border bg-surface p-4 text-center">
-                        <p class="text-sm text-muted">Shooter {{ shooterOrdinal }}</p>
-                        <p class="text-2xl font-bold">{{ currentShooter?.name }}</p>
-                        <div class="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
-                            <span v-if="currentShooter?.division" class="rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" :class="divisionBadgeClass(currentShooter.division)">
+                    <!-- Active shooter (compact one-line) -->
+                    <div class="mb-2 rounded-lg border border-border bg-surface px-3 py-2 text-center">
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-muted">{{ shooterOrdinal }} &bull; on the gun</p>
+                        <p class="text-lg font-bold leading-tight">{{ currentShooter?.name }}</p>
+                        <div class="mt-0.5 flex flex-wrap items-center justify-center gap-1">
+                            <span v-if="currentShooter?.division" class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase" :class="divisionBadgeClass(currentShooter.division)">
                                 {{ currentShooter.division }}
                             </span>
-                            <span class="rounded bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{{ currentTeam?.name }}</span>
+                            <button v-if="canChangeLeadoff" @click="changeLeadoff" class="text-[10px] font-semibold uppercase tracking-wide text-emerald-400 hover:text-emerald-300">
+                                Change leadoff
+                            </button>
                         </div>
-                        <button v-if="canChangeLeadoff" @click="changeLeadoff" class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-400 hover:text-emerald-300">
-                            Change leadoff
-                        </button>
                     </div>
 
-                    <!-- Gong info -->
-                    <div class="mb-4 text-center">
-                        <p class="text-sm text-muted">Gong {{ gongNumber }}</p>
-                        <p class="text-3xl font-bold">{{ currentTarget?.name }}</p>
-                        <p class="mt-1 text-lg text-emerald-400">{{ currentTarget?.distance_m }}m</p>
-                    </div>
-
-                    <!-- Shot info -->
-                    <div class="mb-4 rounded-xl border border-border bg-surface p-4 text-center">
-                        <p class="text-sm text-muted">Shot {{ currentShotNumber }} of {{ currentLeg?.shots }}</p>
-                        <p class="mt-1 text-xl font-bold text-emerald-400">{{ pointsPreview }} pts if hit</p>
-                        <p class="text-[11px] text-muted">Impact x{{ multiplierDisplay }}</p>
-                        <div class="mt-2 flex justify-center gap-1">
-                            <span v-for="s in currentLeg?.shots" :key="s" class="h-2 w-8 rounded-full"
+                    <!-- Gong + shot info combined -->
+                    <div class="mb-2 rounded-lg border border-border bg-surface px-3 py-2 text-center">
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-muted">Gong {{ gongNumber }} &bull; Shot {{ currentShotNumber }}/{{ currentLeg?.shots }}</p>
+                        <p class="text-xl font-bold leading-tight">{{ currentTarget?.name }} <span class="text-emerald-400">&bull; {{ currentTarget?.distance_m }}m</span></p>
+                        <p class="mt-0.5 text-sm font-bold text-emerald-400">{{ pointsPreview }} pts if hit <span class="font-normal text-[10px] text-muted">(x{{ multiplierDisplay }})</span></p>
+                        <div class="mt-1 flex justify-center gap-1">
+                            <span v-for="s in currentLeg?.shots" :key="s" class="h-1.5 w-6 rounded-full"
                                   :class="legShotDotClass(s)"></span>
                         </div>
                     </div>
 
                     <!-- Points flash -->
-                    <div v-if="lastPointsFlash" class="mb-4 animate-pulse rounded-lg bg-emerald-900/40 px-4 py-2 text-center text-lg font-bold text-emerald-400">
+                    <div v-if="lastPointsFlash" class="mb-2 animate-pulse rounded-lg bg-emerald-900/40 px-3 py-1 text-center text-sm font-bold text-emerald-400">
                         +{{ lastPointsFlash }} pts!
                     </div>
 
                     <!-- Timed out banner -->
-                    <div v-if="locked" class="mb-4 rounded-lg border border-red-700 bg-red-900/40 px-4 py-3 text-center">
-                        <p class="font-bold text-red-400">Time expired</p>
-                        <p class="text-sm text-red-300">Shot entry is locked. This team's stage is marked timed out.</p>
-                        <button @click="goToSummary" class="mt-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white">View Summary</button>
+                    <div v-if="locked" class="mb-2 rounded-lg border border-red-700 bg-red-900/40 px-3 py-2 text-center">
+                        <p class="text-sm font-bold text-red-400">Time expired</p>
+                        <p class="text-xs text-red-300">Shot entry locked. Stage marked timed out.</p>
+                        <button @click="goToSummary" class="mt-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white">View Summary</button>
                     </div>
 
                     <!-- HIT / MISS -->
-                    <div v-if="!locked" class="mt-auto space-y-3">
-                        <div class="grid grid-cols-2 gap-4">
+                    <div v-if="!locked" class="mt-auto space-y-2">
+                        <div class="grid grid-cols-2 gap-3">
                             <button @click="recordShot('hit')"
-                                class="flex h-28 flex-col items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg transition-all active:scale-95 active:bg-emerald-700">
-                                <svg class="mb-1 h-10 w-10" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                <span class="text-2xl font-black">HIT</span>
+                                class="flex h-20 flex-col items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg transition-all active:scale-95 active:bg-emerald-700">
+                                <svg class="mb-0.5 h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                <span class="text-xl font-black">HIT</span>
                             </button>
                             <button @click="recordShot('miss')"
-                                class="flex h-28 flex-col items-center justify-center rounded-2xl bg-red-700 text-white shadow-lg transition-all active:scale-95 active:bg-red-800">
-                                <svg class="mb-1 h-10 w-10" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                                <span class="text-2xl font-black">MISS</span>
+                                class="flex h-20 flex-col items-center justify-center rounded-xl bg-red-700 text-white shadow-lg transition-all active:scale-95 active:bg-red-800">
+                                <svg class="mb-0.5 h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                <span class="text-xl font-black">MISS</span>
                             </button>
                         </div>
-                        <div class="flex gap-3">
+                        <div class="flex gap-2">
                             <button @click="undoLast" :disabled="!canUndo"
-                                class="flex-1 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30">
-                                &larr; Undo last shot
+                                class="flex-1 rounded-lg border border-border py-2 text-xs font-medium transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-30">
+                                &larr; Undo last
                             </button>
                             <button @click="endStageEarly"
-                                class="flex-1 rounded-xl border border-amber-700/60 py-3 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-900/20">
-                                End stage early
+                                class="flex-1 rounded-lg border border-amber-700/60 py-2 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-900/20">
+                                End early
                             </button>
                         </div>
                     </div>
@@ -695,6 +704,21 @@ function stageProgress(stage) {
 const recommendedTeamId = computed(() => {
     const pending = teams.value.find(t => !teamDone(t));
     return pending?.id ?? null;
+});
+
+// Next un-done team after the one currently being scored, in firing order.
+// Drives the "Up next" chip in the scoring strip so the RO can tell the next
+// team to get set up. Returns null when the current team is the last one
+// on the stage (so we can show "Last team" instead).
+const nextTeam = computed(() => {
+    if (!currentTeam.value) return null;
+    const list = teams.value;
+    const startIdx = list.findIndex(t => t.id === currentTeamId.value);
+    if (startIdx === -1) return null;
+    for (let i = startIdx + 1; i < list.length; i++) {
+        if (!teamDone(list[i])) return list[i];
+    }
+    return null;
 });
 
 // ── Visual helpers ──
