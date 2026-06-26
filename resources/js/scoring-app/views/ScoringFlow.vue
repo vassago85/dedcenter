@@ -209,67 +209,13 @@
                     <p class="text-sm text-slate-400">{{ currentTargetSet?.label }}</p>
                 </div>
 
-                <div class="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-slate-400">
-                                <th class="px-3 py-2.5 text-left font-medium">Shooter</th>
-                                <th
-                                    v-for="gong in (currentTargetSet?.gongs ?? [])"
-                                    :key="'gh-' + gong.id"
-                                    class="px-2 py-2.5 text-center font-medium whitespace-nowrap"
-                                >
-                                    <div>#{{ gong.number }}</div>
-                                    <div class="text-[10px] text-amber-400">{{ gong.multiplier }}x</div>
-                                </th>
-                                <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
-                                <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
-                                <th class="px-3 py-2.5 text-right font-bold">Score</th>
-                                <th class="px-2 py-2.5 text-right font-medium text-slate-500" aria-label="Fix"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700/50">
-                            <tr
-                                v-for="row in relaySummary"
-                                :key="'sr-' + row.shooter.id"
-                                class="transition-colors hover:bg-slate-700/30"
-                            >
-                                <td class="px-3 py-2 font-medium">
-                                    {{ row.shooter.name }}
-                                    <span v-if="row.shooter.bib_number" class="text-xs text-slate-500 ml-1">#{{ row.shooter.bib_number }}</span>
-                                </td>
-                                <td
-                                    v-for="(g, gi) in row.gongResults"
-                                    :key="'sg-' + row.shooter.id + '-' + gi"
-                                    class="px-2 py-2 text-center"
-                                >
-                                    <div v-if="g.result === 'hit'" class="flex flex-col items-center">
-                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-600/30 text-xs font-bold text-green-400">&#10003;</span>
-                                        <span class="text-[10px] text-green-400/80 tabular-nums">+{{ g.points }}</span>
-                                    </div>
-                                    <span v-else-if="g.result === 'miss'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600/30 text-xs font-bold text-red-400">&#10007;</span>
-                                    <span v-else class="text-slate-600">&mdash;</span>
-                                </td>
-                                <td class="px-3 py-2 text-center tabular-nums text-green-400 font-medium">{{ row.hits }}</td>
-                                <td class="px-3 py-2 text-center tabular-nums text-red-400 font-medium">{{ row.misses }}</td>
-                                <td class="px-3 py-2 text-right tabular-nums font-bold text-amber-400">{{ row.total }}</td>
-                                <td class="px-2 py-2 text-right">
-                                    <button
-                                        type="button"
-                                        @click="openCorrectionFor(row.shooter)"
-                                        class="rounded-md p-1.5 text-slate-500 hover:bg-slate-700 hover:text-amber-400"
-                                        :title="'Correct ' + row.shooter.name"
-                                        :aria-label="'Correct ' + row.shooter.name"
-                                    >
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13L2.25 21.75l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <RelaySummaryTable
+                    :match-id="props.matchId"
+                    :target-set="currentTargetSet"
+                    :shooters="shooters"
+                    @correct-shooter="openCorrectionFor"
+                    @corrected="onCorrectionApplied"
+                />
 
                 <div class="flex flex-col gap-3 pt-2">
                     <button
@@ -341,67 +287,13 @@
                     <p class="text-sm text-slate-400">{{ currentTargetSet?.distance_meters }}m &mdash; All shooters scored</p>
                 </div>
 
-                <div class="overflow-x-auto rounded-xl border border-slate-700 bg-slate-800">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-slate-700 text-slate-400">
-                                <th class="px-3 py-2.5 text-left font-medium">Shooter</th>
-                                <th
-                                    v-for="gong in (currentTargetSet?.gongs ?? [])"
-                                    :key="'sgh-' + gong.id"
-                                    class="px-2 py-2.5 text-center font-medium whitespace-nowrap"
-                                >
-                                    <div>#{{ gong.number }}</div>
-                                    <div class="text-[10px] text-amber-400">{{ gong.multiplier }}x</div>
-                                </th>
-                                <th class="px-3 py-2.5 text-center font-medium text-green-400">Hits</th>
-                                <th class="px-3 py-2.5 text-center font-medium text-red-400">Miss</th>
-                                <th class="px-3 py-2.5 text-right font-bold">Score</th>
-                                <th class="px-2 py-2.5 text-right font-medium text-slate-500" aria-label="Fix"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700/50">
-                            <tr
-                                v-for="row in relaySummary"
-                                :key="'ssr-' + row.shooter.id"
-                                class="transition-colors hover:bg-slate-700/30"
-                            >
-                                <td class="px-3 py-2 font-medium">
-                                    {{ row.shooter.name }}
-                                    <span v-if="row.shooter.bib_number" class="text-xs text-slate-500 ml-1">#{{ row.shooter.bib_number }}</span>
-                                </td>
-                                <td
-                                    v-for="(g, gi) in row.gongResults"
-                                    :key="'ssg-' + row.shooter.id + '-' + gi"
-                                    class="px-2 py-2 text-center"
-                                >
-                                    <div v-if="g.result === 'hit'" class="flex flex-col items-center">
-                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-600/30 text-xs font-bold text-green-400">&#10003;</span>
-                                        <span class="text-[10px] text-green-400/80 tabular-nums">+{{ g.points }}</span>
-                                    </div>
-                                    <span v-else-if="g.result === 'miss'" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600/30 text-xs font-bold text-red-400">&#10007;</span>
-                                    <span v-else class="text-slate-600">&mdash;</span>
-                                </td>
-                                <td class="px-3 py-2 text-center tabular-nums text-green-400 font-medium">{{ row.hits }}</td>
-                                <td class="px-3 py-2 text-center tabular-nums text-red-400 font-medium">{{ row.misses }}</td>
-                                <td class="px-3 py-2 text-right tabular-nums font-bold text-amber-400">{{ row.total }}</td>
-                                <td class="px-2 py-2 text-right">
-                                    <button
-                                        type="button"
-                                        @click="openCorrectionFor(row.shooter)"
-                                        class="rounded-md p-1.5 text-slate-500 hover:bg-slate-700 hover:text-amber-400"
-                                        :title="'Correct ' + row.shooter.name"
-                                        :aria-label="'Correct ' + row.shooter.name"
-                                    >
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13L2.25 21.75l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <RelaySummaryTable
+                    :match-id="props.matchId"
+                    :target-set="currentTargetSet"
+                    :shooters="shooters"
+                    @correct-shooter="openCorrectionFor"
+                    @corrected="onCorrectionApplied"
+                />
 
                 <div class="flex flex-col gap-3 pt-2">
                     <button
@@ -653,6 +545,7 @@ import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
 import CorrectShooterModal from '../components/CorrectShooterModal.vue';
+import RelaySummaryTable from '../components/RelaySummaryTable.vue';
 import { getCorrectionQueue, removeCorrectionQueueEntry } from '../lib/offlineDb.js';
 
 const props = defineProps({
@@ -847,26 +740,6 @@ const isFirst = computed(() => {
         scoringStore.currentSquadIndex === 0 &&
         scoringStore.currentGongIndex === 0 &&
         scoringStore.currentShooterIndex === 0;
-});
-
-// ── Relay summary data ──
-const relaySummary = computed(() => {
-    if (!currentTargetSet.value || !shooters.value.length) return [];
-    const gongs = currentTargetSet.value.gongs ?? [];
-    const distMult = parseFloat(currentTargetSet.value.distance_multiplier) || 1;
-    return shooters.value.map(shooter => {
-        let hits = 0;
-        let misses = 0;
-        let total = 0;
-        const gongResults = gongs.map(gong => {
-            const score = scoringStore.getScore(shooter.id, gong.id);
-            const points = Math.round(distMult * (parseFloat(gong.multiplier) || 1) * 100) / 100;
-            if (score?.isHit === true) { hits++; total += points; return { result: 'hit', points }; }
-            if (score?.isHit === false) { misses++; return { result: 'miss', points: 0 }; }
-            return { result: null, points: 0 };
-        });
-        return { shooter, gongResults, hits, misses, total: Math.round(total * 100) / 100 };
-    });
 });
 
 // ── Next-squad suggestion (scoped mode, from matrix) ──
