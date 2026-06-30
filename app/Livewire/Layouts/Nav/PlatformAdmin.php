@@ -56,9 +56,14 @@ class PlatformAdmin extends Component
 
     /**
      * Public so wire:poll can hit it without exposing internal state, and so
-     * `livewire:navigated` JS can call $wire.refresh() if we ever wire that
-     * up. Keeps the three count queries in one place to avoid drift.
+     * the `livewire:navigated` JS hook (see the view) can fire it after every
+     * page transition. This is what kills the "badge shows 1 on shooter-claims
+     * but nowhere else" symptom: wire:navigate restores a cached page snapshot
+     * that includes a stale copy of this sidebar's HTML, so we have to force a
+     * fresh count on arrival rather than trusting the restored markup. Keeps
+     * the three count queries in one place to avoid drift.
      */
+    #[On('refresh-admin-nav-counts')]
     public function refreshCounts(): void
     {
         $this->pendingOrgs = Organization::pending()->count();

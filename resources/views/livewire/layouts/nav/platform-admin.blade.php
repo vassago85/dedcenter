@@ -68,4 +68,25 @@
             @endif
         </a>
     </div>
+
+    {{--
+        wire:navigate caches a full HTML snapshot of each visited page,
+        sidebar included. Returning to a cached URL (e.g. clicking back into
+        Shooter Claims) restores that stale snapshot, so a badge count that
+        was correct at cache time reappears even after the underlying records
+        were cleared — the "badge shows 1 on shooter-claims but nowhere else"
+        bug. We recompute the counts on every navigation by firing a Livewire
+        event that this component listens for (#[On('refresh-admin-nav-counts')]).
+        The window guard makes sure we only ever bind one global listener no
+        matter how many times this persisted component re-renders. --}}
+    @script
+    <script>
+        if (! window.__deadcenterAdminNavCountsBound) {
+            window.__deadcenterAdminNavCountsBound = true;
+            document.addEventListener('livewire:navigated', () => {
+                Livewire.dispatch('refresh-admin-nav-counts');
+            });
+        }
+    </script>
+    @endscript
 </div>
