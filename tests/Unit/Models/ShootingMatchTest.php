@@ -76,13 +76,17 @@ it('scopes active live today to active status and today date only', function () 
 });
 
 it('cascades delete to target sets and gongs', function () {
+    // ShootingMatch is soft-deletable, so ->delete() only sets
+    // deleted_at and never actually fires DB-level ON DELETE CASCADE.
+    // forceDelete() removes the row and triggers the cascades on
+    // target_sets.match_id and gongs.target_set_id.
     $match = ShootingMatch::factory()->create();
     $ts = TargetSet::factory()->create(['match_id' => $match->id]);
     Gong::factory()->count(3)->create(['target_set_id' => $ts->id]);
 
     expect(Gong::count())->toBe(3);
 
-    $match->delete();
+    $match->forceDelete();
 
     expect(TargetSet::count())->toBe(0);
     expect(Gong::count())->toBe(0);

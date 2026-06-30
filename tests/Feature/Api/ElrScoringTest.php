@@ -354,7 +354,7 @@ it('returns ELR scoreboard from the scoreboard endpoint', function () {
 // ── Match API with ELR stages ──
 
 it('includes ELR stages in match detail response', function () {
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->owner)->getJson("/api/matches/{$this->match->id}");
 
     $response->assertOk()
         ->assertJsonPath('data.scoring_type', 'elr')

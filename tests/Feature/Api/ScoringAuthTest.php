@@ -101,15 +101,30 @@ test('admin of different org cannot POST scores', function () {
         ->assertForbidden();
 });
 
-// -- Public routes remain open --
+// -- Match list/detail are auth-only; scoreboard remains public --
+//
+// History: the match list and match detail endpoints used to be public,
+// but were moved behind `auth:sanctum` so we can return user-specific
+// fields (registration state, squadding hints, etc.) safely. The live
+// scoreboard endpoint is still public for kiosk/spectator displays.
 
-test('match list API is public', function () {
-    $this->getJson('/api/matches')
+test('match list API requires auth', function () {
+    $this->getJson('/api/matches')->assertUnauthorized();
+});
+
+test('match list API is reachable when authenticated', function () {
+    $this->actingAs($this->creator)
+        ->getJson('/api/matches')
         ->assertOk();
 });
 
-test('match detail API is public', function () {
-    $this->getJson("/api/matches/{$this->match->id}")
+test('match detail API requires auth', function () {
+    $this->getJson("/api/matches/{$this->match->id}")->assertUnauthorized();
+});
+
+test('match detail API is reachable when authenticated', function () {
+    $this->actingAs($this->creator)
+        ->getJson("/api/matches/{$this->match->id}")
         ->assertOk();
 });
 

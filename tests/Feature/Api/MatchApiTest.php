@@ -6,13 +6,22 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
 use App\Models\TargetSet;
+use App\Models\User;
+
+beforeEach(function () {
+    // /api/matches and /api/matches/{match} are sanctum-gated AND
+    // filtered by ShootingMatch::scopeVisibleToScoringUser. We use a
+    // platform owner so every test sees every match, regardless of
+    // creator / organisation linkage.
+    $this->user = User::factory()->create(['role' => 'owner']);
+});
 
 it('returns only active matches', function () {
     ShootingMatch::factory()->create(['status' => MatchStatus::Draft]);
     ShootingMatch::factory()->active()->create(['name' => 'Active Match']);
     ShootingMatch::factory()->completed()->create();
 
-    $response = $this->getJson('/api/matches');
+    $response = $this->actingAs($this->user)->getJson('/api/matches');
 
     $response->assertOk()
         ->assertJsonCount(1, 'data')
@@ -22,7 +31,7 @@ it('returns only active matches', function () {
 it('returns empty list when no active matches', function () {
     ShootingMatch::factory()->create(['status' => MatchStatus::Draft]);
 
-    $this->getJson('/api/matches')
+    $this->actingAs($this->user)->getJson('/api/matches')
         ->assertOk()
         ->assertJsonCount(0, 'data');
 });
@@ -34,7 +43,7 @@ it('returns full match detail with nested relations', function () {
     $squad = Squad::factory()->create(['match_id' => $match->id, 'sort_order' => 1]);
     Shooter::factory()->create(['squad_id' => $squad->id, 'sort_order' => 1]);
 
-    $response = $this->getJson("/api/matches/{$match->id}");
+    $response = $this->actingAs($this->user)->getJson("/api/matches/{$match->id}");
 
     $response->assertOk()
         ->assertJsonPath('data.id', $match->id)
@@ -46,6 +55,12 @@ it('returns full match detail with nested relations', function () {
 });
 
 it('returns 404 for nonexistent match', function () {
-    $this->getJson('/api/matches/999')
+    $this->actingAs($this->user)->getJson('/api/matches/999')
         ->assertNotFound();
+});
+
+it('returns 401 to anonymous callers (matches endpoint is auth-only)', function () {
+    ShootingMatch::factory()->active()->create();
+
+    $this->getJson('/api/matches')->assertUnauthorized();
 });

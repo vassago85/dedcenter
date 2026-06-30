@@ -13,6 +13,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // See CategoryTest::beforeEach for rationale on the owner role.
+    $this->user = User::factory()->create(['role' => 'owner']);
     $this->match = ShootingMatch::factory()->active()->create();
     $this->squad = Squad::factory()->create(['match_id' => $this->match->id]);
     $this->ts = TargetSet::factory()->create(['match_id' => $this->match->id]);
@@ -57,13 +59,25 @@ test('deleting a division sets shooter FK to null', function () {
     expect($shooter->fresh()->match_division_id)->toBeNull();
 });
 
-test('deleting a match cascades to divisions', function () {
+test('force-deleting a match cascades to divisions', function () {
+    // ShootingMatch is soft-deletable; only forceDelete() actually
+    // removes the row and triggers the cascadeOnDelete() defined on
+    // match_divisions.match_id.
+    $this->match->divisions()->create(['name' => 'Open', 'sort_order' => 1]);
+    expect(MatchDivision::count())->toBe(1);
+
+    $this->match->forceDelete();
+
+    expect(MatchDivision::count())->toBe(0);
+});
+
+test('soft-deleting a match leaves its divisions untouched', function () {
     $this->match->divisions()->create(['name' => 'Open', 'sort_order' => 1]);
     expect(MatchDivision::count())->toBe(1);
 
     $this->match->delete();
 
-    expect(MatchDivision::count())->toBe(0);
+    expect(MatchDivision::count())->toBe(1);
 });
 
 // ── Shooter Assignment ──
@@ -96,7 +110,7 @@ test('match api returns divisions', function () {
     $this->match->divisions()->create(['name' => 'Minor', 'sort_order' => 1]);
     $this->match->divisions()->create(['name' => 'Major', 'sort_order' => 2]);
 
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->user)->getJson("/api/matches/{$this->match->id}");
 
     $response->assertOk();
     $divisions = $response->json('data.divisions');
@@ -109,7 +123,7 @@ test('match api returns shooter division info', function () {
     $div = $this->match->divisions()->create(['name' => 'Minor', 'sort_order' => 1]);
     $shooter = Shooter::factory()->create(['squad_id' => $this->squad->id, 'match_division_id' => $div->id]);
 
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->user)->getJson("/api/matches/{$this->match->id}");
 
     $response->assertOk();
     $shooters = collect($response->json('data.squads'))->flatMap(fn ($s) => $s['shooters']);
@@ -222,8 +236,16 @@ test('live scoreboard page shows match name', function () {
 });
 
 test('live scoreboard shows division filter tabs', function () {
-    $this->match->divisions()->create(['name' => 'Minor', 'sort_order' => 1]);
-    $this->match->divisions()->create(['name' => 'Major', 'sort_order' => 2]);
+    // Filter chips only render once scores_published is on AND at least
+    // one shooter is attached to the division (see live.blade.php's
+    // `usedDivisionIds` derivation).
+    $this->match->update(['scores_published' => true]);
+
+    $minor = $this->match->divisions()->create(['name' => 'Minor', 'sort_order' => 1]);
+    $major = $this->match->divisions()->create(['name' => 'Major', 'sort_order' => 2]);
+
+    Shooter::factory()->create(['squad_id' => $this->squad->id, 'name' => 'Alice', 'match_division_id' => $minor->id]);
+    Shooter::factory()->create(['squad_id' => $this->squad->id, 'name' => 'Bob', 'match_division_id' => $major->id]);
 
     $response = $this->get("/live/{$this->match->id}");
 

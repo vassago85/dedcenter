@@ -8,11 +8,16 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
 use App\Models\TargetSet;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // /api/matches{,/{match}} are sanctum-gated AND filtered by
+    // ShootingMatch::scopeVisibleToScoringUser — so the test caller
+    // must be a platform owner or otherwise tied to the match.
+    $this->user = User::factory()->create(['role' => 'owner']);
     $this->match = ShootingMatch::factory()->active()->create();
     $this->squad = Squad::factory()->create(['match_id' => $this->match->id]);
     $this->ts = TargetSet::factory()->create(['match_id' => $this->match->id]);
@@ -39,13 +44,28 @@ test('match can have multiple categories', function () {
     expect($this->match->categories()->count())->toBe(4);
 });
 
-test('deleting a match cascades to categories', function () {
+test('force-deleting a match cascades to categories', function () {
+    // ShootingMatch uses SoftDeletes, so the regular ->delete() call
+    // only sets deleted_at and never triggers the DB-level cascade.
+    // forceDelete() actually issues DELETE FROM matches, which fires
+    // the cascadeOnDelete() defined on match_categories.match_id.
+    $this->match->categories()->create(['name' => 'Overall', 'slug' => 'overall', 'sort_order' => 1]);
+    expect(MatchCategory::count())->toBe(1);
+
+    $this->match->forceDelete();
+
+    expect(MatchCategory::count())->toBe(0);
+});
+
+test('soft-deleting a match leaves its categories untouched', function () {
+    // Soft-delete should not lose configuration so the match can be
+    // restored cleanly — categories therefore stay put.
     $this->match->categories()->create(['name' => 'Overall', 'slug' => 'overall', 'sort_order' => 1]);
     expect(MatchCategory::count())->toBe(1);
 
     $this->match->delete();
 
-    expect(MatchCategory::count())->toBe(0);
+    expect(MatchCategory::count())->toBe(1);
 });
 
 test('deleting a category detaches shooters from pivot but does not delete shooters', function () {
@@ -130,7 +150,7 @@ test('match api returns categories', function () {
     $this->match->categories()->create(['name' => 'Overall', 'slug' => 'overall', 'sort_order' => 1]);
     $this->match->categories()->create(['name' => 'Ladies', 'slug' => 'ladies', 'sort_order' => 2]);
 
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->user)->getJson("/api/matches/{$this->match->id}");
 
     $response->assertOk();
     $categories = $response->json('data.categories');
@@ -146,7 +166,7 @@ test('match api returns shooter category ids', function () {
     $shooter = Shooter::factory()->create(['squad_id' => $this->squad->id]);
     $shooter->categories()->sync([$overall->id, $ladies->id]);
 
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->user)->getJson("/api/matches/{$this->match->id}");
 
     $response->assertOk();
     $shooters = collect($response->json('data.squads'))->flatMap(fn ($s) => $s['shooters']);
@@ -283,8 +303,21 @@ test('prs scoreboard filters by both division and category', function () {
 // ── Live Scoreboard with Categories ──
 
 test('live scoreboard shows category filter tabs', function () {
-    $this->match->categories()->create(['name' => 'Ladies', 'slug' => 'ladies', 'sort_order' => 1]);
-    $this->match->categories()->create(['name' => 'Junior', 'slug' => 'junior', 'sort_order' => 2]);
+    // The live page only renders division/category filter chips for the
+    // "scores published" branch AND for categories that are actually
+    // attached to shooters — see resources/views/pages/live.blade.php's
+    // `usedCategoryIds` query. So the test seeds both:
+    //   1) scores_published on the match, and
+    //   2) a shooter attached to each category.
+    $this->match->update(['scores_published' => true]);
+
+    $ladies = $this->match->categories()->create(['name' => 'Ladies', 'slug' => 'ladies', 'sort_order' => 1]);
+    $junior = $this->match->categories()->create(['name' => 'Junior', 'slug' => 'junior', 'sort_order' => 2]);
+
+    $alice = Shooter::factory()->create(['squad_id' => $this->squad->id, 'name' => 'Alice']);
+    $bob = Shooter::factory()->create(['squad_id' => $this->squad->id, 'name' => 'Bob']);
+    $alice->categories()->sync([$ladies->id]);
+    $bob->categories()->sync([$junior->id]);
 
     $response = $this->get("/live/{$this->match->id}");
 
