@@ -260,7 +260,7 @@
         </div>
 
         <div class="mt-8">
-            {{ $matches->links() }}
+            {{ $matches->links('vendor.pagination.dead-center') }}
         </div>
     @else
         {{-- Empty states --}}

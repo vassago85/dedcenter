@@ -627,7 +627,7 @@ new #[Layout('components.layouts.app')]
             </div>
 
             <div class="px-6 py-3 border-t border-border">
-                {{ $users->links() }}
+                {{ $users->links('vendor.pagination.dead-center') }}
             </div>
         @endif
     </div>

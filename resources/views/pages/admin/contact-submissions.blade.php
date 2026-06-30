@@ -119,7 +119,7 @@ new #[Layout('components.layouts.app')]
         </div>
 
         <div class="mt-6">
-            {{ $submissions->links() }}
+            {{ $submissions->links('vendor.pagination.dead-center') }}
         </div>
     @endif
 </div>
