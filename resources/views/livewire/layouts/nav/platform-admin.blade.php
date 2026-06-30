@@ -1,7 +1,12 @@
 {{-- Canonical platform-admin sidebar — 5 primary items. Members,
      Shooter Claims, Seasons, Contact Submissions, Homepage Editor collapse
-     into a "Secondary" group so the daily admin view stays calm. --}}
-<div class="space-y-1">
+     into a "Secondary" group so the daily admin view stays calm.
+
+     wire:poll.60s is a safety net so cross-tab admin activity reconciles
+     within a minute even if the relevant page didn't dispatch a moderation
+     event. The primary refresh path is the #[On(...)] listeners on the
+     component class. --}}
+<div class="space-y-1" wire:poll.60s="refreshCounts">
     <div class="px-3 pb-1">
         <p class="text-xs font-semibold uppercase tracking-wider text-muted">Platform Admin</p>
     </div>
@@ -13,7 +18,6 @@
     <a href="{{ route('admin.organizations') }}" wire:navigate
        class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition-colors {{ request()->routeIs('admin.organizations') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
         Organizations
-        @php $pendingOrgs = \App\Models\Organization::pending()->count(); @endphp
         @if($pendingOrgs > 0)
             <span class="ml-auto inline-flex items-center justify-center rounded-full bg-amber-600 px-2 py-0.5 text-xs font-bold text-primary">{{ $pendingOrgs }}</span>
         @endif
@@ -40,7 +44,6 @@
         <a href="{{ route('admin.shooter-claims') }}" wire:navigate
            class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.shooter-claims') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
             Shooter Claims
-            @php $pendingClaims = \App\Models\ShooterAccountClaim::where('status', \App\Enums\ShooterClaimStatus::Pending)->count(); @endphp
             @if($pendingClaims > 0)
                 <span class="ml-auto inline-flex items-center justify-center rounded-full bg-amber-600 px-2 py-0.5 text-xs font-bold text-primary">{{ $pendingClaims }}</span>
             @endif
@@ -60,7 +63,6 @@
         <a href="{{ route('admin.contact-submissions') }}" wire:navigate
            class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.contact-submissions') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
             Contact Submissions
-            @php $unreadContacts = \App\Models\ContactSubmission::unread()->count(); @endphp
             @if($unreadContacts > 0)
                 <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $unreadContacts }}</span>
             @endif

@@ -121,8 +121,12 @@
                 @auth
                     @if($isPlatformMode)
                         {{-- Platform Admin Mode owns the whole sidebar. Role
-                             switching happens via the top-right mode menu. --}}
-                        <x-layouts.nav.platform-admin />
+                             switching happens via the top-right mode menu.
+                             Rendered as a Livewire component so the "X pending"
+                             badges refresh on moderation events + a 60s poll
+                             instead of being baked in at full-page-load time
+                             and going stale on every wire:navigate. --}}
+                        <livewire:layouts.nav.platform-admin />
                     @elseif($isOrgMode)
                         <x-layouts.nav.org :current-org="$currentOrg" />
                     @else
@@ -134,7 +138,7 @@
                                     <x-icon name="chevron-down" class="h-3.5 w-3.5 transition-transform duration-200" x-bind:class="adminOpen && 'rotate-180'" />
                                 </button>
                                 <div x-show="adminOpen" x-collapse x-cloak class="mt-2 space-y-1">
-                                    <x-layouts.nav.platform-admin />
+                                    <livewire:layouts.nav.platform-admin />
                                 </div>
                             </div>
                         @endif

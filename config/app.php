@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Support Email
+    |--------------------------------------------------------------------------
+    |
+    | The user-facing contact address shown on legal pages (Privacy, Terms)
+    | and anywhere else the platform asks members to "get in touch". Kept as
+    | a single config value so swapping it later is one .env edit instead of
+    | hunting through Blade templates.
+    |
+    */
+
+    'support_email' => env('SUPPORT_EMAIL', 'paul@charsley.co.za'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

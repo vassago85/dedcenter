@@ -14,11 +14,16 @@ new #[Layout('components.layouts.app')]
     public function markRead(int $id): void
     {
         ContactSubmission::find($id)?->markAsRead();
+        // Tell the platform-admin sidebar to recompute its "X unread" badge so
+        // the count doesn't stay stale (wire:navigate keeps the layout, and
+        // therefore the sidebar component, mounted across page transitions).
+        $this->dispatch('contact-submissions-updated');
     }
 
     public function delete(int $id): void
     {
         ContactSubmission::find($id)?->delete();
+        $this->dispatch('contact-submissions-updated');
     }
 
     public function with(): array

@@ -325,6 +325,14 @@ new #[Layout('components.layouts.app')]
 @endphp
 
 <div class="space-y-6">
+    {{-- Same wire:navigate snapshot bug as shooter-claims / organizations: a
+        role change or membership tweak updates the DB, but Livewire's
+        cached HTML snapshot of this page can later restore stale rows when
+        the user navigates back. Forcing $refresh on livewire:navigated
+        re-runs with() so the list always matches the database. --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <div>
         <flux:heading size="xl">Members</flux:heading>
         <p class="mt-1 text-sm text-muted">Manage all registered users. Assign site roles and organization memberships.</p>

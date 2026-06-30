@@ -206,6 +206,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
+    {{-- wire:navigate snapshot fix — see shooter-claims.blade.php for the
+        full explanation. Without this, toggling a sponsor's status and
+        navigating back restores the stale row. --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.advertising'), 'label' => 'Match Placements', 'active' => false],
         ['href' => route('admin.sponsors'), 'label' => 'Brands', 'active' => true],

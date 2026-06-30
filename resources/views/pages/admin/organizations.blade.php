@@ -37,6 +37,10 @@ new #[Layout('components.layouts.app')]
         }
 
         Flux::toast("'{$org->name}' approved and active. Creator is now the owner.", variant: 'success');
+        // Sidebar "X pending" badge refresh — the layout (and therefore the
+        // platform-admin nav component) is preserved across wire:navigate, so
+        // it needs an event to know its cached count is stale.
+        $this->dispatch('organization-status-updated');
     }
 
     public function deactivate(int $id): void
@@ -45,6 +49,7 @@ new #[Layout('components.layouts.app')]
         $org->update(['status' => 'inactive']);
 
         Flux::toast("'{$org->name}' deactivated.", variant: 'warning');
+        $this->dispatch('organization-status-updated');
     }
 
     public function reactivate(int $id): void
@@ -53,6 +58,7 @@ new #[Layout('components.layouts.app')]
         $org->update(['status' => 'active']);
 
         Flux::toast("'{$org->name}' reactivated.", variant: 'success');
+        $this->dispatch('organization-status-updated');
     }
 
     public function toggleRoyalFlush(int $id): void
@@ -85,6 +91,7 @@ new #[Layout('components.layouts.app')]
         $org->delete();
 
         Flux::toast("'{$name}' has been permanently deleted.", variant: 'warning');
+        $this->dispatch('organization-status-updated');
     }
 
     public function togglePortalAdRights(int $id): void
@@ -113,6 +120,18 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6">
+    {{--
+        Same wire:navigate snapshot bug as the shooter-claims + contact-submissions
+        pages: approving an org correctly flips its status in the DB, but
+        navigating away and back (or hitting the Organizations sidebar item
+        twice) restores Livewire's cached HTML snapshot — so the row keeps
+        showing "Pending" with an Approve button until the user clicks a
+        filter tab and forces a fresh server round-trip. A $refresh() on
+        every livewire:navigated event re-runs with() so the list always
+        reflects the database. --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <div>
         <flux:heading size="xl">Organizations</flux:heading>
         <p class="mt-1 text-sm text-muted">Approve and manage organizations.</p>

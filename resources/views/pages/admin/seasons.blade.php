@@ -87,6 +87,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-6 max-w-2xl">
+    {{-- wire:navigate snapshot fix — see shooter-claims.blade.php for the
+        full explanation. Without this, opening/closing a season and then
+        navigating back leaves the row in its pre-change state. --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <div>
         <h1 class="text-2xl font-bold text-white">Seasons</h1>
         <p class="mt-1 text-sm text-secondary">Manage seasons and aggregate match results into leaderboards.</p>

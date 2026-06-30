@@ -70,7 +70,8 @@ new #[Layout('components.layouts.marketing')]
 
             <div>
                 <h2 class="mb-3 text-lg font-semibold" style="color: var(--lp-text);">9. Contact</h2>
-                <p>If you have questions about this privacy policy or your personal data, contact us at <a href="mailto:info@deadcenter.co.za" style="color: var(--lp-red);">info@deadcenter.co.za</a>.</p>
+                @php $supportEmail = config('app.support_email'); @endphp
+                <p>If you have questions about this privacy policy or your personal data, contact us at <a href="mailto:{{ $supportEmail }}" style="color: var(--lp-red);">{{ $supportEmail }}</a>.</p>
             </div>
 
         </div>

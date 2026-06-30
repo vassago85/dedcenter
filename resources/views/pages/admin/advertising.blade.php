@@ -175,6 +175,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-8">
+    {{-- wire:navigate snapshot fix — see shooter-claims.blade.php for the
+        full explanation. Without this, placement assignments can revert
+        visually after a back-navigation. --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.advertising'), 'label' => 'Match Placements', 'active' => true],
         ['href' => route('admin.sponsors'), 'label' => 'Brands', 'active' => false],

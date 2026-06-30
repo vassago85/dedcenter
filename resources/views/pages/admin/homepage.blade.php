@@ -114,6 +114,12 @@ new #[Layout('components.layouts.app')]
 }; ?>
 
 <div class="space-y-8 max-w-4xl">
+    {{-- wire:navigate snapshot fix — see shooter-claims.blade.php for the
+        full explanation. Without this, edited copy / featured items can
+        revert visually on back-navigation. --}}
+    <div x-data
+         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.settings'), 'label' => 'General', 'active' => false],
         ['href' => route('admin.homepage'), 'label' => 'Homepage', 'active' => true],
