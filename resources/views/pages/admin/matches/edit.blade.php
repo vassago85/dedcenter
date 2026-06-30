@@ -1426,18 +1426,11 @@ new #[Layout('components.layouts.app')]
                     </div>
                 </div>
             @endif
-    @else
-        <div class="mx-auto w-full max-w-4xl space-y-4 sm:space-y-5">
-            <div class="flex items-center gap-4">
-                <flux:button href="{{ route('admin.matches.index') }}" variant="ghost" size="sm">
-                    <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
-                    Back
-                </flux:button>
-                <div>
-                    <flux:heading size="xl">New Match</flux:heading>
-                </div>
-            </div>
-    @endif
+    {{-- Create mode renders its own minimal, self-contained form in the
+         @else branch at the bottom. The @if($match) shell branch flows
+         straight into the setup body below so the <x-match-control-shell>
+         open/close tags are never split across an @if/@else — splitting them
+         makes Blade's component compiler swallow the slot and blank the page. --}}
 
     @if($match)
     {{-- Inner Setup sub-nav. The outer 5-tab Match Control nav lives
@@ -2730,10 +2723,60 @@ new #[Layout('components.layouts.app')]
         </div>{{-- /tab:config group 2 --}}
     @endif
 
-    {{-- Close shell wrapper (when $match exists) or create-flow wrapper. --}}
-    @if($match)
         </x-match-control-shell>
     @else
+        {{-- Create mode: a self-contained minimal form. The full setup shell
+             appears once the match is saved and we redirect into edit mode.
+             Kept separate from the shell branch so the component tag is never
+             split across the conditional. --}}
+        <div class="mx-auto w-full max-w-4xl space-y-4 sm:space-y-5">
+            <div class="flex items-center gap-4">
+                <flux:button href="{{ route('admin.matches.index') }}" variant="ghost" size="sm">
+                    <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
+                    Back
+                </flux:button>
+                <div>
+                    <flux:heading size="xl">New Match</flux:heading>
+                </div>
+            </div>
+
+            <form wire:submit="save" class="space-y-6">
+                <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+                    <h2 class="text-lg font-semibold text-primary">Match Details</h2>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <flux:input wire:model="name" label="Name" placeholder="e.g. Monthly Steel Challenge" required />
+                        <flux:input wire:model="date" label="Date" type="date" required />
+                    </div>
+                    <flux:input wire:model="location" label="Location" placeholder="e.g. Range 3, Pretoria" />
+                    <div>
+                        <flux:input wire:model="entry_fee" label="Entry Fee (ZAR)" type="number" step="0.01" min="0" placeholder="Leave empty for free" />
+                        <p class="mt-1 text-xs text-muted">Leave empty or 0 for free entry.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-secondary mb-1">Scoring Type</label>
+                        <div class="flex gap-2">
+                            <button type="button" wire:click="$set('scoring_type', 'standard')"
+                                    class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                Relay-Based
+                            </button>
+                            <button type="button" wire:click="$set('scoring_type', 'prs')"
+                                    class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                PRS
+                            </button>
+                            <button type="button" wire:click="$set('scoring_type', 'elr')"
+                                    class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                ELR
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-muted">Configure stages, divisions, gongs and squads after the match is created.</p>
+                    </div>
+                    <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes — not shown on the public portal..." rows="3" />
+                    <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Short description for shooters — shown on the match page and portal..." rows="3" />
+                    <div class="flex justify-end pt-2">
+                        <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Create Match</flux:button>
+                    </div>
+                </div>
+            </form>
         </div>
     @endif
 </div>

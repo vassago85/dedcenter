@@ -1712,22 +1712,13 @@ new #[Layout('components.layouts.app')]
                     </div>
                 </div>
             @endif
-    @else
-        {{-- Create flow: no $match yet, so we can't render the shell.
-             Use the existing minimal chrome — a back button + heading.
-             The shell + lifecycle stepper appear from the second save. --}}
-        <div class="mx-auto w-full max-w-4xl space-y-4 sm:space-y-5">
-            <div class="flex items-center gap-4">
-                <flux:button href="{{ route('org.matches.index', $organization) }}" variant="ghost" size="sm">
-                    <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
-                    Back
-                </flux:button>
-                <div>
-                    <flux:heading size="xl">New Match</flux:heading>
-                    <p class="mt-1 text-sm text-muted">{{ $organization->name }}</p>
-                </div>
-            </div>
-    @endif
+    {{-- Create mode renders its own minimal, self-contained form in the
+         @else branch at the very bottom of this file. We deliberately keep the
+         @if($match) shell branch flowing straight into the setup body below so
+         the <x-match-control-shell> opening and closing tags are NEVER split
+         across an @if/@else — Blade's component-tag compiler captures the slot
+         at compile time and swallows the whole body when the opening tag is
+         skipped, which is what blanked the create page. --}}
 
     @if($match)
     {{-- Inner Setup sub-nav — splits the long Setup form into Match Info,
@@ -3376,11 +3367,81 @@ new #[Layout('components.layouts.app')]
         </div>{{-- /tab:config group 3 --}}
     @endif
 
-    {{-- Close the shell wrapper (when $match exists) or the create-flow
-         simple wrapper (when no $match yet). --}}
-    @if($match)
         </x-match-control-shell>
     @else
+        {{-- Create mode: a self-contained minimal form. The full setup shell
+             (stages, divisions, squadding, lifecycle stepper) appears once the
+             match is saved and we re-render in edit mode. Kept separate from
+             the shell branch so the component tag is never split. --}}
+        <div class="mx-auto w-full max-w-4xl space-y-4 sm:space-y-5">
+            <div class="flex items-center gap-4">
+                <flux:button href="{{ route('org.matches.index', $organization) }}" variant="ghost" size="sm">
+                    <x-icon name="chevron-left" class="mr-1 h-4 w-4" />
+                    Back
+                </flux:button>
+                <div>
+                    <flux:heading size="xl">New Match</flux:heading>
+                    <p class="mt-1 text-sm text-muted">{{ $organization->name }}</p>
+                </div>
+            </div>
+
+            <form wire:submit="save" class="space-y-6">
+                <div class="rounded-xl border border-border bg-surface p-6 space-y-4">
+                    <h2 class="text-lg font-semibold text-primary">Match Details</h2>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <flux:input wire:model="name" label="Name" placeholder="e.g. Monthly Steel Challenge" required />
+                        <flux:input wire:model="date" label="Date" type="date" required />
+                    </div>
+                    <div class="max-w-xs">
+                        <label class="block text-sm font-medium text-secondary mb-1">Match Days</label>
+                        <input type="number" wire:model="matchDays" min="1" max="5" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary" />
+                        <p class="mt-1 text-xs text-muted">Set to 2+ for multi-day events.</p>
+                    </div>
+                    <flux:input wire:model="location" label="Location" placeholder="e.g. Range 3, Pretoria" />
+                    <div>
+                        <label class="block text-sm font-medium text-secondary mb-1">Province</label>
+                        <select wire:model="province" class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent">
+                            <option value="">— Select province —</option>
+                            @foreach(\App\Enums\Province::cases() as $p)
+                                <option value="{{ $p->value }}">{{ $p->label() }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <flux:input wire:model="entry_fee" label="Entry Fee (ZAR)" type="number" step="0.01" min="0" placeholder="Leave empty for free" />
+                            <p class="mt-1 text-xs text-muted">Leave empty or 0 for free entry.</p>
+                        </div>
+                        <div>
+                            <flux:input wire:model="registration_closes_at" label="Registration Closes" type="datetime-local" />
+                            <p class="mt-1 text-xs text-muted">Defaults to 72 hours before the event if left empty.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-secondary mb-1">Scoring Type</label>
+                        <div class="flex gap-2">
+                            <button type="button" wire:click="$set('scoring_type', 'standard')"
+                                    class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                Relay-Based
+                            </button>
+                            <button type="button" wire:click="$set('scoring_type', 'prs')"
+                                    class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                PRS
+                            </button>
+                            <button type="button" wire:click="$set('scoring_type', 'elr')"
+                                    class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                ELR
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-muted">Configure stages, divisions, gongs and squads after the match is created.</p>
+                    </div>
+                    <flux:textarea wire:model="notes" label="Notes (internal)" placeholder="Staff-only notes — not shown on the public portal..." rows="3" />
+                    <flux:textarea wire:model="public_bio" label="Public event bio" placeholder="Short description for shooters — shown on the match page and portal..." rows="3" />
+                    <div class="flex justify-end pt-2">
+                        <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">Create Match</flux:button>
+                    </div>
+                </div>
+            </form>
         </div>
     @endif
 </div>
