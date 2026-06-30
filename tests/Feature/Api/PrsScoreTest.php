@@ -114,7 +114,7 @@ test('prs scoreboard ranks higher hits above lower time', function () {
 });
 
 test('match api returns scoring_type', function () {
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->admin)->getJson("/api/matches/{$this->match->id}");
     $response->assertOk();
     expect($response->json('data.scoring_type'))->toBe('prs');
 });
@@ -128,7 +128,7 @@ test('match api returns stage_times for prs match', function () {
         'recorded_at' => now(),
     ]);
 
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->admin)->getJson("/api/matches/{$this->match->id}");
     $response->assertOk();
     expect($response->json('data.stage_times'))->toHaveCount(1);
     expect($response->json('data.stage_times.0.time_seconds'))->toBe(33.5);
@@ -158,7 +158,7 @@ test('setting tiebreaker stage clears previous tiebreaker', function () {
 test('match api returns is_tiebreaker and par_time_seconds for target sets', function () {
     $this->stage1->update(['is_tiebreaker' => true, 'par_time_seconds' => 90.00]);
 
-    $response = $this->getJson("/api/matches/{$this->match->id}");
+    $response = $this->actingAs($this->admin)->getJson("/api/matches/{$this->match->id}");
     $response->assertOk();
 
     $targetSets = $response->json('data.target_sets');

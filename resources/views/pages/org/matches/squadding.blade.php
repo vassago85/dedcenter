@@ -272,12 +272,20 @@ new #[Layout('components.layouts.app')]
         foreach ($regsToAssign as $reg) {
             $holder = $match->squads()->firstOrCreate(['name' => 'Unassigned'], ['sort_order' => 999]);
             $maxSort = Shooter::where('squad_id', $holder->id)->max('sort_order') ?? 0;
+            // Snapshot division + category from the registration onto the
+            // new Shooter so PRS / ELR scoring + ranking work immediately
+            // even before scores roll in. Mirrors the self-squad join in
+            // resources/views/pages/member/match-squadding.blade.php.
             $newShooter = Shooter::create([
                 'squad_id' => $holder->id,
                 'name' => $reg->user->name,
                 'user_id' => $reg->user_id,
                 'sort_order' => $maxSort + 1,
+                'match_division_id' => $reg->division_id,
             ]);
+            if ($reg->category_id) {
+                $newShooter->categories()->syncWithoutDetaching([$reg->category_id]);
+            }
             $unassignedShooters->push($newShooter);
         }
 

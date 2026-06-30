@@ -68,13 +68,24 @@ new #[Layout('components.layouts.app')]
             $this->myShooter->update(['squad_id' => $squadId]);
             Flux::toast("Moved to {$squad->name}.", variant: 'success');
         } else {
+            // First-time join: snapshot the registration's division onto the
+            // new Shooter so PRS / ELR scoring and ranking pick it up
+            // immediately, without waiting on a separate sync. Same
+            // mapping `MatchRegistration::syncDivisionToShooter()` uses
+            // when MDs squad people up.
             $maxSort = Shooter::where('squad_id', $squadId)->max('sort_order') ?? 0;
             $this->myShooter = Shooter::create([
                 'squad_id' => $squadId,
                 'name' => auth()->user()->name,
                 'user_id' => auth()->id(),
                 'sort_order' => $maxSort + 1,
+                'match_division_id' => $this->registration?->division_id,
             ]);
+
+            if ($this->registration?->category_id) {
+                $this->myShooter->categories()->syncWithoutDetaching([$this->registration->category_id]);
+            }
+
             Flux::toast("Joined {$squad->name}!", variant: 'success');
         }
 

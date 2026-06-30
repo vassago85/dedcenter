@@ -156,10 +156,10 @@ export const usePrsScoringStore = defineStore('prsScoring', {
         },
 
         async completeStage(matchId, stageId, shooterId, squadId, stage) {
-            // Per-shooter time is only required when the stage is BOTH timed
-            // AND a tiebreaker. A timed-only stage just has a par time clock
-            // for the shooter; no per-shooter time is recorded.
-            const timeRequired = !!(stage.is_timed_stage && stage.is_tiebreaker);
+            // Any timed stage records the shooter's time so the server can
+            // apply par-time clamping and tiebreaker ranking. Pure
+            // non-timed stages skip the time entirely.
+            const timeRequired = !!stage.is_timed_stage;
             const time = this.effectiveTime;
 
             if (timeRequired && (!time || time <= 0)) {

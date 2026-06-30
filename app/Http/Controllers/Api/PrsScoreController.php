@@ -83,6 +83,34 @@ class PrsScoreController extends Controller
             'correction_reason' => ['sometimes', 'nullable', 'string', 'min:3', 'max:500'],
         ]);
 
+        // Server-side guards that match the PRS Vue client's preconditions.
+        // The scoring UI already enforces "one row per shot" and "timed
+        // stages need a recorded time", but offline submissions, manual
+        // API replays, and the native app's request queue can all sneak
+        // around the UI — so we re-check the contract here.
+        $expectedShots = (int) ($stage->total_shots ?? 0);
+        if ($expectedShots > 0 && count($validated['shots']) !== $expectedShots) {
+            Log::warning('PRS score rejected: shot count mismatch', [
+                'stage_id' => $stage->id,
+                'expected' => $expectedShots,
+                'received' => count($validated['shots']),
+            ]);
+
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'shots' => ["This stage requires exactly {$expectedShots} shot row(s); received ".count($validated['shots']).'.'],
+            ]);
+        }
+
+        if (! empty($stage->is_timed_stage) && ($validated['raw_time_seconds'] ?? null) === null) {
+            Log::warning('PRS score rejected: timed stage missing time', [
+                'stage_id' => $stage->id,
+            ]);
+
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'raw_time_seconds' => ['A recorded time is required for timed stages.'],
+            ]);
+        }
+
         $deviceId = $request->header('X-Device-Id', $request->input('device_id'));
         $rawTime = $validated['raw_time_seconds'] ?? null;
         $reason = isset($validated['correction_reason']) && $validated['correction_reason'] !== ''
