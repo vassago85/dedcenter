@@ -1360,7 +1360,19 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
-        $data = ['divisions' => collect(), 'categories' => collect(), 'elrScoringProfiles' => collect(), 'qrCodeSvg' => null];
+        // Defaults for EVERY view variable. The Stages/Config markup renders
+        // server-side (x-show only hides it client-side) even in create mode,
+        // so without these the create page hits `@foreach($targetSets ...)`
+        // with an undefined variable and renders completely blank.
+        $data = [
+            'divisions' => collect(),
+            'categories' => collect(),
+            'elrScoringProfiles' => collect(),
+            'targetSets' => collect(),
+            'squads' => collect(),
+            'qrCodeSvg' => null,
+            'liveUrl' => null,
+        ];
 
         if ($this->match) {
             $data['targetSets'] = $this->match->targetSets()

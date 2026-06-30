@@ -1646,7 +1646,24 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
-        $data = ['divisions' => collect(), 'categories' => collect(), 'elrScoringProfiles' => collect(), 'qrCodeSvg' => null];
+        // Defaults for EVERY view variable. The Stages and Config tab markup
+        // is always rendered server-side (x-show only hides it client-side),
+        // even in create mode where the sub-tab nav that reaches those tabs is
+        // itself gated behind @if($match). Without these defaults, create mode
+        // hits `@foreach($targetSets ...)` with an undefined variable and the
+        // whole component renders blank. Empty collections make the hidden
+        // markup render harmlessly until the match is saved.
+        $data = [
+            'divisions' => collect(),
+            'categories' => collect(),
+            'elrScoringProfiles' => collect(),
+            'targetSets' => collect(),
+            'squads' => collect(),
+            'disqualifications' => collect(),
+            'messages' => collect(),
+            'qrCodeSvg' => null,
+            'liveUrl' => null,
+        ];
         if ($this->match) {
             $data['targetSets'] = $this->match->targetSets()->with(['gongs', 'positions', 'shotSequence'])->orderBy('sort_order')->get();
             $data['squads'] = $this->match->squads()->with(['shooters.division', 'shooters.categories'])->orderBy('sort_order')->get();
