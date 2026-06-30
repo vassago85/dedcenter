@@ -550,9 +550,9 @@ new #[Layout('components.layouts.app')]
                                                     </select>
                                                     <div class="flex gap-1.5 flex-wrap">
                                                         @foreach($roleMap as $key => $label)
-                                                            <label class="cursor-pointer">
+                                                            <label class="cursor-pointer select-none">
                                                                 <input type="checkbox" wire:model="addOrgRoles.{{ $key }}" class="sr-only peer" @checked(! empty($addOrgRoles[$key]))>
-                                                                <span class="inline-block rounded-full px-3 py-1 text-xs font-medium transition-colors border peer-checked:bg-accent peer-checked:text-primary peer-checked:border-accent bg-surface-2 text-secondary border-border hover:bg-surface-2">{{ $label }}</span>
+                                                                <span class="inline-block whitespace-nowrap rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:text-primary peer-checked:border-accent peer-checked:bg-accent peer-checked:text-white">{{ $label }}</span>
                                                             </label>
                                                         @endforeach
                                                     </div>

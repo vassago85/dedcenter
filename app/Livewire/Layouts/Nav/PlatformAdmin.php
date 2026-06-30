@@ -11,68 +11,41 @@ use Livewire\Component;
 
 /**
  * Platform admin sidebar — owns the three "X pending" badges that previously
- * lived as inline @php in the Blade x-component. The x-component version was
- * silently stale because Livewire's persistent-layout `wire:navigate` keeps
- * the layout in the DOM and never re-runs its inline PHP, so once the user
- * approved a claim the sidebar badge stayed at "1" until a hard refresh.
+ * lived as inline @php in the Blade x-component.
  *
- * As a Livewire component we can:
- *   - listen for `moderation-updated`, `contact-submissions-updated`, and
- *     `organization-status-updated` events dispatched by sibling pages and
- *     recompute the counts the instant an admin acts;
- *   - poll every 60s as a safety net so cross-tab activity also reconciles
- *     without requiring a manual refresh.
+ * The counts are computed FRESH in render() rather than stored as wire
+ * properties. That's deliberate: wire:navigate caches a full HTML snapshot of
+ * each visited page (sidebar included) AND the component's property payload,
+ * so a count stored in a property would be restored stale on back-navigation
+ * — exactly the "badge stuck at 1 even though there are 0 pending claims" bug.
+ * By computing in render(), every re-render (poll, moderation event, the
+ * livewire:navigated $refresh hook, or normal hydration) reflects the live
+ * database, so the badge can never lie.
+ *
+ * The #[On] listeners simply force a re-render the instant an admin resolves
+ * something on a sibling page; wire:poll is a cross-tab safety net.
  */
 class PlatformAdmin extends Component
 {
-    public int $pendingOrgs = 0;
-
-    public int $pendingClaims = 0;
-
-    public int $unreadContacts = 0;
-
-    public function mount(): void
-    {
-        $this->refreshCounts();
-    }
-
-    #[On('moderation-updated')]
-    public function onModerationUpdated(): void
-    {
-        $this->refreshCounts();
-    }
-
-    #[On('contact-submissions-updated')]
-    public function onContactSubmissionsUpdated(): void
-    {
-        $this->refreshCounts();
-    }
-
-    #[On('organization-status-updated')]
-    public function onOrganizationStatusUpdated(): void
-    {
-        $this->refreshCounts();
-    }
-
     /**
-     * Public so wire:poll can hit it without exposing internal state, and so
-     * the `livewire:navigated` JS hook (see the view) can fire it after every
-     * page transition. This is what kills the "badge shows 1 on shooter-claims
-     * but nowhere else" symptom: wire:navigate restores a cached page snapshot
-     * that includes a stale copy of this sidebar's HTML, so we have to force a
-     * fresh count on arrival rather than trusting the restored markup. Keeps
-     * the three count queries in one place to avoid drift.
+     * Receiving any of these events triggers a Livewire round-trip, which
+     * re-runs render() and therefore recomputes the badge counts. The body is
+     * intentionally empty — the re-render is the whole point.
      */
+    #[On('moderation-updated')]
+    #[On('contact-submissions-updated')]
+    #[On('organization-status-updated')]
     #[On('refresh-admin-nav-counts')]
     public function refreshCounts(): void
     {
-        $this->pendingOrgs = Organization::pending()->count();
-        $this->pendingClaims = ShooterAccountClaim::where('status', ShooterClaimStatus::Pending)->count();
-        $this->unreadContacts = ContactSubmission::unread()->count();
     }
 
     public function render()
     {
-        return view('livewire.layouts.nav.platform-admin');
+        return view('livewire.layouts.nav.platform-admin', [
+            'pendingOrgs' => Organization::pending()->count(),
+            'pendingClaims' => ShooterAccountClaim::where('status', ShooterClaimStatus::Pending)->count(),
+            'unreadContacts' => ContactSubmission::unread()->count(),
+        ]);
     }
 }

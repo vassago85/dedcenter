@@ -2,11 +2,17 @@
      Shooter Claims, Seasons, Contact Submissions, Homepage Editor collapse
      into a "Secondary" group so the daily admin view stays calm.
 
-     wire:poll.60s is a safety net so cross-tab admin activity reconciles
-     within a minute even if the relevant page didn't dispatch a moderation
-     event. The primary refresh path is the #[On(...)] listeners on the
-     component class. --}}
-<div class="space-y-1" wire:poll.60s="refreshCounts">
+     The badge counts are computed fresh in render() (see the component), so
+     they reflect the live DB on every re-render. We force a re-render on
+     every wire:navigate via $wire.$refresh() — without it, navigating back to
+     a cached page (e.g. Shooter Claims) restores the stale sidebar snapshot
+     and the badge "sticks" at its old value. wire:poll.60s is a cross-tab
+     safety net. This Alpine hook lives on the persisted layout component, so
+     x-init runs once and the single listener survives every navigation. --}}
+<div class="space-y-1"
+     wire:poll.60s
+     x-data
+     x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())">
     <div class="px-3 pb-1">
         <p class="text-xs font-semibold uppercase tracking-wider text-muted">Platform Admin</p>
     </div>
@@ -68,25 +74,4 @@
             @endif
         </a>
     </div>
-
-    {{--
-        wire:navigate caches a full HTML snapshot of each visited page,
-        sidebar included. Returning to a cached URL (e.g. clicking back into
-        Shooter Claims) restores that stale snapshot, so a badge count that
-        was correct at cache time reappears even after the underlying records
-        were cleared — the "badge shows 1 on shooter-claims but nowhere else"
-        bug. We recompute the counts on every navigation by firing a Livewire
-        event that this component listens for (#[On('refresh-admin-nav-counts')]).
-        The window guard makes sure we only ever bind one global listener no
-        matter how many times this persisted component re-renders. --}}
-    @script
-    <script>
-        if (! window.__deadcenterAdminNavCountsBound) {
-            window.__deadcenterAdminNavCountsBound = true;
-            document.addEventListener('livewire:navigated', () => {
-                Livewire.dispatch('refresh-admin-nav-counts');
-            });
-        }
-    </script>
-    @endscript
 </div>
