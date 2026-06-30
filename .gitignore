@@ -19,6 +19,9 @@
 /storage/*.key
 /storage/pail
 /vendor
+# Auto-published package assets (Livewire, Filament, etc). Regenerated
+# by `php artisan vendor:publish` on deploy — don't track the copies.
+/public/vendor
 Homestead.json
 Homestead.yaml
 Thumbs.db
