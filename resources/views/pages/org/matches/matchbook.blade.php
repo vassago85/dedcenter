@@ -230,17 +230,51 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
-    <flux:tab.group>
-        <flux:tabs wire:model.live="activeTab">
-            <flux:tab name="content">Content</flux:tab>
-            <flux:tab name="branding">Branding</flux:tab>
-            <flux:tab name="venue">Venue</flux:tab>
-            <flux:tab name="locations">Locations</flux:tab>
-            <flux:tab name="stages">Stages</flux:tab>
-            <flux:tab name="options">Options</flux:tab>
-        </flux:tabs>
+    {{--
+        Tab strip. The previous build used Flux Pro tab components,
+        but we ship the free livewire/flux package which has no tab
+        primitives at all — that combination threw an "Unable to
+        locate a class or view for component" error at view-cache
+        time and broke matchbook at runtime. Hand-rolling the strip
+        with Tailwind + wire:click keeps the exact same UX (Livewire
+        re-renders the whole component on $activeTab change so only
+        the matching @if panel below hits the DOM) and matches the
+        styling of <x-match-control-tabs> for visual consistency.
+    --}}
+    @php
+        $matchbookTabs = [
+            'content'   => 'Content',
+            'branding'  => 'Branding',
+            'venue'     => 'Venue',
+            'locations' => 'Locations',
+            'stages'    => 'Stages',
+            'options'   => 'Options',
+        ];
+    @endphp
 
-        <flux:tab.panel name="content" class="mt-6 space-y-6">
+    <nav class="flex flex-wrap items-center gap-1 border-b border-border overflow-x-auto" role="tablist" aria-label="Match book sections">
+        @foreach ($matchbookTabs as $tabKey => $tabLabel)
+            @php
+                $isActive = $activeTab === $tabKey;
+                $base = 'inline-flex items-center rounded-t-lg border-b-2 px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent';
+                $state = $isActive
+                    ? 'border-accent text-primary bg-surface'
+                    : 'border-transparent text-muted hover:text-primary hover:border-border';
+            @endphp
+            <button
+                type="button"
+                wire:click="$set('activeTab', '{{ $tabKey }}')"
+                role="tab"
+                aria-selected="{{ $isActive ? 'true' : 'false' }}"
+                class="{{ $base }} {{ $state }}"
+            >
+                {{ $tabLabel }}
+            </button>
+        @endforeach
+    </nav>
+
+    @if ($activeTab === 'content')
+        <div class="mt-6 space-y-6">
             <flux:textarea wire:model="welcome_note" label="Welcome note" rows="5" />
             <flux:textarea wire:model="custom_notes" label="Custom notes" rows="5" />
             <flux:textarea wire:model="program" label="Program" rows="6" />
@@ -248,11 +282,13 @@ new #[Layout('components.layouts.app')]
             <flux:textarea wire:model="safety" label="Safety" rows="6" />
             <flux:textarea wire:model="match_breakdown" label="Match breakdown" rows="6" />
             <flux:textarea wire:model="sponsor_acknowledgement" label="Brand acknowledgement" rows="4" />
-        </flux:tab.panel>
-
-        <flux:tab.panel name="branding" class="mt-6 space-y-6">
+        </div>
+    @elseif ($activeTab === 'branding')
+        <div class="mt-6 space-y-6">
             <flux:input type="file" wire:model="cover_image" label="Cover image" />
-            @if($matchBook->cover_image_path) <p class="text-sm text-muted">Current: <a class="text-amber-600 underline" href="{{ Storage::url($matchBook->cover_image_path) }}" target="_blank">view</a></p> @endif
+            @if($matchBook->cover_image_path)
+                <p class="text-sm text-muted">Current: <a class="text-amber-600 underline" href="{{ Storage::url($matchBook->cover_image_path) }}" target="_blank">view</a></p>
+            @endif
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <flux:input wire:model="primary_color" label="Primary color" placeholder="#1e3a5f" />
                 <flux:input wire:model="secondary_color" label="Secondary color" />
@@ -262,11 +298,19 @@ new #[Layout('components.layouts.app')]
             </div>
             <flux:input type="file" wire:model="federation_logo" label="Federation logo" />
             <flux:input type="file" wire:model="club_logo" label="Club logo" />
-            <flux:select wire:model="match_type" label="Match type"><flux:option value="">Default</flux:option><flux:option value="centerfire">Centerfire</flux:option><flux:option value="rimfire">Rimfire</flux:option></flux:select>
-            <flux:select wire:model="status" label="Status"><flux:option value="draft">Draft</flux:option><flux:option value="ready">Ready</flux:option><flux:option value="published">Published</flux:option></flux:select>
-        </flux:tab.panel>
-
-        <flux:tab.panel name="venue" class="mt-6 space-y-6">
+            <flux:select wire:model="match_type" label="Match type">
+                <flux:select.option value="">Default</flux:select.option>
+                <flux:select.option value="centerfire">Centerfire</flux:select.option>
+                <flux:select.option value="rimfire">Rimfire</flux:select.option>
+            </flux:select>
+            <flux:select wire:model="status" label="Status">
+                <flux:select.option value="draft">Draft</flux:select.option>
+                <flux:select.option value="ready">Ready</flux:select.option>
+                <flux:select.option value="published">Published</flux:select.option>
+            </flux:select>
+        </div>
+    @elseif ($activeTab === 'venue')
+        <div class="mt-6 space-y-6">
             <flux:input wire:model="venue" label="Venue" />
             <flux:input wire:model="gps_coordinates" label="GPS coordinates" />
             <flux:input wire:model="venue_maps_link" label="Venue maps link" />
@@ -285,13 +329,18 @@ new #[Layout('components.layouts.app')]
                 <flux:input wire:model="emergency_phone" label="Emergency phone" />
                 <flux:textarea wire:model="emergency_hospital_address" label="Hospital address" rows="3" />
             </div>
-        </flux:tab.panel>
-
-        <flux:tab.panel name="locations" class="mt-6 space-y-4">
-            <div class="flex justify-end"><flux:button variant="ghost" size="sm" wire:click="addLocation">Add location</flux:button></div>
+        </div>
+    @elseif ($activeTab === 'locations')
+        <div class="mt-6 space-y-4">
+            <div class="flex justify-end">
+                <flux:button variant="ghost" size="sm" wire:click="addLocation">Add location</flux:button>
+            </div>
             @forelse($locations as $index => $loc)
                 <div wire:key="loc-{{ $index }}" class="rounded-xl border border-border p-4">
-                    <div class="mb-3 flex items-center justify-between"><span class="text-sm font-medium">Location {{ $index + 1 }}</span><flux:button variant="ghost" size="sm" wire:click="removeLocation({{ $index }})">Remove</flux:button></div>
+                    <div class="mb-3 flex items-center justify-between">
+                        <span class="text-sm font-medium">Location {{ $index + 1 }}</span>
+                        <flux:button variant="ghost" size="sm" wire:click="removeLocation({{ $index }})">Remove</flux:button>
+                    </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <flux:input wire:model="locations.{{ $index }}.name" label="Name" />
                         <flux:input wire:model="locations.{{ $index }}.gps_coordinates" label="GPS" />
@@ -301,17 +350,17 @@ new #[Layout('components.layouts.app')]
             @empty
                 <p class="text-sm text-muted">No locations yet.</p>
             @endforelse
-        </flux:tab.panel>
-
-        <flux:tab.panel name="stages" class="mt-6">
+        </div>
+    @elseif ($activeTab === 'stages')
+        <div class="mt-6">
             <livewire:matchbook-stage-editor :match-book-id="$matchBook->id" />
-        </flux:tab.panel>
-
-        <flux:tab.panel name="options" class="mt-6 space-y-6">
+        </div>
+    @elseif ($activeTab === 'options')
+        <div class="mt-6 space-y-6">
             <flux:input wire:model="subtitle" label="Subtitle" />
             <flux:checkbox wire:model="include_summary_cards" label="Include summary cards" />
             <flux:checkbox wire:model="include_dope_card" label="Include dope card" />
             <flux:checkbox wire:model="include_score_sheet" label="Include score sheet" />
-        </flux:tab.panel>
-    </flux:tab.group>
+        </div>
+    @endif
 </div>
