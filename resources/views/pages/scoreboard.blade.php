@@ -287,6 +287,27 @@ new #[Layout('components.layouts.app')]
             ]);
         }
 
+        // Side-bet standings — surfaced publicly on the scoreboard so spectators
+        // can see the overall side-bet winner/leader without needing MD access.
+        // Uses the same cascading tiebreaker as the MD scoring app + side-bet
+        // report (smallest gong first, then furthest distances, cascading down).
+        $sideBetEnabled = $royalFlushEnabled && (bool) $this->match->side_bet_enabled;
+        $sideBetStandings = collect();
+        $sideBetGongLabels = [];
+        $sideBetWinner = null;
+        $sideBetTied = false;
+        if ($sideBetEnabled) {
+            $sb = (new \App\Services\SideBetStandingsService())->build($this->match);
+            $sideBetStandings = collect($sb['entries'] ?? []);
+            $sideBetGongLabels = $sb['gong_labels'] ?? [];
+            if ($sideBetStandings->isNotEmpty()) {
+                $sideBetWinner = $sideBetStandings->first();
+                // A pure top tie means no outright winner — the service reports
+                // this as a "Tied — matched on every gong" reason on the leader.
+                $sideBetTied = str_starts_with((string) ($sideBetWinner['tiebreaker_reason'] ?? ''), 'Tied');
+            }
+        }
+
         $isStandard = !$isPrs && !$this->match->isElr();
         $detailedData = collect();
         $targetSetDetails = collect();
@@ -566,6 +587,11 @@ new #[Layout('components.layouts.app')]
             'royalFlushEnabled' => $royalFlushEnabled,
             'rfDistances' => $rfDistances,
             'royalFlushEntries' => $royalFlushEntries,
+            'sideBetEnabled' => $sideBetEnabled,
+            'sideBetStandings' => $sideBetStandings,
+            'sideBetGongLabels' => $sideBetGongLabels,
+            'sideBetWinner' => $sideBetWinner,
+            'sideBetTied' => $sideBetTied,
             'detailedData' => $detailedData,
             'targetSetDetails' => $targetSetDetails,
             'prsTargetSets' => $prsTargetSets,
@@ -809,6 +835,12 @@ new #[Layout('components.layouts.app')]
                         class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'royalflush' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                     Royal Flush
                 </button>
+                @if($sideBetEnabled)
+                    <button type="button" wire:click="setTab('sidebet')"
+                            class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'sidebet' ? 'bg-emerald-600 text-white' : 'bg-surface text-muted hover:bg-surface-2' }}">
+                        Side Bet
+                    </button>
+                @endif
                 <button type="button" wire:click="setTab('badges')"
                         class="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors sm:flex-none sm:px-5 sm:py-2.5 sm:text-sm {{ $activeTab === 'badges' ? 'bg-amber-600 text-primary' : 'bg-surface text-muted hover:bg-surface-2' }}">
                     Badges Awarded
@@ -1028,17 +1060,26 @@ new #[Layout('components.layouts.app')]
         </div>
     @elseif($royalFlushEnabled && $activeTab === 'royalflush')
         @if($rfDistances->count() > 1)
-            <div class="mb-4 flex flex-wrap gap-2">
-                <button type="button" wire:click="$set('rfDistanceFilter', null)"
-                        class="rounded-full px-4 py-1.5 text-xs font-bold transition-colors {{ $rfDistanceFilter === null ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2' }}">
-                    All
-                </button>
-                @foreach($rfDistances as $dist)
-                    <button type="button" wire:click="$set('rfDistanceFilter', {{ $dist }})"
-                            class="rounded-full px-4 py-1.5 text-xs font-bold transition-colors {{ $rfDistanceFilter === $dist ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2' }}">
-                        {{ $dist }}m
+            <div class="mb-4 rounded-2xl border border-amber-600/30 bg-surface/40 p-3 sm:p-4">
+                <div class="mb-2.5 flex items-center gap-2">
+                    <x-icon name="filter" class="h-4 w-4 text-amber-400 sm:h-5 sm:w-5" />
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400 sm:text-sm">Filter flushes by distance</span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" wire:click="$set('rfDistanceFilter', null)"
+                            class="rounded-full px-4 py-2 text-sm font-bold transition-colors sm:px-5 {{ $rfDistanceFilter === null ? 'bg-amber-600 text-white ring-2 ring-amber-400/50' : 'bg-surface-2 text-muted hover:bg-surface-2/70 hover:text-primary' }}">
+                        All distances
                     </button>
-                @endforeach
+                    @foreach($rfDistances as $dist)
+                        <button type="button" wire:click="$set('rfDistanceFilter', {{ $dist }})"
+                                class="rounded-full px-4 py-2 text-sm font-bold transition-colors sm:px-5 {{ $rfDistanceFilter === $dist ? 'bg-amber-600 text-white ring-2 ring-amber-400/50' : 'bg-surface-2 text-muted hover:bg-surface-2/70 hover:text-primary' }}">
+                            {{ $dist }}m
+                        </button>
+                    @endforeach
+                </div>
+                @if($rfDistanceFilter)
+                    <p class="mt-2.5 text-xs text-amber-200/70">Showing shooters who flushed <span class="font-bold text-amber-300">{{ $rfDistanceFilter }}m</span>. Tap <span class="font-semibold">All distances</span> to clear.</p>
+                @endif
             </div>
         @endif
         <div class="overflow-x-auto rounded-2xl border border-amber-700/50 bg-app [-webkit-overflow-scrolling:touch]">
@@ -1116,6 +1157,111 @@ new #[Layout('components.layouts.app')]
                 </tbody>
             </table>
         </div>
+    @elseif($sideBetEnabled && $activeTab === 'sidebet')
+        @php
+            $sbComplete = $match->status === \App\Enums\MatchStatus::Completed;
+            $sbSmallGongLabel = $sideBetGongLabels[0] ?? 'smallest gong';
+        @endphp
+
+        {{-- Prominent Side Bet winner / current leader — the headline of this
+             tab so anyone checking results can see the overall side-bet winner
+             at a glance. --}}
+        @if($sideBetWinner)
+            <div class="mb-5 overflow-hidden rounded-2xl border-2 {{ $sbComplete && ! $sideBetTied ? 'border-emerald-500/50' : 'border-emerald-600/30' }} bg-gradient-to-br from-emerald-900/30 via-surface to-surface">
+                <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-7">
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 ring-1 ring-emerald-400/30 sm:h-20 sm:w-20">
+                        <x-badge-icon name="spade" class="h-8 w-8 text-emerald-300 sm:h-10 sm:w-10" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <span class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400 sm:text-sm">
+                            {{ $sideBetTied ? 'Side Bet — Tied for the Lead' : ($sbComplete ? 'Side Bet Winner' : 'Side Bet — Current Leader') }}
+                        </span>
+                        <h3 class="mt-1 truncate text-2xl font-black text-primary sm:text-4xl" title="{{ $sideBetWinner['name'] }}">{{ $sideBetWinner['name'] }}</h3>
+                        <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:text-base">
+                            <span class="text-muted">{{ $sideBetWinner['squad_name'] }}</span>
+                            <span class="text-muted">&bull;</span>
+                            <span class="font-bold tabular-nums text-emerald-300">{{ $sideBetWinner['small_gong_hits'] }} {{ $sbSmallGongLabel }} hits</span>
+                            @if(!empty($sideBetWinner['distances']))
+                                <span class="text-muted">&bull;</span>
+                                <span class="text-secondary">{{ implode('m, ', $sideBetWinner['distances']) }}m</span>
+                            @endif
+                        </div>
+                        @if($sideBetTied)
+                            <p class="mt-2 text-xs text-emerald-200/70">Tied on every gong — no outright winner{{ $sbComplete ? '. Winning Hand was not awarded.' : ' yet.' }}</p>
+                        @endif
+                    </div>
+                    @unless($sbComplete)
+                        <div class="shrink-0 self-start rounded-full bg-app/50 px-3 py-1 ring-1 ring-emerald-500/20 sm:self-center">
+                            <span class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+                                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span> Live
+                            </span>
+                        </div>
+                    @endunless
+                </div>
+            </div>
+        @endif
+
+        {{-- Full side-bet standings --}}
+        <div class="overflow-x-auto rounded-2xl border border-emerald-700/40 bg-app [-webkit-overflow-scrolling:touch]">
+            <table class="w-full min-w-[36rem] text-left">
+                <thead>
+                    <tr class="border-b border-border bg-surface/80">
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">#</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Shooter</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Squad</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-emerald-400 sm:px-6 sm:py-4 sm:text-lg lg:text-xl">{{ ucfirst($sbSmallGongLabel) }} hits</th>
+                        <th class="px-3 py-2 text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Distances</th>
+                        <th class="px-3 py-2 text-right text-xs font-bold text-secondary sm:px-6 sm:py-4 sm:text-lg lg:text-xl">Score</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                    @forelse($sideBetStandings as $entry)
+                        @php
+                            $rowClass = match($entry['rank']) {
+                                1 => 'bg-emerald-500/10 border-l-4 border-l-emerald-400',
+                                2 => 'bg-slate-400/5 border-l-4 border-l-slate-400',
+                                3 => 'bg-orange-500/5 border-l-4 border-l-orange-600',
+                                default => 'border-l-4 border-l-transparent',
+                            };
+                            $rankClass = match($entry['rank']) {
+                                1 => 'text-emerald-400 font-black',
+                                2 => 'text-secondary font-bold',
+                                3 => 'text-orange-500 font-bold',
+                                default => 'text-muted font-medium',
+                            };
+                        @endphp
+                        <tr class="{{ $rowClass }} transition-colors">
+                            <td class="px-3 py-2 text-lg {{ $rankClass }} sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry['rank'] }}</td>
+                            <td class="max-w-[12rem] px-3 py-2 sm:max-w-none sm:px-6 sm:py-4">
+                                <span class="block truncate text-sm font-semibold text-primary sm:text-xl lg:text-2xl" title="{{ $entry['name'] }}">{{ $entry['name'] }}</span>
+                                @if($entry['tiebreaker_reason'])
+                                    <span class="mt-0.5 block text-[10px] font-normal leading-tight text-muted sm:text-xs">{{ $entry['tiebreaker_reason'] }}</span>
+                                @endif
+                            </td>
+                            <td class="max-w-[6rem] truncate px-3 py-2 text-xs text-muted sm:max-w-none sm:px-6 sm:py-4 sm:text-lg lg:text-xl">{{ $entry['squad_name'] }}</td>
+                            <td class="px-3 py-2 text-center text-lg font-black text-emerald-400 sm:px-6 sm:py-4 sm:text-2xl lg:text-3xl">{{ $entry['small_gong_hits'] }}</td>
+                            <td class="px-3 py-2 sm:px-6 sm:py-4">
+                                @if(!empty($entry['distances']))
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($entry['distances'] as $d)
+                                            <span class="rounded-full bg-emerald-600/20 px-3 py-1 text-sm font-bold text-emerald-300">{{ $d }}m</span>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="text-lg text-muted">—</span>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 text-right text-base font-bold tabular-nums text-emerald-300 sm:px-6 sm:py-4 sm:text-xl lg:text-2xl">{{ $entry['total_score'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-4 py-12 text-center text-sm text-muted sm:px-6 sm:py-16 sm:text-2xl">No side bet buy-ins yet</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-3 text-center text-xs text-muted">Ranked on most hits on the {{ $sbSmallGongLabel }} (highest multiplier), then furthest distances, cascading down through the larger gongs.</p>
     @elseif($royalFlushEnabled && $activeTab === 'badges')
         @php
             $badgesByCategory = $matchBadges->groupBy(fn ($ua) => $ua->achievement?->category ?? 'unknown');
