@@ -159,6 +159,7 @@ new #[Layout('components.layouts.app')]
             :can-export="$canExport"
             export-prefix="admin.matches.export"
             :rankings-url="$rankingsUrl"
+            :side-bet-report-url="$sideBetReportUrl"
         />
 
         {{-- ─── Top 5 standings ───────────────────────────────────────── --}}

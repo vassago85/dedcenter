@@ -78,7 +78,7 @@ enum MatchStatus: string
             self::SquaddingClosed => 'Squads locked to shooters. MD finalising. Match not visible to tablets yet.',
             self::Ready => 'Pre-flight done. Tablets can download the match. Side Bet buy-in finalisable. Scoring still locked.',
             self::Active => 'Scoring is live. Scoreboard accepts hits. Side Bet buy-in editable.',
-            self::Completed => 'Scores finalised, achievements awarded, notifications sent.',
+            self::Completed => 'Scores finalised and achievements awarded. Publish results to send shooter emails.',
         };
     }
 
@@ -107,7 +107,7 @@ enum MatchStatus: string
             self::Active => $from === self::Completed
                 ? 'Match will no longer be marked finished. Achievements already awarded and emails already sent stay in place.'
                 : 'Scoring becomes live. Shooters can see the live scoreboard.',
-            self::Completed => 'Achievements will be awarded and post-match emails scheduled. Side Bet buy-in will lock.',
+            self::Completed => 'Scoring locks and achievements are awarded. Shooter emails go out once results are published. Side Bet buy-in will lock.',
         };
     }
 

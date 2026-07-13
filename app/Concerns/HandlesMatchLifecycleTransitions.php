@@ -65,6 +65,18 @@ trait HandlesMatchLifecycleTransitions
             return;
         }
 
+        // Going-live guard: a match with no stages can't be scored, so stop a
+        // stand-in MD from putting a broken match live and stranding shooters
+        // at the line. Only blocks a fresh entry into Active — reopening a
+        // Completed match (Completed → Active) is unaffected.
+        if ($targetStatus === MatchStatus::Active
+            && $this->match->status !== MatchStatus::Active
+            && $this->match->status !== MatchStatus::Completed
+            && $this->matchStageCount() === 0) {
+            $this->safeToast('Add at least one stage before starting the match — shooters can’t be scored without one.', 'danger');
+            return;
+        }
+
         // High-stakes gate: completing a match locks scores, awards
         // achievements and fires a wave of post-match emails. Route
         // every path that lands on Completed through a password
@@ -173,6 +185,14 @@ trait HandlesMatchLifecycleTransitions
     {
         $this->match->update(['status' => MatchStatus::Active]);
         $this->safeToast('Match reopened.', 'success');
+    }
+
+    /** Number of scorable stages, regardless of scoring type. */
+    protected function matchStageCount(): int
+    {
+        return $this->match->isElr()
+            ? $this->match->elrStages()->count()
+            : $this->match->targetSets()->count();
     }
 
     // ── Flux side-effect helpers ─────────────────────────────────────────

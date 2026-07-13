@@ -616,6 +616,12 @@ new #[Layout('components.layouts.app')]
         // Prefer org-scoped routes when the user is an MD (or owner) of that org;
         // fall back to admin routes for platform admins without the org pivot.
         $scoreboardTabOrg = $scoreboardIsMd ? $match->organization : null;
+        // Respect the MD's "hide scores" toggle on the PUBLIC scoreboard too —
+        // previously only /live and the API honoured scores_published, so the
+        // main scoreboard silently leaked hidden results. Managers still see a
+        // full preview so they can review before publishing.
+        $scoresVisibleToViewer = $match->scoresArePublic() || $scoreboardCanManage;
+        $scoresHiddenPreview = $scoreboardCanManage && ! $match->scoresArePublic();
     @endphp
 
     @if($scoreboardCanManage)
@@ -680,7 +686,7 @@ new #[Layout('components.layouts.app')]
                     ? ($user->isAdmin() || ($match->organization_id && $user->isOrgMatchDirector($match->organization)))
                     : false;
             @endphp
-            @if($match->status === \App\Enums\MatchStatus::Completed)
+            @if($match->status === \App\Enums\MatchStatus::Completed && ($match->scoresArePublic() || $canExport))
                 <div class="mt-3 flex flex-wrap gap-2">
                     <a href="{{ route('scoreboard.matches.full-match-report', $match) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-900/20 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition-colors hover:border-emerald-500 hover:text-emerald-100">
@@ -738,6 +744,50 @@ new #[Layout('components.layouts.app')]
             class="shrink-0 self-start opacity-60 max-sm:origin-top-left max-sm:scale-[0.82]"
         />
     </div>
+
+    @if(! $scoresVisibleToViewer)
+        {{-- Public "results pending" state. Scores stay private until the MD
+             publishes; the entrant list is fine to show. MD/admin bypass this
+             and get a full live preview (see the @else branch). --}}
+        <div class="mx-auto max-w-2xl">
+            <div class="rounded-2xl border border-border bg-surface/60 px-6 py-10 text-center sm:py-14">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2 ring-1 ring-border">
+                    <x-icon name="eye-off" class="h-7 w-7 text-muted" />
+                </div>
+                <h2 class="text-xl font-black text-primary sm:text-2xl">Results not published yet</h2>
+                <p class="mx-auto mt-2 max-w-md text-sm text-muted sm:text-base">
+                    @if($match->status === \App\Enums\MatchStatus::Completed)
+                        This match is complete. The match director is finalising scores — results will appear here as soon as they’re published.
+                    @else
+                        Scoring is still underway. Standings will appear here once the match director publishes them.
+                    @endif
+                </p>
+                @if($shooters->isNotEmpty())
+                    <div class="mt-6 text-left">
+                        <p class="mb-2 text-xs font-bold uppercase tracking-wider text-muted/70">Entered ({{ $shooters->count() }})</p>
+                        <div class="grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto rounded-xl border border-border bg-app/40 p-3 sm:grid-cols-2">
+                            @foreach($shooters as $s)
+                                <div class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm">
+                                    <span class="truncate text-secondary">{{ $s->name }}</span>
+                                    <span class="shrink-0 text-xs text-muted/70">{{ $s->squad?->name ?? '' }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+                <p class="mt-6 text-xs text-muted/60">This page updates automatically — keep it open.</p>
+            </div>
+        </div>
+    @else
+        @if($scoresHiddenPreview)
+            <div class="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3 print:hidden">
+                <x-icon name="eye-off" class="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-amber-200">Preview — scores are hidden from the public</p>
+                    <p class="mt-0.5 text-xs text-amber-100/75">You can see full standings because you manage this match. Spectators see a “results not published yet” screen until you publish from the Scoring tab.</p>
+                </div>
+            </div>
+        @endif
 
     @if($divisions->isNotEmpty() || $categories->isNotEmpty())
         <div class="mb-4 min-w-0 space-y-2">
@@ -1908,6 +1958,8 @@ new #[Layout('components.layouts.app')]
     @endif
 
     @endif
+
+    @endif {{-- /$scoresVisibleToViewer --}}
 
     <div class="mt-6 flex flex-col gap-2 text-xs text-muted/60 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
         <span class="min-w-0 leading-snug">

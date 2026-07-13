@@ -46,11 +46,19 @@ class MatchDashboardService
             : $match->targetSets()->count();
 
         $elrChecklist = $match->isElr() ? $this->elrChecklist($match) : null;
+        $setupChecklist = ! $match->isElr() ? $this->standardChecklist($match) : null;
         $elrStages = $match->isElr() ? $this->elrStageRows($match) : collect();
         $standardStages = ! $match->isElr() ? $this->standardStageRows($match) : collect();
         $scoringProgress = $this->scoringProgress($match, $shooters);
         $divisionMismatches = $this->registrationDivisionMismatches($match);
         $teamsCount = $match->teams()->count();
+
+        // Post-match "finish this match" data. Unclaimed = walk-ins / import
+        // placeholders whose result isn't linked to a real account yet.
+        $unclaimedCount = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+            ->unclaimedResult()
+            ->count();
 
         return [
             'type_label' => match ($match->scoring_type) {
@@ -70,7 +78,11 @@ class MatchDashboardService
             'shooters_count' => $shooters->count(),
             'stages_count' => $stagesCount,
             'scores_published' => (bool) ($match->scores_published ?? true),
+            'unclaimed_count' => $unclaimedCount,
+            'royal_flush_enabled' => (bool) $match->royal_flush_enabled,
+            'side_bet_enabled' => (bool) $match->side_bet_enabled,
             'elr_checklist' => $elrChecklist,
+            'setup_checklist' => $setupChecklist,
             'elr_stages' => $elrStages,
             'standard_stages' => $standardStages,
             'teams_count' => $teamsCount,
@@ -130,6 +142,55 @@ class MatchDashboardService
             'label' => 'Distance-based scoring explicitly set',
             'done' => $distanceExplicit,
             'anchor' => '#elr-engagement',
+        ];
+
+        return $items;
+    }
+
+    /**
+     * Setup-readiness checklist for standard (relay) and PRS matches — the
+     * standard-match equivalent of the ELR checklist, so a stand-in MD can
+     * see at a glance what still needs configuring before going live.
+     *
+     * @return array<int, array{key:string, label:string, done:bool, anchor:string, target:string}>
+     */
+    private function standardChecklist(ShootingMatch $match): array
+    {
+        $isPrs = $match->isPrs();
+        $targetSets = $match->targetSets()->withCount('gongs')->get();
+        $hasStage = $targetSets->isNotEmpty();
+
+        $shootersSquadded = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+            ->count();
+
+        $items = [
+            [
+                'key' => 'stages',
+                'label' => $isPrs ? 'At least one stage added' : 'At least one target distance added',
+                'done' => $hasStage,
+                'anchor' => '#stages',
+                'target' => 'setup',
+            ],
+        ];
+
+        if (! $isPrs) {
+            $allHaveGongs = $hasStage && $targetSets->every(fn ($ts) => (int) $ts->gongs_count > 0);
+            $items[] = [
+                'key' => 'gongs',
+                'label' => 'Every distance has gongs',
+                'done' => $allHaveGongs,
+                'anchor' => '#stages',
+                'target' => 'setup',
+            ];
+        }
+
+        $items[] = [
+            'key' => 'squads',
+            'label' => 'Shooters added to squads',
+            'done' => $shootersSquadded > 0,
+            'anchor' => '',
+            'target' => 'squadding',
         ];
 
         return $items;

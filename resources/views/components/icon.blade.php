@@ -40,7 +40,17 @@
 
     {{-- Status / feedback --}}
     @case('circle-check')
+    @case('check-circle')
         <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+        @break
+    @case('circle')
+        <circle cx="12" cy="12" r="10" />
+        @break
+    @case('flag')
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" x2="4" y1="22" y2="15" />
+        @break
+    @case('mail')
+        <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
         @break
     @case('circle-x')
         <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />

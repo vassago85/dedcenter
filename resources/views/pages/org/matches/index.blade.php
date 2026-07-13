@@ -105,17 +105,29 @@ new #[Layout('components.layouts.app')]
 
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($matches->isEmpty())
-            <div class="px-6 py-12 text-center">
-                <p class="text-muted">
-                    @if($search)
-                        No matches found for "{{ $search }}".
-                    @elseif($tab === 'archived')
-                        No archived matches.
-                    @else
-                        No matches yet. Create your first one!
-                    @endif
-                </p>
-            </div>
+            @if($search)
+                <div class="px-6 py-12 text-center">
+                    <p class="text-muted">No matches found for "{{ $search }}".</p>
+                </div>
+            @elseif($tab === 'archived')
+                <div class="px-6 py-12 text-center">
+                    <p class="text-muted">No archived matches.</p>
+                </div>
+            @else
+                <div class="flex flex-col items-center px-6 py-14 text-center">
+                    <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2 ring-1 ring-border">
+                        <x-icon name="target" class="h-7 w-7 text-muted" />
+                    </div>
+                    <h3 class="text-lg font-bold text-primary">Create your first match</h3>
+                    <p class="mx-auto mt-1 max-w-md text-sm text-muted">
+                        Set up the date and scoring type, then add stages, squads and go live. It only takes a few minutes.
+                    </p>
+                    <a href="{{ route('org.matches.create', $organization) }}"
+                       class="mt-5 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition hover:bg-accent-hover">
+                        <x-icon name="plus" class="h-4 w-4" /> New Match
+                    </a>
+                </div>
+            @endif
         @else
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">

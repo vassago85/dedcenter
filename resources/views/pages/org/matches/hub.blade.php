@@ -181,6 +181,7 @@ new #[Layout('components.layouts.app')]
             export-prefix="org.matches.export"
             :organization="$organization"
             :rankings-url="$rankingsUrl"
+            :side-bet-report-url="$sideBetReportUrl"
         />
 
         {{-- ─── Royal Flush highlights (auto-hides for non-RF/incomplete) ─ --}}
