@@ -23,6 +23,17 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- DeadCenter is a dark-only app. Flux's @fluxAppearance follows the OS
+         theme by default ('system'), so on a light-mode machine it STRIPS the
+         server-rendered `class="dark"` off <html>. That silently disables every
+         `html.dark`-scoped override in app.css and makes Flux render its light
+         theme (bg-white inputs/selects), which our readability remap then turns
+         into white-on-white (e.g. invisible dropdown text on admin pages).
+         Pin the appearance to dark BEFORE Flux's script reads it. --}}
+    <script>
+        try { localStorage.setItem('flux.appearance', 'dark'); } catch (e) {}
+        document.documentElement.classList.add('dark');
+    </script>
     @fluxAppearance
 </head>
 <body class="min-h-screen bg-app text-base text-primary antialiased" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false">
