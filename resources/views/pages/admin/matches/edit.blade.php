@@ -368,7 +368,14 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
-        $this->validate(['tsDistance' => 'required|integer|min:1']);
+        $this->validate(
+            ['tsDistance' => 'required|integer|min:1'],
+            [
+                'tsDistance.required' => 'Enter a distance in metres first.',
+                'tsDistance.integer' => 'Distance must be a whole number of metres.',
+                'tsDistance.min' => 'Distance must be at least 1 metre.',
+            ]
+        );
         $this->createTargetSet((int) $this->tsDistance);
         $this->reset('tsDistance');
         Flux::toast('Target set added.', variant: 'success');
@@ -1858,18 +1865,20 @@ new #[Layout('components.layouts.app')]
                 </div>
             @endforeach
 
-            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3" x-data="{ dist: '' }">
+            <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
                 <h3 class="text-sm font-medium text-secondary">Add Target Set</h3>
                 <div class="flex gap-3 items-end flex-wrap">
                     <div class="w-32">
                         <label class="block text-xs font-medium text-secondary mb-1">Distance (m)</label>
-                        <input x-model="dist" type="number" min="1" placeholder="e.g. 400"
-                               @keydown.enter.prevent="$wire.addTargetSetValue(dist); dist = ''"
+                        {{-- Bound to the Livewire property (not Alpine-local state) so the
+                             value is always in sync when the button is clicked. --}}
+                        <input wire:model="tsDistance" wire:keydown.enter.prevent="addTargetSet" type="number" min="1" placeholder="e.g. 400"
                                class="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500" />
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" @click="$wire.addTargetSetValue(dist); dist = ''"
-                                class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+                        <button type="button" wire:click="addTargetSet"
+                                wire:loading.attr="disabled" wire:target="addTargetSet"
+                                class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60">
                             Add Target Set
                         </button>
                         @if($match?->organization?->isRoyalFlushOrg())
@@ -1880,6 +1889,9 @@ new #[Layout('components.layouts.app')]
                         @endif
                     </div>
                 </div>
+                @error('tsDistance')
+                    <p class="text-xs font-medium text-accent">{{ $message }}</p>
+                @enderror
             </div>
         </div>
         @endif
@@ -2533,7 +2545,7 @@ new #[Layout('components.layouts.app')]
             @if($scoring_type === 'standard')
                 <div class="rounded-lg border border-dashed border-amber-600/40 bg-amber-950/10 p-4 space-y-3">
                     <div>
-                        <h3 class="text-sm font-semibold text-amber-200">Equipment sheet import (Royal Flush)</h3>
+                        <h3 class="text-sm font-semibold text-amber-200">Equipment sheet import@if($match?->organization?->isRoyalFlushOrg()) (Royal Flush)@endif</h3>
                         <p class="mt-1 text-xs text-muted">
                             Paste <strong>tab-separated</strong> rows from Excel or Google Sheets. Expected columns (16):
                             timestamp, name, caliber, bullet, bullet weight, action, barrel, trigger, chassis, muzzle, scope, mount, bipod, phone, SA ID, notes/share rifle.
