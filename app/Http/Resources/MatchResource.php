@@ -43,6 +43,8 @@ class MatchResource extends JsonResource
             'location' => $this->location,
             'status' => $this->status->value,
             'scoring_type' => $this->scoring_type ?? 'standard',
+            'alrha_class' => $this->alrha_class?->value,
+            'alrha_class_label' => $this->alrha_class?->label(),
             'scores_published' => (bool) ($this->scores_published ?? true),
             'notes' => $this->notes,
             'public_bio' => $this->public_bio,
@@ -236,6 +238,8 @@ class MatchResource extends JsonResource
                     'base_points' => (float) $t->base_points,
                     'max_shots' => $t->max_shots,
                     'must_hit_to_advance' => $t->must_hit_to_advance,
+                    'is_cold_bore' => (bool) $t->is_cold_bore,
+                    'alrha_block' => $t->alrha_block,
                     'sort_order' => $t->sort_order,
                     // Divisions that engage this target (Minor T1-T3, Major T2-T4).
                     // Empty = every division shoots it. Drives the scoring flow's

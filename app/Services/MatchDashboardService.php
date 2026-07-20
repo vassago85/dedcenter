@@ -41,14 +41,15 @@ class MatchDashboardService
             ->get();
 
         $registrationsCount = $match->registrations()->count();
-        $stagesCount = $match->isElr()
+        $usesElrPipeline = $match->usesElrPipeline();
+        $stagesCount = $usesElrPipeline
             ? $match->elrStages->count()
             : $match->targetSets()->count();
 
-        $elrChecklist = $match->isElr() ? $this->elrChecklist($match) : null;
-        $setupChecklist = ! $match->isElr() ? $this->standardChecklist($match) : null;
-        $elrStages = $match->isElr() ? $this->elrStageRows($match) : collect();
-        $standardStages = ! $match->isElr() ? $this->standardStageRows($match) : collect();
+        $elrChecklist = $usesElrPipeline ? $this->elrChecklist($match) : null;
+        $setupChecklist = ! $usesElrPipeline ? $this->standardChecklist($match) : null;
+        $elrStages = $usesElrPipeline ? $this->elrStageRows($match) : collect();
+        $standardStages = ! $usesElrPipeline ? $this->standardStageRows($match) : collect();
         $scoringProgress = $this->scoringProgress($match, $shooters);
         $divisionMismatches = $this->registrationDivisionMismatches($match);
         $teamsCount = $match->teams()->count();
@@ -64,6 +65,7 @@ class MatchDashboardService
             'type_label' => match ($match->scoring_type) {
                 'elr' => 'ELR',
                 'prs' => 'PRS',
+                'alrha' => $match->alrhaClass()?->label() ?? 'ALRHA',
                 default => 'Standard',
             },
             'status_label' => match ($match->status) {

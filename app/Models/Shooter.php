@@ -20,12 +20,17 @@ class Shooter extends Model
         'team_id',
         'sort_order',
         'status',
+        'is_coached',
+        'gong_position',
+        'shared_rifle_key',
     ];
 
     protected function casts(): array
     {
         return [
             'sort_order' => 'integer',
+            'is_coached' => 'boolean',
+            'gong_position' => 'integer',
         ];
     }
 

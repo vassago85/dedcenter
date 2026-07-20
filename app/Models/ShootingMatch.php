@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AdvertisingMode;
+use App\Enums\AlrhaClass;
 use App\Enums\ElrEngagementMode;
 use App\Enums\MatchStatus;
 use App\Enums\MdPackageStatus;
@@ -31,6 +32,7 @@ class ShootingMatch extends Model
         'location',
         'status',
         'scoring_type',
+        'alrha_class',
         'scores_published',
         'leaderboard_points',
         'side_bet_enabled',
@@ -98,6 +100,7 @@ class ShootingMatch extends Model
             'team_size' => 'integer',
             'match_days' => 'integer',
             'registration_fields_config' => 'array',
+            'alrha_class' => AlrhaClass::class,
             'elr_engagement_mode' => ElrEngagementMode::class,
             'elr_targets_per_shooter' => 'integer',
             'elr_shots_per_target' => 'integer',
@@ -178,6 +181,11 @@ class ShootingMatch extends Model
     public function elrScoringProfile(): BelongsTo
     {
         return $this->belongsTo(ElrScoringProfile::class, 'elr_scoring_profile_id');
+    }
+
+    public function alrhaScoringGroups(): HasMany
+    {
+        return $this->hasMany(AlrhaScoringGroup::class, 'match_id')->orderBy('sort_order');
     }
 
     public function elrTeamStageEntries(): HasManyThrough
@@ -360,6 +368,26 @@ class ShootingMatch extends Model
     public function isElr(): bool
     {
         return $this->scoring_type === 'elr';
+    }
+
+    public function isAlrha(): bool
+    {
+        return $this->scoring_type === 'alrha';
+    }
+
+    /**
+     * Convenience: an ALRHA match still runs on the ELR scoring stack
+     * (stages/targets/shots + shot-index multipliers). Anywhere that
+     * ELR-specific data loading matters we should treat ALRHA as ELR.
+     */
+    public function usesElrPipeline(): bool
+    {
+        return $this->isElr() || $this->isAlrha();
+    }
+
+    public function alrhaClass(): ?AlrhaClass
+    {
+        return $this->alrha_class;
     }
 
     public function elrEngagementMode(): ElrEngagementMode

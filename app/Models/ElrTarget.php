@@ -20,6 +20,8 @@ class ElrTarget extends Model
         'max_shots',
         'must_hit_to_advance',
         'sort_order',
+        'is_cold_bore',
+        'alrha_block',
     ];
 
     protected function casts(): array
@@ -30,7 +32,13 @@ class ElrTarget extends Model
             'max_shots' => 'integer',
             'must_hit_to_advance' => 'boolean',
             'sort_order' => 'integer',
+            'is_cold_bore' => 'boolean',
         ];
+    }
+
+    public function isColdBore(): bool
+    {
+        return (bool) $this->is_cold_bore;
     }
 
     public function stage(): BelongsTo

@@ -82,7 +82,7 @@ class SyncController extends Controller
         ]);
 
         $elrShots = collect();
-        if ($match->isElr()) {
+        if ($match->usesElrPipeline()) {
             $query = ElrShot::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)));
             if ($since) $query = $query->where('updated_at', '>', $since);
             $elrShots = $query->get()->map(fn ($s) => [

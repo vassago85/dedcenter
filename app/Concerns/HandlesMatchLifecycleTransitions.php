@@ -190,7 +190,7 @@ trait HandlesMatchLifecycleTransitions
     /** Number of scorable stages, regardless of scoring type. */
     protected function matchStageCount(): int
     {
-        return $this->match->isElr()
+        return $this->match->usesElrPipeline()
             ? $this->match->elrStages()->count()
             : $this->match->targetSets()->count();
     }

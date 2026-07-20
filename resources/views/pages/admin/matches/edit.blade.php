@@ -44,6 +44,7 @@ new #[Layout('components.layouts.app')]
     public string $public_bio = '';
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
+    public string $alrha_class = '';
     public bool $side_bet_enabled = false;
     public bool $royal_flush_enabled = false;
     public array $sideBetShooterIds = [];
@@ -130,7 +131,8 @@ new #[Layout('components.layouts.app')]
             $this->notes = $match->notes ?? '';
             $this->public_bio = $match->public_bio ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
-            $this->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr'], true)
+            $this->alrha_class = $match->alrha_class?->value ?? '';
+            $this->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr', 'alrha'], true)
                 ? $match->scoring_type
                 : 'standard';
             $this->side_bet_enabled = (bool) $match->side_bet_enabled;
@@ -170,7 +172,8 @@ new #[Layout('components.layouts.app')]
             'notes' => 'nullable|string|max:5000',
             'public_bio' => 'nullable|string|max:2000',
             'entry_fee' => 'nullable|numeric|min:0',
-            'scoring_type' => 'required|in:standard,prs,elr',
+            'scoring_type' => 'required|in:standard,prs,elr,alrha',
+            'alrha_class' => 'nullable|string|in:hunters,varmint',
             'coverImage' => 'nullable|image|max:4096',
         ]);
 
@@ -179,6 +182,9 @@ new #[Layout('components.layouts.app')]
         $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
+        $validated['alrha_class'] = $this->scoring_type === 'alrha'
+            ? ($this->alrha_class !== '' ? $this->alrha_class : 'hunters')
+            : null;
         $validated['scores_published'] = $this->scores_published;
         $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
 
@@ -1495,18 +1501,22 @@ new #[Layout('components.layouts.app')]
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary mb-1">Scoring Type</label>
-                    <div class="flex gap-2">
+                    <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
                         <button type="button" wire:click="$set('scoring_type', 'standard')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             Relay-Based
                         </button>
                         <button type="button" wire:click="$set('scoring_type', 'prs')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             PRS
                         </button>
                         <button type="button" wire:click="$set('scoring_type', 'elr')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             ELR
+                        </button>
+                        <button type="button" wire:click="$set('scoring_type', 'alrha')"
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'alrha' ? 'bg-sky-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                            ALRHA
                         </button>
                     </div>
                     <p class="mt-1 text-xs text-muted">
@@ -1514,10 +1524,30 @@ new #[Layout('components.layouts.app')]
                             PRS: Hit/miss (1pt each), shooter completes full stage, optional timer for tiebreaker.
                         @elseif($scoring_type === 'elr')
                             ELR: Extreme Long Range — shot-by-shot scoring with distance-based point values and optional ladder progression.
+                        @elseif($scoring_type === 'alrha')
+                            ALRHA: African Long Range Hunters Association — shot-index scoring (5-4-3-2-1), Cold Bore Challenge, class-specific distances.
                         @else
                             Relay: Gong multipliers, relay-style scoring.
                         @endif
                     </p>
+
+                    @if($scoring_type === 'alrha')
+                        <div class="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
+                            <label class="block text-xs font-medium text-secondary mb-2">ALRHA Class</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" wire:click="$set('alrha_class', 'hunters')"
+                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'hunters' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="text-sm font-medium text-primary">LR Hunters</div>
+                                    <div class="text-xs text-muted mt-0.5">Teams of 2. 1000 / 900 / 700 / 600 / 400 m. CBC on Springbuck cut-out (1000 m).</div>
+                                </button>
+                                <button type="button" wire:click="$set('alrha_class', 'varmint')"
+                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'varmint' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="text-sm font-medium text-primary">LR Varmint</div>
+                                    <div class="text-xs text-muted mt-0.5">Individual. 700 / 600 / 500 / 400 / 300 m. CBC on Jackal cut-out (700 m).</div>
+                                </button>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
 

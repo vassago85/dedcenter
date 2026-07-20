@@ -46,4 +46,12 @@ class ShootingMatchFactory extends Factory
     {
         return $this->state(['scoring_type' => 'elr']);
     }
+
+    public function alrha(string $class = 'hunters'): static
+    {
+        return $this->state([
+            'scoring_type' => 'alrha',
+            'alrha_class' => $class,
+        ]);
+    }
 }

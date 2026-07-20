@@ -70,7 +70,7 @@ class MatchController extends Controller
             'categories' => fn ($q) => $q->orderBy('sort_order'),
         ];
 
-        if ($match->isElr()) {
+        if ($match->usesElrPipeline()) {
             $eagerLoads['elrStages'] = fn ($q) => $q->orderBy('sort_order');
             $eagerLoads['elrStages.targets'] = fn ($q) => $q->orderBy('sort_order');
             $eagerLoads['elrStages.targets.divisions'] = fn ($q) => $q;
@@ -106,7 +106,7 @@ class MatchController extends Controller
 
         $shooterIds = $match->squads->flatMap->shooters->pluck('id');
 
-        if (! $match->isElr()) {
+        if (! $match->usesElrPipeline()) {
             $scores = Score::whereIn('shooter_id', $shooterIds)->get();
             $match->setRelation('scores', $scores);
 

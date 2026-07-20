@@ -66,6 +66,8 @@ class ELRScoringService implements ScoringEngineInterface
                 'shooters.status',
                 'shooters.match_division_id',
                 'shooters.team_id',
+                'shooters.is_coached',
+                'shooters.gong_position',
                 'squads.name as squad_name',
                 'teams.name as team_name',
                 'match_divisions.name as division_name',
@@ -107,7 +109,23 @@ class ELRScoringService implements ScoringEngineInterface
             ->get()
             ->groupBy('shooter_id');
 
-        $standings = $shooters->map(function ($shooter) use ($allShots, $stages, $divisionTargetWhitelist, $completedOnly, $completedByTeam) {
+        // Category slug lookup: (shooter_id => [slug, ...]) built with a
+        // single pivot query so ALRHA (and any category-driven prize
+        // table) can filter without n+1 lookups per shooter.
+        $categoryLookup = [];
+        DB::table('match_category_shooter')
+            ->join('match_categories', 'match_categories.id', '=', 'match_category_shooter.match_category_id')
+            ->whereIn('match_category_shooter.shooter_id', $shooters->pluck('id'))
+            ->get(['match_category_shooter.shooter_id', 'match_categories.slug'])
+            ->each(function ($row) use (&$categoryLookup) {
+                $slug = strtolower((string) $row->slug);
+                if ($slug === '') {
+                    return;
+                }
+                $categoryLookup[(int) $row->shooter_id][] = $slug;
+            });
+
+        $standings = $shooters->map(function ($shooter) use ($allShots, $stages, $divisionTargetWhitelist, $completedOnly, $completedByTeam, $categoryLookup) {
             $shooterShots = $allShots->get($shooter->id, collect());
             $shotsByTarget = $shooterShots->groupBy('elr_target_id');
 
@@ -199,6 +217,8 @@ class ELRScoringService implements ScoringEngineInterface
                         'distance_m' => $target->distance_m,
                         'base_points' => (float) $target->base_points,
                         'max_shots' => $target->max_shots,
+                        'is_cold_bore' => (bool) $target->is_cold_bore,
+                        'alrha_block' => $target->alrha_block,
                         'shots' => $targetResult,
                     ];
                 }
@@ -229,6 +249,9 @@ class ELRScoringService implements ScoringEngineInterface
                 'division_id' => $shooter->match_division_id ? (int) $shooter->match_division_id : null,
                 'division' => $shooter->division_name,
                 'status' => $shooter->status ?? 'active',
+                'is_coached' => (bool) ($shooter->is_coached ?? false),
+                'gong_position' => $shooter->gong_position ? (int) $shooter->gong_position : null,
+                'category_slugs' => $categoryLookup[$shooter->id] ?? [],
                 'total_points' => round($totalPoints, 2),
                 'total_hits' => $totalHits,
                 'shots_fired' => $shotsFired,
@@ -367,6 +390,8 @@ class ELRScoringService implements ScoringEngineInterface
                 'base_points' => (float) $t->base_points,
                 'max_shots' => $t->max_shots,
                 'must_hit_to_advance' => $t->must_hit_to_advance,
+                'is_cold_bore' => (bool) $t->is_cold_bore,
+                'alrha_block' => $t->alrha_block,
             ]),
         ])->toArray();
     }

@@ -37,6 +37,10 @@ class ScoreboardController extends Controller
             }
         }
 
+        if ($match->isAlrha()) {
+            return $this->alrhaScoreboard($match, $request);
+        }
+
         if ($match->isElr()) {
             return $this->elrScoreboard($match, $request);
         }
@@ -59,6 +63,20 @@ class ScoreboardController extends Controller
 
         return response()->json(
             $service->calculateStandings($match, ['division' => $division], completedOnly: false)
+        );
+    }
+
+    private function alrhaScoreboard(ShootingMatch $match, Request $request)
+    {
+        $service = new \App\Services\Scoring\AlrhaScoringService(
+            new \App\Services\Scoring\ELRScoringService()
+        );
+
+        return response()->json(
+            $service->calculateStandings($match, [
+                'division' => $request->query('division'),
+                'include_coached' => $request->boolean('include_coached', true),
+            ])
         );
     }
 

@@ -717,6 +717,12 @@ new #[Layout('components.layouts.app')]
             ? $this->match->sideBetShooters()->pluck('shooters.id')->map(fn ($id) => (int) $id)->flip()->toArray()
             : [];
 
+        // ALRHA-only: highlight shooters who share a rifle across relays
+        // that overlap in time. See AlrhaSharedRifleValidator for the rule.
+        $alrhaRifleConflicts = $this->match->isAlrha()
+            ? app(\App\Services\Scoring\AlrhaSharedRifleValidator::class)->findConflicts($this->match)
+            : [];
+
         return [
             'squads' => $realSquads,
             'allSquads' => $squads,
@@ -739,12 +745,47 @@ new #[Layout('components.layouts.app')]
             'isElr' => $isElr,
             'showDivision' => $showDivision,
             'matchDivisions' => $matchDivisions,
+            'isAlrha' => $this->match->isAlrha(),
+            'alrhaRifleConflicts' => $alrhaRifleConflicts,
         ];
     }
 }; ?>
 
 <div x-data="{ tab: @entangle('activeTab') }">
 <x-match-control-shell :match="$match" :organization="$organization">
+
+    {{-- ALRHA shared-rifle conflict banner:
+         two shooters who share a rifle can't be in overlapping relays.
+         See AlrhaSharedRifleValidator for the rule. --}}
+    @if($isAlrha && count($alrhaRifleConflicts) > 0)
+        <div class="rounded-2xl border border-amber-500/50 bg-amber-500/10 p-4 space-y-3">
+            <div class="flex items-start gap-3">
+                <x-icon name="triangle-alert" class="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-amber-100">
+                        {{ count($alrhaRifleConflicts) }} shared-rifle
+                        {{ \Illuminate\Support\Str::plural('conflict', count($alrhaRifleConflicts)) }} — please re-squad before match day.
+                    </p>
+                    <p class="mt-0.5 text-xs text-amber-200/80">
+                        Two shooters that share a rifle must be in relays with at least one full relay between them.
+                        (Adjacent relays overlap — see the Parys 6 June squadding sheet.)
+                    </p>
+                    <ul class="mt-3 space-y-2 text-xs text-amber-100">
+                        @foreach($alrhaRifleConflicts as $conflict)
+                            <li class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
+                                <div class="font-medium">Rifle: <span class="font-mono">{{ $conflict['key'] }}</span></div>
+                                <ul class="mt-1 space-y-0.5">
+                                    @foreach($conflict['shooters'] as $shooter)
+                                        <li>· {{ $shooter['name'] }} — {{ $shooter['squad'] }}</li>
+                                    @endforeach
+                                </ul>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ═══════════════════════════════════════════════
          Squadding-page-specific quick actions

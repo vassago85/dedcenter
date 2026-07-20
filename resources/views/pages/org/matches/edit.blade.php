@@ -52,6 +52,7 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $registration_closes_at = '';
     public string $scoring_type = 'standard';
+    public string $alrha_class = '';
     public bool $scores_published = true;
     public int $leaderboard_points = 100;
     public ?int $season_id = null;
@@ -176,9 +177,10 @@ new #[Layout('components.layouts.app')]
             $this->public_bio = $match->public_bio ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->registration_closes_at = $match->registration_closes_at?->format('Y-m-d\TH:i') ?? '';
-            $this->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr'], true)
+            $this->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr', 'alrha'], true)
                 ? $match->scoring_type
                 : 'standard';
+            $this->alrha_class = $match->alrha_class?->value ?? '';
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
@@ -223,7 +225,8 @@ new #[Layout('components.layouts.app')]
             'public_bio' => 'nullable|string|max:2000',
             'entry_fee' => 'nullable|numeric|min:0',
             'registration_closes_at' => 'nullable|date',
-            'scoring_type' => 'required|in:standard,prs,elr',
+            'scoring_type' => 'required|in:standard,prs,elr,alrha',
+            'alrha_class' => 'nullable|string|in:hunters,varmint',
             'coverImage' => 'nullable|image|max:4096',
         ]);
 
@@ -234,6 +237,9 @@ new #[Layout('components.layouts.app')]
         $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
+        $validated['alrha_class'] = $this->scoring_type === 'alrha'
+            ? ($this->alrha_class !== '' ? $this->alrha_class : 'hunters')
+            : null;
         $validated['scores_published'] = $this->scores_published;
         $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
         // Only assign a season when the org actually owns the chosen season —
@@ -1176,6 +1182,115 @@ new #[Layout('components.layouts.app')]
         $this->match->refresh();
     }
 
+    /**
+     * Build the ALRHA layout for the currently selected class:
+     *   - 5-4-3-2-1 shot-index scoring profile (base_points=1, no distance mult)
+     *   - one stage per relay block: Far (top 2 distances) + Near (bottom 3)
+     *   - CBC target on the class' cut-out at its named distance
+     *   - Open / Ladies / Junior categories, so the MD doesn't have to
+     *     create them by hand.
+     * Idempotent: re-running clears the ELR stage tree and rebuilds.
+     */
+    public function applyAlrhaTemplate(): void
+    {
+        if ($this->scoring_type !== 'alrha') {
+            Flux::toast('Set the scoring type to ALRHA first.', variant: 'warning');
+            return;
+        }
+
+        $class = \App\Enums\AlrhaClass::tryFrom($this->alrha_class ?: 'hunters')
+            ?? \App\Enums\AlrhaClass::Hunters;
+
+        // Persist the class in case the user hasn't hit Save yet — the
+        // template can only be applied after the match has an id.
+        $this->match->update([
+            'scoring_type' => 'alrha',
+            'alrha_class' => $class->value,
+            'elr_distance_based_scoring' => false,
+        ]);
+
+        $profile = \App\Models\ElrScoringProfile::updateOrCreate(
+            ['match_id' => $this->match->id, 'name' => 'ALRHA 5-4-3-2-1'],
+            ['multipliers' => [5, 4, 3, 2, 1]]
+        );
+        $this->match->update(['elr_scoring_profile_id' => $profile->id]);
+
+        $this->match->elrStages()->delete();
+
+        // Stage 1: Cold Bore Challenge (its own stage so it can be totalled
+        // separately and printed on the CBC prize table).
+        $cbcStage = $this->match->elrStages()->create([
+            'label' => 'Cold Bore Challenge',
+            'stage_type' => 'static',
+            'elr_scoring_profile_id' => $profile->id,
+            'sort_order' => 1,
+        ]);
+        $cbcStage->targets()->create([
+            'name' => $class->coldBoreTargetName(),
+            'distance_m' => $class->coldBoreDistance(),
+            'base_points' => 1,
+            'max_shots' => 1,
+            'must_hit_to_advance' => false,
+            'sort_order' => 1,
+            'is_cold_bore' => true,
+            'alrha_block' => 'cbc',
+        ]);
+
+        // Stage 2: Far block (top 2 distances).
+        $farStage = $this->match->elrStages()->create([
+            'label' => 'Far block',
+            'stage_type' => 'static',
+            'elr_scoring_profile_id' => $profile->id,
+            'sort_order' => 2,
+        ]);
+        foreach ($class->farBlockDistances() as $i => $distance) {
+            $farStage->targets()->create([
+                'name' => "{$distance} m",
+                'distance_m' => $distance,
+                'base_points' => 1,
+                'max_shots' => 5,
+                'must_hit_to_advance' => false,
+                'sort_order' => $i + 1,
+                'alrha_block' => 'far',
+            ]);
+        }
+
+        // Stage 3: Near block (bottom 3 distances).
+        $nearStage = $this->match->elrStages()->create([
+            'label' => 'Near block',
+            'stage_type' => 'static',
+            'elr_scoring_profile_id' => $profile->id,
+            'sort_order' => 3,
+        ]);
+        foreach ($class->nearBlockDistances() as $i => $distance) {
+            $nearStage->targets()->create([
+                'name' => "{$distance} m",
+                'distance_m' => $distance,
+                'base_points' => 1,
+                'max_shots' => 5,
+                'must_hit_to_advance' => false,
+                'sort_order' => $i + 1,
+                'alrha_block' => 'near',
+            ]);
+        }
+
+        // Categories for the prize tables. Hunters has no Ladies section.
+        foreach ($class->categorySlugs() as $sort => $slug) {
+            \App\Models\MatchCategory::updateOrCreate(
+                ['match_id' => $this->match->id, 'slug' => $slug],
+                [
+                    'name' => ucfirst($slug),
+                    'sort_order' => $sort,
+                ],
+            );
+        }
+
+        $this->elrProfileMultipliers = '5, 4, 3, 2, 1';
+        $this->match->refresh();
+
+        Flux::toast("ALRHA {$class->label()} template applied.", variant: 'success');
+    }
+
     public function updateElrProfile(): void
     {
         $multipliers = array_map('floatval', array_map('trim', explode(',', $this->elrProfileMultipliers)));
@@ -1800,18 +1915,22 @@ new #[Layout('components.layouts.app')]
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary mb-1">Scoring Type</label>
-                    <div class="flex gap-2">
+                    <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
                         <button type="button" wire:click="$set('scoring_type', 'standard')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'standard' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             Relay-Based
                         </button>
                         <button type="button" wire:click="$set('scoring_type', 'prs')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'prs' ? 'bg-amber-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             PRS
                         </button>
                         <button type="button" wire:click="$set('scoring_type', 'elr')"
-                                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'elr' ? 'bg-emerald-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
                             ELR
+                        </button>
+                        <button type="button" wire:click="$set('scoring_type', 'alrha')"
+                                class="rounded-lg px-3 py-2 text-sm font-medium transition-colors {{ $scoring_type === 'alrha' ? 'bg-sky-600 text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                            ALRHA
                         </button>
                     </div>
                     <p class="mt-1 text-xs text-muted">
@@ -1819,10 +1938,30 @@ new #[Layout('components.layouts.app')]
                             PRS: Hit/miss (1pt each), shooter completes full stage, optional timer for tiebreaker.
                         @elseif($scoring_type === 'elr')
                             ELR: Extreme Long Range — shot-by-shot scoring with distance-based point values and optional ladder progression.
+                        @elseif($scoring_type === 'alrha')
+                            ALRHA: African Long Range Hunters Association — shot-index scoring (5-4-3-2-1), Cold Bore Challenge, class-specific distances, peer-scored relays.
                         @else
                             Relay: Gong multipliers, relay-style scoring.
                         @endif
                     </p>
+
+                    @if($scoring_type === 'alrha')
+                        <div class="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
+                            <label class="block text-xs font-medium text-secondary mb-2">ALRHA Class</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" wire:click="$set('alrha_class', 'hunters')"
+                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'hunters' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="text-sm font-medium text-primary">LR Hunters</div>
+                                    <div class="text-xs text-muted mt-0.5">Teams of 2. 1000 / 900 / 700 / 600 / 400 m. CBC on Springbuck cut-out (1000 m).</div>
+                                </button>
+                                <button type="button" wire:click="$set('alrha_class', 'varmint')"
+                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'varmint' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="text-sm font-medium text-primary">LR Varmint</div>
+                                    <div class="text-xs text-muted mt-0.5">Individual. 700 / 600 / 500 / 400 / 300 m. CBC on Jackal cut-out (700 m).</div>
+                                </button>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
             @if($scoring_type === 'standard')
@@ -2689,14 +2828,22 @@ new #[Layout('components.layouts.app')]
         </div>
         @endif
 
-        {{-- ELR Stages (ELR only) --}}
-        @if($scoring_type === 'elr' && $match)
+        {{-- ELR / ALRHA Stages (both share the ELR stage tree) --}}
+        @if(in_array($scoring_type, ['elr', 'alrha'], true) && $match)
         <div class="space-y-6" wire:key="elr-stages">
             <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-primary">ELR Stages</h2>
-                <button wire:click="applyElrTemplate" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
-                    Apply Default Template
-                </button>
+                <h2 class="text-lg font-semibold text-primary">
+                    {{ $scoring_type === 'alrha' ? 'ALRHA Stages' : 'ELR Stages' }}
+                </h2>
+                @if($scoring_type === 'alrha')
+                    <button wire:click="applyAlrhaTemplate" class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">
+                        Apply ALRHA {{ ucfirst($alrha_class ?: 'hunters') }} Template
+                    </button>
+                @else
+                    <button wire:click="applyElrTemplate" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                        Apply Default Template
+                    </button>
+                @endif
             </div>
 
             {{-- Scoring profile --}}
