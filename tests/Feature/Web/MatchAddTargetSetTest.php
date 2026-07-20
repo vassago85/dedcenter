@@ -55,3 +55,30 @@ it('renders the newly added target set in the stages list', function () {
 
     $component->assertSeeHtml('wire:key="ts-'.$newId.'"');
 });
+
+it('adds standard targets to a target set', function () {
+    $this->actingAs($this->owner);
+
+    $ts = $this->match->targetSets()->create([
+        'label' => '400m', 'distance_meters' => 400, 'distance_multiplier' => 4, 'sort_order' => 1,
+    ]);
+
+    Volt::test('org.matches.edit', ['organization' => $this->org, 'match' => $this->match])
+        ->call('populateStandardTargets', $ts->id)
+        ->assertHasNoErrors();
+
+    expect($ts->fresh()->gongs()->count())->toBe(5);
+});
+
+it('opens the custom target form when Add Custom Target is clicked', function () {
+    $this->actingAs($this->owner);
+
+    $ts = $this->match->targetSets()->create([
+        'label' => '400m', 'distance_meters' => 400, 'distance_multiplier' => 4, 'sort_order' => 1,
+    ]);
+
+    Volt::test('org.matches.edit', ['organization' => $this->org, 'match' => $this->match])
+        ->call('startAddGong', $ts->id)
+        ->assertSet('addingGongToTargetSetId', $ts->id)
+        ->assertSee('Add Target');
+});

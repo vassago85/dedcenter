@@ -694,18 +694,36 @@ new #[Layout('components.layouts.app')]
 
     public function populateStandardTargets(int $targetSetId): void
     {
-        $standards = [
-            ['number' => 1, 'label' => '2.5 MOA', 'multiplier' => '1.00'],
-            ['number' => 2, 'label' => '2.0 MOA', 'multiplier' => '1.30'],
-            ['number' => 3, 'label' => '1.5 MOA', 'multiplier' => '1.50'],
-            ['number' => 4, 'label' => '1.0 MOA', 'multiplier' => '1.80'],
-            ['number' => 5, 'label' => '0.5 MOA', 'multiplier' => '2.00'],
-        ];
+        // The escalating 2.5→0.5 MOA multiplier ladder is a Royal Flush concept
+        // (harder/smaller gongs are worth more). A plain steel match just wants
+        // a handful of equal-value gongs, so only apply the RF ladder for RF
+        // matches; everything else gets flat 1.0× targets.
+        $isRf = (bool) ($this->match?->royal_flush_enabled)
+            || (bool) ($this->match?->organization?->isRoyalFlushOrg());
+
+        if ($isRf) {
+            $standards = [
+                ['number' => 1, 'label' => '2.5 MOA', 'multiplier' => '1.00'],
+                ['number' => 2, 'label' => '2.0 MOA', 'multiplier' => '1.30'],
+                ['number' => 3, 'label' => '1.5 MOA', 'multiplier' => '1.50'],
+                ['number' => 4, 'label' => '1.0 MOA', 'multiplier' => '1.80'],
+                ['number' => 5, 'label' => '0.5 MOA', 'multiplier' => '2.00'],
+            ];
+        } else {
+            $standards = [
+                ['number' => 1, 'label' => 'Target 1', 'multiplier' => '1.00'],
+                ['number' => 2, 'label' => 'Target 2', 'multiplier' => '1.00'],
+                ['number' => 3, 'label' => 'Target 3', 'multiplier' => '1.00'],
+                ['number' => 4, 'label' => 'Target 4', 'multiplier' => '1.00'],
+                ['number' => 5, 'label' => 'Target 5', 'multiplier' => '1.00'],
+            ];
+        }
+
         $maxNumber = Gong::where('target_set_id', $targetSetId)->max('number') ?? 0;
         foreach ($standards as $s) {
             Gong::create(['target_set_id' => $targetSetId, 'number' => $maxNumber + $s['number'], 'label' => $s['label'], 'multiplier' => $s['multiplier']]);
         }
-        Flux::toast('5 standard targets added.', variant: 'success');
+        Flux::toast($isRf ? '5 Royal Flush targets added.' : '5 targets added.', variant: 'success');
     }
 
     public function populatePrsTargets(int $targetSetId, int $count = 5): void
@@ -2310,19 +2328,26 @@ new #[Layout('components.layouts.app')]
                                     <flux:input wire:model="gongMultiplier" label="Multiplier" type="number" step="0.01" min="0.01" required />
                                 </div>
                                 <div class="flex gap-2">
-                                    <flux:button wire:click="addGong" size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover">Add Target</flux:button>
-                                    <flux:button wire:click="$set('addingGongToTargetSetId', null)" size="sm" variant="ghost">Cancel</flux:button>
+                                    <button type="button" wire:click="addGong" wire:loading.attr="disabled" wire:target="addGong"
+                                            class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60">Add Target</button>
+                                    <button type="button" wire:click="$set('addingGongToTargetSetId', null)"
+                                            class="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-secondary hover:bg-surface">Cancel</button>
                                 </div>
+                                @error('gongNumber') <p class="text-xs font-medium text-accent">{{ $message }}</p> @enderror
+                                @error('gongMultiplier') <p class="text-xs font-medium text-accent">{{ $message }}</p> @enderror
                             </div>
                         @else
+                            @php $isRfMatch = $royal_flush_enabled || $match?->organization?->isRoyalFlushOrg(); @endphp
                             <div class="flex flex-wrap gap-2 px-3">
                                 @if($ts->gongs->isEmpty())
-                                    <flux:button size="sm" variant="primary" class="!bg-accent hover:!bg-accent-hover"
-                                                 wire:click="populateStandardTargets({{ $ts->id }})">
-                                        + Add Standard Targets (5 MOA)
-                                    </flux:button>
+                                    <button type="button" wire:click="populateStandardTargets({{ $ts->id }})"
+                                            wire:loading.attr="disabled" wire:target="populateStandardTargets"
+                                            class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60">
+                                        {{ $isRfMatch ? '+ Add Royal Flush targets (5 gongs)' : '+ Add 5 targets' }}
+                                    </button>
                                 @endif
-                                <flux:button size="sm" variant="ghost" wire:click="startAddGong({{ $ts->id }})">+ Add Custom Target</flux:button>
+                                <button type="button" wire:click="startAddGong({{ $ts->id }})"
+                                        class="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-secondary hover:bg-surface">+ Add custom target</button>
                             </div>
                         @endif
                     </div>
