@@ -2545,7 +2545,7 @@ new #[Layout('components.layouts.app')]
             @if($scoring_type === 'standard')
                 <div class="rounded-lg border border-dashed border-amber-600/40 bg-amber-950/10 p-4 space-y-3">
                     <div>
-                        <h3 class="text-sm font-semibold text-amber-200">Equipment sheet import@if($match?->organization?->isRoyalFlushOrg()) (Royal Flush)@endif</h3>
+                        <h3 class="text-sm font-semibold text-amber-200">Equipment sheet import{{ $match?->organization?->isRoyalFlushOrg() ? ' (Royal Flush)' : '' }}</h3>
                         <p class="mt-1 text-xs text-muted">
                             Paste <strong>tab-separated</strong> rows from Excel or Google Sheets. Expected columns (16):
                             timestamp, name, caliber, bullet, bullet weight, action, barrel, trigger, chassis, muzzle, scope, mount, bipod, phone, SA ID, notes/share rifle.
