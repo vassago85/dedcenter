@@ -2817,6 +2817,11 @@ new #[Layout('components.layouts.app')]
     @endif
 </div>
 
-@once
+{{-- @assets (not a bare @once <script>) so Livewire hoists this OUT of the
+     component's DOM tree. A <script> sibling after the root <div> gives the
+     component two root nodes, which makes Livewire's morph crash with
+     "Cannot read properties of null (reading 'before')" on structural updates
+     (e.g. adding gongs), leaving every wire:click looking dead. --}}
+@assets
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
-@endonce
+@endassets
