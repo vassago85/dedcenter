@@ -706,3 +706,36 @@ html.dark .marketing-mobile-link:focus-visible {
     color: #ffffff !important;
 }
 
+/* =============================================================
+   PAGINATION PAGER — always-readable, on-theme colors.
+
+   Three different pager views can end up live (our custom
+   vendor/pagination/dead-center, our vendor/livewire/tailwind
+   override, or Livewire's built-in default). The built-in default
+   uses `bg-white` + `text-gray-*`; combined with the readability
+   remap above (which forces every `text-gray-*` to near-white),
+   the page numbers render white-on-white and disappear. These
+   literal rules live in the compiled CSS bundle (not dependent on
+   which utility classes/arbitrary values get scanned), scoped to
+   the pagination <nav>, so the numbers stay visible no matter what.
+   ============================================================= */
+nav[aria-label="Pagination Navigation"] a,
+nav[aria-label="Pagination Navigation"] button,
+nav[aria-label="Pagination Navigation"] span[aria-disabled] > span {
+    background-color: #0f1d37 !important;
+    color: #f4f8ff !important;
+    border-color: var(--color-border) !important;
+}
+nav[aria-label="Pagination Navigation"] a:hover,
+nav[aria-label="Pagination Navigation"] button:hover {
+    background-color: #172847 !important;
+    color: #ffffff !important;
+}
+/* Current page — accent-filled so it clearly stands out. */
+nav[aria-label="Pagination Navigation"] [aria-current="page"],
+nav[aria-label="Pagination Navigation"] [aria-current="page"] > span {
+    background-color: var(--color-accent) !important;
+    color: #ffffff !important;
+    border-color: var(--color-accent) !important;
+}
+
