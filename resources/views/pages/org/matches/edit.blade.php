@@ -2244,6 +2244,11 @@ new #[Layout('components.layouts.app')]
         <div class="space-y-4">
             <h2 class="text-lg font-semibold text-primary">Target Sets</h2>
 
+            {{-- Keep the keyed loop wrapped in its own always-present element
+                 (Livewire morph robustness). The real fix for the 1→2 "Cannot
+                 read properties of null (reading 'before')" morph crash is
+                 config/livewire.php inject_morph_markers => false. --}}
+            <div class="space-y-4">
             @foreach($targetSets as $ts)
                 <div class="rounded-xl border border-border bg-surface overflow-hidden" wire:key="ts-{{ $ts->id }}">
                     <div class="flex items-center justify-between border-b border-border px-6 py-3">
@@ -2353,6 +2358,7 @@ new #[Layout('components.layouts.app')]
                     </div>
                 </div>
             @endforeach
+            </div>
 
             <div class="rounded-xl border border-dashed border-border bg-surface/50 p-4 space-y-3">
                 <h3 class="text-sm font-medium text-secondary">Add Target Set</h3>
