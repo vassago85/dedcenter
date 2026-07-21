@@ -25,6 +25,7 @@ new #[Layout('components.layouts.app')]
     public ?int $selectedAmmoId = null;
     public ?int $selectedDivisionId = null;
     public ?int $selectedCategoryId = null;
+    public ?string $selectedAlrhaClass = null;
     public array $customFieldValues = [];
     public $proofOfPayment;
 
@@ -60,7 +61,17 @@ new #[Layout('components.layouts.app')]
             || $this->match->registrationFieldConfig('ammo') !== 'hidden'
             || $this->match->registrationFieldConfig('division') !== 'hidden'
             || $this->match->registrationFieldConfig('category') !== 'hidden'
-            || $this->match->customFields()->exists();
+            || $this->match->customFields()->exists()
+            || $this->needsAlrhaClassPick();
+    }
+
+    public function needsAlrhaClassPick(): bool
+    {
+        if (! $this->match->isAlrha()) {
+            return false;
+        }
+        $classes = $this->match->alrhaClasses();
+        return count($classes) > 1;
     }
 
     public function totalSteps(): int
@@ -132,6 +143,9 @@ new #[Layout('components.layouts.app')]
         if ($this->match->registrationFieldConfig('category') === 'required') {
             $rules['selectedCategoryId'] = 'required|exists:match_categories,id';
         }
+        if ($this->needsAlrhaClassPick()) {
+            $rules['selectedAlrhaClass'] = 'required|in:hunters,varmint';
+        }
 
         foreach ($this->match->customFields()->orderBy('sort_order')->get() as $cf) {
             if ($cf->is_required && $cf->type !== 'checkbox') {
@@ -194,6 +208,9 @@ new #[Layout('components.layouts.app')]
             'ammo_load_id'             => $this->selectedAmmoId,
             'division_id'              => $this->selectedDivisionId,
             'category_id'              => $this->selectedCategoryId,
+            'alrha_class'              => $this->match->isAlrha()
+                ? ($this->selectedAlrhaClass ?: ($this->match->alrhaClasses()[0]->value ?? null))
+                : null,
             'proof_of_payment_path'    => $popPath,
         ]);
 
@@ -214,10 +231,11 @@ new #[Layout('components.layouts.app')]
             );
             $maxSort = $squad->shooters()->max('sort_order') ?? 0;
             \App\Models\Shooter::create([
-                'squad_id'   => $squad->id,
-                'name'       => auth()->user()->name,
-                'user_id'    => auth()->id(),
-                'sort_order' => $maxSort + 1,
+                'squad_id'    => $squad->id,
+                'name'        => auth()->user()->name,
+                'user_id'     => auth()->id(),
+                'sort_order'  => $maxSort + 1,
+                'alrha_class' => $registration->alrha_class?->value,
             ]);
         }
 
@@ -369,6 +387,31 @@ new #[Layout('components.layouts.app')]
             <h2 class="text-lg font-semibold text-primary">Equipment & Details</h2>
 
             <div class="space-y-4">
+                {{-- ALRHA class picker (only when the match runs both classes) --}}
+                @if($this->needsAlrhaClassPick())
+                    <div class="rounded-lg border border-sky-500/30 bg-sky-500/5 p-4">
+                        <label class="mb-2 block text-sm font-medium text-primary">ALRHA Class</label>
+                        <p class="mb-3 text-xs text-muted">
+                            This event runs both classes concurrently. Pick the one you'll shoot — you can't enter both.
+                        </p>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <button type="button" wire:click="$set('selectedAlrhaClass', 'hunters')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $selectedAlrhaClass === 'hunters' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                <div class="text-sm font-medium text-primary">LR Hunters</div>
+                                <div class="text-xs text-muted mt-0.5">2-person teams · 1000 / 900 / 700 / 600 / 400 m</div>
+                            </button>
+                            <button type="button" wire:click="$set('selectedAlrhaClass', 'varmint')"
+                                    class="rounded-lg border p-3 text-left transition-colors {{ $selectedAlrhaClass === 'varmint' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                <div class="text-sm font-medium text-primary">LR Varmint</div>
+                                <div class="text-xs text-muted mt-0.5">Individual · 700 / 600 / 500 / 400 / 300 m</div>
+                            </button>
+                        </div>
+                        @error('selectedAlrhaClass')
+                            <p class="mt-2 text-xs text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @endif
+
                 {{-- Rifle selection --}}
                 @php $rifleConfig = $match->registrationFieldConfig('rifle'); @endphp
                 @if($rifleConfig !== 'hidden')

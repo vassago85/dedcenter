@@ -3,9 +3,15 @@
 namespace App\Enums;
 
 /**
- * ALRHA class of competition. A single ALRHA match is one class only —
- * a shooter cannot compete in both Hunters and Varmint on the same day
- * (see rules §3 and §7).
+ * ALRHA class of competition. A single ALRHA event runs both classes
+ * concurrently on shared relays — a shooter picks exactly one at entry
+ * (they cannot compete in both on the same day, see rules §3 and §7).
+ *
+ * The class lives on the shooter (source of truth once squadded) and on
+ * each ELR stage (so one match holds both class stage trees side-by-side).
+ * `matches.alrha_class` is legacy: retained only for back-compat with
+ * matches that were seeded before dual-class support existed. New
+ * matches should leave it null and rely on shooter/stage tags.
  *
  *  - Hunters: 2-person teams; 1000 / 900 / 700 / 600 / 400 m; Cold Bore
  *    Challenge on the 1000 m Springbuck cut-out.

@@ -40,6 +40,7 @@ class MatchRegistration extends Model
         'ammo_load_id',
         'division_id',
         'category_id',
+        'alrha_class',
         'emergency_contact_name',
         'emergency_contact_number',
     ];
@@ -53,6 +54,7 @@ class MatchRegistration extends Model
             'sa_id_number' => 'encrypted',
             'contact_number' => 'encrypted',
             'emergency_contact_number' => 'encrypted',
+            'alrha_class' => \App\Enums\AlrhaClass::class,
         ];
     }
 
@@ -188,13 +190,40 @@ class MatchRegistration extends Model
         }
     }
 
+    /**
+     * Copy alrha_class chosen at entry onto matching shooter rows for
+     * this registration's match. Runs when a registration is confirmed
+     * (or when the shooter is claimed on an ALRHA match).
+     */
+    public function syncAlrhaClassToShooter(): void
+    {
+        if (! $this->alrha_class || ! $this->user_id) {
+            return;
+        }
+
+        $shooters = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $this->match_id))
+            ->where('user_id', $this->user_id)
+            ->get();
+
+        foreach ($shooters as $shooter) {
+            if ($shooter->alrha_class?->value === $this->alrha_class?->value) {
+                continue;
+            }
+            $shooter->update(['alrha_class' => $this->alrha_class?->value]);
+        }
+    }
+
     protected static function booted(): void
     {
         static::updated(function (self $reg) {
             if ($reg->wasChanged('payment_status') && $reg->payment_status === 'confirmed') {
                 $reg->syncDivisionToShooter();
+                $reg->syncAlrhaClassToShooter();
             } elseif ($reg->wasChanged('division_id') && $reg->isConfirmed()) {
                 $reg->syncDivisionToShooter();
+            } elseif ($reg->wasChanged('alrha_class') && $reg->isConfirmed()) {
+                $reg->syncAlrhaClassToShooter();
             }
         });
     }

@@ -21,6 +21,12 @@ use App\Models\ShootingMatch;
  *  - Categories (Open / Ladies / Junior) each get their own ranking
  *    so the MD can hand out per-category prizes (rules §Prizes).
  *
+ * Dual-class matches (Hunters + Varmint running the same day on shared
+ * relays) are handled by partitioning rows by `shooter.alrha_class` and
+ * emitting a per-class payload. Single-class legacy matches
+ * (matches.alrha_class populated, no per-shooter class) still work by
+ * falling back to `match.alrhaClass()`.
+ *
  * Ranking tie-breakers (in order):
  *   1. Total points (excluding CBC), desc.
  *   2. Number of first-round (impact-1) hits, desc.
@@ -34,76 +40,202 @@ class AlrhaScoringService implements ScoringEngineInterface
     public function calculateStandings(ShootingMatch $match, array $filters = []): array
     {
         $base = $this->elr->calculateStandings($match, $filters);
-        $class = $match->alrhaClass();
 
-        // Which target ids are CBC — used to subtract CBC points/hits from
-        // the match total for every shooter row. serializeStages() emits
-        // target ids as 'id'; the per-row stage payload uses 'target_id'.
-        $cbcTargetIds = [];
-        foreach ($base['stages'] ?? [] as $stage) {
-            foreach ($stage['targets'] ?? [] as $target) {
-                $targetId = (int) ($target['id'] ?? $target['target_id'] ?? 0);
-                if ($targetId === 0) {
-                    continue;
-                }
-                $isCbc = ! empty($target['is_cold_bore'])
-                    // Fallback when the ELR serializer does not include the
-                    // flag: infer from the class' CBC distance + must-hit
-                    // conventions. Kept safe by requiring an exact match on
-                    // both distance and the reserved CBC label prefix.
-                    || (
-                        $class
-                        && (int) ($target['distance_m'] ?? 0) === $class->coldBoreDistance()
-                        && str_starts_with(strtolower((string) ($target['name'] ?? '')), 'cbc')
-                    );
-                if ($isCbc) {
-                    $cbcTargetIds[$targetId] = true;
-                }
-            }
+        $classes = $match->alrhaClasses();
+        // Legacy single-class fall-through: rows will have alrha_class = null
+        // but the match still has one. Treat those rows as belonging to
+        // the match-level class so the prize tables render sensibly.
+        $legacyClass = count($classes) === 1 && ! $match->isDualClassAlrha()
+            ? $classes[0]
+            : null;
+
+        // CBC target ids per class, based on stage tags (dual) or class
+        // CBC-distance heuristic (legacy single-class matches without
+        // stage tags).
+        $cbcByClass = $this->cbcTargetIdsByClass($base['stages'] ?? [], $classes, $legacyClass);
+        $stageTargetsByClass = $this->stageTargetsByClass($base['stages'] ?? [], $classes, $legacyClass);
+
+        // Build per-class blocks.
+        $perClass = [];
+        foreach ($classes as $class) {
+            $perClass[$class->value] = $this->buildClassBlock(
+                $base['standings'] ?? [],
+                $class,
+                $stageTargetsByClass[$class->value] ?? [],
+                $cbcByClass[$class->value] ?? [],
+                $filters,
+                $legacyClass,
+            );
         }
 
-        $ranked = $this->deriveRows($base['standings'] ?? [], $cbcTargetIds);
-        $ranked = $this->applyFilters($ranked, $filters);
-        $ranked = $this->rank($ranked, 'total_points');
-
-        $cbc = $this->deriveCbcRows($base['standings'] ?? [], $cbcTargetIds);
-        $cbc = $this->applyFilters($cbc, $filters);
-        $cbc = $this->rank($cbc, 'cbc_points');
+        // Back-compat top-level shape: mirrors the first class so any old
+        // consumer that reads `standings`, `cbc`, `teams`, `categories`
+        // straight off the top level still gets something meaningful.
+        $primary = count($classes) === 1
+            ? $classes[0]
+            : ($classes[0] ?? null);
+        $primaryBlock = $primary ? ($perClass[$primary->value] ?? null) : null;
 
         return [
             'match' => array_merge($base['match'] ?? [], [
                 'scoring_type' => 'alrha',
-                'alrha_class' => $class?->value,
-                'alrha_class_label' => $class?->label(),
+                'alrha_class' => $primary?->value,
+                'alrha_class_label' => $primary?->label(),
+                'alrha_classes' => array_map(fn (AlrhaClass $c) => [
+                    'value' => $c->value,
+                    'label' => $c->label(),
+                ], $classes),
+                'is_dual_class' => count($classes) > 1,
             ]),
             'stages' => $base['stages'] ?? [],
-            'standings' => $ranked,
-            'teams' => $class === AlrhaClass::Hunters
-                ? $this->buildTeamStandings($ranked)
-                : [],
-            'cbc' => $cbc,
-            'categories' => $this->buildCategoryStandings($ranked, $class),
+            // Top-level fields (legacy consumers).
+            'standings' => $primaryBlock['standings'] ?? [],
+            'teams' => $primaryBlock['teams'] ?? [],
+            'cbc' => $primaryBlock['cbc'] ?? [],
+            'categories' => $primaryBlock['categories'] ?? [],
+            // Per-class fields (new consumers). Keyed by class value so
+            // the UI can iterate deterministically.
+            'per_class' => $perClass,
             'divisions' => $base['divisions'] ?? [],
             'active_division' => $base['active_division'] ?? null,
         ];
     }
 
     /**
-     * Peel CBC contributions off each shooter row so the reported
-     * total_points / total_hits reflect the class-total prize table.
+     * Assemble a per-class block: filtered/ranked shooter rows, CBC
+     * prize table, team leaderboard (Hunters only), and category slices.
      *
-     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, array<string, mixed>>  $allRows
+     * @param  array<int, true>                  $classTargetIds
      * @param  array<int, true>                  $cbcTargetIds
      */
-    private function deriveRows(array $rows, array $cbcTargetIds): array
+    private function buildClassBlock(array $allRows, AlrhaClass $class, array $classTargetIds, array $cbcTargetIds, array $filters, ?AlrhaClass $legacyClass): array
     {
-        return array_map(function ($row) use ($cbcTargetIds) {
-            [$cbcPoints, $cbcHits] = $this->cbcTotals($row, $cbcTargetIds);
+        $rows = array_values(array_filter($allRows, function ($row) use ($class, $legacyClass) {
+            $rowClass = $row['alrha_class'] ?? null;
+            if ($rowClass) {
+                return $rowClass === $class->value;
+            }
+            // Untagged rows only belong to the legacy single-class match.
+            return $legacyClass?->value === $class->value;
+        }));
+
+        $rows = $this->deriveRows($rows, $classTargetIds, $cbcTargetIds);
+        $rows = $this->applyFilters($rows, $filters);
+        $ranked = $this->rank($rows, 'total_points');
+
+        $cbc = $this->deriveCbcRows($rows, $cbcTargetIds);
+        $cbc = $this->applyFilters($cbc, $filters);
+        $cbc = $this->rank($cbc, 'cbc_points');
+
+        return [
+            'class' => $class->value,
+            'class_label' => $class->label(),
+            'standings' => $ranked,
+            'teams' => $class === AlrhaClass::Hunters ? $this->buildTeamStandings($ranked) : [],
+            'cbc' => $cbc,
+            'categories' => $this->buildCategoryStandings($ranked, $class),
+        ];
+    }
+
+    /**
+     * CBC target ids keyed by class value. Uses stage `alrha_class` tag
+     * (dual-class) or a distance heuristic (legacy single-class).
+     *
+     * @param  array<int, AlrhaClass>  $classes
+     * @return array<string, array<int, true>>
+     */
+    private function cbcTargetIdsByClass(array $stages, array $classes, ?AlrhaClass $legacyClass): array
+    {
+        $out = [];
+        foreach ($classes as $class) {
+            $out[$class->value] = [];
+        }
+
+        foreach ($stages as $stage) {
+            $stageClass = $stage['alrha_class'] ?? null;
+            foreach ($stage['targets'] ?? [] as $target) {
+                $targetId = (int) ($target['id'] ?? $target['target_id'] ?? 0);
+                if ($targetId === 0) {
+                    continue;
+                }
+                $targetClass = $target['alrha_class'] ?? $stageClass ?? $legacyClass?->value;
+                if (! $targetClass || ! isset($out[$targetClass])) {
+                    continue;
+                }
+
+                $isCbc = ! empty($target['is_cold_bore'])
+                    || (($target['alrha_block'] ?? null) === 'cbc');
+
+                if (! $isCbc && $legacyClass) {
+                    // Legacy heuristic for single-class matches whose
+                    // targets don't carry the flag or the block tag.
+                    $isCbc = $legacyClass?->value === $targetClass
+                        && (int) ($target['distance_m'] ?? 0) === $legacyClass->coldBoreDistance()
+                        && str_starts_with(strtolower((string) ($target['name'] ?? '')), 'cbc');
+                }
+
+                if ($isCbc) {
+                    $out[$targetClass][$targetId] = true;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * All target ids for each class (used so a shooter's totals only
+     * include shots on their own class's stage tree).
+     *
+     * @param  array<int, AlrhaClass>  $classes
+     * @return array<string, array<int, true>>
+     */
+    private function stageTargetsByClass(array $stages, array $classes, ?AlrhaClass $legacyClass): array
+    {
+        $out = [];
+        foreach ($classes as $class) {
+            $out[$class->value] = [];
+        }
+
+        foreach ($stages as $stage) {
+            $stageClass = $stage['alrha_class'] ?? null;
+            foreach ($stage['targets'] ?? [] as $target) {
+                $targetId = (int) ($target['id'] ?? $target['target_id'] ?? 0);
+                if ($targetId === 0) {
+                    continue;
+                }
+                $targetClass = $target['alrha_class'] ?? $stageClass ?? $legacyClass?->value;
+                if (! $targetClass || ! isset($out[$targetClass])) {
+                    continue;
+                }
+                $out[$targetClass][$targetId] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Peel CBC contributions off each shooter row so the reported
+     * total_points / total_hits reflect the class-total prize table.
+     * Also restricts totals to targets that belong to the shooter's
+     * own class stage tree — shots against another class's targets
+     * (should be impossible in normal play) do not contribute.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, true>                  $classTargetIds
+     * @param  array<int, true>                  $cbcTargetIds
+     */
+    private function deriveRows(array $rows, array $classTargetIds, array $cbcTargetIds): array
+    {
+        return array_map(function ($row) use ($classTargetIds, $cbcTargetIds) {
+            [$classPoints, $classHits, $cbcPoints, $cbcHits] = $this->classAndCbcTotals($row, $classTargetIds, $cbcTargetIds);
 
             $row['cbc_points'] = round($cbcPoints, 2);
             $row['cbc_hits'] = $cbcHits;
-            $row['total_points'] = round(max(0.0, (float) ($row['total_points'] ?? 0) - $cbcPoints), 2);
-            $row['total_hits'] = max(0, (int) ($row['total_hits'] ?? 0) - $cbcHits);
+            $row['total_points'] = round(max(0.0, $classPoints - $cbcPoints), 2);
+            $row['total_hits'] = max(0, $classHits - $cbcHits);
 
             return $row;
         }, $rows);
@@ -118,9 +250,15 @@ class AlrhaScoringService implements ScoringEngineInterface
     {
         $out = [];
         foreach ($rows as $row) {
-            [$cbcPoints, $cbcHits] = $this->cbcTotals($row, $cbcTargetIds);
+            $cbcPoints = (float) ($row['cbc_points'] ?? 0);
+            $cbcHits = (int) ($row['cbc_hits'] ?? 0);
             if ($cbcPoints <= 0 && $cbcHits <= 0) {
-                continue;
+                // Fall back to a fresh walk in case deriveRows wasn't
+                // used first (e.g. filtering paths).
+                [$cbcPoints, $cbcHits] = $this->cbcTotalsOnly($row, $cbcTargetIds);
+                if ($cbcPoints <= 0 && $cbcHits <= 0) {
+                    continue;
+                }
             }
             $row['cbc_points'] = round($cbcPoints, 2);
             $row['cbc_hits'] = $cbcHits;
@@ -130,7 +268,46 @@ class AlrhaScoringService implements ScoringEngineInterface
         return $out;
     }
 
-    private function cbcTotals(array $row, array $cbcTargetIds): array
+    /**
+     * Walk this shooter's stage tree once and return, in order:
+     *   [class-total points, class-total hits, CBC points, CBC hits].
+     *
+     * @param  array<int, true>  $classTargetIds
+     * @param  array<int, true>  $cbcTargetIds
+     * @return array{0: float, 1: int, 2: float, 3: int}
+     */
+    private function classAndCbcTotals(array $row, array $classTargetIds, array $cbcTargetIds): array
+    {
+        $classPoints = 0.0;
+        $classHits = 0;
+        $cbcPoints = 0.0;
+        $cbcHits = 0;
+
+        foreach ($row['stages'] ?? [] as $stage) {
+            foreach ($stage['targets'] ?? [] as $target) {
+                $targetId = (int) ($target['target_id'] ?? $target['id'] ?? 0);
+                if (! isset($classTargetIds[$targetId])) {
+                    continue;
+                }
+                foreach ($target['shots'] ?? [] as $shot) {
+                    if (($shot['result'] ?? null) !== 'hit') {
+                        continue;
+                    }
+                    $points = (float) ($shot['points'] ?? 0);
+                    $classPoints += $points;
+                    $classHits++;
+                    if (isset($cbcTargetIds[$targetId])) {
+                        $cbcPoints += $points;
+                        $cbcHits++;
+                    }
+                }
+            }
+        }
+
+        return [$classPoints, $classHits, $cbcPoints, $cbcHits];
+    }
+
+    private function cbcTotalsOnly(array $row, array $cbcTargetIds): array
     {
         $cbcPoints = 0.0;
         $cbcHits = 0;

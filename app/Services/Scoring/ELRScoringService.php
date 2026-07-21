@@ -68,6 +68,7 @@ class ELRScoringService implements ScoringEngineInterface
                 'shooters.team_id',
                 'shooters.is_coached',
                 'shooters.gong_position',
+                'shooters.alrha_class',
                 'squads.name as squad_name',
                 'teams.name as team_name',
                 'match_divisions.name as division_name',
@@ -251,6 +252,9 @@ class ELRScoringService implements ScoringEngineInterface
                 'status' => $shooter->status ?? 'active',
                 'is_coached' => (bool) ($shooter->is_coached ?? false),
                 'gong_position' => $shooter->gong_position ? (int) $shooter->gong_position : null,
+                'alrha_class' => $shooter->alrha_class instanceof \App\Enums\AlrhaClass
+                    ? $shooter->alrha_class->value
+                    : ($shooter->alrha_class ?: null),
                 'category_slugs' => $categoryLookup[$shooter->id] ?? [],
                 'total_points' => round($totalPoints, 2),
                 'total_hits' => $totalHits,
@@ -383,6 +387,7 @@ class ELRScoringService implements ScoringEngineInterface
             'id' => $s->id,
             'label' => $s->label,
             'stage_type' => $s->stage_type->value,
+            'alrha_class' => $s->alrha_class?->value,
             'targets' => $s->targets->map(fn ($t) => [
                 'id' => $t->id,
                 'name' => $t->name,
@@ -392,6 +397,7 @@ class ELRScoringService implements ScoringEngineInterface
                 'must_hit_to_advance' => $t->must_hit_to_advance,
                 'is_cold_bore' => (bool) $t->is_cold_bore,
                 'alrha_block' => $t->alrha_block,
+                'alrha_class' => $s->alrha_class?->value,
             ]),
         ])->toArray();
     }

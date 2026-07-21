@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AlrhaClass;
 use App\Enums\ElrStageType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ class ElrStage extends Model
         'elr_scoring_profile_id',
         'sort_order',
         'match_day',
+        'alrha_class',
     ];
 
     protected function casts(): array
@@ -29,6 +31,7 @@ class ElrStage extends Model
             'stage_type' => ElrStageType::class,
             'sort_order' => 'integer',
             'match_day' => 'integer',
+            'alrha_class' => AlrhaClass::class,
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AlrhaClass;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,7 @@ class Shooter extends Model
         'is_coached',
         'gong_position',
         'shared_rifle_key',
+        'alrha_class',
     ];
 
     protected function casts(): array
@@ -31,6 +33,7 @@ class Shooter extends Model
             'sort_order' => 'integer',
             'is_coached' => 'boolean',
             'gong_position' => 'integer',
+            'alrha_class' => AlrhaClass::class,
         ];
     }
 

@@ -385,9 +385,52 @@ class ShootingMatch extends Model
         return $this->isElr() || $this->isAlrha();
     }
 
+    /**
+     * Legacy match-level ALRHA class.
+     *
+     * Kept only for back-compat with matches seeded before dual-class
+     * support existed. New/dual-class ALRHA matches leave this null and
+     * carry the class on shooters + stages. Prefer `alrhaClasses()`
+     * (below) if you need to know which classes are present.
+     */
     public function alrhaClass(): ?AlrhaClass
     {
         return $this->alrha_class;
+    }
+
+    /**
+     * The set of ALRHA classes actually present on this match, derived
+     * from tagged ELR stages. Falls back to the legacy match-level class
+     * for back-compat with single-class matches whose stages don't yet
+     * carry the tag.
+     *
+     * @return array<int, AlrhaClass>
+     */
+    public function alrhaClasses(): array
+    {
+        if (! $this->isAlrha()) {
+            return [];
+        }
+
+        $tagged = $this->elrStages()
+            ->whereNotNull('alrha_class')
+            ->pluck('alrha_class')
+            ->unique()
+            ->map(fn ($v) => $v instanceof AlrhaClass ? $v : AlrhaClass::tryFrom((string) $v))
+            ->filter()
+            ->values()
+            ->all();
+
+        if (! empty($tagged)) {
+            return $tagged;
+        }
+
+        return $this->alrha_class ? [$this->alrha_class] : [];
+    }
+
+    public function isDualClassAlrha(): bool
+    {
+        return count($this->alrhaClasses()) > 1;
     }
 
     public function elrEngagementMode(): ElrEngagementMode

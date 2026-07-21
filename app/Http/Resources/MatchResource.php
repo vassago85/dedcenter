@@ -117,9 +117,14 @@ class MatchResource extends JsonResource
                     'sort_order' => $sh->sort_order,
                     'division_id' => $sh->match_division_id,
                     'division' => $sh->division?->name,
+                    'team_id' => $sh->team_id,
                     'team' => $sh->relationLoaded('team') ? $sh->team?->name : null,
                     'category_ids' => $sh->relationLoaded('categories') ? $sh->categories->pluck('id')->values() : [],
                     'status' => $sh->status ?? 'active',
+                    'alrha_class' => $sh->alrha_class?->value,
+                    'is_coached' => (bool) ($sh->is_coached ?? false),
+                    'gong_position' => $sh->gong_position ? (int) $sh->gong_position : null,
+                    'shared_rifle_key' => $sh->shared_rifle_key,
                 ]),
             ])),
             'scores' => $this->whenLoaded('scores', fn () => ScoreResource::collection($this->scores)),
@@ -226,6 +231,7 @@ class MatchResource extends JsonResource
                 'stage_type' => $s->stage_type->value,
                 'sort_order' => $s->sort_order,
                 'match_day' => $s->match_day,
+                'alrha_class' => $s->alrha_class?->value,
                 'elr_scoring_profile_id' => $s->elr_scoring_profile_id,
                 'profile' => $s->resolvedProfile() ? [
                     'name' => $s->resolvedProfile()->name,
@@ -240,6 +246,7 @@ class MatchResource extends JsonResource
                     'must_hit_to_advance' => $t->must_hit_to_advance,
                     'is_cold_bore' => (bool) $t->is_cold_bore,
                     'alrha_block' => $t->alrha_block,
+                    'alrha_class' => $s->alrha_class?->value,
                     'sort_order' => $t->sort_order,
                     // Divisions that engage this target (Minor T1-T3, Major T2-T4).
                     // Empty = every division shoots it. Drives the scoring flow's

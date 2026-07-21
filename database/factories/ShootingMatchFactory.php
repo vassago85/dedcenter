@@ -54,4 +54,12 @@ class ShootingMatchFactory extends Factory
             'alrha_class' => $class,
         ]);
     }
+
+    public function alrhaDualClass(): static
+    {
+        return $this->state([
+            'scoring_type' => 'alrha',
+            'alrha_class' => null,
+        ]);
+    }
 }

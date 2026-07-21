@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Enums\AlrhaClass;
 use App\Enums\MatchStatus;
-use App\Models\ElrScoringProfile;
 use App\Models\MatchCategory;
 use App\Models\MatchRegistration;
 use App\Models\Organization;
@@ -12,6 +11,7 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\Scoring\AlrhaMatchBuilder;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -19,18 +19,24 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * Seeder for a disposable ALRHA test match (default Wed 22 Jul 2026).
+ * Seeder for a disposable dual-class ALRHA test match (default
+ * Wed 22 Jul 2026). One match, both classes running concurrently on
+ * shared relays — mirrors how a real ALRHA event plays out.
  *
- * Purpose: exercise every ALRHA feature end-to-end on the tablet & web —
- * shot-index scoring, CBC-exclusion from match totals, categories, coached-
- * shooter prize exclusion, and both an adjacent-relay shared-rifle conflict
- * (must warn on the squadding page) and a non-adjacent one (must NOT warn).
+ * Exercises every ALRHA feature end-to-end on tablet + web:
+ *  - Dual class stage trees (Hunters + Varmint) on one match
+ *  - Shot-index scoring (5-4-3-2-1) via the ELR pipeline
+ *  - CBC exclusion from class totals + separate CBC prize table
+ *  - Categories (Open / Ladies / Junior)
+ *  - Coached-shooter prize exclusion
+ *  - Adjacent-relay shared-rifle conflict (MUST warn on squadding page)
+ *  - Non-adjacent shared-rifle pairing (MUST NOT warn)
  *
  * Usage on the server:
- *   php artisan match:seed-alrha-test --list                 # find org
- *   php artisan match:seed-alrha-test --org=SLUG --dry-run   # preview
- *   php artisan match:seed-alrha-test --org=SLUG             # seed for real
- *   php artisan match:seed-alrha-test --org=SLUG --class=varmint
+ *   php artisan match:seed-alrha-test --list                  # find org
+ *   php artisan match:seed-alrha-test --org=SLUG --dry-run    # preview
+ *   php artisan match:seed-alrha-test --org=SLUG              # seed for real
+ *   php artisan match:seed-alrha-test --org=SLUG --classes=hunters,varmint
  */
 class SeedAlrhaTestMatch extends Command
 {
@@ -38,12 +44,12 @@ class SeedAlrhaTestMatch extends Command
         {--org= : Organization slug or id that owns the match}
         {--md= : Match director email or user id (defaults to the org owner)}
         {--date=2026-07-22 : Match date (Y-m-d) — defaults to Wed 22 Jul 2026}
-        {--class=hunters : ALRHA class — "hunters" (teams of 2) or "varmint" (individual)}
+        {--classes=hunters,varmint : Comma-separated ALRHA classes to seed (default both)}
         {--name= : Override the match name}
         {--list : List organizations (with owners) and exit}
         {--dry-run : Run inside a rolled-back transaction and print the summary only}';
 
-    protected $description = 'Seed a disposable ALRHA test match (Hunters or Varmint) with 3 relays and realistic squad, rifle-sharing, coached, and category data.';
+    protected $description = 'Seed a disposable dual-class ALRHA test match (Hunters + Varmint on shared relays) with rifle-sharing, coached, and category data.';
 
     public function handle(): int
     {
@@ -63,27 +69,41 @@ class SeedAlrhaTestMatch extends Command
             return self::FAILURE;
         }
 
-        $class = AlrhaClass::tryFrom((string) $this->option('class')) ?? AlrhaClass::Hunters;
+        $classes = $this->resolveClasses();
+        if (empty($classes)) {
+            $this->error('At least one class must be picked. Try --classes=hunters,varmint.');
+
+            return self::FAILURE;
+        }
+
         $date = Carbon::parse((string) $this->option('date'));
         $dryRun = (bool) $this->option('dry-run');
+        $classLabels = collect($classes)->map(fn (AlrhaClass $c) => $c->label())->implode(' + ');
 
         $this->line('Org:     ['.$org->id.'] '.$org->name.'  ('.$org->slug.')');
         $this->line('MD:      ['.$actor->id.'] '.$actor->name.'  <'.$actor->email.'>');
-        $this->line('Class:   '.$class->label().'  ('.$class->value.')');
+        $this->line('Classes: '.$classLabels);
         $this->line('Date:    '.$date->toDateString());
         $this->line('Mode:    '.($dryRun ? 'DRY RUN (rolled back)' : 'LIVE'));
         $this->newLine();
 
-        $run = function () use ($org, $actor, $class, $date) {
+        $run = function () use ($org, $actor, $classes, $date) {
+            $suffix = count($classes) === 1
+                ? $classes[0]->label()
+                : 'Dual-class';
             $name = (string) ($this->option('name')
-                ?: 'TEST — ALRHA '.$class->label().' (safe to delete) — '.$date->format('j M Y'));
+                ?: 'TEST — ALRHA '.$suffix.' (safe to delete) — '.$date->format('j M Y'));
 
-            $match = $this->createAlrhaMatch($org, $actor, $class, $date, $name);
-            $this->applyAlrhaTemplate($match, $class);
-            $seeded = $this->seedRelays($match, $class);
+            $match = $this->createAlrhaMatch($org, $actor, $classes, $date, $name);
+            app(AlrhaMatchBuilder::class)->apply($match, $classes);
+            $seeded = $this->seedRelays($match, $classes);
 
             $this->info('ALRHA test match  [#'.$match->id.'] '.$match->name);
-            $this->line('  class: '.$class->label().' · relays: '.$seeded['relays'].' · shooters: '.$seeded['shooters'].' new / '.$seeded['skipped'].' already present');
+            $this->line('  classes: '.collect($classes)->map(fn ($c) => $c->label())->implode(' + '));
+            $this->line('  relays: '.$seeded['relays'].' · shooters: '.$seeded['shooters'].' new / '.$seeded['skipped'].' already present');
+            foreach ($seeded['per_class'] as $cls => $stats) {
+                $this->line('  · '.$cls.': '.$stats['added'].' new shooters');
+            }
             if ($seeded['coached'] > 0) {
                 $this->line('  coached shooters: '.$seeded['coached'].' (excluded from prize tables)');
             }
@@ -116,6 +136,25 @@ class SeedAlrhaTestMatch extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array<int, AlrhaClass>
+     */
+    private function resolveClasses(): array
+    {
+        $raw = trim((string) $this->option('classes'));
+        if ($raw === '') {
+            return [AlrhaClass::Hunters, AlrhaClass::Varmint];
+        }
+
+        return collect(explode(',', $raw))
+            ->map(fn ($v) => trim($v))
+            ->filter()
+            ->map(fn ($v) => AlrhaClass::tryFrom($v))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function listOrgs(): int
@@ -170,9 +209,19 @@ class SeedAlrhaTestMatch extends Command
             ?? $org->admins()->first();
     }
 
-    /** Idempotently create (or reuse) an ALRHA match. */
-    private function createAlrhaMatch(Organization $org, User $actor, AlrhaClass $class, Carbon $date, string $name): ShootingMatch
+    /**
+     * Idempotently create (or reuse) an ALRHA match. For dual-class
+     * matches we leave `alrha_class` NULL — the class list is derived
+     * from stage tags. Single-class seeds still populate it for
+     * back-compat with older UIs.
+     *
+     * @param  array<int, AlrhaClass>  $classes
+     */
+    private function createAlrhaMatch(Organization $org, User $actor, array $classes, Carbon $date, string $name): ShootingMatch
     {
+        $legacyClass = count($classes) === 1 ? $classes[0]->value : null;
+        $teamSize = collect($classes)->contains(fn (AlrhaClass $c) => $c->hasTeamScoring()) ? 2 : 1;
+
         $match = ShootingMatch::where('organization_id', $org->id)
             ->where('name', $name)
             ->whereDate('date', $date->toDateString())
@@ -185,7 +234,7 @@ class SeedAlrhaTestMatch extends Command
                 'location' => $org->default_location ?? null,
                 'status' => MatchStatus::SquaddingOpen,
                 'scoring_type' => 'alrha',
-                'alrha_class' => $class->value,
+                'alrha_class' => $legacyClass,
                 'side_bet_enabled' => false,
                 'royal_flush_enabled' => false,
                 'elr_distance_based_scoring' => false,
@@ -193,15 +242,15 @@ class SeedAlrhaTestMatch extends Command
                 'scores_published' => false,
                 'concurrent_relays' => 3,
                 'max_squad_size' => 12,
-                'team_size' => $class->hasTeamScoring() ? 2 : 1,
+                'team_size' => $teamSize,
                 'created_by' => $actor->id,
                 'organization_id' => $org->id,
             ]);
         } else {
             $match->update([
                 'scoring_type' => 'alrha',
-                'alrha_class' => $class->value,
-                'team_size' => $class->hasTeamScoring() ? 2 : 1,
+                'alrha_class' => $legacyClass,
+                'team_size' => $teamSize,
             ]);
         }
 
@@ -209,125 +258,37 @@ class SeedAlrhaTestMatch extends Command
     }
 
     /**
-     * Mirrors the `applyAlrhaTemplate()` action in the org match edit Volt
-     * component (see resources/views/pages/org/matches/edit.blade.php).
-     * Kept in sync with that method — if you change the class layout, do it
-     * in both places (or extract to a shared service in a follow-up PR).
+     * Seed up to 3 shared relays with rows from both class rosters.
+     * Every shooter carries `alrha_class` so the scoring app + scoreboard
+     * partition them into per-class prize tables.
+     *
+     * Planted anomalies (shared across both rosters where possible):
+     *  - one coached shooter per class (excluded from prize tables per §4)
+     *  - one adjacent-relay shared-rifle pair (rifle_key "R1↔R2")
+     *  - one non-adjacent shared-rifle pair (rifle_key "R1↔R3")
+     *
+     * @param  array<int, AlrhaClass>  $classes
+     * @return array{relays:int, shooters:int, skipped:int, coached:int, conflicts:list<string>, per_class:array<string, array{added:int}>}
      */
-    private function applyAlrhaTemplate(ShootingMatch $match, AlrhaClass $class): void
+    private function seedRelays(ShootingMatch $match, array $classes): array
     {
-        $profile = ElrScoringProfile::updateOrCreate(
-            ['match_id' => $match->id, 'name' => 'ALRHA 5-4-3-2-1'],
-            ['multipliers' => [5, 4, 3, 2, 1]]
-        );
-        $match->update(['elr_scoring_profile_id' => $profile->id]);
-
-        $match->elrStages()->delete();
-
-        $cbcStage = $match->elrStages()->create([
-            'label' => 'Cold Bore Challenge',
-            'stage_type' => 'static',
-            'elr_scoring_profile_id' => $profile->id,
-            'sort_order' => 1,
-        ]);
-        $cbcStage->targets()->create([
-            'name' => $class->coldBoreTargetName(),
-            'distance_m' => $class->coldBoreDistance(),
-            'base_points' => 1,
-            'max_shots' => 1,
-            'must_hit_to_advance' => false,
-            'sort_order' => 1,
-            'is_cold_bore' => true,
-            'alrha_block' => 'cbc',
-        ]);
-
-        $farStage = $match->elrStages()->create([
-            'label' => 'Far block',
-            'stage_type' => 'static',
-            'elr_scoring_profile_id' => $profile->id,
-            'sort_order' => 2,
-        ]);
-        foreach ($class->farBlockDistances() as $i => $distance) {
-            $farStage->targets()->create([
-                'name' => "{$distance} m",
-                'distance_m' => $distance,
-                'base_points' => 1,
-                'max_shots' => 5,
-                'must_hit_to_advance' => false,
-                'sort_order' => $i + 1,
-                'alrha_block' => 'far',
-            ]);
-        }
-
-        $nearStage = $match->elrStages()->create([
-            'label' => 'Near block',
-            'stage_type' => 'static',
-            'elr_scoring_profile_id' => $profile->id,
-            'sort_order' => 3,
-        ]);
-        foreach ($class->nearBlockDistances() as $i => $distance) {
-            $nearStage->targets()->create([
-                'name' => "{$distance} m",
-                'distance_m' => $distance,
-                'base_points' => 1,
-                'max_shots' => 5,
-                'must_hit_to_advance' => false,
-                'sort_order' => $i + 1,
-                'alrha_block' => 'near',
-            ]);
-        }
-
-        foreach ($class->categorySlugs() as $sort => $slug) {
-            MatchCategory::updateOrCreate(
-                ['match_id' => $match->id, 'slug' => $slug],
-                ['name' => ucfirst($slug), 'sort_order' => $sort],
-            );
-        }
-    }
-
-    /**
-     * Seed 3 relays (matching the Parys 6 Jun 2026 squad-sheet layout).
-     *
-     * Layouts baked in:
-     *  - Hunters:  3 relays × 2 teams × 2 shooters = 12 shooters, 6 teams,
-     *              each team assigned a gong position (1..6, teams in
-     *              Relay 1 use 1–2, Relay 2 uses 3–4, Relay 3 uses 5–6).
-     *  - Varmint:  3 relays × 4 shooters (one peer group of 3 + one spare
-     *              to test rounding) = 12 shooters, each with a unique
-     *              gong position within their relay.
-     *
-     * Also plants:
-     *  - one coached shooter (excluded from prize tables per §4 of the rules)
-     *  - one shared-rifle pair in adjacent relays (should warn)
-     *  - one shared-rifle pair in relays 1 & 3 (non-adjacent — should NOT warn)
-     *
-     * @return array{relays:int, shooters:int, skipped:int, coached:int, conflicts:list<string>}
-     */
-    private function seedRelays(ShootingMatch $match, AlrhaClass $class): array
-    {
-        $rows = $class === AlrhaClass::Hunters
-            ? $this->hunterRoster()
-            : $this->varmintRoster();
+        $existingNames = $match->shooters()->pluck('shooters.name')
+            ->map(fn ($n) => mb_strtolower(trim($n)))->all();
+        $existingNames = array_flip($existingNames);
 
         $added = 0;
         $skipped = 0;
         $coached = 0;
         $relaysTouched = [];
-        $conflicts = [];
+        $perClass = [];
+        $allRows = [];
 
-        $existingNames = $match->shooters()->pluck('shooters.name')
-            ->map(fn ($n) => mb_strtolower(trim($n)))->all();
-        $existingNames = array_flip($existingNames);
-
-        // Pre-create team records for Hunters so `team_id` can be looked up
-        // by name below. Varmint rows have no team key so this stays empty.
+        // Hunter rows carry `team` names; we upsert Team rows before
+        // creating shooters so `team_id` can be looked up by team name.
         $teamsByName = [];
-        if ($class->hasTeamScoring()) {
-            $teamNames = collect($rows)
-                ->pluck('team')
-                ->filter()
-                ->unique()
-                ->values();
+        if (in_array(AlrhaClass::Hunters, $classes, true)) {
+            $hunterRows = $this->hunterRoster();
+            $teamNames = collect($hunterRows)->pluck('team')->filter()->unique()->values();
             foreach ($teamNames as $sort => $teamName) {
                 $team = Team::firstOrCreate(
                     ['match_id' => $match->id, 'name' => $teamName],
@@ -335,13 +296,26 @@ class SeedAlrhaTestMatch extends Command
                 );
                 $teamsByName[$teamName] = $team->id;
             }
+            foreach ($hunterRows as $row) {
+                $row['_class'] = AlrhaClass::Hunters;
+                $allRows[] = $row;
+            }
         }
 
-        foreach ($rows as $i => $row) {
+        if (in_array(AlrhaClass::Varmint, $classes, true)) {
+            foreach ($this->varmintRoster() as $row) {
+                $row['_class'] = AlrhaClass::Varmint;
+                $allRows[] = $row;
+            }
+        }
+
+        foreach ($allRows as $i => $row) {
             $name = trim($row['name']);
             if ($name === '') {
                 continue;
             }
+            /** @var AlrhaClass $rowClass */
+            $rowClass = $row['_class'];
             $relayNum = (int) $row['relay'];
             $squadName = 'Relay '.$relayNum;
 
@@ -368,7 +342,8 @@ class SeedAlrhaTestMatch extends Command
                 'caliber' => isset($row['cartridge']) && $row['cartridge'] !== ''
                     ? Str::limit($row['cartridge'], 60, '')
                     : null,
-                'admin_notes' => 'Seeded ALRHA test match ('.$class->value.').',
+                'admin_notes' => 'Seeded ALRHA test match (dual-class).',
+                'alrha_class' => $rowClass->value,
             ];
             if ($reg) {
                 $reg->update($regData);
@@ -392,14 +367,12 @@ class SeedAlrhaTestMatch extends Command
                 'gong_position' => $row['gong_position'] ?? null,
                 'is_coached' => (bool) ($row['coached'] ?? false),
                 'shared_rifle_key' => $row['rifle_key'] ?? null,
+                'alrha_class' => $rowClass->value,
             ]);
             if ($shooter->is_coached) {
                 $coached++;
             }
 
-            // Attach categories so the prize-table filter has something to
-            // filter on. Every shooter gets 'open'; ladies/junior are picked
-            // per-row for whichever roster row asks for them.
             $categorySlugs = $row['categories'] ?? ['open'];
             $categoryIds = MatchCategory::where('match_id', $match->id)
                 ->whereIn('slug', $categorySlugs)
@@ -411,11 +384,16 @@ class SeedAlrhaTestMatch extends Command
 
             $existingNames[mb_strtolower($name)] = true;
             $added++;
+            $perClass[$rowClass->value] = ($perClass[$rowClass->value] ?? ['added' => 0]);
+            $perClass[$rowClass->value]['added']++;
         }
 
-        // Report which shared-rifle pairs we planted for the MD to sanity-
-        // check the squadding page's warning banner.
-        $byKey = collect($rows)
+        // Shared-rifle conflict summary (checks across classes too — the
+        // ALRHA validator is class-agnostic; two shooters sharing a rifle
+        // in adjacent relays must warn regardless of which class they
+        // shoot).
+        $conflicts = [];
+        $byKey = collect($allRows)
             ->filter(fn ($r) => ! empty($r['rifle_key']))
             ->groupBy('rifle_key');
         foreach ($byKey as $key => $group) {
@@ -440,6 +418,7 @@ class SeedAlrhaTestMatch extends Command
             'skipped' => $skipped,
             'coached' => $coached,
             'conflicts' => $conflicts,
+            'per_class' => $perClass,
         ];
     }
 
@@ -469,14 +448,6 @@ class SeedAlrhaTestMatch extends Command
      * Hunters test roster: 3 relays × 2 teams × 2 shooters = 12 shooters,
      * 6 teams. Gong positions 1–2 in Relay 1, 3–4 in Relay 2, 5–6 in Relay 3
      * (matching the printed Parys sheet).
-     *
-     * Planted issues to exercise the engine:
-     *  - "Test Junior H1" is a junior (extra category)
-     *  - "Test Coach H1" is coached (excluded from prizes)
-     *  - Rifle key "R1↔R2" links a shooter in Relay 1 to one in Relay 2
-     *    (ADJACENT → shared-rifle warning MUST fire)
-     *  - Rifle key "R1↔R3" links a shooter in Relay 1 to one in Relay 3
-     *    (NON-adjacent → warning MUST NOT fire)
      *
      * @return list<array{relay:int, name:string, team:string, gong_position:int, cartridge?:string, coached?:bool, rifle_key?:string, categories?:list<string>}>
      */
@@ -510,19 +481,19 @@ class SeedAlrhaTestMatch extends Command
     private function varmintRoster(): array
     {
         return [
-            ['relay' => 1, 'name' => 'Test Varmint A1', 'gong_position' => 1, 'cartridge' => '6 Dasher', 'rifle_key' => 'R1↔R2'],
+            ['relay' => 1, 'name' => 'Test Varmint A1', 'gong_position' => 1, 'cartridge' => '6 Dasher'],
             ['relay' => 1, 'name' => 'Test Varmint A2', 'gong_position' => 2, 'cartridge' => '6 GT'],
-            ['relay' => 1, 'name' => 'Test Lady V1', 'gong_position' => 3, 'cartridge' => '6.5 Creedmoor', 'categories' => ['open', 'ladies'], 'rifle_key' => 'R1↔R3'],
+            ['relay' => 1, 'name' => 'Test Lady V1', 'gong_position' => 3, 'cartridge' => '6.5 Creedmoor', 'categories' => ['open', 'ladies']],
             ['relay' => 1, 'name' => 'Test Varmint A4', 'gong_position' => 4, 'cartridge' => '6 XC'],
 
-            ['relay' => 2, 'name' => 'Test Varmint B1', 'gong_position' => 1, 'cartridge' => '6 Dasher', 'rifle_key' => 'R1↔R2'],
+            ['relay' => 2, 'name' => 'Test Varmint B1', 'gong_position' => 1, 'cartridge' => '6 Dasher'],
             ['relay' => 2, 'name' => 'Test Junior V1', 'gong_position' => 2, 'cartridge' => '6.5 Creedmoor', 'categories' => ['open', 'junior']],
             ['relay' => 2, 'name' => 'Test Coach V1', 'gong_position' => 3, 'cartridge' => '6 XC', 'coached' => true],
             ['relay' => 2, 'name' => 'Test Varmint B4', 'gong_position' => 4, 'cartridge' => '6 GT'],
 
             ['relay' => 3, 'name' => 'Test Varmint C1', 'gong_position' => 1, 'cartridge' => '6 SLR'],
             ['relay' => 3, 'name' => 'Test Varmint C2', 'gong_position' => 2, 'cartridge' => '6 GT'],
-            ['relay' => 3, 'name' => 'Test Varmint C3', 'gong_position' => 3, 'cartridge' => '6.5 Creedmoor', 'rifle_key' => 'R1↔R3'],
+            ['relay' => 3, 'name' => 'Test Varmint C3', 'gong_position' => 3, 'cartridge' => '6.5 Creedmoor'],
             ['relay' => 3, 'name' => 'Test Varmint C4', 'gong_position' => 4, 'cartridge' => '6 Dasher'],
         ];
     }

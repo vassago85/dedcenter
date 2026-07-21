@@ -45,6 +45,15 @@ new #[Layout('components.layouts.app')]
     public string $entry_fee = '';
     public string $scoring_type = 'standard';
     public string $alrha_class = '';
+
+    /**
+     * ALRHA classes running on this match. See org edit for the full
+     * rationale — dual-class is the norm; a single-item array means the
+     * event runs only that class (kept for back-compat).
+     *
+     * @var array<int, string>
+     */
+    public array $alrha_apply_classes = ['hunters', 'varmint'];
     public bool $side_bet_enabled = false;
     public bool $royal_flush_enabled = false;
     public array $sideBetShooterIds = [];
@@ -132,6 +141,11 @@ new #[Layout('components.layouts.app')]
             $this->public_bio = $match->public_bio ?? '';
             $this->entry_fee = $match->entry_fee ? (string) $match->entry_fee : '';
             $this->alrha_class = $match->alrha_class?->value ?? '';
+
+            $present = collect($match->alrhaClasses())->map(fn ($c) => $c->value)->all();
+            if (! empty($present)) {
+                $this->alrha_apply_classes = $present;
+            }
             $this->scoring_type = in_array($match->scoring_type, ['standard', 'prs', 'elr', 'alrha'], true)
                 ? $match->scoring_type
                 : 'standard';
@@ -182,9 +196,12 @@ new #[Layout('components.layouts.app')]
         $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
-        $validated['alrha_class'] = $this->scoring_type === 'alrha'
-            ? ($this->alrha_class !== '' ? $this->alrha_class : 'hunters')
-            : null;
+        if ($this->scoring_type === 'alrha') {
+            $enabled = array_values(array_intersect(['hunters', 'varmint'], $this->alrha_apply_classes));
+            $validated['alrha_class'] = count($enabled) === 1 ? $enabled[0] : null;
+        } else {
+            $validated['alrha_class'] = null;
+        }
         $validated['scores_published'] = $this->scores_published;
         $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
 
@@ -1533,18 +1550,32 @@ new #[Layout('components.layouts.app')]
 
                     @if($scoring_type === 'alrha')
                         <div class="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
-                            <label class="block text-xs font-medium text-secondary mb-2">ALRHA Class</label>
+                            <label class="block text-xs font-medium text-secondary mb-2">ALRHA Classes running today</label>
+                            <p class="mb-3 text-xs text-muted">
+                                ALRHA runs both classes concurrently on the same day. A shooter picks one at entry.
+                                Uncheck a class only if this event runs a single class.
+                            </p>
                             <div class="grid grid-cols-2 gap-2">
-                                <button type="button" wire:click="$set('alrha_class', 'hunters')"
-                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'hunters' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
-                                    <div class="text-sm font-medium text-primary">LR Hunters</div>
-                                    <div class="text-xs text-muted mt-0.5">Teams of 2. 1000 / 900 / 700 / 600 / 400 m. CBC on Springbuck cut-out (1000 m).</div>
-                                </button>
-                                <button type="button" wire:click="$set('alrha_class', 'varmint')"
-                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'varmint' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
-                                    <div class="text-sm font-medium text-primary">LR Varmint</div>
-                                    <div class="text-xs text-muted mt-0.5">Individual. 700 / 600 / 500 / 400 / 300 m. CBC on Jackal cut-out (700 m).</div>
-                                </button>
+                                <label class="block cursor-pointer rounded-lg border p-3 transition-colors {{ in_array('hunters', $alrha_apply_classes, true) ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="flex items-start gap-3">
+                                        <input type="checkbox" value="hunters" wire:model.live="alrha_apply_classes"
+                                               class="mt-1 h-4 w-4 rounded border-slate-600 bg-surface-2 text-sky-500 focus:ring-sky-500 focus:ring-offset-0" />
+                                        <div>
+                                            <div class="text-sm font-medium text-primary">LR Hunters</div>
+                                            <div class="text-xs text-muted mt-0.5">Teams of 2. 1000 / 900 / 700 / 600 / 400 m. CBC on Springbuck cut-out (1000 m).</div>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="block cursor-pointer rounded-lg border p-3 transition-colors {{ in_array('varmint', $alrha_apply_classes, true) ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="flex items-start gap-3">
+                                        <input type="checkbox" value="varmint" wire:model.live="alrha_apply_classes"
+                                               class="mt-1 h-4 w-4 rounded border-slate-600 bg-surface-2 text-sky-500 focus:ring-sky-500 focus:ring-offset-0" />
+                                        <div>
+                                            <div class="text-sm font-medium text-primary">LR Varmint</div>
+                                            <div class="text-xs text-muted mt-0.5">Individual. 700 / 600 / 500 / 400 / 300 m. CBC on Jackal cut-out (700 m).</div>
+                                        </div>
+                                    </div>
+                                </label>
                             </div>
                         </div>
                     @endif

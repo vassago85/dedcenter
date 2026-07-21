@@ -119,6 +119,7 @@ new #[Layout('components.layouts.app')]
                 'name' => $reg->user->name,
                 'user_id' => $reg->user_id,
                 'sort_order' => Shooter::where('squad_id', $holder->id)->max('sort_order') + 1,
+                'alrha_class' => $reg->alrha_class?->value,
             ]);
         }
 
@@ -184,7 +185,13 @@ new #[Layout('components.layouts.app')]
         foreach ($regsToAssign as $reg) {
             $squad = $match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
             $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-            Shooter::create(['squad_id' => $squad->id, 'name' => $reg->user->name, 'user_id' => $reg->user_id, 'sort_order' => $maxSort + 1]);
+            Shooter::create([
+                'squad_id' => $squad->id,
+                'name' => $reg->user->name,
+                'user_id' => $reg->user_id,
+                'sort_order' => $maxSort + 1,
+                'alrha_class' => $reg->alrha_class?->value,
+            ]);
         }
 
         $allShooters = $match->shooters()->get();
@@ -282,6 +289,7 @@ new #[Layout('components.layouts.app')]
                 'user_id' => $reg->user_id,
                 'sort_order' => $maxSort + 1,
                 'match_division_id' => $reg->division_id,
+                'alrha_class' => $reg->alrha_class?->value,
             ]);
             if ($reg->category_id) {
                 $newShooter->categories()->syncWithoutDetaching([$reg->category_id]);
@@ -663,6 +671,56 @@ new #[Layout('components.layouts.app')]
         $shooter->update(['match_division_id' => $divId]);
     }
 
+    public function setShooterAlrhaClass(int $shooterId, ?string $class): void
+    {
+        $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
+        if (! $shooter) {
+            return;
+        }
+
+        $value = in_array($class, ['hunters', 'varmint'], true) ? $class : null;
+        $shooter->update(['alrha_class' => $value]);
+        Flux::toast("{$shooter->name} set to " . ($value ? ucfirst($value) : 'no class') . '.', variant: 'success');
+    }
+
+    /**
+     * Bulk-fill missing ALRHA classes from confirmed registrations. Useful
+     * on a dual-class ALRHA match after everyone has picked their class
+     * at registration but before the MD has squadded them.
+     */
+    public function backfillAlrhaClassesFromRegistrations(): void
+    {
+        if (! $this->match->isAlrha()) {
+            return;
+        }
+
+        $missing = $this->match->shooters()
+            ->whereNull('shooters.alrha_class')
+            ->whereNotNull('shooters.user_id')
+            ->get();
+
+        $regsByUser = $this->match->registrations()
+            ->whereNotNull('alrha_class')
+            ->get()
+            ->keyBy('user_id');
+
+        $updated = 0;
+        foreach ($missing as $shooter) {
+            $reg = $regsByUser->get($shooter->user_id);
+            if ($reg && $reg->alrha_class) {
+                $shooter->update(['alrha_class' => $reg->alrha_class->value]);
+                $updated++;
+            }
+        }
+
+        Flux::toast(
+            $updated > 0
+                ? "Backfilled ALRHA class for {$updated} " . \Illuminate\Support\Str::plural('shooter', $updated) . '.'
+                : 'Nothing to backfill — every squadded shooter already has a class.',
+            variant: $updated > 0 ? 'success' : 'warning',
+        );
+    }
+
     public function with(): array
     {
         $scoringType = strtolower($this->match->scoring_type ?? '');
@@ -1006,6 +1064,13 @@ new #[Layout('components.layouts.app')]
                                                         {{ $shooter->name }}
                                                         @if(!$shooter->user_id)
                                                             <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-amber-500/10 text-amber-400">walk-in</span>
+                                                        @endif
+                                                        @if($isAlrha && $shooter->alrha_class)
+                                                            <span class="ml-1 rounded px-1 py-0.5 text-[9px] font-medium ring-1 ring-inset {{ $shooter->alrha_class->value === 'hunters' ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20' : 'bg-sky-500/10 text-sky-300 ring-sky-500/20' }}">
+                                                                {{ $shooter->alrha_class->value === 'hunters' ? 'H' : 'V' }}
+                                                            </span>
+                                                        @elseif($isAlrha)
+                                                            <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-red-500/10 text-red-300 ring-1 ring-inset ring-red-500/20" title="No ALRHA class set">?</span>
                                                         @endif
                                                     </td>
                                                     @if($showDivision)

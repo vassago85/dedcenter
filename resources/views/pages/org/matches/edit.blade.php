@@ -53,6 +53,16 @@ new #[Layout('components.layouts.app')]
     public string $registration_closes_at = '';
     public string $scoring_type = 'standard';
     public string $alrha_class = '';
+
+    /**
+     * Which ALRHA classes should the Apply Template button build stages
+     * for. Dual-class is the norm (Hunters + Varmint run concurrently on
+     * the same day); leave both checked unless you specifically want a
+     * single-class event.
+     *
+     * @var array<int, string>
+     */
+    public array $alrha_apply_classes = ['hunters', 'varmint'];
     public bool $scores_published = true;
     public int $leaderboard_points = 100;
     public ?int $season_id = null;
@@ -181,6 +191,11 @@ new #[Layout('components.layouts.app')]
                 ? $match->scoring_type
                 : 'standard';
             $this->alrha_class = $match->alrha_class?->value ?? '';
+
+            $present = collect($match->alrhaClasses())->map(fn ($c) => $c->value)->all();
+            if (! empty($present)) {
+                $this->alrha_apply_classes = $present;
+            }
             $this->concurrent_relays = $match->concurrent_relays ?? 2;
             $this->scores_published = (bool) ($match->scores_published ?? true);
             $this->leaderboard_points = (int) ($match->leaderboard_points ?? 100);
@@ -237,9 +252,15 @@ new #[Layout('components.layouts.app')]
         $validated['royal_flush_enabled'] = $orgIsRf && $this->scoring_type === 'standard' && $this->royal_flush_enabled;
         $validated['side_bet_enabled'] = $validated['royal_flush_enabled'] && $this->side_bet_enabled;
         $validated['concurrent_relays'] = $this->scoring_type === 'standard' ? max(1, $this->concurrent_relays) : 1;
-        $validated['alrha_class'] = $this->scoring_type === 'alrha'
-            ? ($this->alrha_class !== '' ? $this->alrha_class : 'hunters')
-            : null;
+        if ($this->scoring_type === 'alrha') {
+            // Match-level class is legacy: only persist it for single-class
+            // matches so old consumers (scoreboard, native app pre-dual)
+            // keep working. Dual-class matches read from shooter + stage tags.
+            $enabled = array_values(array_intersect(['hunters', 'varmint'], $this->alrha_apply_classes));
+            $validated['alrha_class'] = count($enabled) === 1 ? $enabled[0] : null;
+        } else {
+            $validated['alrha_class'] = null;
+        }
         $validated['scores_published'] = $this->scores_published;
         $validated['leaderboard_points'] = max(1, (int) $this->leaderboard_points);
         // Only assign a season when the org actually owns the chosen season —
@@ -1198,97 +1219,27 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
-        $class = \App\Enums\AlrhaClass::tryFrom($this->alrha_class ?: 'hunters')
-            ?? \App\Enums\AlrhaClass::Hunters;
+        $classes = collect($this->alrha_apply_classes)
+            ->map(fn ($v) => \App\Enums\AlrhaClass::tryFrom((string) $v))
+            ->filter()
+            ->values()
+            ->all();
 
-        // Persist the class in case the user hasn't hit Save yet — the
-        // template can only be applied after the match has an id.
-        $this->match->update([
-            'scoring_type' => 'alrha',
-            'alrha_class' => $class->value,
-            'elr_distance_based_scoring' => false,
-        ]);
-
-        $profile = \App\Models\ElrScoringProfile::updateOrCreate(
-            ['match_id' => $this->match->id, 'name' => 'ALRHA 5-4-3-2-1'],
-            ['multipliers' => [5, 4, 3, 2, 1]]
-        );
-        $this->match->update(['elr_scoring_profile_id' => $profile->id]);
-
-        $this->match->elrStages()->delete();
-
-        // Stage 1: Cold Bore Challenge (its own stage so it can be totalled
-        // separately and printed on the CBC prize table).
-        $cbcStage = $this->match->elrStages()->create([
-            'label' => 'Cold Bore Challenge',
-            'stage_type' => 'static',
-            'elr_scoring_profile_id' => $profile->id,
-            'sort_order' => 1,
-        ]);
-        $cbcStage->targets()->create([
-            'name' => $class->coldBoreTargetName(),
-            'distance_m' => $class->coldBoreDistance(),
-            'base_points' => 1,
-            'max_shots' => 1,
-            'must_hit_to_advance' => false,
-            'sort_order' => 1,
-            'is_cold_bore' => true,
-            'alrha_block' => 'cbc',
-        ]);
-
-        // Stage 2: Far block (top 2 distances).
-        $farStage = $this->match->elrStages()->create([
-            'label' => 'Far block',
-            'stage_type' => 'static',
-            'elr_scoring_profile_id' => $profile->id,
-            'sort_order' => 2,
-        ]);
-        foreach ($class->farBlockDistances() as $i => $distance) {
-            $farStage->targets()->create([
-                'name' => "{$distance} m",
-                'distance_m' => $distance,
-                'base_points' => 1,
-                'max_shots' => 5,
-                'must_hit_to_advance' => false,
-                'sort_order' => $i + 1,
-                'alrha_block' => 'far',
-            ]);
+        if (empty($classes)) {
+            Flux::toast('Pick at least one ALRHA class to build stages for.', variant: 'warning');
+            return;
         }
 
-        // Stage 3: Near block (bottom 3 distances).
-        $nearStage = $this->match->elrStages()->create([
-            'label' => 'Near block',
-            'stage_type' => 'static',
-            'elr_scoring_profile_id' => $profile->id,
-            'sort_order' => 3,
-        ]);
-        foreach ($class->nearBlockDistances() as $i => $distance) {
-            $nearStage->targets()->create([
-                'name' => "{$distance} m",
-                'distance_m' => $distance,
-                'base_points' => 1,
-                'max_shots' => 5,
-                'must_hit_to_advance' => false,
-                'sort_order' => $i + 1,
-                'alrha_block' => 'near',
-            ]);
-        }
-
-        // Categories for the prize tables. Hunters has no Ladies section.
-        foreach ($class->categorySlugs() as $sort => $slug) {
-            \App\Models\MatchCategory::updateOrCreate(
-                ['match_id' => $this->match->id, 'slug' => $slug],
-                [
-                    'name' => ucfirst($slug),
-                    'sort_order' => $sort,
-                ],
-            );
-        }
+        app(\App\Services\Scoring\AlrhaMatchBuilder::class)->apply($this->match, $classes);
 
         $this->elrProfileMultipliers = '5, 4, 3, 2, 1';
         $this->match->refresh();
 
-        Flux::toast("ALRHA {$class->label()} template applied.", variant: 'success');
+        $label = count($classes) === 2
+            ? 'Hunters + Varmint'
+            : $classes[0]->label();
+
+        Flux::toast("ALRHA {$label} template applied.", variant: 'success');
     }
 
     public function updateElrProfile(): void
@@ -1947,18 +1898,32 @@ new #[Layout('components.layouts.app')]
 
                     @if($scoring_type === 'alrha')
                         <div class="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
-                            <label class="block text-xs font-medium text-secondary mb-2">ALRHA Class</label>
+                            <label class="block text-xs font-medium text-secondary mb-2">ALRHA Classes running today</label>
+                            <p class="mb-3 text-xs text-muted">
+                                ALRHA runs both classes concurrently on the same day. A shooter picks one at entry.
+                                Uncheck a class only if this event runs a single class.
+                            </p>
                             <div class="grid grid-cols-2 gap-2">
-                                <button type="button" wire:click="$set('alrha_class', 'hunters')"
-                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'hunters' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
-                                    <div class="text-sm font-medium text-primary">LR Hunters</div>
-                                    <div class="text-xs text-muted mt-0.5">Teams of 2. 1000 / 900 / 700 / 600 / 400 m. CBC on Springbuck cut-out (1000 m).</div>
-                                </button>
-                                <button type="button" wire:click="$set('alrha_class', 'varmint')"
-                                        class="rounded-lg border p-3 text-left transition-colors {{ $alrha_class === 'varmint' ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
-                                    <div class="text-sm font-medium text-primary">LR Varmint</div>
-                                    <div class="text-xs text-muted mt-0.5">Individual. 700 / 600 / 500 / 400 / 300 m. CBC on Jackal cut-out (700 m).</div>
-                                </button>
+                                <label class="block cursor-pointer rounded-lg border p-3 transition-colors {{ in_array('hunters', $alrha_apply_classes, true) ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="flex items-start gap-3">
+                                        <input type="checkbox" value="hunters" wire:model.live="alrha_apply_classes"
+                                               class="mt-1 h-4 w-4 rounded border-slate-600 bg-surface-2 text-sky-500 focus:ring-sky-500 focus:ring-offset-0" />
+                                        <div>
+                                            <div class="text-sm font-medium text-primary">LR Hunters</div>
+                                            <div class="text-xs text-muted mt-0.5">Teams of 2. 1000 / 900 / 700 / 600 / 400 m. CBC on Springbuck cut-out (1000 m).</div>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="block cursor-pointer rounded-lg border p-3 transition-colors {{ in_array('varmint', $alrha_apply_classes, true) ? 'border-sky-500 bg-sky-600/10' : 'border-border bg-app hover:border-sky-500/50' }}">
+                                    <div class="flex items-start gap-3">
+                                        <input type="checkbox" value="varmint" wire:model.live="alrha_apply_classes"
+                                               class="mt-1 h-4 w-4 rounded border-slate-600 bg-surface-2 text-sky-500 focus:ring-sky-500 focus:ring-offset-0" />
+                                        <div>
+                                            <div class="text-sm font-medium text-primary">LR Varmint</div>
+                                            <div class="text-xs text-muted mt-0.5">Individual. 700 / 600 / 500 / 400 / 300 m. CBC on Jackal cut-out (700 m).</div>
+                                        </div>
+                                    </div>
+                                </label>
                             </div>
                         </div>
                     @endif
@@ -2836,8 +2801,16 @@ new #[Layout('components.layouts.app')]
                     {{ $scoring_type === 'alrha' ? 'ALRHA Stages' : 'ELR Stages' }}
                 </h2>
                 @if($scoring_type === 'alrha')
-                    <button wire:click="applyAlrhaTemplate" class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">
-                        Apply ALRHA {{ ucfirst($alrha_class ?: 'hunters') }} Template
+                    @php
+                        $applyLabel = count($alrha_apply_classes) === 2
+                            ? 'Apply Hunters + Varmint Template'
+                            : (count($alrha_apply_classes) === 1
+                                ? 'Apply '.ucfirst($alrha_apply_classes[0]).' Template'
+                                : 'Select a class first');
+                    @endphp
+                    <button wire:click="applyAlrhaTemplate" @if(empty($alrha_apply_classes)) disabled @endif
+                            class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                        {{ $applyLabel }}
                     </button>
                 @else
                     <button wire:click="applyElrTemplate" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
