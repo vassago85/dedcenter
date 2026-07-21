@@ -193,7 +193,7 @@ class SeedAlrhaTestMatch extends Command
                 'scores_published' => false,
                 'concurrent_relays' => 3,
                 'max_squad_size' => 12,
-                'team_size' => $class->hasTeamScoring() ? 2 : null,
+                'team_size' => $class->hasTeamScoring() ? 2 : 1,
                 'created_by' => $actor->id,
                 'organization_id' => $org->id,
             ]);
@@ -201,7 +201,7 @@ class SeedAlrhaTestMatch extends Command
             $match->update([
                 'scoring_type' => 'alrha',
                 'alrha_class' => $class->value,
-                'team_size' => $class->hasTeamScoring() ? 2 : null,
+                'team_size' => $class->hasTeamScoring() ? 2 : 1,
             ]);
         }
 
