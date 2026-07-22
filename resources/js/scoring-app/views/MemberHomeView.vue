@@ -13,6 +13,11 @@
                     <span class="text-white/90">DEAD</span><span class="text-red-500">CENTER</span>
                 </h1>
                 <div class="ml-auto flex items-center gap-3">
+                    <!--
+                        Web-only escape hatch back to the DeadCenter shell.
+                        Hidden on the Android standalone APK.
+                    -->
+                    <ExitScoringAppLink variant="inline" />
                     <button
                         @click="showNotifications = !showNotifications"
                         class="relative text-slate-400 hover:text-white transition-colors"
@@ -241,6 +246,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 import axios from 'axios';
 import MatchCard from '../components/MemberMatchCard.vue';
+import ExitScoringAppLink from '../components/ExitScoringAppLink.vue';
 
 const router = useRouter();
 const userStore = useUserStore();

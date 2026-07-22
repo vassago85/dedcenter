@@ -54,6 +54,11 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'can_score' => $user->canScore(),
+                // Full-page destination for the "Exit scoring app" link on
+                // web. Uses the role-aware home resolver so an org admin
+                // ends up on their org dashboard, a platform admin ends up
+                // on /admin, and a shooter ends up on /dashboard.
+                'home_url' => user_home_path($user),
             ],
         ]);
     }

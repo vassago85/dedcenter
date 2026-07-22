@@ -8,11 +8,21 @@
             <span class="text-sm text-slate-400">Loading...</span>
         </div>
     </div>
-    <router-view v-else />
+    <template v-else>
+        <router-view />
+        <!--
+            Global "back to DeadCenter" escape hatch. Renders as a floating
+            pill in the top-left corner so it never fights with a per-view
+            header. Hidden on the Android standalone APK — see
+            `ExitScoringAppLink.vue`.
+        -->
+        <ExitScoringAppLink />
+    </template>
 </template>
 
 <script setup>
 import { useUserStore } from './stores/userStore';
+import ExitScoringAppLink from './components/ExitScoringAppLink.vue';
 
 const userStore = useUserStore();
 userStore.fetchUser();

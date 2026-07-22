@@ -13,6 +13,13 @@
                     <span class="text-white/90">DEAD</span><span class="text-red-500">CENTER</span>
                 </h1>
                 <div class="ml-auto flex items-center gap-3">
+                    <!--
+                        Web-only escape hatch back to the DeadCenter shell
+                        (dashboard / org / admin, per role). Hidden on the
+                        Android standalone APK, where there's no wider app
+                        to return to.
+                    -->
+                    <ExitScoringAppLink variant="inline" />
                     <button
                         v-if="userStore.canScore"
                         @click="switchToMemberMode"
@@ -112,6 +119,7 @@ import { useUserStore } from '../stores/userStore';
 import { db } from '../db/index';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceRoleChip from '../components/DeviceRoleChip.vue';
+import ExitScoringAppLink from '../components/ExitScoringAppLink.vue';
 
 const SQUAD_LOCK_KEY = 'dc_locked_squad';
 const STAGE_LOCK_KEY = 'dc_locked_stage';
