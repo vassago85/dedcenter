@@ -10,6 +10,11 @@
                     <h1 class="mt-1 text-xl font-semibold text-white">{{ match?.name ?? 'Match' }}</h1>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    <SyncBadge
+                        :pending="elrStore.pendingCount"
+                        :syncing="elrStore.syncing"
+                        @sync="elrStore.syncShots()"
+                    />
                     <button v-for="squad in squads" :key="squad.id"
                         @click="selectSquad(squad.id)"
                         :class="[
@@ -53,12 +58,44 @@
                 </button>
             </div>
 
+            <!-- Shooter jump strip: parity with the classic scoring flow.
+                 Tap a chip to jump directly to that shooter — no need to
+                 walk through prev/next. Tinted green once the shooter has
+                 any recorded shots so the RO can see who's still empty. -->
+            <div v-if="shooters.length > 1" class="mb-3 -mx-4 overflow-x-auto px-4 py-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-500 flex-shrink-0">Jump</span>
+                    <button
+                        v-for="(s, idx) in shooters"
+                        :key="s.id"
+                        @click="jumpToShooter(idx)"
+                        :class="[
+                            'flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                            idx === activeShooterIndex
+                                ? 'border-sky-400 bg-sky-600/25 text-sky-100'
+                                : shooterHasAnyShots(s.id)
+                                    ? 'border-emerald-700/70 bg-emerald-900/20 text-emerald-200 hover:border-emerald-400'
+                                    : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:text-white',
+                        ]"
+                    >
+                        <span v-if="isDualClass && s.alrha_class"
+                            :class="[
+                                'rounded px-1 py-0.5 text-[9px] font-bold',
+                                s.alrha_class === 'hunters' ? 'bg-emerald-500/30 text-emerald-100' : 'bg-sky-500/30 text-sky-100',
+                            ]">
+                            {{ s.alrha_class === 'hunters' ? 'H' : 'V' }}
+                        </span>
+                        <span class="truncate max-w-[7rem]">{{ shortName(s.name) }}</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Shooter card -->
             <div v-if="activeShooter" class="mb-6 rounded-xl border border-slate-700 bg-slate-800/60 p-4">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="text-xs uppercase tracking-widest text-slate-400">
-                            Now scoring · Gong {{ activeShooter.gong_position ?? '—' }}
+                            Now scoring · Shooter {{ activeShooterIndex + 1 }}/{{ shooters.length }}
                             <span v-if="isDualClass && activeShooter.alrha_class"
                                 :class="[
                                     'ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold',
@@ -137,14 +174,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useMatchStore } from '../stores/matchStore';
+import { useElrScoringStore } from '../stores/elrScoringStore';
+import SyncBadge from '../components/SyncBadge.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
 });
 
 const matchStore = useMatchStore();
+// ALRHA rides the same ELR shot pipeline (elr_shots table, /elr-shots
+// endpoint, Dexie-backed queue). Using this store — instead of the
+// no-op we had before — is what actually persists shots to the server
+// and back-populates the scoreboard. Without it every tap disappeared
+// on refresh and the standings API had nothing to score.
+const elrStore = useElrScoringStore();
 const activeSquadId = ref(null);
 const activeShooterIndex = ref(0);
 const activeBlock = ref('far');
@@ -234,8 +279,6 @@ const blockTargets = computed(() => {
         });
 });
 
-const shotsForShooter = ref({});
-
 function selectSquad(id) {
     activeSquadId.value = id;
     activeShooterIndex.value = 0;
@@ -251,50 +294,109 @@ function nextShooter() {
     if (activeShooterIndex.value < shooters.value.length - 1) activeShooterIndex.value++;
 }
 
+// Jump directly to a shooter — matches the classic scoring flow so
+// the RO experience is identical across scoring modes.
+function jumpToShooter(idx) {
+    if (idx < 0 || idx >= shooters.value.length) return;
+    activeShooterIndex.value = idx;
+}
+
+// Cheap check to tint the jump chip: does this shooter have any
+// recorded shot at all in the current session? Walking the whole
+// shots Map is fine at match-day scale (a few hundred entries max).
+function shooterHasAnyShots(shooterId) {
+    for (const shot of elrStore.shots.values()) {
+        if (shot.shooterId === shooterId && shot.result && shot.result !== 'not_taken') {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Short display name for the jump chip so a long "Katherine
+// Featherington-Smyth" doesn't blow out the horizontal strip.
+function shortName(name) {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
 function pointsForShot(shotNumber) {
     const multipliers = match.value?.elr_scoring_profile?.multipliers ?? [5, 4, 3, 2, 1];
     return multipliers[shotNumber - 1] ?? 0;
 }
 
+// Read the persisted shot for the active shooter/target/shot from the
+// ELR store (which is hydrated from Dexie + server on mount and kept in
+// sync every 15s). This is what makes the buttons "remember" their state
+// across reloads and reflect anything scored on another device.
 function resultFor(targetId, shotNumber) {
-    const key = `${activeShooter.value?.id}:${targetId}:${shotNumber}`;
-    return shotsForShooter.value[key] ?? null;
+    if (!activeShooter.value) return null;
+    const shots = elrStore.getShotsForTarget(activeShooter.value.id, targetId);
+    const shot = shots.find(s => s.shotNumber === shotNumber);
+    if (!shot) return null;
+    // A neutralized shot (undo of a synced shot) counts as unrecorded so
+    // the RO can re-enter it.
+    if (shot.result === 'not_taken') return null;
+    return shot.result;
 }
 
 function shotsHitFor(targetId) {
     if (!activeShooter.value) return 0;
-    let count = 0;
-    for (const key in shotsForShooter.value) {
-        if (key.startsWith(`${activeShooter.value.id}:${targetId}:`) && shotsForShooter.value[key] === 'hit') {
-            count++;
-        }
-    }
-    return count;
+    return elrStore
+        .getShotsForTarget(activeShooter.value.id, targetId)
+        .filter(s => s.result === 'hit')
+        .length;
 }
 
 async function recordShot(target, shotNumber, result) {
     if (!activeShooter.value) return;
-    const key = `${activeShooter.value.id}:${target.id}:${shotNumber}`;
-    shotsForShooter.value = { ...shotsForShooter.value, [key]: result };
 
-    // Queue the shot for offline sync (matchStore is responsible for the
-    // eventual POST /matches/{id}/elr-shots call — identical payload to
-    // ELR, so ALRHA piggy-backs on the existing pipeline).
-    if (matchStore.queueElrShot) {
-        matchStore.queueElrShot({
-            shooter_id: activeShooter.value.id,
-            elr_target_id: target.id,
-            shot_number: shotNumber,
-            result,
-            device_id: matchStore.deviceId ?? 'unknown',
-            recorded_at: new Date().toISOString(),
-        });
-    }
+    const points = result === 'hit' ? pointsForShot(shotNumber) : 0;
+
+    // Persist through the shared ELR pipeline: Dexie write immediately
+    // (so the button stays lit even offline), background sync every 15s
+    // pushes to POST /matches/{id}/elr-shots, and AlrhaScoringService on
+    // the server picks it up when it partitions per class. This is the
+    // same path ELRScoringFlow uses — ALRHA just piggy-backs.
+    await elrStore.recordShot({
+        matchId: props.matchId,
+        shooterId: activeShooter.value.id,
+        elrTargetId: target.id,
+        shotNumber,
+        result,
+        pointsAwarded: points,
+    });
 }
 
-onMounted(() => {
+let syncInterval;
+
+onMounted(async () => {
+    if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
+        await matchStore.fetchMatch(props.matchId);
+    }
+    await elrStore.initForMatch(props.matchId);
+
     if (squads.value.length) {
         activeSquadId.value = squads.value[0].id;
     }
+
+    // Same 15s sync loop as ELRScoringFlow so pending taps land on the
+    // server without the RO having to press a button.
+    syncInterval = setInterval(async () => {
+        if (!navigator.onLine) return;
+        if (elrStore.pendingCount > 0) {
+            await elrStore.syncShots();
+        }
+        try {
+            await matchStore.fetchMatch(props.matchId);
+            await elrStore.refreshShots(props.matchId);
+        } catch { /* offline / transient */ }
+    }, 15000);
+});
+
+onUnmounted(() => {
+    clearInterval(syncInterval);
 });
 </script>

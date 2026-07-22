@@ -438,6 +438,32 @@
                         <p class="mt-1 text-sm text-amber-400">{{ effectiveMultiplier }}x points</p>
                     </div>
 
+                    <!-- Shooter jump strip: RO can jump to any shooter in
+                         the current relay without walking prev/next. Colored
+                         by whether that shooter has already been scored on
+                         the current gong so gaps stand out at a glance. -->
+                    <div v-if="shooters.length > 1" class="mb-3 -mx-4 overflow-x-auto px-4 py-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-500 flex-shrink-0">Jump</span>
+                            <button
+                                v-for="(s, idx) in shooters"
+                                :key="s.id"
+                                @click="jumpToShooter(idx)"
+                                :class="[
+                                    'flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                                    idx === scoringStore.currentShooterIndex
+                                        ? 'border-red-500 bg-red-600/20 text-red-100'
+                                        : shooterHasCurrentGongScore(s.id)
+                                            ? 'border-green-700/70 bg-green-900/20 text-green-300 hover:border-green-500'
+                                            : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:text-white',
+                                ]"
+                            >
+                                <span v-if="s.bib_number" class="text-[10px] opacity-70">#{{ s.bib_number }}</span>
+                                <span class="truncate max-w-[7rem]">{{ shortName(s.name) }}</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Current shooter -->
                     <div class="mb-8 rounded-xl border border-slate-700 bg-slate-800 p-4 text-center">
                         <p class="text-sm text-slate-400">Shooter</p>
@@ -900,6 +926,33 @@ function selectSquad(squadIndex) {
     saveProgress();
 }
 
+// Jump to any shooter in the current relay without touching the gong
+// index. RO can score gong-by-gong across the squad, or dart between
+// shooters — either flow works.
+function jumpToShooter(idx) {
+    if (idx < 0 || idx >= shooters.value.length) return;
+    scoringStore.currentShooterIndex = idx;
+    saveProgress();
+}
+
+// Tint the jump chip green if this shooter already has a hit/miss on
+// the *current* gong. Makes it obvious which shooters still need this
+// gong scored.
+function shooterHasCurrentGongScore(shooterId) {
+    if (!currentGong.value) return false;
+    const s = scoringStore.getScore(shooterId, currentGong.value.id);
+    return s && s.isHit !== undefined && s.isHit !== null;
+}
+
+// Short display name for the jump chip so long full names don't blow
+// out the horizontal strip.
+function shortName(name) {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
 function goToStageSelect() {
     currentView.value = 'stage-select';
     saveProgress();
@@ -1154,6 +1207,22 @@ onMounted(async () => {
         const allShooters = matchStore.allShooters ?? [];
         const target = allShooters.find(s => s.id === correctShooterId);
         if (target) openCorrectionFor(target);
+    }
+
+    // Deep-link entry from the Scoring Matrix's shooter drill-down:
+    // `/score/{matchId}/relay/{squadId}/distance/{tsId}/scoring?shooter=<id>`
+    // lands the RO right on the requested shooter's row, skipping the
+    // linear walk from shooter #1. Only applied in scoped mode so we
+    // don't hijack the multi-squad flow.
+    if (isScoped.value) {
+        const shooterFromQuery = Number(route.query.shooter);
+        if (shooterFromQuery) {
+            const idx = shooters.value.findIndex(s => s.id === shooterFromQuery);
+            if (idx >= 0) {
+                scoringStore.currentShooterIndex = idx;
+                currentView.value = 'scoring';
+            }
+        }
     }
 });
 

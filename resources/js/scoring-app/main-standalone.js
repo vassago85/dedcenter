@@ -14,6 +14,15 @@ axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 // matches can take 5-7s on a cold cache.
 axios.defaults.timeout = 12000;
 
+// Flag the runtime so shared components can differentiate the native
+// APK from the Laravel-served web app. The APK loads this bundle from
+// `http://localhost:PORT/score` (Ktor on-device), which is a real HTTP
+// origin — so a `file://` protocol check isn't a reliable signal.
+// Only the standalone entry sets this flag; the web `main.js` does not.
+if (typeof window !== 'undefined') {
+    window.__DC_STANDALONE = true;
+}
+
 // Surfaces boot failures to the user instead of letting them die silently
 // in the WebView console (which the user can't see on their phone). If Vue
 // fails to mount, or the first paint throws, we paint a basic error screen

@@ -4,9 +4,13 @@
         the DeadCenter app (dashboard / org / admin, whichever matches the
         user's role).
 
-        Hidden on the Android standalone APK — that's loaded via `file://`,
-        has no rest of the app to return to, and its own hardware back
-        button covers the navigation gap.
+        Hidden on the Android standalone APK — that bundle sets
+        `window.__DC_STANDALONE = true` in main-standalone.js so we can
+        distinguish it from the Laravel-served web build (which shares
+        the same components). We used to check `location.protocol ===
+        'file:'`, but the APK actually loads the SPA from
+        `http://localhost:PORT/score` served by the on-device Ktor
+        server — a real HTTP origin — so that check was wrong.
 
         The `variant` prop lets a host view choose between the floating
         pill (default, absolute top-left corner) and an inline chip that
@@ -45,11 +49,11 @@ const props = defineProps({
 const userStore = useUserStore();
 const route = useRoute();
 
-// `file://` is the Android standalone APK; there is no "back to
-// DeadCenter" target there. Everywhere else (http, https, dev) we
-// surface the exit link.
+// The standalone APK bundle (`main-standalone.js`) sets this flag on
+// window before Vue mounts. The Laravel-served web bundle does not,
+// so the link is only rendered when running as the web app.
 const isStandaloneApk = typeof window !== 'undefined'
-    && window.location?.protocol === 'file:';
+    && window.__DC_STANDALONE === true;
 
 // The floating variant hides on `home` / `member-home` because those
 // views already own their top bar (which carries an inline exit link
