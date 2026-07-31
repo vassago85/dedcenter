@@ -20,13 +20,31 @@ class MatchReportController extends Controller
     /**
      * Authenticated preview — org/admin staff viewing shooter reports.
      *
-     * $orgOrAdmin is either an Organization (org.* routes) or the literal
-     * 'admin' string placeholder from the admin.* routes — in both cases we
-     * only care about the bound ShootingMatch for data. The returned view
-     * is the email template with $showActions=true, which renders a
-     * Download PDF button above the report.
+     * Shared by the org.* and admin.* route groups. The org group's URI has
+     * a `{organization}` segment which route-model binds into $organization
+     * (matched by name, so signature order doesn't matter); the admin group
+     * has no such segment so $organization stays null and we emit the
+     * admin-scoped download URL. The returned view is the email template
+     * with $showActions=true, which renders a Download PDF button above the
+     * report.
      */
-    public function preview(Request $request, $orgOrAdmin, ShootingMatch $match)
+    public function preview(Request $request, Organization $organization, ShootingMatch $match)
+    {
+        return $this->renderPreview($request, $match, $organization);
+    }
+
+    /**
+     * Admin-scoped preview. Separate entry point because Laravel binds
+     * controller arguments POSITIONALLY by URI-segment order, and the admin
+     * route has no `{organization}` segment — so a shared signature can't
+     * satisfy both groups. Delegates to the same renderer with a null org.
+     */
+    public function adminPreview(Request $request, ShootingMatch $match)
+    {
+        return $this->renderPreview($request, $match, null);
+    }
+
+    private function renderPreview(Request $request, ShootingMatch $match, ?Organization $organization)
     {
         $shooter = $this->resolveShooter($request, $match);
 
@@ -36,9 +54,9 @@ class MatchReportController extends Controller
 
         $report = $this->reportService->generateReport($match, $shooter);
 
-        $isOrgScope = $orgOrAdmin instanceof Organization;
+        $isOrgScope = $organization instanceof Organization && $organization->exists;
         $downloadUrl = $isOrgScope
-            ? route('org.matches.export.pdf-shooter-report', [$orgOrAdmin, $match, $shooter])
+            ? route('org.matches.export.pdf-shooter-report', [$organization, $match, $shooter])
             : route('admin.matches.export.pdf-shooter-report', [$match, $shooter]);
 
         return view('emails.shooter-match-report', [
@@ -125,7 +143,21 @@ class MatchReportController extends Controller
         return null;
     }
 
-    public function send(Request $request, $orgOrAdmin, ShootingMatch $match)
+    public function send(Request $request, Organization $organization, ShootingMatch $match)
+    {
+        return $this->queueReports($match);
+    }
+
+    /**
+     * Admin-scoped send — see adminPreview() for why this is a separate
+     * entry point (positional arg binding + no `{organization}` segment).
+     */
+    public function adminSend(Request $request, ShootingMatch $match)
+    {
+        return $this->queueReports($match);
+    }
+
+    private function queueReports(ShootingMatch $match)
     {
         $shooters = $this->reportService->getEmailableShooters($match);
 
