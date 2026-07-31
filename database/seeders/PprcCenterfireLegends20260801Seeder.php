@@ -8,6 +8,7 @@ use App\Models\MatchCategory;
 use App\Models\MatchDivision;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
+use App\Models\StageTarget;
 use App\Models\TargetSet;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -141,6 +142,19 @@ class PprcCenterfireLegends20260801Seeder extends Seeder
                         'distance_meters' => $g['dist'],
                         'target_size_mm' => $g['mm'],
                         'target_size' => "{$g['mm']} mm {$g['shape']} @ {$g['dist']} m · {$g['mil']} mil",
+                    ]);
+
+                    // Mirror each shot slot as a StageTarget so the scoring
+                    // app's per-shot "Target Info" reference shows the real COF
+                    // (target name, distance, size, mil) on the scorer's phone.
+                    StageTarget::create([
+                        'stage_id' => $ts->id,
+                        'sequence_number' => $j + 1,
+                        'target_name' => $g['label'],
+                        'target_reference' => $g['shape'],
+                        'distance_meters' => $g['dist'],
+                        'target_size_mm' => $g['mm'],
+                        'target_size_mrad' => $g['mil'],
                     ]);
                 }
             }
