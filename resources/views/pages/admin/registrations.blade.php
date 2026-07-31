@@ -91,8 +91,28 @@ new #[Layout('components.layouts.app')]
             MatchStatus::Active->value,
         ];
 
+        // DB-portable status ordering. MySQL's FIELD() isn't available on
+        // SQLite (used by the test suite) or Postgres, so express the same
+        // priority as an ANSI CASE expression every driver understands.
+        // Values are bound (not interpolated); the THEN weights are loop
+        // indices, so the ordering stays in sync with this list.
+        $statusOrder = [
+            MatchStatus::RegistrationOpen->value,
+            MatchStatus::PreRegistration->value,
+            MatchStatus::SquaddingOpen->value,
+            MatchStatus::Active->value,
+            MatchStatus::RegistrationClosed->value,
+            MatchStatus::Draft->value,
+            MatchStatus::Completed->value,
+        ];
+        $statusCase = 'CASE status';
+        foreach ($statusOrder as $weight => $status) {
+            $statusCase .= " WHEN ? THEN {$weight}";
+        }
+        $statusCase .= ' ELSE ' . count($statusOrder) . ' END';
+
         $matchesWithRegs = ShootingMatch::whereHas('registrations')
-            ->orderByRaw("FIELD(status, 'registration_open', 'pre_registration', 'squadding_open', 'active', 'registration_closed', 'draft', 'completed') ASC")
+            ->orderByRaw($statusCase, $statusOrder)
             ->orderBy('date', 'desc')
             ->get()
             ->map(fn ($m) => (object) [
