@@ -211,7 +211,7 @@
                     </svg>
                     <div class="leading-snug">
                         <span class="font-semibold">Shooting order rotated.</span>
-                        Each stage the last shooter moves to the front, so everyone shoots first once across the match. <span class="text-amber-300">{{ currentShooters[0]?.name ?? '' }}</span> is up first.
+                        Each stage the shooter who went first moves to the back, so everyone shoots first once across the match. <span class="text-amber-300">{{ currentShooters[0]?.name ?? '' }}</span> is up first.
                     </div>
                 </div>
 
@@ -710,14 +710,14 @@ const selectedShooterObj = computed(() => {
     return selectedSquadObj.value.shooters.find(s => s.id === prsStore.selectedShooterId);
 });
 
-// PRS back-to-front rotation: on every stage change the last shooter of
-// the previous stage moves to the front of the order, and everyone else
-// shifts back by one. With N shooters this means every shooter shoots
-// first exactly once across N stages, spreading the "first up, nothing to
-// spot" burden evenly. For a squad [A B C D E F]:
+// PRS front-to-back rotation: on every stage change the shooter who shot
+// first on the previous stage moves to the back of the order, and everyone
+// else moves up one. With N shooters this means every shooter shoots first
+// exactly once across N stages, spreading the "first up, nothing to spot"
+// burden evenly. For a squad [A B C D E F]:
 //   Stage 1 → A B C D E F (shift 0)
-//   Stage 2 → F A B C D E (shift 1 — last of stage 1 leads)
-//   Stage 3 → E F A B C D (shift 2)
+//   Stage 2 → B C D E F A (shift 1 — A shot first, now shoots last)
+//   Stage 3 → C D E F A B (shift 2)
 //   Stage 4 → D E F A B C
 //   ...
 // We pivot on the stage's position in the target-set list (not on
@@ -736,7 +736,7 @@ const currentShooters = computed(() => {
     if (active.length === 0) return [];
     const shift = selectedStageIndex.value % active.length;
     if (shift === 0) return active;
-    return [...active.slice(-shift), ...active.slice(0, -shift)];
+    return [...active.slice(shift), ...active.slice(0, shift)];
 });
 
 const shooterOrderRotated = computed(() => {
