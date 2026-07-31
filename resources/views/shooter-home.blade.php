@@ -680,7 +680,7 @@
                         <x-icon name="download" class="h-4 w-4" />
                         Download Android App
                     </a>
-                    <span class="mt-2 text-xs" style="color: var(--lp-text-muted);">APK &middot; v1.3.0 &middot; Android 8+</span>
+                    <span class="mt-2 text-xs" style="color: var(--lp-text-muted);">APK &middot; v1.5.1 &middot; Android 8+</span>
                 </div>
             </div>
         </div>
