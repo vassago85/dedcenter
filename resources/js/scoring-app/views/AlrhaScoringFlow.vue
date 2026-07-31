@@ -112,9 +112,9 @@
                             <span v-if="activeShooter.is_coached" class="ml-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">Coached</span>
                         </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button @click="prevShooter" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-300 hover:border-sky-500/60">← Prev</button>
-                        <button @click="nextShooter" class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">Next →</button>
+                    <div class="flex flex-shrink-0 gap-2">
+                        <button @click="prevShooter" class="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-sky-500/60 active:scale-[0.97]">← Prev</button>
+                        <button @click="nextShooter" class="rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-700 active:scale-[0.97]">Next →</button>
                     </div>
                 </div>
             </div>
@@ -137,23 +137,28 @@
                             {{ shotsHitFor(target.id) }} / {{ target.max_shots }} hits
                         </div>
                     </div>
-                    <div class="grid grid-cols-5 gap-2">
+                    <!-- Responsive shot grid: one shot per row on phones so
+                         the Hit/Miss buttons are full-size tap targets, then
+                         2-up on small tablets and the full 5-across on wide
+                         screens. The previous fixed grid-cols-5 crushed the
+                         buttons to ~28px on a phone. -->
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
                         <div v-for="shotNumber in target.max_shots" :key="shotNumber"
-                            class="rounded-lg border border-slate-700 bg-slate-900/50 p-2">
+                            class="rounded-lg border border-slate-700 bg-slate-900/50 p-2.5">
                             <div class="text-[10px] uppercase tracking-widest text-slate-500">
                                 Shot {{ shotNumber }} · {{ pointsForShot(shotNumber) }} pts
                             </div>
-                            <div class="mt-1 flex gap-1">
+                            <div class="mt-1.5 flex gap-2">
                                 <button @click="recordShot(target, shotNumber, 'hit')"
                                     :class="[
-                                        'flex-1 rounded px-2 py-1 text-xs font-medium border transition-colors',
+                                        'flex-1 rounded-lg px-3 py-3 text-sm font-semibold border transition-colors active:scale-[0.97]',
                                         resultFor(target.id, shotNumber) === 'hit'
                                             ? 'bg-emerald-600 text-white border-emerald-500'
                                             : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-emerald-500/60'
                                     ]">Hit</button>
                                 <button @click="recordShot(target, shotNumber, 'miss')"
                                     :class="[
-                                        'flex-1 rounded px-2 py-1 text-xs font-medium border transition-colors',
+                                        'flex-1 rounded-lg px-3 py-3 text-sm font-semibold border transition-colors active:scale-[0.97]',
                                         resultFor(target.id, shotNumber) === 'miss'
                                             ? 'bg-rose-600 text-white border-rose-500'
                                             : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-rose-500/60'
