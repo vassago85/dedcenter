@@ -161,10 +161,21 @@ new #[Layout('components.layouts.app')]
                 </button>
             @endforeach
         </div>
+
+        {{-- Pending feedback while a filter round-trips, so the list doesn't
+             read as "stale" during the request. Scoped to the filters only
+             (not row-expand/approve); the .delay avoids flashing on fast
+             responses. --}}
+        <div class="flex items-center gap-1.5 text-xs text-muted" wire:loading.delay wire:target="filter,matchFilter">
+            <span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+            Updating…
+        </div>
     </div>
 
     {{-- Table --}}
-    <div class="rounded-xl border border-border bg-surface overflow-hidden">
+    <div class="rounded-xl border border-border bg-surface overflow-hidden transition-opacity"
+         wire:loading.delay.class="opacity-40 pointer-events-none"
+         wire:target="filter,matchFilter">
         @if($registrations->isEmpty())
             <div class="px-6 py-12 text-center">
                 <p class="text-muted">No registrations matching this filter.</p>

@@ -1,6 +1,11 @@
 {{-- Canonical platform-admin sidebar — 5 primary items. Members,
-     Shooter Claims, Seasons, Contact Submissions, Homepage Editor collapse
-     into a "Secondary" group so the daily admin view stays calm.
+     Shooter Claims, All Registrations and Seasons collapse into a
+     "Secondary" group so the daily admin view stays calm. Homepage and
+     Contact Inbox are NOT listed here: they live as sub-tabs under Settings
+     (see admin/settings.blade.php) — the single canonical home for both, so
+     the sidebar has no duplicate entry points. The unread-contact badge
+     rides on the Settings item instead so the "needs attention" signal is
+     still visible at a glance.
 
      The badge counts are computed fresh in render() (see the component), so
      they reflect the live DB on every re-render. We force a re-render on
@@ -37,8 +42,11 @@
         Revenue
     </a>
     <a href="{{ route('admin.settings') }}" wire:navigate
-       class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition-colors {{ request()->routeIs('admin.settings') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+       class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition-colors {{ request()->routeIs('admin.settings') || request()->routeIs('admin.homepage') || request()->routeIs('admin.contact-submissions') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
         Settings
+        @if($unreadContacts > 0)
+            <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $unreadContacts }}</span>
+        @endif
     </a>
 
     <div class="mt-3 border-t border-border pt-3">
@@ -61,17 +69,6 @@
         <a href="{{ route('admin.seasons') }}" wire:navigate
            class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.seasons') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
             Seasons
-        </a>
-        <a href="{{ route('admin.homepage') }}" wire:navigate
-           class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.homepage') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
-            Homepage Editor
-        </a>
-        <a href="{{ route('admin.contact-submissions') }}" wire:navigate
-           class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('admin.contact-submissions') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
-            Contact Submissions
-            @if($unreadContacts > 0)
-                <span class="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $unreadContacts }}</span>
-            @endif
         </a>
     </div>
 </div>

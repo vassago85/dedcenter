@@ -80,10 +80,19 @@ new #[Layout('components.layouts.app')]
         </div>
         <div class="max-w-sm flex-1">
             <flux:input wire:model.live.debounce.300ms="search" placeholder="Search matches..." icon="magnifying-glass" />
+            {{-- Pending feedback while the search/tab round-trips, so the list
+                 doesn't read as "stale" during the request. Scoped to search
+                 + tab only; the .delay avoids flashing on fast responses. --}}
+            <div class="mt-1.5 flex items-center gap-1.5 text-xs text-muted" wire:loading.delay wire:target="search,tab">
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                Updating…
+            </div>
         </div>
     </div>
 
-    <div class="rounded-xl border border-border bg-surface overflow-hidden">
+    <div class="rounded-xl border border-border bg-surface overflow-hidden transition-opacity"
+         wire:loading.delay.class="opacity-40 pointer-events-none"
+         wire:target="search,tab">
         @if($matches->isEmpty())
             <div class="px-6 py-12 text-center">
                 <p class="text-muted">
