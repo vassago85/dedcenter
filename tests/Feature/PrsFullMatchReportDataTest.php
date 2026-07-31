@@ -263,6 +263,46 @@ it('renders the PRS Score Sheet partial with gong dots instead of the distance h
     expect($html)->not()->toContain('multiplier 1×');
 });
 
+it('renders the PRS Score Sheet for an unscored PRS match instead of the standard heatmap', function () {
+    // A PRS match with stages + shooters but no scores yet (the state a
+    // match is in the night before / start of the day). The report must
+    // still be PRS-shaped — no "multiplier 1×" distance chrome.
+    $owner = User::factory()->create();
+    $match = ShootingMatch::factory()->create([
+        'created_by' => $owner->id,
+        'scoring_type' => 'prs',
+    ]);
+
+    $stage = TargetSet::create([
+        'match_id' => $match->id,
+        'label' => 'Stage 1 — Climbing the Ladder',
+        'distance_meters' => 0,
+        'distance_multiplier' => 1.0,
+        'sort_order' => 1,
+    ]);
+    Gong::create(['target_set_id' => $stage->id, 'number' => 1, 'label' => 'G1', 'multiplier' => '1.00']);
+    Gong::create(['target_set_id' => $stage->id, 'number' => 2, 'label' => 'G2', 'multiplier' => '1.00']);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Coriolis - 1']);
+    Shooter::create(['name' => 'Donovan Cook', 'squad_id' => $squad->id, 'status' => 'active']);
+
+    $controller = new App\Http\Controllers\MatchExportController();
+    $data = ($this->invokeExec)($controller, $match);
+
+    // The PRS Score Sheet payload is built even with no scores on file.
+    expect($data['prsScoreSheet'])->not()->toBeNull();
+    expect($data['prsScoreSheet']['rows'])->toHaveCount(1);
+
+    $html = view('exports.pdf-executive-summary', $data + ['match' => $match])->render();
+
+    // PRS-shaped, not the standard distance/multiplier heatmap.
+    expect($html)->toContain('SCORE SHEET')
+        ->toContain('prs-grid')
+        ->toContain('Donovan Cook');
+    expect($html)->not()->toContain('MATCH REPORT</span>');
+    expect($html)->not()->toContain('multiplier 1×');
+});
+
 it('PRS detailed CSV writes hit/miss/time cells from the new tables', function () {
     $ctx = makePrsMatch();
     $controller = new App\Http\Controllers\MatchExportController();

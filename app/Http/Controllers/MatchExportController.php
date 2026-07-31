@@ -1512,11 +1512,19 @@ class MatchExportController extends Controller
         // per-stage gong-dot layout the on-screen Scoreboard uses,
         // without the standard heatmap's distance-grouped columns and
         // multiplier chrome (PRS scoring is just 1 hit = 1 point, no
-        // multipliers anywhere). Only computed when the match actually
-        // has PRS data on file; standard / RF matches keep using the
+        // multipliers anywhere).
+        //
+        // Built for EVERY PRS match — not just ones with scores on file —
+        // so the report is always PRS-shaped. A PRS match that hasn't been
+        // scored yet (or is mid-match) renders the correct empty PRS Score
+        // Sheet (stage columns, gong dots, Time column) instead of falling
+        // back to the standard distance/multiplier heatmap, which is
+        // meaningless for the discipline. buildPrsScoreSheetData reads the
+        // same PRS tables buildPostMatchReportData uses for standings, so
+        // the two stay consistent. Standard / RF matches keep using the
         // existing $heatmap unchanged.
         $prsScoreSheet = null;
-        if ($match->isPrs() && PrsStageResult::where('match_id', $match->id)->exists()) {
+        if ($match->isPrs()) {
             $prsScoreSheet = $this->buildPrsScoreSheetData($match, $standings);
         }
 
