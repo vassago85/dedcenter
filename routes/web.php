@@ -222,8 +222,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/matches/{match}/side-bet-report', 'admin.matches.side-bet-report')->name('matches.side-bet-report');
 
     // ── Match Reports ──
-    Route::get('/matches/{match}/report/preview', [MatchReportController::class, 'preview'])->name('matches.report.preview');
-    Route::post('/matches/{match}/report/send', [MatchReportController::class, 'send'])->name('matches.report.send');
+    // The admin group has no {organization} segment, so we inject the literal
+    // 'admin' placeholder the controller expects for $orgOrAdmin — without it
+    // the method is called with 2 args instead of 3 (ArgumentCountError 500).
+    Route::get('/matches/{match}/report/preview', [MatchReportController::class, 'preview'])->defaults('orgOrAdmin', 'admin')->name('matches.report.preview');
+    Route::post('/matches/{match}/report/send', [MatchReportController::class, 'send'])->defaults('orgOrAdmin', 'admin')->name('matches.report.send');
 
     // ── Match Book (gated — see config/deadcenter.php) ──
     Route::middleware('matchbook.enabled')->group(function () {
