@@ -13,11 +13,6 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.app')]
     #[Title('Registrations')]
     class extends Component {
-    public string $filter = 'proof_submitted';
-    public string $matchFilter = '';
-
-    public ?int $expandedRegId = null;
-
     public function approve(int $id): void
     {
         $reg = MatchRegistration::findOrFail($id);
@@ -68,16 +63,13 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Registration rejected.', variant: 'warning');
     }
 
-    public function toggleDetails(int $id): void
-    {
-        $this->expandedRegId = $this->expandedRegId === $id ? null : $id;
-    }
-
     public function with(): array
     {
+        // Loaded in full and filtered client-side by Alpine (see x-data below)
+        // so the status/match filters, the active-button highlight and the
+        // empty-state all update synchronously from one source, with no server
+        // round-trip. Row expansion is client-side too.
         $registrations = MatchRegistration::with(['user', 'match'])
-            ->when($this->filter !== 'all', fn ($q) => $q->where('payment_status', $this->filter))
-            ->when($this->matchFilter !== '', fn ($q) => $q->where('match_id', $this->matchFilter))
             ->latest()
             ->get();
 
@@ -131,7 +123,25 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-6">
+{{-- Client-side filtering: `status` and `match` are the single source of
+     truth. The active-button highlight, the empty-state and every row's
+     visibility all derive from them synchronously (:class / x-show), so they
+     update in the same frame with no server round-trip or stale highlight.
+     `visibleCount` reads the live DOM so it stays correct after a server
+     action (approve/reject) re-renders the rows. --}}
+<div class="space-y-6"
+     x-data="{
+         status: 'proof_submitted',
+         match: '',
+         expanded: null,
+         rowVisible(el) {
+             return (this.status === 'all' || el.dataset.status === this.status)
+                 && (this.match === '' || el.dataset.match === this.match);
+         },
+         get visibleCount() {
+             return [...this.$root.querySelectorAll('[data-reg-row]')].filter(el => this.rowVisible(el)).length;
+         }
+     }">
     {{--
         Same wire:navigate snapshot bug as the shooter-claims page: an
         approved registration that just disappeared from the queue can
@@ -152,7 +162,7 @@ new #[Layout('components.layouts.app')]
         {{-- Match filter --}}
         <div>
             <label class="block text-xs font-medium text-muted mb-1">Filter by Match</label>
-            <select wire:model.live="matchFilter"
+            <select x-model="match"
                     class="w-full max-w-sm rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
                 <option value="">All Matches</option>
                 @if($matchesWithRegs->where('is_upcoming', true)->isNotEmpty())
@@ -172,36 +182,32 @@ new #[Layout('components.layouts.app')]
             </select>
         </div>
 
-        {{-- Status filter --}}
+        {{-- Status filter — active highlight is driven by the same `status`
+             value that filters the rows, so they never desync. --}}
         <div class="flex flex-wrap gap-2">
             @foreach(['proof_submitted' => 'Pending Review', 'pending_payment' => 'Awaiting Payment', 'confirmed' => 'Confirmed', 'rejected' => 'Rejected', 'all' => 'All'] as $value => $label)
-                <button wire:click="$set('filter', '{{ $value }}')"
-                        class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $filter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                <button type="button" @click="status = '{{ $value }}'"
+                        :class="status === '{{ $value }}' ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2'"
+                        class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors">
                     {{ $label }}
                 </button>
             @endforeach
         </div>
-
-        {{-- Pending feedback while a filter round-trips, so the list doesn't
-             read as "stale" during the request. Scoped to the filters only
-             (not row-expand/approve); the .delay avoids flashing on fast
-             responses. --}}
-        <div class="flex items-center gap-1.5 text-xs text-muted" wire:loading.delay wire:target="filter,matchFilter">
-            <span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
-            Updating…
-        </div>
     </div>
 
     {{-- Table --}}
-    <div class="rounded-xl border border-border bg-surface overflow-hidden transition-opacity"
-         wire:loading.delay.class="opacity-40 pointer-events-none"
-         wire:target="filter,matchFilter">
+    <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($registrations->isEmpty())
             <div class="px-6 py-12 text-center">
-                <p class="text-muted">No registrations matching this filter.</p>
+                <p class="text-muted">No registrations yet.</p>
             </div>
         @else
-            <div class="overflow-x-auto">
+            {{-- Client-side empty state: only when the filters genuinely hide
+                 every row (never during a transitional state). --}}
+            <div class="px-6 py-12 text-center" x-show="visibleCount === 0" x-cloak>
+                <p class="text-muted">No registrations match these filters.</p>
+            </div>
+            <div class="overflow-x-auto" x-show="visibleCount > 0">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-border text-left text-muted">
@@ -217,7 +223,10 @@ new #[Layout('components.layouts.app')]
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($registrations as $reg)
-                            <tr class="hover:bg-surface-2/30 transition-colors cursor-pointer" wire:key="reg-{{ $reg->id }}" wire:click="toggleDetails({{ $reg->id }})">
+                            <tr class="hover:bg-surface-2/30 transition-colors cursor-pointer" wire:key="reg-{{ $reg->id }}"
+                                data-reg-row data-status="{{ $reg->payment_status }}" data-match="{{ $reg->match_id }}"
+                                x-show="rowVisible($el)"
+                                @click="expanded = (expanded === {{ $reg->id }} ? null : {{ $reg->id }})">
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-2">
                                         <a href="{{ route('shooter.profile', $reg->user_id) }}" class="font-medium text-primary hover:underline" onclick="event.stopPropagation()">
@@ -285,8 +294,10 @@ new #[Layout('components.layouts.app')]
                                     @endif
                                 </td>
                             </tr>
-                            @if($expandedRegId === $reg->id && $reg->caliber)
-                                <tr wire:key="reg-detail-{{ $reg->id }}">
+                            @if($reg->caliber)
+                                <tr wire:key="reg-detail-{{ $reg->id }}"
+                                    data-status="{{ $reg->payment_status }}" data-match="{{ $reg->match_id }}"
+                                    x-show="expanded === {{ $reg->id }} && rowVisible($el)" x-cloak>
                                     <td colspan="8" class="px-6 py-4 bg-surface-2/20">
                                         <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-xs sm:grid-cols-4">
                                             @if($reg->caliber)<div><span class="text-muted">Caliber:</span> <span class="text-secondary">{{ $reg->caliber }}</span></div>@endif

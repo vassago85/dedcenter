@@ -9,7 +9,6 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.app')]
     #[Title('Manage Matches')]
     class extends Component {
-    public string $search = '';
     public string $tab = 'active';
 
     public function archiveMatch(int $id): void
@@ -39,10 +38,12 @@ new #[Layout('components.layouts.app')]
             ? ShootingMatch::onlyTrashed()
             : ShootingMatch::query();
 
+        // The whole (unpaginated) list is loaded and filtered client-side by
+        // Alpine — see the x-data below — so search is instant with no server
+        // round-trip. Only the tab (active vs soft-deleted) is a server query.
         $matches = $query
             ->with('creator:id,name')
             ->withCount(['shooters', 'registrations'])
-            ->when($this->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->latest('date')
             ->get();
 
@@ -52,7 +53,24 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div class="space-y-6">
+{{-- Client-side search: `q` is the single source of truth. Row visibility,
+     the visible-count and the empty-state all derive from it synchronously,
+     so they update in the same frame with no server round-trip or lag.
+     `visibleCount` reads the live DOM so it stays correct after a tab switch
+     re-renders the rows. --}}
+<div class="space-y-6"
+     x-data="{
+         q: '',
+         rowVisible(el) {
+             const needle = this.q.trim().toLowerCase();
+             return needle === '' || (el.dataset.name || '').includes(needle);
+         },
+         get visibleCount() {
+             const rows = [...this.$root.querySelectorAll('[data-match-row]')];
+             const needle = this.q.trim().toLowerCase();
+             return needle === '' ? rows.length : rows.filter(el => (el.dataset.name || '').includes(needle)).length;
+         }
+     }">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <flux:heading size="xl">Matches</flux:heading>
@@ -78,27 +96,18 @@ new #[Layout('components.layouts.app')]
                 @endif
             </button>
         </div>
-        <div class="max-w-sm flex-1">
-            <flux:input wire:model.live.debounce.300ms="search" placeholder="Search matches..." icon="magnifying-glass" />
-            {{-- Pending feedback while the search/tab round-trips, so the list
-                 doesn't read as "stale" during the request. Scoped to search
-                 + tab only; the .delay avoids flashing on fast responses. --}}
-            <div class="mt-1.5 flex items-center gap-1.5 text-xs text-muted" wire:loading.delay wire:target="search,tab">
-                <span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
-                Updating…
-            </div>
+        <div class="relative max-w-sm flex-1">
+            <x-icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input type="search" x-model="q" placeholder="Search matches..."
+                   class="w-full rounded-lg border border-border bg-surface-2 py-2 pl-9 pr-3 text-sm text-primary placeholder:text-muted focus:border-red-500 focus:ring-1 focus:ring-red-500" />
         </div>
     </div>
 
-    <div class="rounded-xl border border-border bg-surface overflow-hidden transition-opacity"
-         wire:loading.delay.class="opacity-40 pointer-events-none"
-         wire:target="search,tab">
+    <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($matches->isEmpty())
             <div class="px-6 py-12 text-center">
                 <p class="text-muted">
-                    @if($search)
-                        No matches found for "{{ $search }}".
-                    @elseif($tab === 'archived')
+                    @if($tab === 'archived')
                         No archived matches.
                     @else
                         No matches yet. Create your first one!
@@ -106,6 +115,12 @@ new #[Layout('components.layouts.app')]
                 </p>
             </div>
         @else
+            {{-- Client-side empty state: only shown when the search genuinely
+                 hides every row (never during a transitional state). --}}
+            <div class="px-6 py-12 text-center" x-show="visibleCount === 0" x-cloak>
+                <p class="text-muted">No matches found for "<span x-text="q"></span>".</p>
+            </div>
+            <div x-show="visibleCount > 0">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
@@ -123,7 +138,9 @@ new #[Layout('components.layouts.app')]
                     </thead>
                     <tbody class="divide-y divide-slate-700">
                         @foreach($matches as $match)
-                            <tr class="hover:bg-surface-2/30 transition-colors" wire:key="match-{{ $match->id }}">
+                            <tr class="hover:bg-surface-2/30 transition-colors" wire:key="match-{{ $match->id }}"
+                                data-match-row data-name="{{ \Illuminate\Support\Str::lower($match->name) }}"
+                                x-show="rowVisible($el)">
                                 <td class="px-6 py-3 font-medium text-primary">{{ $match->name }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $match->date?->format('d M Y') ?? '—' }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $match->location ?? '—' }}</td>
@@ -178,6 +195,7 @@ new #[Layout('components.layouts.app')]
                     </tbody>
                 </table>
             </div>
+            </div>{{-- /x-show visibleCount > 0 --}}
         @endif
     </div>
 </div>
