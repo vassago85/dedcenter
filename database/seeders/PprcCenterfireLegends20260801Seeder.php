@@ -7,7 +7,9 @@ use App\Models\Gong;
 use App\Models\MatchCategory;
 use App\Models\MatchDivision;
 use App\Models\Organization;
+use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use App\Models\Squad;
 use App\Models\StageTarget;
 use App\Models\TargetSet;
 use App\Models\User;
@@ -32,12 +34,14 @@ use Illuminate\Support\Facades\DB;
  * Each gong carries the physical target it represents (shape, mm size,
  * distance, mil) so the on-phone stage reference shows the real COF.
  *
- * No roster is seeded — the shooter list is imported from Impact squadding
- * later. Divisions (Open / Factory / Limited) and categories (Mens / Ladies
- * / Senior) are created ready for that import.
+ * Roster: 30 shooters across 4 squads (Coriolis, Mirage, Parallax, Spin
+ * Drift), squadded exactly per the Impact squadding screenshot. Each
+ * shooter's division comes from the entries CSV (Open / Factory / Limited /
+ * Senior / Ladies) and links to an existing DeadCenter account by email
+ * where one exists. No categories are seeded — the export has none.
  *
- * Re-running wipes and rebuilds this match's target sets so the seeder is
- * idempotent. It never touches shooters, squads or scores.
+ * Re-running wipes and rebuilds this match's divisions, squads, roster and
+ * target sets so the seeder is idempotent. It never touches scores.
  */
 class PprcCenterfireLegends20260801Seeder extends Seeder
 {
@@ -98,18 +102,27 @@ class PprcCenterfireLegends20260801Seeder extends Seeder
 
             $this->command?->info(($isNew ? 'Created' : 'Updated')." match [{$match->id}] {$match->name}.");
 
-            // Divisions & categories, ready for the Impact roster import.
-            foreach (['Open' => 1, 'Factory' => 2, 'Limited' => 3] as $name => $order) {
-                MatchDivision::firstOrCreate(
-                    ['match_id' => $match->id, 'name' => $name],
-                    ['sort_order' => $order]
-                );
+            // Wipe the roster + classification so re-seeding is idempotent.
+            // Order matters: shooters FK both squads and divisions, so they
+            // must go before either is removed.
+            foreach ($match->squads()->get() as $existingSquad) {
+                $existingSquad->shooters()->delete();
             }
-            foreach (['Mens' => 1, 'Ladies' => 2, 'Senior' => 3] as $name => $order) {
-                MatchCategory::firstOrCreate(
-                    ['match_id' => $match->id, 'slug' => strtolower($name)],
-                    ['name' => $name, 'sort_order' => $order]
-                );
+            $match->squads()->delete();
+            MatchDivision::where('match_id', $match->id)->delete();
+            MatchCategory::where('match_id', $match->id)->delete();
+
+            // Divisions exactly as registered — the entries CSV is the
+            // authoritative source (the squadding screenshot's division
+            // labels are stale). Categories are intentionally left empty:
+            // the export carries no category data.
+            $divisionIds = [];
+            foreach (['Open' => 1, 'Factory' => 2, 'Limited' => 3, 'Senior' => 4, 'Ladies' => 5] as $name => $order) {
+                $divisionIds[$name] = MatchDivision::create([
+                    'match_id' => $match->id,
+                    'name' => $name,
+                    'sort_order' => $order,
+                ])->id;
             }
 
             // Wipe & rebuild stages so re-seeding is idempotent.
@@ -161,8 +174,106 @@ class PprcCenterfireLegends20260801Seeder extends Seeder
 
             $total = $match->targetSets()->sum('total_shots');
             $this->command?->info("5 stages seeded, {$total} shots total (Stage 4 = timed tie-breaker).");
+
+            // Squads + roster. Squad layout comes from the Impact squadding
+            // screenshot; each shooter's division comes from the entries CSV.
+            // Where a DeadCenter account already exists for the shooter's
+            // registered email we link it, so scoring, claims and post-match
+            // reports resolve to the real user; walk-ins stay unlinked.
+            $linked = 0;
+            foreach ($this->roster() as $squadIndex => $squadData) {
+                $squad = Squad::create([
+                    'match_id' => $match->id,
+                    'name' => $squadData['name'],
+                    'sort_order' => $squadIndex + 1,
+                    'max_capacity' => 8,
+                ]);
+
+                foreach ($squadData['shooters'] as $sIndex => $sh) {
+                    $userId = User::whereRaw('LOWER(email) = ?', [strtolower($sh['email'])])->value('id');
+                    if ($userId) {
+                        $linked++;
+                    }
+
+                    Shooter::create([
+                        'squad_id' => $squad->id,
+                        'name' => $sh['name'],
+                        'match_division_id' => $divisionIds[$sh['division']] ?? null,
+                        'user_id' => $userId,
+                        'sort_order' => $sIndex + 1,
+                        'status' => 'active',
+                    ]);
+                }
+            }
+
+            $shooterCount = Shooter::whereHas('squad', fn ($q) => $q->where('match_id', $match->id))->count();
+            $this->command?->info("{$shooterCount} shooters seeded across {$match->squads()->count()} squads ({$linked} linked to existing accounts).");
             $this->command?->info("Scoreboard URL: /scoreboard/{$match->id}");
         });
+    }
+
+    /**
+     * Squad roster for the match. Squad membership + order mirror the Impact
+     * squadding screenshot; each shooter's `division` is taken from the
+     * entries CSV (the authoritative source), and `email` is used to link an
+     * existing DeadCenter account when one is present.
+     *
+     * @return array<int,array{name:string,shooters:array<int,array{name:string,division:string,email:string}>}>
+     */
+    private function roster(): array
+    {
+        return [
+            [
+                'name' => 'Coriolis - 1',
+                'shooters' => [
+                    ['name' => 'Abdul Aziz Amod', 'division' => 'Open', 'email' => 'abdul.amod0710@gmail.com'],
+                    ['name' => 'Chris Pretorius', 'division' => 'Factory', 'email' => 'golfpretorius8@gmail.com'],
+                    ['name' => 'Christiaan Klopper', 'division' => 'Limited', 'email' => 'btklopper@gmail.com'],
+                    ['name' => 'Hendrik petrus Van Zyl', 'division' => 'Limited', 'email' => 'hendrikvz07@gmail.com'],
+                    ['name' => 'Jc Robbertson', 'division' => 'Limited', 'email' => 'jcrobster@gmail.com'],
+                    ['name' => 'Johan Nel', 'division' => 'Open', 'email' => 'nel.johan.2005@gmail.com'],
+                    ['name' => 'Marcel Steyn', 'division' => 'Open', 'email' => 'marcelsteyn686@gmail.com'],
+                    ['name' => 'Ruan du Plessis', 'division' => 'Open', 'email' => 'ruandup@rocketmail.com'],
+                ],
+            ],
+            [
+                'name' => 'Mirage - 2',
+                'shooters' => [
+                    ['name' => 'Chris Davies', 'division' => 'Open', 'email' => 'chris.davies.sa@gmail.com'],
+                    ['name' => 'Etienne De Waal', 'division' => 'Senior', 'email' => 'etienne.dewaal@gmail.com'],
+                    ['name' => 'Henri Klopper', 'division' => 'Open', 'email' => 'klopper.henri@gmail.com'],
+                    ['name' => 'Jaco van Tonder', 'division' => 'Open', 'email' => 'jacovtonder7@gmail.com'],
+                    ['name' => 'Pieter Neethling', 'division' => 'Open', 'email' => 'info@venaticsgear.net'],
+                    ['name' => 'Stephan van der Merwe', 'division' => 'Open', 'email' => 'stepvandermerwe@gmail.com'],
+                    ['name' => 'Trevor Graham', 'division' => 'Senior', 'email' => 'trevorgraham@live.co.za'],
+                ],
+            ],
+            [
+                'name' => 'Parallax - 3',
+                'shooters' => [
+                    ['name' => 'Donovan Cook', 'division' => 'Open', 'email' => 'truelineprecision@gmail.com'],
+                    ['name' => 'Franco Ferreira', 'division' => 'Open', 'email' => 'francof1701@googlemail.com'],
+                    ['name' => 'Jac Van Zyl', 'division' => 'Limited', 'email' => 'jvanzyl1@sars.gov.za'],
+                    ['name' => 'Justin Le Roux', 'division' => 'Open', 'email' => 'jjleroux507@gmail.com'],
+                    ['name' => 'Rob Jatho', 'division' => 'Limited', 'email' => 'robjatho@gmail.com'],
+                    ['name' => 'Sean ONeill', 'division' => 'Limited', 'email' => 'oneills76@yahoo.com'],
+                    ['name' => 'Tiaan Wessels', 'division' => 'Factory', 'email' => 'tiaanwessels@gmail.com'],
+                ],
+            ],
+            [
+                'name' => 'Spin Drift - 4',
+                'shooters' => [
+                    ['name' => 'Coenie Van Tonder', 'division' => 'Open', 'email' => 'coenievt@gmail.com'],
+                    ['name' => 'Danie Du Preez', 'division' => 'Senior', 'email' => 'drdp@absamail.co.za'],
+                    ['name' => 'Dumisani Shabangu', 'division' => 'Open', 'email' => 'dumisani888@gmail.com'],
+                    ['name' => 'Natasha Britnell', 'division' => 'Ladies', 'email' => 'natasha@britplast.co.za'],
+                    ['name' => "O'Kennedy Smit", 'division' => 'Open', 'email' => 'okennedy.smit@gmail.com'],
+                    ['name' => 'Schalk van der Merwe', 'division' => 'Open', 'email' => 'vandermerwes1988@gmail.com'],
+                    ['name' => 'Stelios Christofi', 'division' => 'Open', 'email' => 'stelios@kizotrading.co.za'],
+                    ['name' => 'Warren Britnell', 'division' => 'Open', 'email' => 'warren@britplast.co.za'],
+                ],
+            ],
+        ];
     }
 
     /**
