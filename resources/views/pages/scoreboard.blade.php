@@ -183,8 +183,21 @@ new #[Layout('components.layouts.app')]
             $shooters = $shooters->sort(function ($a, $b) {
                 if ($a->display_score !== $b->display_score) return $b->display_score <=> $a->display_score;
                 if ($a->tb_hits !== $b->tb_hits) return $b->tb_hits <=> $a->tb_hits;
-                if ($a->tb_time !== $b->tb_time) return $a->tb_time <=> $b->tb_time;
-                return $a->display_time <=> $b->display_time;
+
+                // A missing timed-stage time must LOSE the tiebreaker, not win
+                // it. tb_time / display_time are stored as 0 when no time was
+                // recorded (0 also renders as "—"); a raw ascending compare
+                // treated 0 as the fastest possible time, so a shooter whose
+                // Stage 4 time never pulled through jumped ahead of shooters
+                // who legitimately posted a time. Coalesce 0 → +∞ here so this
+                // page matches the API scoreboard + Full Match Report ranking.
+                $aTb = $a->tb_time > 0 ? $a->tb_time : PHP_FLOAT_MAX;
+                $bTb = $b->tb_time > 0 ? $b->tb_time : PHP_FLOAT_MAX;
+                if ($aTb !== $bTb) return $aTb <=> $bTb;
+
+                $aAgg = $a->display_time > 0 ? $a->display_time : PHP_FLOAT_MAX;
+                $bAgg = $b->display_time > 0 ? $b->display_time : PHP_FLOAT_MAX;
+                return $aAgg <=> $bAgg;
             })->values();
 
             $maxPrsHits = (int) $shooters->max('hits_count');
