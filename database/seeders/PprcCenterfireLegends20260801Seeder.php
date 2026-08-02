@@ -193,6 +193,13 @@ class PprcCenterfireLegends20260801Seeder extends Seeder
                     $userId = User::whereRaw('LOWER(email) = ?', [strtolower($sh['email'])])->value('id');
                     if ($userId) {
                         $linked++;
+                    } else {
+                        // Every shooter must resolve to a user so podium /
+                        // achievement badges have somewhere to land. When
+                        // no real account matches, attach an import
+                        // placeholder — it surfaces as "awaiting claim" and
+                        // transfers to the real profile once claimed.
+                        $userId = $this->placeholderUser($match, $sh['name'], $squadIndex * 100 + $sIndex)->id;
                     }
 
                     Shooter::create([
@@ -210,6 +217,35 @@ class PprcCenterfireLegends20260801Seeder extends Seeder
             $this->command?->info("{$shooterCount} shooters seeded across {$match->squads()->count()} squads ({$linked} linked to existing accounts).");
             $this->command?->info("Scoreboard URL: /scoreboard/{$match->id}");
         });
+    }
+
+    /**
+     * Create (or reuse) an import placeholder account for a shooter with no
+     * real DeadCenter login yet. Uses the platform-standard @import.invalid
+     * email so isImportPlaceholder() reports true, the scoreboard keeps
+     * showing "Claim your result", and any badges transfer to the real
+     * account on claim approval.
+     */
+    private function placeholderUser(ShootingMatch $match, string $name, int $index): User
+    {
+        $hash = substr(hash('sha256', $match->id.'|'.$name.'|'.$index), 0, 20);
+        $email = sprintf('pprc.m%d.n%s%s', $match->id, $hash, User::IMPORT_PLACEHOLDER_EMAIL_SUFFIX);
+
+        $user = User::where('email', $email)->first();
+        if ($user) {
+            return $user;
+        }
+
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(40)),
+            'role' => 'shooter',
+            'accepted_terms_at' => now(),
+        ]);
+        $user->forceFill(['email_verified_at' => null])->save();
+
+        return $user;
     }
 
     /**

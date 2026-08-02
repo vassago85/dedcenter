@@ -128,16 +128,19 @@ class MatchStandingsService
             ->pluck('id', 'id')
             ->all();
 
+        // Key by the shooter's TRUE finishing rank — never renumber the
+        // account-linked shooters into 1/2/3. Renumbering handed a
+        // non-winner the gold whenever a higher finisher was unlinked
+        // (e.g. an unclaimed walk-in). If the real winner isn't linked,
+        // that podium slot simply goes unawarded until they claim.
         $result = [];
-        $rank = 1;
         foreach ($standings as $row) {
             if (! isset($linkedIds[$row->shooter_id])) {
                 continue;
             }
-            $result[$rank] = (int) $row->shooter_id;
-            $rank++;
-            if ($rank > $topN) {
-                break;
+            $trueRank = (int) $row->rank;
+            if ($trueRank >= 1 && $trueRank <= $topN) {
+                $result[$trueRank] = (int) $row->shooter_id;
             }
         }
 
@@ -165,17 +168,21 @@ class MatchStandingsService
             ->pluck('id', 'id')
             ->all();
 
+        // Preserve the TRUE finishing rank ($rankings is keyed 1..N in
+        // finishing order). Do not renumber the linked shooters, or a
+        // non-winner inherits the gold whenever a higher finisher is an
+        // unclaimed walk-in. Unlinked winners' slots stay unawarded until
+        // they claim (their badge lives on the import placeholder and is
+        // transferred by ShooterAccountClaimService::approve()).
         $result = [];
-        $rank = 1;
-        foreach ($rankings as $shooterId) {
+        foreach ($rankings as $trueRank => $shooterId) {
+            if ($trueRank > $topN) {
+                break;
+            }
             if (! isset($shootersWithUser[$shooterId])) {
                 continue;
             }
-            $result[$rank] = (int) $shooterId;
-            $rank++;
-            if ($rank > $topN) {
-                break;
-            }
+            $result[$trueRank] = (int) $shooterId;
         }
 
         return $result;

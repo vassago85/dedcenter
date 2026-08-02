@@ -47,6 +47,34 @@ class EventsListing extends Component
             $this->tab = 'upcoming';
         }
 
+        // Shared filter closure so the tab counts reflect the SAME
+        // search / type / province / organization filters as the list
+        // below them. Previously the counts were computed globally, so
+        // filtering by one org showed e.g. "Past Results 14" while the
+        // filtered list held 2, and a match left Active in another org
+        // showed "Live Now 1" over an empty list.
+        $applyFilters = function ($q) {
+            if ($this->search !== '') {
+                $term = '%' . $this->search . '%';
+                $q->where(fn ($qq) => $qq->where('name', 'like', $term)->orWhere('location', 'like', $term));
+            }
+            if ($this->eventType !== '') {
+                if ($this->eventType === 'royal_flush') {
+                    $q->where('royal_flush_enabled', true);
+                } else {
+                    $q->where('scoring_type', $this->eventType);
+                }
+            }
+            if ($this->province !== '') {
+                $q->where('province', $this->province);
+            }
+            if ($this->organizationId !== '') {
+                $q->where('organization_id', (int) $this->organizationId);
+            }
+
+            return $q;
+        };
+
         $query = ShootingMatch::query()
             ->with('organization')
             ->withCount(['registrations', 'shooters']);
@@ -77,38 +105,19 @@ class EventsListing extends Component
             ])->orderBy('date'),
         };
 
-        if ($this->search !== '') {
-            $term = '%' . $this->search . '%';
-            $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('location', 'like', $term));
-        }
-
-        if ($this->eventType !== '') {
-            if ($this->eventType === 'royal_flush') {
-                $query->where('royal_flush_enabled', true);
-            } else {
-                $query->where('scoring_type', $this->eventType);
-            }
-        }
-
-        if ($this->province !== '') {
-            $query->where('province', $this->province);
-        }
-
-        if ($this->organizationId !== '') {
-            $query->where('organization_id', (int) $this->organizationId);
-        }
+        $applyFilters($query);
 
         $matches = $query->paginate(12);
         $organizations = Organization::where('status', 'active')->orderBy('name')->get(['id', 'name']);
 
-        $baseCounts = ShootingMatch::where('status', '!=', MatchStatus::Draft);
-        $upcomingCount = (clone $baseCounts)->whereIn('status', [
+        $baseCounts = fn () => $applyFilters(ShootingMatch::where('status', '!=', MatchStatus::Draft));
+        $upcomingCount = $baseCounts()->whereIn('status', [
             MatchStatus::PreRegistration, MatchStatus::RegistrationOpen,
             MatchStatus::RegistrationClosed, MatchStatus::SquaddingOpen,
             MatchStatus::SquaddingClosed, MatchStatus::Ready,
         ])->count();
-        $liveCount = (clone $baseCounts)->where('status', MatchStatus::Active)->count();
-        $completedCount = (clone $baseCounts)->where('status', MatchStatus::Completed)->count();
+        $liveCount = $baseCounts()->where('status', MatchStatus::Active)->count();
+        $completedCount = $baseCounts()->where('status', MatchStatus::Completed)->count();
         $myEventsCount = auth()->check()
             ? ShootingMatch::whereHas('registrations', fn ($q) => $q->where('user_id', auth()->id()))->count()
             : 0;

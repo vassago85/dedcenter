@@ -171,7 +171,13 @@ it('excludes no-show shooters from podium awarding', function () {
     expect($podium)->toBe([1 => $linked1->id]);
 });
 
-it('returns podium shooter ids ordered by rank for account-linked shooters only', function () {
+it('keys the podium by TRUE finishing rank and leaves an unlinked finisher\'s slot unawarded', function () {
+    // Regression: the helper used to renumber the account-linked shooters
+    // into 1/2/3, so an unlinked finisher above a linked one silently handed
+    // the higher badge to the wrong person (linked2 would jump to silver).
+    // Correct behaviour: keep each linked shooter at their real rank; the
+    // guest's rank-2 slot is simply unawarded (an import placeholder would
+    // hold it in production so it can be claimed).
     $owner = User::factory()->create();
     $u1 = User::factory()->create();
     $u2 = User::factory()->create();
@@ -194,8 +200,45 @@ it('returns podium shooter ids ordered by rank for account-linked shooters only'
 
     $podium = (new MatchStandingsService())->podiumShooterIds($match, 3);
 
+    // linked1 = true rank 1 (gold); guest = rank 2 but unlinked → unawarded;
+    // linked2 = true rank 3 (bronze), NOT promoted to silver.
     expect($podium)->toBe([
         1 => $linked1->id,
-        2 => $linked2->id,
+        3 => $linked2->id,
     ]);
+});
+
+it('PRS podium keeps true rank when the top finishers are unclaimed (match-54 scenario)', function () {
+    // Reproduces the PPRC match: the two top finishers are unclaimed
+    // walk-ins, and a lower finisher has a real account. The lower shooter
+    // must receive BRONZE (their real rank 3), never GOLD by renumbering.
+    $owner = User::factory()->create();
+    $thirdUser = User::factory()->create();
+
+    $match = ShootingMatch::factory()->create(['created_by' => $owner->id, 'scoring_type' => 'prs']);
+    $stage = TargetSet::create([
+        'match_id' => $match->id, 'label' => 'Stage 1',
+        'distance_meters' => 0, 'distance_multiplier' => 1.0, 'sort_order' => 1,
+    ]);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Alpha']);
+    // Unclaimed winners (no user_id) + one account-linked lower finisher.
+    $winner = Shooter::create(['name' => 'Winner', 'squad_id' => $squad->id, 'status' => 'active']);
+    $runnerUp = Shooter::create(['name' => 'RunnerUp', 'squad_id' => $squad->id, 'status' => 'active']);
+    $third = Shooter::create(['name' => 'Third', 'squad_id' => $squad->id, 'status' => 'active', 'user_id' => $thirdUser->id]);
+
+    foreach ([[$winner, 3], [$runnerUp, 2], [$third, 1]] as [$shooter, $hits]) {
+        \App\Models\PrsStageResult::create([
+            'match_id' => $match->id, 'stage_id' => $stage->id, 'shooter_id' => $shooter->id,
+            'hits' => $hits, 'misses' => 3 - $hits, 'not_taken' => 0,
+            'raw_time_seconds' => 30.00, 'official_time_seconds' => 30.00,
+            'completed_at' => now(),
+        ]);
+    }
+
+    $podium = (new MatchStandingsService())->podiumShooterIds($match, 3);
+
+    // Winner (rank 1) + RunnerUp (rank 2) are unclaimed → those slots stay
+    // unawarded; Third keeps their real rank 3 (bronze), not promoted to gold.
+    expect($podium)->toBe([3 => $third->id]);
 });
