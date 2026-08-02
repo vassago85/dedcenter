@@ -28,54 +28,14 @@ Route::post('login', [AuthController::class, 'login']);
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
 Route::get('matches/{match}/elr-rankings', [\App\Http\Controllers\Api\ElrRankingController::class, 'show']);
 
-Route::get('matches/{match}/badges', function (ShootingMatch $match) {
-    $badges = UserAchievement::where('match_id', $match->id)
-        ->with('achievement:id,slug,label,description,category')
-        ->get()
-        ->groupBy('user_id')
-        ->map(fn ($group) => $group->map(fn ($ua) => [
-            'slug' => $ua->achievement->slug,
-            'label' => $ua->achievement->label,
-            'category' => $ua->achievement->category,
-        ])->values());
+// matches/{match}/badges moved inside auth:sanctum below (used to be
+// public and grouped by user_id, which let anyone enumerate user IDs
+// against arbitrary matches). No public consumer references it — the
+// public scoreboard renders badges server-side.
 
-    return response()->json(['badges' => $badges]);
-});
-
-Route::get('matches/{match}/prs-backfill', function (ShootingMatch $match) {
-    if (! $match->isPrs()) {
-        return response()->json(['message' => 'Not a PRS match'], 422);
-    }
-
-    $shots = PrsShotScore::where('match_id', $match->id)->get();
-    $grouped = $shots->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
-    $created = 0;
-
-    foreach ($grouped as $key => $stageShots) {
-        [$shooterId, $stageId] = explode('-', $key);
-        $existing = PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stageId)->first();
-        if ($existing) {
-            continue;
-        }
-
-        $hits = $stageShots->where('result', PrsShotResult::Hit)->count();
-        $misses = $stageShots->where('result', PrsShotResult::Miss)->count();
-        $notTaken = $stageShots->where('result', PrsShotResult::NotTaken)->count();
-
-        PrsStageResult::create([
-            'match_id' => $match->id,
-            'shooter_id' => (int) $shooterId,
-            'stage_id' => (int) $stageId,
-            'hits' => $hits,
-            'misses' => $misses,
-            'not_taken' => $notTaken,
-            'completed_at' => $stageShots->first()->recorded_at,
-        ]);
-        $created++;
-    }
-
-    return response()->json(['message' => "Backfilled $created missing PrsStageResult records"]);
-});
+// prs-backfill moved inside auth:sanctum + MD gate + POST — used to be a
+// public GET, which meant anyone on the internet could mutate scoring data
+// by hitting the URL. See docblock on the handler below.
 
 Route::get('seasons', [SeasonController::class, 'index']);
 Route::get('seasons/{season}/standings', [SeasonController::class, 'standings']);
@@ -119,6 +79,31 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
+    // Badges for a match, keyed by SHOOTER id (not user id). Previously this
+    // was public and keyed by user_id, which let anyone enumerate user IDs
+    // against arbitrary matches. The scoreboard already renders badges
+    // server-side, so this endpoint just gives the native app a compact
+    // fetch when the SPA needs them without hitting the full scoreboard.
+    Route::get('matches/{match}/badges', function (ShootingMatch $match) {
+        $userToShooter = \App\Models\Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+            ->whereNotNull('user_id')
+            ->pluck('id', 'user_id');
+
+        $badges = UserAchievement::where('match_id', $match->id)
+            ->whereIn('user_id', $userToShooter->keys())
+            ->with('achievement:id,slug,label,description,category')
+            ->get()
+            ->groupBy(fn ($ua) => (int) $userToShooter[$ua->user_id])
+            ->map(fn ($group) => $group->map(fn ($ua) => [
+                'slug' => $ua->achievement->slug,
+                'label' => $ua->achievement->label,
+                'category' => $ua->achievement->category,
+            ])->values());
+
+        return response()->json(['badges' => $badges]);
+    });
+
     Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
     Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
     Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
@@ -157,7 +142,57 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('matches/{match}/scores/sync', [SyncController::class, 'scores']);
 
-    Route::get('matches/{match}/prs-diagnostic', function (ShootingMatch $match) {
+    // Diagnostic + one-shot repair endpoints. Both are match-director-only
+    // maintenance tools (previously prs-backfill was public + a GET, so
+    // anyone could mutate scoring data by hitting the URL). Kept inline so
+    // the auth check lives next to the handler.
+    $requireMatchDirector = function (Request $request, ShootingMatch $match): void {
+        $user = $request->user();
+        $authorized = $user && ($user->isAdmin()
+            || ($match->organization && $user->isOrgMatchDirector($match->organization)));
+        abort_unless($authorized, 403, 'Match director only.');
+    };
+
+    Route::post('matches/{match}/prs-backfill', function (Request $request, ShootingMatch $match) use ($requireMatchDirector) {
+        $requireMatchDirector($request, $match);
+
+        if (! $match->isPrs()) {
+            return response()->json(['message' => 'Not a PRS match'], 422);
+        }
+
+        $shots = PrsShotScore::where('match_id', $match->id)->get();
+        $grouped = $shots->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
+        $created = 0;
+
+        foreach ($grouped as $key => $stageShots) {
+            [$shooterId, $stageId] = explode('-', $key);
+            $existing = PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stageId)->first();
+            if ($existing) {
+                continue;
+            }
+
+            $hits = $stageShots->where('result', PrsShotResult::Hit)->count();
+            $misses = $stageShots->where('result', PrsShotResult::Miss)->count();
+            $notTaken = $stageShots->where('result', PrsShotResult::NotTaken)->count();
+
+            PrsStageResult::create([
+                'match_id' => $match->id,
+                'shooter_id' => (int) $shooterId,
+                'stage_id' => (int) $stageId,
+                'hits' => $hits,
+                'misses' => $misses,
+                'not_taken' => $notTaken,
+                'completed_at' => $stageShots->first()->recorded_at,
+            ]);
+            $created++;
+        }
+
+        return response()->json(['message' => "Backfilled $created missing PrsStageResult records"]);
+    });
+
+    Route::get('matches/{match}/prs-diagnostic', function (Request $request, ShootingMatch $match) use ($requireMatchDirector) {
+        $requireMatchDirector($request, $match);
+
         $stageResults = PrsStageResult::where('match_id', $match->id)->get();
         $shotScores = PrsShotScore::where('match_id', $match->id)->count();
         $stages = $match->targetSets()->get(['id', 'label', 'is_timed_stage', 'total_shots']);

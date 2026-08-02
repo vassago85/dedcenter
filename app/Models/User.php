@@ -109,6 +109,19 @@ class User extends Authenticatable
         return $this->role === 'match_director';
     }
 
+    /**
+     * True for platform-level administrators — the `admin` route middleware
+     * alias and every "bypass all org checks" branch in the app rely on
+     * this predicate.
+     *
+     * NOTE: the platform `match_director` role is intentionally treated as
+     * a full platform admin (not just a match-running role). It's used
+     * sparingly on the DeadCenter team and grants access to the admin
+     * dashboard, org CRUD, revenue, and settings, same as `owner`. This
+     * is by design — if a narrower "platform match-running" role is ever
+     * needed, split it off from `isAdmin()` explicitly rather than
+     * quietly loosening this method.
+     */
     public function isAdmin(): bool
     {
         return $this->isOwner() || $this->isMatchDirector();

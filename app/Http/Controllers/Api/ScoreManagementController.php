@@ -140,7 +140,9 @@ class ScoreManagementController extends Controller
      */
     public function auditLog(Request $request, ShootingMatch $match)
     {
-        $this->authorizeMatchDirector($request, $match);
+        // Audit log is a READ that range officers legitimately want during
+        // scoring (to see what a co-scorer just changed) — RO-level bar.
+        $this->authorizeScorer($request, $match);
 
         $query = ScoreAuditLog::where('match_id', $match->id)
             ->with('user:id,name,email')
@@ -275,7 +277,9 @@ class ScoreManagementController extends Controller
      */
     public function storeCorrectionLogs(Request $request, ShootingMatch $match)
     {
-        $this->authorizeMatchDirector($request, $match);
+        // Correction-log writes are the RO's own audit trail of what they
+        // just fixed on the day — RO-level bar (not a match-lifecycle op).
+        $this->authorizeScorer($request, $match);
 
         $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
         $validStageIds = $match->targetSets()->pluck('id')->toArray();
@@ -572,7 +576,10 @@ class ScoreManagementController extends Controller
         Shooter $shooter,
         SquadScoreCorrectionService $service,
     ) {
-        $this->authorizeMatchDirector($request, $match);
+        // Single-shooter correction is the "tap a row, fix the tap" modal
+        // the RO uses during scoring — RO-level bar. Completing/reopening
+        // the match still requires MD, so match-lifecycle stays protected.
+        $this->authorizeScorer($request, $match);
 
         if ($match->status === MatchStatus::Completed) {
             return response()->json([
@@ -833,16 +840,45 @@ class ScoreManagementController extends Controller
         ]);
     }
 
+    /**
+     * MD-level bar for destructive / match-lifecycle actions: reassign,
+     * reshoot, publish/unpublish, move-stage, complete, reopen, side-bet
+     * management. Platform admins (owner + match_director) bypass; the
+     * match creator is treated as MD for their own match; otherwise the
+     * user must be an org MATCH DIRECTOR of the match's org. Prior to the
+     * RBAC audit this helper called `isOrgAdmin` (= range officer), which
+     * silently let ROs complete/reopen matches and reassign scores.
+     */
     private function authorizeMatchDirector(Request $request, ShootingMatch $match): void
     {
         $user = $request->user();
 
-        $authorized = $user->isOwner()
+        $authorized = $user && ($user->isAdmin()
             || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgAdmin($match->organization));
+            || ($match->organization && $user->isOrgMatchDirector($match->organization)));
 
         if (! $authorized) {
             abort(403, 'Only the match director or admin can perform this action.');
+        }
+    }
+
+    /**
+     * RO-level bar for operational-during-scoring actions: single-shooter
+     * corrections, correction-log writes, audit-log read. Range officers
+     * legitimately need these on the day, so this stays permissive by
+     * design — anything that changes the match's final state or lifecycle
+     * must use `authorizeMatchDirector()` instead.
+     */
+    private function authorizeScorer(Request $request, ShootingMatch $match): void
+    {
+        $user = $request->user();
+
+        $authorized = $user && ($user->isAdmin()
+            || $match->created_by === $user->id
+            || ($match->organization && $user->isOrgRangeOfficer($match->organization)));
+
+        if (! $authorized) {
+            abort(403, 'Only match staff can perform this action.');
         }
     }
 }

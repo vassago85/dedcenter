@@ -49,10 +49,28 @@ Route::get('/sponsor-info/{token}', [SponsorInfoController::class, 'show'])->nam
 
 Route::get('/app-login', [AuthController::class, 'tokenLogin'])->name('app.login');
 
+/**
+ * Scoring SPA shell. Mints a short-lived Sanctum token the Vue app uses
+ * for API calls. The RBAC audit tightened two things here:
+ *   1. Only users who can actually score (platform admin, org owner / MD /
+ *      RO) are handed a token — a pure shooter now redirects back to their
+ *      dashboard instead of walking away with a session token.
+ *   2. The token is scoped to the `scoring` ability, so we can later gate
+ *      individual API routes with `abilities:scoring` middleware without
+ *      breaking existing sessions. Today ability enforcement is per-route
+ *      (isOrgRangeOfficer etc.), but the scope keeps the door closed
+ *      against any endpoint that forgets to check.
+ */
 Route::get('/score/{any?}', function () {
     $user = auth()->user();
+
+    if (! $user->canScore()) {
+        return redirect()->route('dashboard')
+            ->with('status', 'The scoring app is only available to match staff.');
+    }
+
     $user->tokens()->where('name', 'scoring-session')->delete();
-    $token = $user->createToken('scoring-session')->plainTextToken;
+    $token = $user->createToken('scoring-session', ['scoring'])->plainTextToken;
 
     return view('scoring', ['apiToken' => $token]);
 })->where('any', '.*')->middleware(['auth', 'verified'])->name('score');

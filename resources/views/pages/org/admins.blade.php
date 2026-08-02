@@ -14,8 +14,32 @@ new #[Layout('components.layouts.app')]
     public string $email = '';
     public array $newRoles = ['is_range_officer' => true];
 
+    /**
+     * Guard mutating team-management actions to org OWNERS only.
+     *
+     * The `/org/{organization}/admins` route sits behind the `org.admin`
+     * middleware, which resolves to `isOrgRangeOfficer` — so range officers
+     * can reach this page (they can see the roster, which is fine). Without
+     * this check a range officer could invoke the Livewire action methods
+     * directly (they're only hidden in the UI via `$isCurrentUserOwner`)
+     * and silently promote themselves to Match Director or remove other
+     * non-owner staff. The mutating actions must live at OWNER level.
+     *
+     * Delegates to `OrganizationPolicy::manageTeam` — the canonical rule.
+     */
+    protected function authorizeOwner(): void
+    {
+        abort_unless(
+            auth()->user()?->can('manageTeam', $this->organization),
+            403,
+            'Only the organization owner can manage the team.',
+        );
+    }
+
     public function addStaff(): void
     {
+        $this->authorizeOwner();
+
         $this->validate([
             'email' => 'required|email',
         ]);
@@ -54,6 +78,8 @@ new #[Layout('components.layouts.app')]
 
     public function toggleRole(int $userId, string $roleKey): void
     {
+        $this->authorizeOwner();
+
         if (! in_array($roleKey, ['is_match_director', 'is_range_officer', 'is_shooter'])) {
             return;
         }
@@ -75,6 +101,8 @@ new #[Layout('components.layouts.app')]
 
     public function removeStaff(int $userId): void
     {
+        $this->authorizeOwner();
+
         $pivot = $this->organization->admins()->where('user_id', $userId)->first();
 
         if ($pivot && $pivot->pivot->is_owner) {

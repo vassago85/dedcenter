@@ -7,6 +7,20 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Operational device lock — ADVISORY ONLY, not a security boundary.
+ *
+ * The lock state is supplied by the client via the `X-Device-Lock-Stage`
+ * and `X-Device-Lock-Squad` request headers, so any determined caller
+ * can bypass it by omitting or changing those headers. The middleware
+ * exists to prevent an *honest* scorer's device from writing to the
+ * wrong stage or squad when a match director has locked their tablet —
+ * it is NOT what stops an unauthenticated or unauthorised user from
+ * submitting scores. Real authorization for score submission lives in
+ * the scoring controllers (`isOrgRangeOfficer` per match) and is
+ * captured canonically by `ShootingMatchPolicy::score`. Do NOT rely on
+ * this middleware for access control.
+ */
 class EnforceDeviceLock
 {
     public function handle(Request $request, Closure $next): Response
