@@ -57,14 +57,27 @@ new #[Layout('components.layouts.app')]
      */
     public ?int $focusShooterId = null;
 
-    public function mount(ShootingMatch $match, Squad $squad): void
+    public function mount(ShootingMatch $match, Squad $squad)
     {
         if ($squad->match_id !== $match->id) {
             abort(404);
         }
 
+        // This editor reads and writes the STANDARD hit/miss `scores` table.
+        // PRS / ELR matches don't use that table (they have their own scoring
+        // + per-shooter correction flow in the app), so rendering the gong
+        // grid against their data is meaningless — and, with real PRS data on
+        // file, blew up with a 500. Bounce non-standard matches straight back
+        // to squadding with a note instead of trying to render the wrong tool.
         if (! $match->isStandard()) {
-            Flux::toast('Score corrections are only available for standard matches. PRS and ELR have their own editors.', variant: 'warning');
+            $routeName = request()->route()?->getName() ?? '';
+            $isAdmin = str_starts_with($routeName, 'admin.');
+
+            Flux::toast('Score corrections here are for standard matches only. Correct PRS/ELR scores from the scoring app.', variant: 'warning');
+
+            return $isAdmin
+                ? $this->redirectRoute('admin.matches.squadding', ['match' => $match], navigate: true)
+                : $this->redirectRoute('org.matches.squadding', ['organization' => request()->route('organization'), 'match' => $match], navigate: true);
         }
 
         $this->match = $match;
