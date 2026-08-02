@@ -158,12 +158,17 @@ class PrsScoreController extends Controller
                 };
             }
 
+            // Official time = the recorded raw time, capped at the stage par
+            // (the hard time limit on the clock). We do NOT bump non-clears to
+            // par: dropping a shot is a MISS, not a time-out. The scoring app
+            // already records the par time itself when a shooter runs out of
+            // time (i.e. leaves shots not-taken), so trusting raw_time here
+            // keeps genuine sub-par times intact for the tiebreaker instead of
+            // flattening everyone who missed a shot to par — which previously
+            // collapsed the Stage-4 timed tiebreaker into a mass tie.
             $officialTime = $rawTime;
             if ($officialTime !== null && $stage->par_time_seconds) {
-                $allHit = $hits === ($stage->total_shots ?? 0);
-                if (! $allHit) {
-                    $officialTime = max($officialTime, (float) $stage->par_time_seconds);
-                }
+                $officialTime = min($officialTime, (float) $stage->par_time_seconds);
             }
 
             $existingResult = PrsStageResult::where('shooter_id', $validated['shooter_id'])

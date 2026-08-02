@@ -690,3 +690,48 @@ test('match api returns device_lock_mode', function () {
 
     expect($response->json('data.device_lock_mode'))->toBe('locked_to_stage');
 });
+
+test('official time keeps the real sub-par time when a shot is missed (miss is not a time-out)', function () {
+    // Regression: the server used to bump official_time to par for anyone who
+    // didn't clear EVERY gong on the stage, treating a miss like a time-out.
+    // That flattened the timed tiebreaker to par for every leader who dropped
+    // a shot. A miss with a genuine sub-par time must keep that time.
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => true, 'par_time_seconds' => 105.00]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'raw_time_seconds' => 48.50,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'miss'],
+            ],
+        ]
+    );
+
+    $response->assertOk();
+    expect($response->json('stage_result.hits'))->toBe(1);
+    expect((float) $response->json('stage_result.official_time_seconds'))->toBe(48.5);
+});
+
+test('official time is capped at par when the raw time exceeds it', function () {
+    $this->stage1->update(['total_shots' => 2, 'is_timed_stage' => true, 'par_time_seconds' => 105.00]);
+
+    $response = $this->actingAs($this->admin)->postJson(
+        "/api/matches/{$this->match->id}/stages/{$this->stage1->id}/score",
+        [
+            'shooter_id' => $this->shooter1->id,
+            'squad_id' => $this->shooter1->squad_id,
+            'raw_time_seconds' => 130.00,
+            'shots' => [
+                ['shot_number' => 1, 'result' => 'hit'],
+                ['shot_number' => 2, 'result' => 'hit'],
+            ],
+        ]
+    );
+
+    $response->assertOk();
+    expect((float) $response->json('stage_result.official_time_seconds'))->toBe(105.0);
+});

@@ -777,12 +777,12 @@ class ScoreManagementController extends Controller
                 };
             }
 
+            // See PrsScoreController::store — official time = recorded raw
+            // time capped at par. A miss is not a time-out, so we no longer
+            // force non-clears to the par time (that flattened the tiebreaker).
             $officialTime = $rawTime;
             if ($officialTime !== null && $stage->par_time_seconds) {
-                $allHit = $hits === ($stage->total_shots ?? 0);
-                if (! $allHit) {
-                    $officialTime = max($officialTime, (float) $stage->par_time_seconds);
-                }
+                $officialTime = min($officialTime, (float) $stage->par_time_seconds);
             }
 
             $existingResult = PrsStageResult::where('shooter_id', $shooter->id)
