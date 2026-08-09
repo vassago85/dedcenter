@@ -139,10 +139,15 @@ class MatchResource extends JsonResource
             'royal_flush_enabled' => (bool) $this->royal_flush_enabled,
             'concurrent_relays' => (int) ($this->concurrent_relays ?? 2),
             'device_lock_mode' => $this->device_lock_mode ?? 'open',
+            // MD bar (was isOrgAdmin = range officer). The scoring app uses
+            // this flag to show match-lifecycle controls (re-open / complete /
+            // publish), and those endpoints are now MD-gated server-side — so
+            // an RO must not be shown buttons that would 403. Mirrors
+            // ShootingMatchPolicy::manage.
             'can_manage' => $request->user() && (
                 $request->user()->isOwner()
                 || $this->created_by === $request->user()->id
-                || ($this->organization && $request->user()->isOrgAdmin($this->organization))
+                || ($this->organization && $request->user()->isOrgMatchDirector($this->organization))
             ),
             'can_export' => $request->user() && (
                 $request->user()->isAdmin()

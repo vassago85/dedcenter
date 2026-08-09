@@ -22,11 +22,7 @@ class ScoreController extends Controller
     {
         $user = $request->user();
 
-        $canScore = $user->isOwner()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgRangeOfficer($match->organization));
-
-        if (! $canScore) {
+        if (! $user->can('score', $match)) {
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
         }
 
@@ -200,8 +196,10 @@ class ScoreController extends Controller
      * buttons for a shooter at a distance. Returns the full per-distance
      * breakdown; the banner trigger is `royal_flush_shot === true`.
      */
-    public function royalFlushStatus(ShootingMatch $match, Shooter $shooter, RoyalFlushShotStatusService $service)
+    public function royalFlushStatus(Request $request, ShootingMatch $match, Shooter $shooter, RoyalFlushShotStatusService $service)
     {
+        abort_unless($request->user()->can('view', $match), 403, 'You do not have access to this match.');
+
         if (! $match->shooters()->whereKey($shooter->id)->exists()) {
             abort(404);
         }
@@ -211,6 +209,16 @@ class ScoreController extends Controller
 
     public function updateShooterStatus(ShootingMatch $match, Shooter $shooter, Request $request)
     {
+        $user = $request->user();
+
+        // AuthZ: previously this endpoint was only behind auth:sanctum, so ANY
+        // logged-in user could flag any shooter as dq / no_show / withdrawn on
+        // any match (a privilege-escalation / IDOR hole that also bypassed the
+        // MD-only DisqualificationController). Status changes are a scoring
+        // operation → range-officer bar; a `dq` here additionally requires MD
+        // so it can't be used to route around the audited DQ flow.
+        abort_unless($user->can('score', $match), 403, 'You are not authorized to manage shooters in this match.');
+
         $matchShooterIds = $match->shooters()->pluck('shooters.id');
         if (! $matchShooterIds->contains($shooter->id)) {
             abort(404);
@@ -222,6 +230,11 @@ class ScoreController extends Controller
         // MatchStandingsService::NON_RANKED_STATUSES). Without this,
         // absent shooters remained 'active' and got scored as all-misses.
         $request->validate(['status' => 'required|in:active,withdrawn,dq,no_show']);
+
+        if ($request->status === 'dq') {
+            abort_unless($user->can('disqualify', $match), 403, 'Only match directors can disqualify a shooter.');
+        }
+
         $shooter->update(['status' => $request->status]);
 
         return response()->json(['status' => $shooter->status]);

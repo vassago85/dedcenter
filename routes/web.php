@@ -7,6 +7,7 @@ use App\Http\Controllers\MatchBookController;
 use App\Http\Controllers\MatchExportController;
 use App\Http\Controllers\MatchReportController;
 use App\Http\Controllers\ModeSwitchController;
+use App\Http\Controllers\ProofOfPaymentController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SponsorInfoController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,14 @@ Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 Route::get('/sponsor-info/{token}', [SponsorInfoController::class, 'show'])->name('sponsor-info.show');
 
 Route::get('/app-login', [AuthController::class, 'tokenLogin'])->name('app.login');
+
+// Gated proof-of-payment document access. These are PII (bank docs) and used
+// to be served straight off the public disk via Storage::url(); the controller
+// now enforces admin / owning-org-admin / uploader access and streams from the
+// private disk.
+Route::get('/registrations/{registration}/proof-of-payment', [ProofOfPaymentController::class, 'show'])
+    ->middleware(['auth', 'verified'])
+    ->name('registrations.proof-of-payment');
 
 /**
  * Scoring SPA shell. Mints a short-lived Sanctum token the Vue app uses

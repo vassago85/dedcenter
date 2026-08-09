@@ -1,5 +1,7 @@
-# composer.lock requires php >= 8.4 (symfony/* 8.x line) so the base image is pinned to 8.4-alpine.
-FROM php:8.4-fpm-alpine
+# PHP 8.5 to match the development runtime (local + composer.lock are generated
+# on 8.5). The lock floor is >=8.4 (symfony/* 8.x line); pinning the image to
+# 8.5 keeps the build identical to dev and avoids platform drift.
+FROM php:8.5-fpm-alpine
 
 # Avoid dl-cdn TLS/transient failures during apk (common when install-php-extensions runs apk update)
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirror.leaseweb.com|g' /etc/apk/repositories

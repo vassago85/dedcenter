@@ -13,8 +13,10 @@ use Illuminate\Validation\Rule;
 
 class DisqualificationController extends Controller
 {
-    public function index(ShootingMatch $match): JsonResponse
+    public function index(Request $request, ShootingMatch $match): JsonResponse
     {
+        abort_unless($request->user()->can('view', $match), 403, 'You are not authorized to view this match.');
+
         $dqs = $match->disqualifications()
             ->with(['shooter:id,name,bib_number', 'targetSet:id,label,distance_meters,stage_number', 'issuedBy:id,name'])
             ->orderByDesc('created_at')

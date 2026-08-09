@@ -186,7 +186,7 @@ new #[Layout('components.layouts.app')]
         if ($this->proofOfPayment) {
             $popPath = $this->proofOfPayment->store(
                 'proof-of-payment/' . auth()->id(),
-                'public'
+                'local'
             );
         }
 

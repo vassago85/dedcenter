@@ -29,6 +29,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'org.portal' => EnsureOrganizationPortalAccessible::class,
             'matchbook.enabled' => EnsureMatchbookEnabled::class,
             'verified' => EnsureEmailIsVerified::class,
+            // Sanctum ability guards (not auto-registered under the Laravel 11
+            // bootstrap). `ability:x` passes when the token holds `x` OR the
+            // wildcard `*`. Used to enforce the `scoring` ability on the
+            // score-mutating API so a leaked scoring-only token can't reach
+            // member endpoints and vice-versa.
+            'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

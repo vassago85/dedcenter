@@ -19,9 +19,21 @@ new #[Layout('components.layouts.app')]
     public string $matchFilter = '';
     public ?int $expandedRegId = null;
 
+    /**
+     * Resolve a registration and prove it belongs to a match owned by the
+     * organization in the URL. `org.admin` middleware only checks the route
+     * {organization}; without this scope any org admin could approve / reject
+     * another organization's registrations by posting a foreign id (IDOR).
+     */
+    protected function resolveOrgRegistration(int $id): MatchRegistration
+    {
+        return MatchRegistration::whereIn('match_id', $this->organization->matches()->select('id'))
+            ->findOrFail($id);
+    }
+
     public function approve(int $id): void
     {
-        $reg = MatchRegistration::findOrFail($id);
+        $reg = $this->resolveOrgRegistration($id);
         $reg->update(['payment_status' => 'confirmed']);
 
         $match = $reg->match;
@@ -40,7 +52,7 @@ new #[Layout('components.layouts.app')]
 
     public function approveFreeEntry(int $id): void
     {
-        $reg = MatchRegistration::findOrFail($id);
+        $reg = $this->resolveOrgRegistration($id);
         $reg->update(['payment_status' => 'confirmed', 'is_free_entry' => true, 'amount' => 0]);
 
         $match = $reg->match;
@@ -59,7 +71,7 @@ new #[Layout('components.layouts.app')]
 
     public function reject(int $id): void
     {
-        MatchRegistration::findOrFail($id)->update(['payment_status' => 'rejected']);
+        $this->resolveOrgRegistration($id)->update(['payment_status' => 'rejected']);
         Flux::toast('Registration rejected.', variant: 'warning');
     }
 
@@ -91,7 +103,7 @@ new #[Layout('components.layouts.app')]
 
         $matchesWithRegs = ShootingMatch::whereIn('id', $matchIds)
             ->whereHas('registrations')
-            ->orderByRaw("FIELD(status, 'registration_open', 'pre_registration', 'squadding_open', 'active', 'registration_closed', 'draft', 'completed') ASC")
+            ->orderByRaw("CASE status WHEN 'registration_open' THEN 0 WHEN 'pre_registration' THEN 1 WHEN 'squadding_open' THEN 2 WHEN 'active' THEN 3 WHEN 'registration_closed' THEN 4 WHEN 'draft' THEN 5 WHEN 'completed' THEN 6 ELSE 7 END ASC")
             ->orderBy('date', 'desc')
             ->get()
             ->map(fn ($m) => (object) [
@@ -198,7 +210,7 @@ new #[Layout('components.layouts.app')]
                                 </td>
                                 <td class="px-6 py-3">
                                     @if($reg->proof_of_payment_path)
-                                        <a href="{{ Storage::url($reg->proof_of_payment_path) }}" target="_blank" class="text-accent hover:text-accent text-xs font-medium" onclick="event.stopPropagation()">View POP</a>
+                                        <a href="{{ route('registrations.proof-of-payment', $reg) }}" target="_blank" class="text-accent hover:text-accent text-xs font-medium" onclick="event.stopPropagation()">View POP</a>
                                     @else
                                         <span class="text-muted text-xs">—</span>
                                     @endif

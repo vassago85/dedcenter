@@ -23,7 +23,8 @@ use App\Models\UserAchievement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('login', [AuthController::class, 'login']);
+// Throttle credential submission to blunt password brute-forcing / spraying.
+Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
 Route::get('matches/{match}/elr-rankings', [\App\Http\Controllers\Api\ElrRankingController::class, 'show']);
@@ -104,43 +105,52 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json(['badges' => $badges]);
     });
 
-    Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
-    Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
-    Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
-    Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
-    Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
-    Route::get('matches/{match}/elr-firing-order', [ElrScoreController::class, 'firingOrder']);
-    Route::post('matches/{match}/elr-team-stage', [ElrScoreController::class, 'teamStage']);
+    // ── Scoring surface ──────────────────────────────────────────────
+    // Every route here is driven exclusively by the scoring app. Enforce the
+    // Sanctum `scoring` ability so the short-lived web scoring token (minted
+    // with `['scoring']` by the /score route) is the only credential class
+    // that reaches score data — and, conversely, so a leaked scoring token
+    // can't be replayed against member endpoints. Full-access tokens (`*`,
+    // issued by the native /login flow) satisfy `ability:scoring` as well.
+    Route::middleware('ability:scoring')->group(function () {
+        Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
+        Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
+        Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
+        Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
+        Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
+        Route::get('matches/{match}/elr-firing-order', [ElrScoreController::class, 'firingOrder']);
+        Route::post('matches/{match}/elr-team-stage', [ElrScoreController::class, 'teamStage']);
 
-    Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);
-    Route::get('matches/{match}/stages/{stage}/scores', [PrsScoreController::class, 'show']);
+        Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);
+        Route::get('matches/{match}/stages/{stage}/scores', [PrsScoreController::class, 'show']);
 
-    // Score management (MD only)
-    Route::post('matches/{match}/scores/reassign', [ScoreManagementController::class, 'reassign']);
-    Route::post('matches/{match}/scores/reshoot', [ScoreManagementController::class, 'reshoot']);
-    Route::get('matches/{match}/audit-log', [ScoreManagementController::class, 'auditLog']);
-    Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
-    Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
-    Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
-    Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
-    Route::post('matches/{match}/reopen', [ScoreManagementController::class, 'reopenMatch']);
-    // Single-shooter correction: powers the inline "tap a row on the
-    // stage summary → fix this shooter" modal across native, PWA, and
-    // web. Both standard and PRS scoring routed through here.
-    Route::post('matches/{match}/shooters/{shooter}/correct', [ScoreManagementController::class, 'correctSingleShooter']);
+        // Score management (MD only)
+        Route::post('matches/{match}/scores/reassign', [ScoreManagementController::class, 'reassign']);
+        Route::post('matches/{match}/scores/reshoot', [ScoreManagementController::class, 'reshoot']);
+        Route::get('matches/{match}/audit-log', [ScoreManagementController::class, 'auditLog']);
+        Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
+        Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
+        Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
+        Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
+        Route::post('matches/{match}/reopen', [ScoreManagementController::class, 'reopenMatch']);
+        // Single-shooter correction: powers the inline "tap a row on the
+        // stage summary → fix this shooter" modal across native, PWA, and
+        // web. Both standard and PRS scoring routed through here.
+        Route::post('matches/{match}/shooters/{shooter}/correct', [ScoreManagementController::class, 'correctSingleShooter']);
 
-    // Side-bet buy-in management (MD only) — drives the scoring-app's
-    // Buy-Ins sub-tab so the MD can add/remove shooters from the pot
-    // without leaving the scoring SPA.
-    Route::get('matches/{match}/side-bet/buy-ins', [ScoreManagementController::class, 'sideBetBuyIns']);
-    Route::post('matches/{match}/side-bet/toggle/{shooter}', [ScoreManagementController::class, 'toggleSideBetShooter']);
+        // Side-bet buy-in management (MD only) — drives the scoring-app's
+        // Buy-Ins sub-tab so the MD can add/remove shooters from the pot
+        // without leaving the scoring SPA.
+        Route::get('matches/{match}/side-bet/buy-ins', [ScoreManagementController::class, 'sideBetBuyIns']);
+        Route::post('matches/{match}/side-bet/toggle/{shooter}', [ScoreManagementController::class, 'toggleSideBetShooter']);
 
-    // Disqualifications (MD only)
-    Route::get('matches/{match}/disqualifications', [DisqualificationController::class, 'index']);
-    Route::post('matches/{match}/disqualifications', [DisqualificationController::class, 'store']);
-    Route::delete('matches/{match}/disqualifications/{disqualification}', [DisqualificationController::class, 'destroy']);
+        // Disqualifications (MD only)
+        Route::get('matches/{match}/disqualifications', [DisqualificationController::class, 'index']);
+        Route::post('matches/{match}/disqualifications', [DisqualificationController::class, 'store']);
+        Route::delete('matches/{match}/disqualifications/{disqualification}', [DisqualificationController::class, 'destroy']);
 
-    Route::get('matches/{match}/scores/sync', [SyncController::class, 'scores']);
+        Route::get('matches/{match}/scores/sync', [SyncController::class, 'scores']);
+    });
 
     // Diagnostic + one-shot repair endpoints. Both are match-director-only
     // maintenance tools (previously prs-backfill was public + a GET, so

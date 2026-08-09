@@ -111,11 +111,11 @@ class AuthController extends Controller
                 ], 404);
             }
 
-            $canManage = $user->isOwner()
-                || $match->created_by === $user->id
-                || ($match->organization && $user->isOrgAdmin($match->organization));
-
-            if (! $canManage) {
+            // MD bar (not RO) — this speed-bump guards destructive match
+            // lifecycle actions, so it must match the same authority that
+            // ScoreManagementController requires (isOrgAdmin was RO-level and
+            // let range officers clear the confirm gate).
+            if (! $user->can('manage', $match)) {
                 return response()->json([
                     'ok' => false,
                     'error' => 'You are not the match director or owner of this match.',
@@ -141,6 +141,15 @@ class AuthController extends Controller
     {
         $token = $request->query('token');
         $redirect = $request->query('redirect', '/');
+
+        // Open-redirect guard: only allow app-internal absolute paths. Reject
+        // anything that isn't a single-leading-slash path (absolute URLs,
+        // protocol-relative `//evil.com`, `javascript:` etc.) so this
+        // auto-login endpoint can't be used to bounce a freshly-authenticated
+        // session to an attacker-controlled destination.
+        if (! is_string($redirect) || ! str_starts_with($redirect, '/') || str_starts_with($redirect, '//')) {
+            $redirect = '/';
+        }
 
         if (! $token) {
             return redirect('/login');

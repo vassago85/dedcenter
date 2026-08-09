@@ -21,11 +21,7 @@ class ElrScoreController extends Controller
     {
         $user = $request->user();
 
-        $canScore = $user->isOwner()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgRangeOfficer($match->organization));
-
-        if (! $canScore) {
+        if (! $user->can('score', $match)) {
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
         }
 
@@ -162,11 +158,7 @@ class ElrScoreController extends Controller
     {
         $user = $request->user();
 
-        $canScore = $user->isOwner()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgRangeOfficer($match->organization));
-
-        if (! $canScore) {
+        if (! $user->can('score', $match)) {
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
         }
 
@@ -361,6 +353,8 @@ class ElrScoreController extends Controller
 
     public function progress(Request $request, ShootingMatch $match)
     {
+        abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to view scores for this match.');
+
         $shooterId = $request->query('shooter_id');
         if (! $shooterId) {
             return response()->json(['message' => 'shooter_id required'], 422);
@@ -386,6 +380,7 @@ class ElrScoreController extends Controller
 
     public function firingOrder(Request $request, ShootingMatch $match)
     {
+        abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to view scores for this match.');
         abort_unless($match->isElr() && $match->elrEngagementMode()?->isTeamSequence(), 404);
 
         $validated = $request->validate([

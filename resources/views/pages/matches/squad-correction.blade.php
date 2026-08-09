@@ -63,6 +63,14 @@ new #[Layout('components.layouts.app')]
             abort(404);
         }
 
+        // AuthZ: this page is route-mounted for both admin and org. The org
+        // route only ran `org.admin` (any range officer of the URL's org),
+        // which neither ties the {organization} to this match nor bars an RO
+        // of a *different* org from correcting via a crafted URL. Gate on the
+        // match itself — correct() is the range-officer bar scoped to THIS
+        // match's org (or platform admin / creator).
+        abort_unless(auth()->user()->can('correct', $match), 403, 'You are not authorized to correct scores for this match.');
+
         // This editor reads and writes the STANDARD hit/miss `scores` table.
         // PRS / ELR matches don't use that table (they have their own scoring
         // + per-shooter correction flow in the app), so rendering the gong

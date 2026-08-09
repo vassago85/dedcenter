@@ -1,6 +1,7 @@
 # Local development image (Docker Desktop) — includes dev Composer deps, same runtime as production.
-# composer.lock requires php >= 8.4 (symfony/* 8.x line) so the base image is pinned to 8.4-alpine.
-FROM php:8.4-fpm-alpine
+# PHP 8.5 to match the local dev runtime (composer.lock is generated on 8.5).
+# The lock floor is >=8.4 (symfony/* 8.x line); we pin 8.5 to mirror dev exactly.
+FROM php:8.5-fpm-alpine
 
 RUN apk add --no-cache \
     nginx \

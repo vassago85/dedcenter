@@ -63,6 +63,8 @@ new #[Layout('components.layouts.app')]
 
     public function removeLogo(): void
     {
+        abort_unless(auth()->user()->can('manage', $this->organization), 403, 'Only match directors and owners can change organization settings.');
+
         if ($this->organization->logo_path) {
             Storage::disk('public')->delete($this->organization->logo_path);
             $this->organization->update(['logo_path' => null]);
@@ -72,6 +74,11 @@ new #[Layout('components.layouts.app')]
 
     public function save(): void
     {
+        // org.admin middleware only enforces range-officer access; editing the
+        // organization's identity, branding and default fees is a heavier,
+        // match-director-level action.
+        abort_unless(auth()->user()->can('manage', $this->organization), 403, 'Only match directors and owners can change organization settings.');
+
         $validated = $this->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',

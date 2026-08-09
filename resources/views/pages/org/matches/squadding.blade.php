@@ -50,6 +50,18 @@ new #[Layout('components.layouts.app')]
         return 'Squadding — ' . $this->match->name;
     }
 
+    /**
+     * Resolve a shooter and prove it belongs to THIS match. mount() only
+     * authorizes the bound $match; without scoping the shooterId a match
+     * director could move / delete / DQ shooters in any other match by
+     * posting a foreign id (IDOR). Scope through the squad→match link.
+     */
+    protected function matchShooter(int $shooterId): Shooter
+    {
+        return Shooter::whereHas('squad', fn ($q) => $q->where('match_id', $this->match->id))
+            ->findOrFail($shooterId);
+    }
+
     public function updateDefaultCapacity(): void
     {
         $val = $this->defaultCapacity && $this->defaultCapacity > 0 ? (int) $this->defaultCapacity : null;
@@ -334,7 +346,7 @@ new #[Layout('components.layouts.app')]
 
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
         if ($targetSquad->isFull()) { Flux::toast("{$targetSquad->name} is full.", variant: 'danger'); return; }
         $maxSort = Shooter::where('squad_id', $targetSquadId)->max('sort_order') ?? 0;
@@ -348,7 +360,7 @@ new #[Layout('components.layouts.app')]
      */
     public function moveShooterUp(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         // Safety: must belong to this match.
         if (! $this->match->squads()->whereKey($shooter->squad_id)->exists()) { return; }
 
@@ -372,7 +384,7 @@ new #[Layout('components.layouts.app')]
      */
     public function moveShooterDown(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         if (! $this->match->squads()->whereKey($shooter->squad_id)->exists()) { return; }
 
         $neighbour = Shooter::where('squad_id', $shooter->squad_id)
@@ -391,7 +403,7 @@ new #[Layout('components.layouts.app')]
 
     public function removeFromRelay(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $defaultSquad = $this->match->squads()->firstOrCreate(['name' => 'Unassigned'], ['sort_order' => 999]);
         $maxSort = Shooter::where('squad_id', $defaultSquad->id)->max('sort_order') ?? 0;
         $shooter->update(['squad_id' => $defaultSquad->id, 'sort_order' => $maxSort + 1]);
@@ -402,28 +414,28 @@ new #[Layout('components.layouts.app')]
 
     public function markNoShow(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $shooter->update(['status' => 'no_show']);
         Flux::toast("{$shooter->name} marked as no-show.", variant: 'warning');
     }
 
     public function markPresent(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $shooter->update(['status' => 'active']);
         Flux::toast("{$shooter->name} marked as present.", variant: 'success');
     }
 
     public function markWithdrawn(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $shooter->update(['status' => 'withdrawn']);
         Flux::toast("{$shooter->name} marked as withdrawn.", variant: 'warning');
     }
 
     public function deleteShooter(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $name = $shooter->name;
         $shooter->scores()->delete();
         $shooter->stageTimes()->delete();
@@ -593,7 +605,7 @@ new #[Layout('components.layouts.app')]
 
     public function assignToTeam(int $shooterId, int $teamId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $team = $this->match->teams()->findOrFail($teamId);
         if ($team->isFull()) {
             Flux::toast("{$team->name} is full.", variant: 'danger');
@@ -605,7 +617,7 @@ new #[Layout('components.layouts.app')]
 
     public function removeFromTeam(int $shooterId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $shooter->update(['team_id' => null]);
         Flux::toast("{$shooter->name} removed from team.", variant: 'success');
     }

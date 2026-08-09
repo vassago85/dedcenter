@@ -192,7 +192,7 @@ new #[Layout('components.layouts.portal')]
             'proofOfPayment' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
-        $path = $this->proofOfPayment->store('proof-of-payment/' . auth()->id(), 'public');
+        $path = $this->proofOfPayment->store('proof-of-payment/' . auth()->id(), 'local');
 
         $this->registration->update([
             'proof_of_payment_path' => $path,

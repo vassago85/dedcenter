@@ -46,6 +46,14 @@ class MatchReportController extends Controller
 
     private function renderPreview(Request $request, ShootingMatch $match, ?Organization $organization)
     {
+        // Bind the {organization} segment to the match so an org admin can't
+        // preview another org's shooter reports through a crafted URL, and
+        // require staff view rights on the match itself.
+        if ($organization instanceof Organization && $organization->exists) {
+            abort_unless($match->organization_id === $organization->id, 404);
+        }
+        abort_unless($request->user()->can('view', $match), 403, 'You are not authorized to view reports for this match.');
+
         $shooter = $this->resolveShooter($request, $match);
 
         if (! $shooter) {
@@ -84,6 +92,20 @@ class MatchReportController extends Controller
             'Shooter does not belong to this match.',
         );
 
+        // Respect the MD's "hide scores" toggle on this public HTML report too
+        // — otherwise unpublished results leak through the per-shooter share
+        // link. Staff (admin / org MD) and the linked shooter themself may
+        // still preview before publishing.
+        if (! $match->scoresArePublic()) {
+            $user = $request->user();
+            $mayPreview = $user && (
+                $user->isAdmin()
+                || ($match->organization_id && $user->isOrgMatchDirector($match->organization))
+                || $shooter->user_id === $user->id
+            );
+            abort_unless($mayPreview, 404, 'Results for this match have not been published yet.');
+        }
+
         $report = $this->reportService->generateReport($match, $shooter);
 
         // PDF download is gated by who's looking — staff get the official
@@ -103,7 +125,10 @@ class MatchReportController extends Controller
         $shooterId = $request->query('shooter');
 
         if ($shooterId) {
-            return Shooter::findOrFail($shooterId);
+            // Scope to this match — never resolve a shooter id from another
+            // match into this report (IDOR).
+            return Shooter::whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+                ->findOrFail($shooterId);
         }
 
         return $match->squads()->with('shooters')->get()
@@ -145,7 +170,9 @@ class MatchReportController extends Controller
 
     public function send(Request $request, Organization $organization, ShootingMatch $match)
     {
-        return $this->queueReports($match);
+        abort_unless($match->organization_id === $organization->id, 404);
+
+        return $this->queueReports($request, $match);
     }
 
     /**
@@ -154,11 +181,15 @@ class MatchReportController extends Controller
      */
     public function adminSend(Request $request, ShootingMatch $match)
     {
-        return $this->queueReports($match);
+        return $this->queueReports($request, $match);
     }
 
-    private function queueReports(ShootingMatch $match)
+    private function queueReports(Request $request, ShootingMatch $match)
     {
+        // Blasting reports to every shooter's inbox is a match-lifecycle
+        // action → match-director bar (not any range officer).
+        abort_unless($request->user()->can('manage', $match), 403, 'Only match directors can send reports to all shooters.');
+
         $shooters = $this->reportService->getEmailableShooters($match);
 
         if ($shooters->isEmpty()) {

@@ -1407,9 +1407,21 @@ new #[Layout('components.layouts.app')]
         }
     }
 
+    /**
+     * Resolve a shooter and prove it belongs to THIS match. mount() only
+     * authorizes the bound $match; the shooter id arriving from the client
+     * must be scoped to that match or a match director could mutate / DQ
+     * shooters in another match by posting a foreign id (IDOR).
+     */
+    protected function matchShooter(int $shooterId): Shooter
+    {
+        return Shooter::whereHas('squad', fn ($q) => $q->where('match_id', $this->match->id))
+            ->findOrFail($shooterId);
+    }
+
     public function toggleShooterStatus(int $id): void
     {
-        $shooter = Shooter::findOrFail($id);
+        $shooter = $this->matchShooter($id);
         if ($shooter->isDq()) {
             Flux::toast("{$shooter->name} is disqualified — revoke the DQ first.", variant: 'danger');
             return;
@@ -1432,7 +1444,7 @@ new #[Layout('components.layouts.app')]
     {
         $this->validate(['dqReason' => 'required|string|min:5|max:1000']);
 
-        $shooter = Shooter::findOrFail($this->dqShooterId);
+        $shooter = $this->matchShooter($this->dqShooterId);
         $isMatchDq = $this->dqTargetSetId === null;
 
         $existing = \App\Models\Disqualification::where('match_id', $this->match->id)
@@ -1504,7 +1516,7 @@ new #[Layout('components.layouts.app')]
 
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
         $maxSort = Shooter::where('squad_id', $targetSquadId)->max('sort_order') ?? 0;
         $shooter->update(['squad_id' => $targetSquadId, 'sort_order' => $maxSort + 1]);
@@ -1513,7 +1525,7 @@ new #[Layout('components.layouts.app')]
 
     public function updateShooterDivision(int $shooterId, string $value): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $shooter->update(['match_division_id' => $value !== '' ? (int) $value : null]);
     }
 
@@ -1632,7 +1644,7 @@ new #[Layout('components.layouts.app')]
 
     public function updateShooterCategories(int $shooterId, array $categoryIds): void
     {
-        $shooter = Shooter::findOrFail($shooterId);
+        $shooter = $this->matchShooter($shooterId);
         $validIds = $this->match->categories()->whereIn('id', array_map('intval', $categoryIds))->pluck('id')->toArray();
         $shooter->categories()->sync($validIds);
     }

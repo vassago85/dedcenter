@@ -31,11 +31,7 @@ class PrsScoreController extends Controller
             'shot_count' => is_array($request->input('shots')) ? count($request->input('shots')) : 0,
         ]);
 
-        $canScore = $user->isOwner()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgRangeOfficer($match->organization));
-
-        if (! $canScore) {
+        if (! $user->can('score', $match)) {
             Log::warning('PRS score rejected: not authorized', ['user_id' => $user->id, 'match_id' => $match->id]);
 
             return response()->json(['message' => 'You are not authorized to score this match.'], 403);
@@ -238,6 +234,10 @@ class PrsScoreController extends Controller
 
     public function show(Request $request, ShootingMatch $match, TargetSet $stage)
     {
+        // Per-shot results include unpublished data — restrict to match staff
+        // (score bar) rather than any authenticated Sanctum token.
+        abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to view scores for this match.');
+
         if ($stage->match_id !== $match->id) {
             return response()->json(['message' => 'Stage does not belong to this match.'], 422);
         }

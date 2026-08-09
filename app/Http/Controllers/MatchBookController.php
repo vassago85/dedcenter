@@ -14,8 +14,22 @@ class MatchBookController extends Controller
     /**
      * Match book hub URL: redirect to the Volt editor (creates draft book on first visit).
      */
+    /**
+     * The org route group binds {match} but not against {organization}, and
+     * these methods take no Organization arg — so without an explicit check
+     * an org admin could read/download another org's match book by id (IDOR).
+     * Gate every entry point on the match view policy (admin / creator /
+     * member of the match's own org).
+     */
+    private function authorizeMatchBookAccess(ShootingMatch $match): void
+    {
+        abort_unless(auth()->user()?->can('view', $match), 403, 'You are not authorized to access this match book.');
+    }
+
     public function show(ShootingMatch $match)
     {
+        $this->authorizeMatchBookAccess($match);
+
         if (request()->routeIs('org.*')) {
             return redirect()->route('org.matches.matchbook.edit', [
                 'organization' => $match->organization,
@@ -33,6 +47,8 @@ class MatchBookController extends Controller
      */
     public function preview(ShootingMatch $match)
     {
+        $this->authorizeMatchBookAccess($match);
+
         $matchBook = $match->matchBook;
         abort_unless($matchBook, 404, 'No match book exists for this match.');
 
@@ -46,6 +62,8 @@ class MatchBookController extends Controller
      */
     public function download(ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
+        $this->authorizeMatchBookAccess($match);
+
         $matchBook = $match->matchBook;
         abort_unless($matchBook, 404, 'No match book exists for this match.');
 
@@ -61,6 +79,8 @@ class MatchBookController extends Controller
      */
     public function htmlPreview(ShootingMatch $match)
     {
+        $this->authorizeMatchBookAccess($match);
+
         $matchBook = $match->matchBook;
         abort_unless($matchBook, 404);
         $matchBook->load(['locations', 'stages.shots']);

@@ -174,7 +174,12 @@ it('exposes can_export separately from can_manage on match resource', function (
     $mdPayload = $this->actingAs($md)->getJson("/api/matches/{$this->match->id}")->json('data');
     $roPayload = $this->actingAs($ro)->getJson("/api/matches/{$this->match->id}")->json('data');
 
+    // can_export and can_manage are distinct fields, both at the match-director
+    // bar. The RBAC audit realigned can_manage from range-officer to MD so the
+    // scoring app never surfaces lifecycle controls (re-open / complete) that
+    // an RO would 403 on server-side.
     expect($mdPayload['can_export'])->toBeTrue()
+        ->and($mdPayload['can_manage'])->toBeTrue()
         ->and($roPayload['can_export'])->toBeFalse()
-        ->and($roPayload['can_manage'])->toBeTrue();
+        ->and($roPayload['can_manage'])->toBeFalse();
 });

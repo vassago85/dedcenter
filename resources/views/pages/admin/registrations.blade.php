@@ -261,7 +261,7 @@ new #[Layout('components.layouts.app')]
                                 </td>
                                 <td class="px-6 py-3">
                                     @if($reg->proof_of_payment_path)
-                                        <a href="{{ Storage::url($reg->proof_of_payment_path) }}" target="_blank"
+                                        <a href="{{ route('registrations.proof-of-payment', $reg) }}" target="_blank"
                                            class="text-accent hover:text-accent text-xs font-medium" onclick="event.stopPropagation()">
                                             View POP
                                         </a>

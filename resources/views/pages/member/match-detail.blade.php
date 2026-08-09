@@ -177,7 +177,7 @@ new #[Layout('components.layouts.app')]
 
         $path = $this->proofOfPayment->store(
             'proof-of-payment/' . auth()->id(),
-            'public'
+            'local'
         );
 
         $this->registration->update([

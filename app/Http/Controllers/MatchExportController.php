@@ -1165,6 +1165,17 @@ class MatchExportController extends Controller
      */
     public function publicFullMatchReport(\Illuminate\Http\Request $request, ShootingMatch $match)
     {
+        // Honour the MD's "hide scores" toggle on the public full report too —
+        // staff (admin / org MD) may still preview before publishing.
+        if (! $match->scoresArePublic()) {
+            $viewer = $request->user();
+            $mayPreview = $viewer && (
+                $viewer->isAdmin()
+                || ($match->organization_id && $viewer->isOrgMatchDirector($match->organization))
+            );
+            abort_unless($mayPreview, 404, 'Results for this match have not been published yet.');
+        }
+
         $data = $this->buildExecutiveSummaryData($match);
 
         $downloadUrl = null;

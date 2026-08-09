@@ -15,6 +15,12 @@ class SyncController extends Controller
 {
     public function scores(Request $request, ShootingMatch $match)
     {
+        // The sync pull returns the full roster plus every raw (unpublished)
+        // score/stage-time for the match — device-to-cloud convergence data
+        // that must not be readable by an arbitrary authenticated Sanctum
+        // token. Restrict to match staff (score bar).
+        abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to sync this match.');
+
         $since = $request->query('since');
 
         $scores = Score::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)));
