@@ -17,9 +17,10 @@ use Illuminate\Support\Str;
 
 /**
  * Seeds the Royal Flush match for 22 Aug 2026 (Saturday) with final squadding
- * from Shooters_22Aug2026.xlsx, minus late drop-outs confirmed by JD:
- *   - Reynard van Deventer (Relay 3, Pos 1)
- *   - Diedrik Pretorius (Relay 6)
+ * from Shooters_22Aug2026.xlsx, with MD adjustments:
+ *   - Reynard van Deventer dropped (Relay 3, Pos 1)
+ *   - Diedrik Pretorius dropped (Relay 6)
+ *   - Xavier Badenhorst (7 PRC) inserted at Relay 3 Pos 1; remaining R3 shooters shift down
  *
  * Match is created Ready (tablets can download it; scoring still locked until
  * the MD starts it) with the Side Bet enabled. Standard RF layout: 400/500/600/700 m,
@@ -79,7 +80,7 @@ class RoyalFlush22Aug2026Seeder extends Seeder
         $maxSquadSize = 10;
 
         // Shooter layout: [relay][position] => [name, cartridge]
-        // Removals vs JD sheet: Reynard van Deventer (R3 P1), Diedrik Pretorius (R6).
+        // vs JD sheet: Reynard out, Diedrik out, Xavier Badenhorst in at R3 P1 (R3 shifts down).
         $relays = [
             1 => [
                 ['Morne Steyn', '260 Remington'],
@@ -106,7 +107,8 @@ class RoyalFlush22Aug2026Seeder extends Seeder
                 ['Robert van der Merwe', '7 RSAUM'],
             ],
             3 => [
-                // Reynard van Deventer removed (can't make it)
+                // Xavier in for Reynard; prior R3 roster shifts down one position
+                ['Xavier Badenhorst', '7 PRC'],
                 ['Jose Alves', '260 Rem'],
                 ['Michael Coutinho', '6.5 Creedmoor'],
                 ['Danie van Wyk', '308 Win'],
@@ -302,7 +304,7 @@ class RoyalFlush22Aug2026Seeder extends Seeder
             }
 
             $this->command?->info("Users created: {$stats['users_created']}, reused: {$stats['users_existing']}, shooters placed: {$stats['shooters_placed']}");
-            $this->command?->info('Drop-outs excluded: Reynard van Deventer (R3), Diedrik Pretorius (R6).');
+            $this->command?->info('Drop-outs excluded: Reynard van Deventer, Diedrik Pretorius. Xavier Badenhorst at R3 Pos 1.');
         });
     }
 }
