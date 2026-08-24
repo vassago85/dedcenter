@@ -862,8 +862,38 @@
 
                 <!-- =================== ROYAL FLUSH =================== -->
                 <template v-else-if="viewMode === 'royalflush'">
-                    <div v-if="!royalFlush.length" class="rounded-xl border border-border bg-surface p-8 text-center">
-                        <p class="text-muted">No Royal Flush data yet.</p>
+                    <div v-if="rfDistances.length > 1" class="mb-4 rounded-2xl border border-amber-600/30 bg-surface/40 p-3">
+                        <div class="mb-2.5 flex items-center gap-2">
+                            <svg class="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                            </svg>
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Filter flushes by distance</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                @click="rfDistanceFilter = null"
+                                class="rounded-full px-4 py-2 text-sm font-bold transition-colors"
+                                :class="rfDistanceFilter === null ? 'bg-amber-600 text-white ring-2 ring-amber-400/50' : 'bg-surface-2 text-muted hover:bg-surface-2/70 hover:text-primary'"
+                            >All distances</button>
+                            <button
+                                v-for="dist in rfDistances"
+                                :key="'rf-dist-' + dist"
+                                type="button"
+                                @click="rfDistanceFilter = dist"
+                                class="rounded-full px-4 py-2 text-sm font-bold transition-colors"
+                                :class="rfDistanceFilter === dist ? 'bg-amber-600 text-white ring-2 ring-amber-400/50' : 'bg-surface-2 text-muted hover:bg-surface-2/70 hover:text-primary'"
+                            >{{ dist }}m</button>
+                        </div>
+                        <p v-if="rfDistanceFilter" class="mt-2.5 text-xs text-amber-200/70">
+                            Showing shooters who flushed <span class="font-bold text-amber-300">{{ rfDistanceFilter }}m</span>. Tap <span class="font-semibold">All distances</span> to clear.
+                        </p>
+                    </div>
+
+                    <div v-if="!filteredRoyalFlush.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">
+                            {{ rfDistanceFilter ? `No one has flushed ${rfDistanceFilter}m yet.` : 'No Royal Flush data yet.' }}
+                        </p>
                     </div>
                     <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-surface">
                         <table class="w-full text-sm">
@@ -879,7 +909,7 @@
                             </thead>
                             <tbody class="divide-y divide-border">
                                 <tr
-                                    v-for="entry in royalFlush"
+                                    v-for="entry in filteredRoyalFlush"
                                     :key="'rf-' + entry.shooter_id"
                                     class="transition-colors hover:bg-surface-2"
                                     :class="rankRowClass(entry.rank)"
@@ -900,7 +930,8 @@
                                             <span
                                                 v-for="d in entry.flush_distances"
                                                 :key="d"
-                                                class="rounded-full bg-amber-600/20 px-2 py-0.5 text-[10px] font-bold text-amber-400"
+                                                class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                                :class="Number(d) === rfDistanceFilter ? 'bg-amber-600 text-white' : 'bg-amber-600/20 text-amber-400'"
                                             >{{ d }}m</span>
                                         </div>
                                         <span v-else class="text-muted">&mdash;</span>
@@ -970,6 +1001,7 @@ let buyInsFastInterval = null;
 let buyInsVisibilityHandler = null;
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
+const rfDistanceFilter = ref(null);
 const matchName = ref('');
 const matchDate = ref('');
 const isPrs = ref(false);
@@ -1099,6 +1131,30 @@ async function fetchData() {
 }
 
 const totalTargetCount = computed(() => targetSets.value.reduce((sum, ts) => sum + (ts.gong_count || 0), 0));
+
+// Unique stage distances for the Royal Flush preview filter. Prefer the
+// match target sets so chips exist before anyone has flushed; fall back
+// to distances already present on flush rows.
+const rfDistances = computed(() => {
+    const fromSets = targetSets.value
+        .map((ts) => Number(ts.distance_meters))
+        .filter((d) => Number.isFinite(d) && d > 0);
+    if (fromSets.length) {
+        return [...new Set(fromSets)].sort((a, b) => b - a);
+    }
+    const fromFlushes = royalFlush.value.flatMap((e) => e.flush_distances ?? []).map(Number);
+    return [...new Set(fromFlushes.filter((d) => Number.isFinite(d) && d > 0))].sort((a, b) => b - a);
+});
+
+const filteredRoyalFlush = computed(() => {
+    const selected = rfDistanceFilter.value;
+    const list = selected == null
+        ? royalFlush.value
+        : royalFlush.value.filter((e) =>
+            (e.flush_distances ?? []).some((d) => Number(d) === Number(selected)),
+        );
+    return list.map((e, i) => ({ ...e, rank: i + 1 }));
+});
 
 const prsMaxHits = computed(() => {
     if (!standings.value.length) return 0;
