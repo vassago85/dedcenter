@@ -26,8 +26,12 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: "3306"
-      DB_DATABASE: ${DB_DATABASE:-deadcenter}
-      DB_USERNAME: ${DB_USERNAME:-deadcenter}
+      # Hardcoded — see docker-compose.yml comment. Prevents a polluted
+      # shell (VS Code terminal inheriting from a parent process, a nearby
+      # `set -a; source .env` in another project, etc.) from silently
+      # swapping the DB user/database at compose interpolation time.
+      DB_DATABASE: deadcenter
+      DB_USERNAME: deadcenter
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -62,8 +66,8 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD}}
-      MYSQL_DATABASE: ${DB_DATABASE:-deadcenter}
-      MYSQL_USER: ${DB_USERNAME:-deadcenter}
+      MYSQL_DATABASE: deadcenter
+      MYSQL_USER: deadcenter
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - deadcenter-local-db:/var/lib/mysql
@@ -109,8 +113,8 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: "3306"
-      DB_DATABASE: ${DB_DATABASE:-deadcenter}
-      DB_USERNAME: ${DB_USERNAME:-deadcenter}
+      DB_DATABASE: deadcenter
+      DB_USERNAME: deadcenter
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -147,8 +151,8 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: db
       DB_PORT: "3306"
-      DB_DATABASE: ${DB_DATABASE:-deadcenter}
-      DB_USERNAME: ${DB_USERNAME:-deadcenter}
+      DB_DATABASE: deadcenter
+      DB_USERNAME: deadcenter
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
