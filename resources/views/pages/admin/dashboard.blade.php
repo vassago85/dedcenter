@@ -179,27 +179,40 @@ new #[Layout('components.layouts.app')]
                 </x-slot:actions>
             </x-empty-state>
         @else
-            {{-- Mobile cards --}}
+            {{-- Mobile cards. Whole-row link goes to the Match Hub (the
+                 command center) so admins see status + progress before
+                 diving into edit. A separate "Edit" chip is still there for
+                 the direct-to-form case. --}}
             <ul class="divide-y divide-border/70 sm:hidden">
                 @foreach($recentMatches as $match)
-                    <li class="space-y-2 px-5 py-3.5">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold text-primary">{{ $match->name }}</p>
-                                <p class="text-xs text-muted">{{ $match->organization?->name ?? '—' }}</p>
+                    <li class="px-5 py-3.5">
+                        <a href="{{ route('admin.matches.hub', $match) }}" wire:navigate class="block space-y-2">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-semibold text-primary">{{ $match->name }}</p>
+                                    <p class="text-xs text-muted">{{ $match->organization?->name ?? '—' }}</p>
+                                </div>
+                                <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
                             </div>
-                            <flux:badge size="sm" color="{{ $match->status->color() }}">{{ $match->status->label() }}</flux:badge>
-                        </div>
-                        <div class="flex items-center justify-between text-xs text-muted">
-                            <span>{{ $match->date?->format('d M Y') ?? '—' }}</span>
-                            <span>{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <div class="flex gap-3 text-muted">
-                                <span>{{ $match->registrations_count }} reg</span>
-                                <span>{{ $match->shooters_count }} shooters</span>
+                            <div class="flex items-center justify-between text-xs text-muted">
+                                <span>{{ $match->date?->format('d M Y') ?? '—' }}</span>
+                                <span>{{ $match->entry_fee ? 'R'.number_format($match->entry_fee, 2) : 'Free' }}</span>
                             </div>
-                            <a href="{{ route('admin.matches.edit', $match) }}" class="font-semibold text-accent hover:text-accent-hover">Edit</a>
+                            <div class="flex items-center justify-between text-xs">
+                                <div class="flex gap-3 text-muted">
+                                    <span>{{ $match->registrations_count }} reg</span>
+                                    <span>{{ $match->shooters_count }} shooters</span>
+                                </div>
+                                <span class="inline-flex items-center gap-1 font-semibold text-accent">
+                                    Open hub <x-icon name="arrow-right" class="h-3 w-3" />
+                                </span>
+                            </div>
+                        </a>
+                        <div class="mt-2 flex justify-end">
+                            <a href="{{ route('admin.matches.edit', $match) }}" wire:navigate
+                               class="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-[11px] font-semibold text-muted hover:border-accent/50 hover:text-primary">
+                                <x-icon name="pencil" class="h-3 w-3" /> Edit
+                            </a>
                         </div>
                     </li>
                 @endforeach
@@ -220,10 +233,15 @@ new #[Layout('components.layouts.app')]
                             <th class="px-6 py-3"></th>
                         </tr>
                     </thead>
+                    {{-- Row click opens the Match Hub (the command center)
+                         so admins see current status + progress before
+                         drilling in. The Edit shortcut lives in its own
+                         column so the row click doesn't hijack an "I just
+                         want to change the description" flow. --}}
                     <tbody class="divide-y divide-border/70">
                         @foreach($recentMatches as $match)
                             <tr class="group cursor-pointer transition-colors hover:bg-surface-2/50"
-                                onclick="window.location='{{ route('admin.matches.edit', $match) }}'">
+                                onclick="window.location='{{ route('admin.matches.hub', $match) }}'">
                                 <td class="px-6 py-3.5">
                                     <p class="text-sm font-semibold text-primary transition-colors group-hover:text-accent">{{ $match->name }}</p>
                                 </td>
@@ -236,10 +254,19 @@ new #[Layout('components.layouts.app')]
                                 <td class="hidden px-6 py-3.5 text-right text-secondary lg:table-cell">{{ $match->registrations_count }}</td>
                                 <td class="hidden px-6 py-3.5 text-right text-secondary lg:table-cell">{{ $match->shooters_count }}</td>
                                 <td class="px-6 py-3.5 text-right">
-                                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-muted transition-colors group-hover:text-accent">
-                                        Edit
-                                        <x-icon name="pencil" class="h-3 w-3" />
-                                    </span>
+                                    <div class="flex items-center justify-end gap-2">
+                                        <a href="{{ route('admin.matches.edit', $match) }}" wire:navigate
+                                           onclick="event.stopPropagation()"
+                                           title="Edit match settings"
+                                           class="inline-flex items-center gap-1 rounded-md border border-transparent px-1.5 py-1 text-[11px] font-semibold text-muted hover:border-border hover:text-primary">
+                                            <x-icon name="pencil" class="h-3 w-3" />
+                                            <span class="hidden xl:inline">Edit</span>
+                                        </a>
+                                        <span class="inline-flex items-center gap-1 text-xs font-semibold text-muted transition-colors group-hover:text-accent">
+                                            Open hub
+                                            <x-icon name="arrow-right" class="h-3 w-3" />
+                                        </span>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

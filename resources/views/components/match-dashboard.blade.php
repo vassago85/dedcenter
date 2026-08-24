@@ -74,8 +74,14 @@
                 <a href="{{ $squaddingUrl }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs font-semibold text-secondary transition hover:border-accent/50 hover:text-primary">
                     <x-icon name="users" class="h-3.5 w-3.5" /> Manage Squadding
                 </a>
+                {{-- Web-based scoring dashboard (progress, squads, shot log).
+                     Distinct from "Open Scoring App" in the page header,
+                     which launches the tablet PWA at /score/{id}. Same
+                     label on two buttons used to send admins to the wrong
+                     place — this is the workspace, the header CTA is the
+                     app. --}}
                 <a href="{{ $scoringUrl }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-white transition hover:bg-accent-hover">
-                    <x-icon name="target" class="h-3.5 w-3.5" /> Open Scoring App
+                    <x-icon name="layout-dashboard" class="h-3.5 w-3.5" /> Scoring workspace
                 </a>
                 @if($sideBetOn && $sideBetBuyInUrl)
                     <a href="{{ $sideBetBuyInUrl }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-500 hover:text-emerald-100">
@@ -395,7 +401,7 @@
                 @endif
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{{ $scoringUrl }}" wire:navigate class="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-semibold text-secondary hover:text-primary">Scoring App</a>
+                <a href="{{ $scoringUrl }}" wire:navigate class="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-semibold text-secondary hover:text-primary">Scoring workspace</a>
                 <a href="{{ $scoreboardUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-semibold text-secondary hover:text-primary">Scoreboard</a>
                 @if($isElr && $rankingsUrl)
                     <a href="{{ $rankingsUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-semibold text-secondary hover:text-primary">Rankings</a>

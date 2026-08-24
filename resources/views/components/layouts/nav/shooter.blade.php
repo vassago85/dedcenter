@@ -31,8 +31,8 @@
             <span class="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white" title="{{ $unreadNotifCount }} new notifications">{{ $unreadNotifCount > 99 ? '99+' : $unreadNotifCount }}</span>
         @endif
     </a>
-    <a href="{{ route('events', ['tab' => 'my_events']) }}" wire:navigate
-       class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition-colors {{ request()->routeIs('events') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+    <a href="{{ route('results') }}" wire:navigate
+       class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-semibold transition-colors {{ request()->routeIs('results') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
         Results
     </a>
     <a href="{{ route('equipment') }}" wire:navigate

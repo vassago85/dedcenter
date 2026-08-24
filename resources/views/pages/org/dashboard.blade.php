@@ -304,9 +304,20 @@ new #[Layout('components.layouts.app')]
                             </a>
                         @endif
                     @endif
-                    <a href="https://{{ config('domains.app') }}/score" target="_blank" class="flex items-center gap-3 rounded-lg border border-border bg-surface-2/40 p-3 transition-all hover:border-accent">
+                    {{-- Prefer a deep link into the current active match so
+                         one tap gets an RO into the scoring PWA on the
+                         correct match. Fall back to the generic /score
+                         picker only when there's nothing running. --}}
+                    @php
+                        $scoringAppHref = $latestActiveMatch
+                            ? 'https://' . config('domains.app') . '/score/' . $latestActiveMatch->id
+                            : 'https://' . config('domains.app') . '/score';
+                    @endphp
+                    <a href="{{ $scoringAppHref }}" target="_blank" rel="noopener" class="flex items-center gap-3 rounded-lg border border-border bg-surface-2/40 p-3 transition-all hover:border-accent">
                         <x-icon name="play" class="h-4 w-4 text-accent" />
-                        <span class="flex-1 text-sm font-semibold text-primary">Open scoring app</span>
+                        <span class="flex-1 text-sm font-semibold text-primary">
+                            {{ $latestActiveMatch ? 'Open Scoring App' : 'Scoring App' }}
+                        </span>
                         <x-icon name="external-link" class="h-4 w-4 text-muted" />
                     </a>
                     <a href="{{ route('org.registrations', $org) }}" class="flex items-center gap-3 rounded-lg border border-border bg-surface-2/40 p-3 transition-all hover:border-accent/60">

@@ -133,7 +133,15 @@
                     ];
                     $fallbackGradient = $scoringColors[$match->scoring_type ?? 'standard'] ?? $scoringColors['standard'];
 
-                    if ($isCompleted) {
+                    // Live and completed matches always land on the public
+                    // scoreboard — that is where scores, Royal Flush chips,
+                    // side-bet standings and the Claim chip all live. The
+                    // authenticated "matches.show" route is only useful for
+                    // pre-scoring lifecycle (registration / squadding), so
+                    // reserve it for those states. This kills the
+                    // "clicked live match, landed on registration page"
+                    // bug shooters were hitting on tab switches.
+                    if ($isCompleted || $isLive) {
                         $href = route('scoreboard', $match);
                     } elseif (auth()->check()) {
                         $href = route('matches.show', $match);

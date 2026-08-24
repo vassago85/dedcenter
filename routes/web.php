@@ -132,6 +132,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/matches', 'member.matches')->name('matches');
     Volt::route('/matches/{match}', 'member.match-detail')->name('matches.show');
     Volt::route('/matches/{match}/squadding', 'member.match-squadding')->name('matches.squadding');
+    // Personal completed-match history. The sidebar "Results" tab lands
+    // here. Distinct from `/matches` (upcoming + registered) — Results is
+    // the shooter's home for their finished matches, with the per-match
+    // report and full scoreboard one click away.
+    Volt::route('/results', 'member.results')->name('results');
     Volt::route('/browse-events', 'member.browse-events')->name('browse-events');
     Volt::route('/equipment', 'member.equipment')->name('equipment');
     Volt::route('/organizations', 'member.organizations')->name('organizations');
