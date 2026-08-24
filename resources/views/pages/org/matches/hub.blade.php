@@ -182,6 +182,7 @@ new #[Layout('components.layouts.app')]
             :organization="$organization"
             :rankings-url="$rankingsUrl"
             :side-bet-report-url="$sideBetReportUrl"
+            :side-bet-buy-in-url="$sideBetBuyInUrl"
         />
 
         {{-- ─── Royal Flush highlights (auto-hides for non-RF/incomplete) ─ --}}

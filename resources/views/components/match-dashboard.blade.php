@@ -11,6 +11,7 @@
     'organization' => null,
     'rankingsUrl' => null,
     'sideBetReportUrl' => null,
+    'sideBetBuyInUrl' => null,
 ])
 
 @php
@@ -76,6 +77,11 @@
                 <a href="{{ $scoringUrl }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-bold text-white transition hover:bg-accent-hover">
                     <x-icon name="target" class="h-3.5 w-3.5" /> Open Scoring App
                 </a>
+                @if($sideBetOn && $sideBetBuyInUrl)
+                    <a href="{{ $sideBetBuyInUrl }}" wire:navigate class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-500 hover:text-emerald-100">
+                        <x-icon name="banknote" class="h-3.5 w-3.5" /> Side Bet Buy-In
+                    </a>
+                @endif
                 @if($isCompleted && ! $dashboard['scores_published'])
                     <button type="button" wire:click="toggleScoresPublished"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20">
