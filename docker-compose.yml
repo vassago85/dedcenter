@@ -20,8 +20,15 @@ services:
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-deadcenter}
-      - DB_USERNAME=${DB_USERNAME:-deadcenter}
+      # DB user + database are hardcoded, NOT interpolated from the shell.
+      # Compose's ${DB_USERNAME:-deadcenter} expansion checks the shell env
+      # first and only falls back to "deadcenter" if unset. That let the
+      # SAPRF app's shell exports (`export DB_USERNAME=saprf` from a nearby
+      # deploy session) leak in and the container ended up talking to
+      # saprf_platform. There are no secrets here, so hardcoding is safer
+      # than interpolating.
+      - DB_DATABASE=deadcenter
+      - DB_USERNAME=deadcenter
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -61,9 +68,12 @@ services:
     container_name: deadcenter-db
     restart: unless-stopped
     environment:
+      # See comment on the app service — user/database are hardcoded so a
+      # polluted shell can't create a `saprf` user + `saprf_platform` DB
+      # inside the DeadCenter MySQL volume on first boot.
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-${DB_PASSWORD}}
-      - MYSQL_DATABASE=${DB_DATABASE:-deadcenter}
-      - MYSQL_USER=${DB_USERNAME:-deadcenter}
+      - MYSQL_DATABASE=deadcenter
+      - MYSQL_USER=deadcenter
       - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
       - db-data:/var/lib/mysql
@@ -121,8 +131,8 @@ services:
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-deadcenter}
-      - DB_USERNAME=${DB_USERNAME:-deadcenter}
+      - DB_DATABASE=deadcenter
+      - DB_USERNAME=deadcenter
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -152,8 +162,8 @@ services:
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-deadcenter}
-      - DB_USERNAME=${DB_USERNAME:-deadcenter}
+      - DB_DATABASE=deadcenter
+      - DB_USERNAME=deadcenter
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
