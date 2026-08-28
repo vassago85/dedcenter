@@ -91,6 +91,79 @@ window.addEventListener('unhandledrejection', (event) => {
     setTimeout(clearStuckLivewireLoading, 0);
 });
 
+// "Page has expired" (HTTP 419) recovery.
+//
+// Livewire's default behavior on a 419 (stale CSRF / rotated release_token /
+// dropped session) is to show a native `confirm()` modal asking whether to
+// reload. That is jarring, especially on a match-day tab that has been
+// sitting in the background for a few minutes, or immediately after a
+// deploy where every open tab is guaranteed to hit exactly this.
+//
+// We replace the confirm() with smart recovery:
+//   - If the tab isn't visible OR the user hasn't touched keyboard/mouse
+//     in a while, silently reload — the user won't notice.
+//   - If the user is actively interacting, surface a small,
+//     unobtrusive toast with a manual "Refresh" button so they can choose
+//     when to reload (avoids nuking half-typed forms).
+// Guarded by sessionStorage against reload loops.
+const RELOAD_STAMP_KEY = 'dc-419-reload-stamp';
+const RELOAD_MIN_GAP_MS = 15_000;
+const ACTIVE_INTERACTION_MS = 30_000;
+
+let lastInteractionAt = Date.now();
+['mousemove', 'keydown', 'touchstart', 'pointerdown', 'wheel'].forEach((evt) => {
+    document.addEventListener(evt, () => { lastInteractionAt = Date.now(); }, { passive: true, capture: true });
+});
+
+function safeReload() {
+    try {
+        const last = Number(sessionStorage.getItem(RELOAD_STAMP_KEY) || 0);
+        if (Date.now() - last < RELOAD_MIN_GAP_MS) {
+            // Just reloaded — another 419 this fast means a real backend
+            // problem (mis-set APP_KEY, HTTPS/session mismatch etc.).
+            // Let Livewire's default handler run so the user sees the modal
+            // and can escalate, rather than us hammering reload forever.
+            console.warn('[dc-419] second 419 within reload guard window; letting default handler run');
+            return false;
+        }
+        sessionStorage.setItem(RELOAD_STAMP_KEY, String(Date.now()));
+    } catch (_) { /* sessionStorage disabled — reload anyway */ }
+    window.location.reload();
+    return true;
+}
+
+function showExpiredToast() {
+    // No dependency on Flux/toast here — this runs when Livewire itself
+    // is broken, so we render a minimal HTML banner and get out of the way.
+    if (document.getElementById('dc-expired-toast')) return;
+    const el = document.createElement('div');
+    el.id = 'dc-expired-toast';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9999;'
+        + 'display:flex;align-items:center;gap:.75rem;'
+        + 'background:#1c1917;color:#fafafa;border:1px solid #57534e;'
+        + 'padding:.75rem 1rem;border-radius:.5rem;'
+        + 'font:500 13px/1.2 ui-sans-serif,system-ui,sans-serif;'
+        + 'box-shadow:0 10px 25px -5px rgba(0,0,0,.5);max-width:22rem;';
+    el.innerHTML = ''
+        + '<span>A newer version is available. Refresh to continue.</span>'
+        + '<button type="button" id="dc-expired-toast-refresh"'
+        + ' style="background:#e11d48;color:#fff;border:0;'
+        + 'padding:.4rem .75rem;border-radius:.375rem;cursor:pointer;'
+        + 'font:600 12px/1 inherit;">Refresh</button>';
+    document.body.appendChild(el);
+    document.getElementById('dc-expired-toast-refresh')?.addEventListener('click', () => safeReload());
+}
+
+function handleExpired() {
+    const idle = Date.now() - lastInteractionAt > ACTIVE_INTERACTION_MS;
+    if (document.hidden || idle) {
+        safeReload();
+    } else {
+        showExpiredToast();
+    }
+}
+
 // Also register Livewire hooks so we clear spinners on commit failures
 // that Livewire itself catches internally (these don't bubble as window errors).
 // Plus an 8-second watchdog: if a request was sent but never completed its
@@ -130,6 +203,17 @@ function registerLivewireHooks() {
     window.Livewire.hook('commit.failed', (ctx) => {
         clearWatchdog(ctx);
         setTimeout(clearStuckLivewireLoading, 0);
+    });
+
+    // Livewire fires `request` per XHR with a `fail` registrar. Calling
+    // preventDefault() on the 419 branch is what stops the built-in
+    // "This page has expired" confirm dialog from ever surfacing.
+    window.Livewire.hook('request', ({ fail }) => {
+        fail(({ status, preventDefault }) => {
+            if (status !== 419) return;
+            preventDefault?.();
+            handleExpired();
+        });
     });
 }
 document.addEventListener('livewire:init', registerLivewireHooks);
