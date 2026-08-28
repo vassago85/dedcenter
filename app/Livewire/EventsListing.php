@@ -118,8 +118,13 @@ class EventsListing extends Component
         ])->count();
         $liveCount = $baseCounts()->where('status', MatchStatus::Active)->count();
         $completedCount = $baseCounts()->where('status', MatchStatus::Completed)->count();
+        // My Events count MUST share the same filter scope as the list below
+        // it — otherwise a Province or Organisation filter renders "My Events
+        // 7" over a 2-card list and the badge lies about the tab's contents.
         $myEventsCount = auth()->check()
-            ? ShootingMatch::whereHas('registrations', fn ($q) => $q->where('user_id', auth()->id()))->count()
+            ? $applyFilters(
+                ShootingMatch::whereHas('registrations', fn ($q) => $q->where('user_id', auth()->id()))
+              )->count()
             : 0;
 
         return view('livewire.events-listing', [

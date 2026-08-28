@@ -1,4 +1,15 @@
-<div x-data="{ tab: $wire.entangle('tab').live }">
+{{--
+    wire:poll.visible.60s does two things at once:
+      1. Re-runs render() so the tab badges (Upcoming / Live Now / My Events / Past Results)
+         self-heal after a match transitions status — kills the "Live Now 1" phantom
+         that stays lit long after the underlying match completed.
+      2. Pings the Livewire session on the same cadence so a tab left open in the
+         background doesn't fall off the CSRF/session cliff and blow up with a 419
+         "This page has expired" modal on the next click.
+    .visible keeps us off the wire when the tab is backgrounded (browsers throttle
+    hidden tabs anyway; there's no point polling for a user who isn't looking).
+--}}
+<div x-data="{ tab: $wire.entangle('tab').live }" wire:poll.visible.60s>
 
     {{-- Page header --}}
     <div class="mb-6">
