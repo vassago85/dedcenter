@@ -15,6 +15,10 @@ new #[Layout('components.layouts.app')]
     public string $activeTab = 'main';
     public ?int $rfDistanceFilter = null;
     public ?int $expandedShooterId = null;
+    // Team-scoreboard sub-filter: 'all' shows the Overall leaderboard, any
+    // other value is a division-pairing category label like "Minor/Minor",
+    // "Minor/Major" or "Major/Major" (Team::divisionCategoryLabel()).
+    public string $teamCategoryView = 'all';
 
     public function toggleExpand(int $id): void
     {
@@ -34,6 +38,11 @@ new #[Layout('components.layouts.app')]
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
+    }
+
+    public function setTeamCategoryView(string $view): void
+    {
+        $this->teamCategoryView = $view;
     }
 
     public function with(): array
@@ -923,45 +932,63 @@ new #[Layout('components.layouts.app')]
         @endphp
 
         <div class="space-y-6">
-            {{-- Category breakdown (Minor/Minor, Minor/Major, Major/Major) when divisions are configured --}}
-            @if($teamCategories->isNotEmpty())
-                @foreach($teamCategories as $categoryLabel => $teamsInCategory)
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-sm font-bold uppercase tracking-wider text-secondary">{{ $categoryLabel }}</h3>
-                            <span class="text-xs text-muted">{{ $teamsInCategory->count() }} {{ Str::plural('team', $teamsInCategory->count()) }}</span>
-                        </div>
-                        <div class="space-y-3">
-                            @foreach($teamsInCategory as $index => $entry)
-                                @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
-                            @endforeach
-                        </div>
-                    </div>
-                @endforeach
+            @php
+                // Resolve which teams to render for the active pill.
+                //   'all'       → the flat Overall leaderboard (default)
+                //   '<label>'   → just the teams in that division-pairing category
+                // Falls back to 'all' if the pill state points at a category that
+                // no longer exists (e.g. all Minor/Major teams were deleted mid-match).
+                $activeView = $teamCategoryView;
+                if ($activeView !== 'all' && ! $teamCategories->has($activeView)) {
+                    $activeView = 'all';
+                }
+                $teamsForView = $activeView === 'all'
+                    ? $teamLeaderboard
+                    : ($teamCategories[$activeView] ?? collect());
+            @endphp
 
-                <div class="space-y-3">
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-secondary">Overall (all categories)</h3>
-                    <div class="space-y-3">
-                        @forelse($teamLeaderboard as $index => $entry)
-                            @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
-                        @empty
-                            <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
-                                <p class="text-muted">No teams set up for this event.</p>
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            @else
-                <div class="space-y-3">
-                    @forelse($teamLeaderboard as $index => $entry)
-                        @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
-                    @empty
-                        <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
-                            <p class="text-muted">No teams set up for this event.</p>
-                        </div>
-                    @endforelse
+            {{-- Category pills — only rendered when the match has pairing
+                 categories (divisioned team events like Peregrine). Plain
+                 team events (Forster) skip this row entirely so the page
+                 stays uncluttered when there's nothing to filter by. --}}
+            @if($teamCategories->isNotEmpty())
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" wire:click="setTeamCategoryView('all')"
+                            class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors sm:text-sm
+                                {{ $activeView === 'all'
+                                    ? 'bg-accent text-white'
+                                    : 'bg-surface text-muted hover:bg-surface-2 hover:text-secondary' }}">
+                        Overall
+                        <span class="opacity-70">{{ $teamLeaderboard->count() }}</span>
+                    </button>
+                    @foreach($teamCategories as $categoryLabel => $teamsInCategory)
+                        <button type="button" wire:click="setTeamCategoryView('{{ $categoryLabel }}')"
+                                class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors sm:text-sm
+                                    {{ $activeView === $categoryLabel
+                                        ? 'bg-accent text-white'
+                                        : 'bg-surface text-muted hover:bg-surface-2 hover:text-secondary' }}">
+                            {{ $categoryLabel }}
+                            <span class="opacity-70">{{ $teamsInCategory->count() }}</span>
+                        </button>
+                    @endforeach
                 </div>
             @endif
+
+            <div class="space-y-3">
+                @forelse($teamsForView as $index => $entry)
+                    @include('partials.team-leaderboard-row', ['entry' => $entry, 'index' => $index, 'isPrs' => $isPrs])
+                @empty
+                    <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
+                        <p class="text-muted">
+                            @if($activeView === 'all')
+                                No teams set up for this event.
+                            @else
+                                No teams in {{ $activeView }} yet.
+                            @endif
+                        </p>
+                    </div>
+                @endforelse
+            </div>
         </div>
     @elseif($isStandard && $activeTab === 'detailed')
         <div class="space-y-3">
