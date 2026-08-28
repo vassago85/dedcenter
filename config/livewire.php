@@ -245,9 +245,23 @@ return [
     | a users session to see if a new release has invalidated it. If there is
     | a mismatch it will throw an error and prompt for a browser refresh.
     |
+    | We derive it from APP_KEY (so it flips the moment the key changes — which
+    | is the trigger for Livewire's own /livewire-<hash>/update endpoint hash
+    | drifting) plus composer.lock's mtime (so it also flips on any deploy that
+    | rebuilds the container image). Kept as a plain scalar so `config:cache`
+    | remains valid.
+    |
     */
 
-    'release_token' => 'a',
+    'release_token' => substr(
+        hash(
+            'sha256',
+            (string) env('APP_KEY', '')
+                .'|'.(@filemtime(__DIR__.'/../composer.lock') ?: 0)
+        ),
+        0,
+        12
+    ),
 
     /*
     |---------------------------------------------------------------------------
