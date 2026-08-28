@@ -14,7 +14,30 @@
                                 {{ currentStage?.stage_type?.toUpperCase() }}
                             </span>
                             <span class="text-muted">{{ currentStage?.label }}</span>
-                            <span v-if="isMultiSquad && currentSquad" class="text-emerald-400">&bull; {{ currentSquad.name }}</span>
+                            <!--
+                                Squad switcher chip. When the device is not
+                                locked and the match has multiple squads,
+                                this becomes a tappable chip that opens the
+                                squad picker so an RO can hop between squads
+                                mid-day without navigating back through
+                                match-overview or dealing with the device
+                                lock/unlock dance. When locked, we fall back
+                                to static text so the lock semantics are
+                                preserved.
+                            -->
+                            <button
+                                v-if="isMultiSquad && currentSquad"
+                                type="button"
+                                @click="goToSquadPickerFromHeader"
+                                class="inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400 transition-colors hover:bg-emerald-600/25 active:scale-95"
+                                title="Switch squad"
+                            >
+                                {{ currentSquad.name }}
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                            </button>
+                            <span v-else-if="matchStore.hasSquadLock && matchStore.lockedSquadName" class="text-emerald-400" :title="'Device locked to ' + matchStore.lockedSquadName + '. Unlock via Match Overview → Device Settings to switch.'">
+                                &bull; {{ matchStore.lockedSquadName }}
+                            </span>
                         </template>
                         <template v-else-if="(currentView === 'squad-select' || currentView === 'squad-picker') && currentStage">
                             <span class="text-emerald-400">{{ currentStage?.label }}</span>
@@ -390,6 +413,13 @@ const currentView = ref('stage-select');
 const lastPointsFlash = ref(null);
 let flashTimeout = null;
 
+// Tracks whether the squad-picker was opened via the header chip mid-scoring
+// (as opposed to being reached automatically after a relay completes). We use
+// it in handleHeaderBack so the RO can back-out of the picker straight to
+// scoring their current squad, instead of being dumped on stage-select which
+// would feel like the app lost their place.
+const pickerOpenedFromChip = ref(false);
+
 const currentStageIndex = ref(0);
 const currentSquadIndex = ref(0);
 const currentShooterIndex = ref(0);
@@ -711,11 +741,25 @@ function pickSquad(squadIndex) {
     currentTargetIndex.value = 0;
     currentShotNumber.value = 1;
     currentView.value = 'scoring';
+    pickerOpenedFromChip.value = false;
     saveElrProgress();
 }
 
 function goToStageSelect() {
     currentView.value = 'stage-select';
+    saveElrProgress();
+}
+
+// Header squad-chip target: opens the same 'squad-picker' surface we already
+// use post-relay so the RO gets a full picker (recommended squad, per-squad
+// progress badges) with one tap. Kept separate from goToStageSelect so the
+// stage doesn't reset — you're just changing WHICH squad to score at the
+// stage you're already on. The `pickerOpenedFromChip` flag lets
+// handleHeaderBack return to scoring instead of stage-select if the RO
+// cancels out.
+function goToSquadPickerFromHeader() {
+    pickerOpenedFromChip.value = true;
+    currentView.value = 'squad-picker';
     saveElrProgress();
 }
 
@@ -728,7 +772,15 @@ function handleHeaderBack() {
         }
         saveElrProgress();
     } else if (currentView.value === 'squad-select' || currentView.value === 'squad-picker') {
-        currentView.value = 'stage-select';
+        // If the picker was opened mid-scoring via the header chip, back should
+        // return to the scoring view for the squad the RO was already on
+        // instead of resetting them to stage-select.
+        if (currentView.value === 'squad-picker' && pickerOpenedFromChip.value) {
+            pickerOpenedFromChip.value = false;
+            currentView.value = 'scoring';
+        } else {
+            currentView.value = 'stage-select';
+        }
         saveElrProgress();
     } else if (currentView.value === 'stage-select') {
         router.push({ name: 'match-overview', params: { matchId: props.matchId } });
