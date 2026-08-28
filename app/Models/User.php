@@ -144,6 +144,37 @@ class User extends Authenticatable
             && str_ends_with(strtolower($this->email), self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX);
     }
 
+    /**
+     * Synthetic / non-human account: either an @import.invalid placeholder
+     * awaiting shooter-claim OR a seed/demo account under *.deadcenter.local.
+     * Used by admin surfaces (e.g. /admin/members) to hide these from the
+     * default view so real humans don't get lost in the crowd.
+     */
+    public function isPlaceholderAccount(): bool
+    {
+        if (! is_string($this->email)) {
+            return false;
+        }
+        $email = strtolower($this->email);
+        return str_ends_with($email, self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX)
+            || str_ends_with($email, '.deadcenter.local');
+    }
+
+    public function scopeExcludingPlaceholders($query)
+    {
+        return $query
+            ->where('email', 'not like', '%'.self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX)
+            ->where('email', 'not like', '%.deadcenter.local');
+    }
+
+    public function scopeOnlyPlaceholders($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('email', 'like', '%'.self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX)
+              ->orWhere('email', 'like', '%.deadcenter.local');
+        });
+    }
+
     public function isOnboarded(): bool
     {
         return $this->onboarded_at !== null;

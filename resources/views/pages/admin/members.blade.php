@@ -16,6 +16,13 @@ new #[Layout('components.layouts.app')]
 
     public string $search = '';
     public string $roleFilter = 'all';
+
+    /**
+     * 'real' (default) hides @import.invalid + *.deadcenter.local so admins
+     * see actual humans first. 'placeholders' shows only those synthetic
+     * accounts (useful for cleanup / claim triage). 'all' shows everything.
+     */
+    public string $accountFilter = 'real';
     public ?int $expandedUserId = null;
 
     public string $addOrgId = '';
@@ -38,6 +45,13 @@ new #[Layout('components.layouts.app')]
     }
 
     public function updatedRoleFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedUserIds = [];
+        $this->selectAllOnPage = false;
+    }
+
+    public function updatedAccountFilter(): void
     {
         $this->resetPage();
         $this->selectedUserIds = [];
@@ -299,9 +313,17 @@ new #[Layout('components.layouts.app')]
 
     public function with(): array
     {
+        // Cheap category counts so the filter chips can show what's being
+        // hidden — an admin looking at 12 real accounts should still be able
+        // to see there are 805 placeholders sitting behind the filter.
+        $realCount = User::query()->excludingPlaceholders()->count();
+        $placeholderCount = User::query()->onlyPlaceholders()->count();
+
         $users = User::query()
             ->withCount('registrations')
             ->with('organizations')
+            ->when($this->accountFilter === 'real', fn ($q) => $q->excludingPlaceholders())
+            ->when($this->accountFilter === 'placeholders', fn ($q) => $q->onlyPlaceholders())
             ->when($this->search, fn ($q, $s) => $q->where(fn ($q2) =>
                 $q2->where('name', 'like', "%{$s}%")
                    ->orWhere('email', 'like', "%{$s}%")
@@ -315,6 +337,9 @@ new #[Layout('components.layouts.app')]
         return [
             'users' => $users,
             'allOrgs' => $allOrgs,
+            'realCount' => $realCount,
+            'placeholderCount' => $placeholderCount,
+            'totalCount' => $realCount + $placeholderCount,
         ];
     }
 }; ?>
@@ -338,18 +363,47 @@ new #[Layout('components.layouts.app')]
         <p class="mt-1 text-sm text-muted">Manage all registered users. Assign site roles and organization memberships.</p>
     </div>
 
-    {{-- Search + Filter --}}
-    <div class="flex flex-col sm:flex-row gap-3">
+    {{-- Search + Filters. Account-type chips come first because they hide
+         the biggest source of noise (817 seed/placeholder rows) — the role
+         filter is secondary. Counts on each chip so admins can see at a
+         glance what's being kept out of view. --}}
+    <div class="space-y-3">
         <div class="flex-1">
             <flux:input wire:model.live.debounce.300ms="search" placeholder="Search by name or email..." icon="magnifying-glass" />
         </div>
-        <div class="flex flex-wrap gap-2">
-            @foreach(['all' => 'All', 'owner' => 'Owners', 'match_director' => 'Match Directors', 'shooter' => 'Shooters'] as $value => $label)
-                <button wire:click="$set('roleFilter', '{{ $value }}')"
-                        class="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $roleFilter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
-                    {{ $label }}
-                </button>
-            @endforeach
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-muted shrink-0">Account type</span>
+            <div class="flex flex-wrap gap-2">
+                @php
+                    $accountChips = [
+                        'real' => ['label' => 'Real accounts', 'count' => $realCount],
+                        'placeholders' => ['label' => 'Placeholders', 'count' => $placeholderCount],
+                        'all' => ['label' => 'All', 'count' => $totalCount],
+                    ];
+                @endphp
+                @foreach($accountChips as $value => $chip)
+                    <button wire:click="$set('accountFilter', '{{ $value }}')"
+                            class="inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $accountFilter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                        <span>{{ $chip['label'] }}</span>
+                        <span class="rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums {{ $accountFilter === $value ? 'bg-black/20 text-primary' : 'bg-surface text-muted' }}">
+                            {{ number_format($chip['count']) }}
+                        </span>
+                    </button>
+                @endforeach
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-muted shrink-0">Site role</span>
+            <div class="flex flex-wrap gap-2">
+                @foreach(['all' => 'All', 'owner' => 'Owners', 'match_director' => 'Match Directors', 'shooter' => 'Shooters'] as $value => $label)
+                    <button wire:click="$set('roleFilter', '{{ $value }}')"
+                            class="whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors {{ $roleFilter === $value ? 'bg-accent text-primary' : 'bg-surface-2 text-secondary hover:bg-surface-2' }}">
+                        {{ $label }}
+                    </button>
+                @endforeach
+            </div>
         </div>
     </div>
 
@@ -434,8 +488,22 @@ new #[Layout('components.layouts.app')]
     {{-- Table --}}
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($users->isEmpty())
-            <div class="px-6 py-12 text-center">
-                <p class="text-muted">No members found{{ $search ? " for \"{$search}\"" : '' }}.</p>
+            <div class="px-6 py-12 text-center space-y-3">
+                <p class="text-muted">
+                    No members found{{ $search ? " for \"{$search}\"" : '' }}
+                    @if($accountFilter === 'real')
+                        in the <strong class="text-secondary">Real accounts</strong> view.
+                    @elseif($accountFilter === 'placeholders')
+                        in the <strong class="text-secondary">Placeholders</strong> view.
+                    @else.
+                    @endif
+                </p>
+                @if($accountFilter !== 'all' && $totalCount > 0)
+                    <button wire:click="$set('accountFilter', 'all')"
+                            class="inline-flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-secondary hover:bg-surface-2">
+                        Show all {{ number_format($totalCount) }} accounts
+                    </button>
+                @endif
             </div>
         @else
             <div class="overflow-x-auto">
