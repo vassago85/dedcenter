@@ -377,6 +377,48 @@ new #[Layout('components.layouts.app')]
         Flux::toast("{$shooter->name} marked as no-show.", variant: 'warning');
     }
 
+    /**
+     * Reassign a shooter to a different division on this match (or clear).
+     * Whitelist against $this->match->divisions() so a forged request
+     * can't pin a shooter to a division from another organisation.
+     */
+    public function setShooterDivision(int $shooterId, ?string $divisionId): void
+    {
+        $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
+        if (! $shooter) {
+            return;
+        }
+
+        $divId = ($divisionId === null || $divisionId === '') ? null : (int) $divisionId;
+        if ($divId !== null && ! $this->match->divisions()->whereKey($divId)->exists()) {
+            Flux::toast('That division does not belong to this match.', variant: 'danger');
+            return;
+        }
+
+        $shooter->update(['match_division_id' => $divId]);
+    }
+
+    /**
+     * Reassign a shooter to a different team on this match (or clear).
+     * Mirrors setShooterDivision — whitelist against $this->match->teams()
+     * so a forged request can't drop a shooter into another org's team.
+     */
+    public function setShooterTeam(int $shooterId, ?string $teamId): void
+    {
+        $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
+        if (! $shooter) {
+            return;
+        }
+
+        $tid = ($teamId === null || $teamId === '') ? null : (int) $teamId;
+        if ($tid !== null && ! $this->match->teams()->whereKey($tid)->exists()) {
+            Flux::toast('That team does not belong to this match.', variant: 'danger');
+            return;
+        }
+
+        $shooter->update(['team_id' => $tid]);
+    }
+
     public function markPresent(int $shooterId): void
     {
         $shooter = Shooter::findOrFail($shooterId);
@@ -519,10 +561,25 @@ new #[Layout('components.layouts.app')]
     public function with(): array
     {
         $isPrs = strtolower($this->match->scoring_type ?? '') === 'prs';
-        // PRS squadding shows division + category per shooter, so eager
-        // load them to avoid N+1 on a squad page with 50+ shooters.
+        $isTeamEvent = $this->match->isTeamEvent();
+
+        // Column visibility is driven by the match's actual configuration,
+        // not its scoring family — so a standard match with divisions still
+        // gets a Division column, and a team event of any type gets a
+        // Team column. Keeps the table uncluttered on plain matches while
+        // adapting cleanly when the match setup demands more context.
+        $matchDivisions = $this->match->divisions()->orderBy('sort_order')->get(['id', 'name']);
+        $showDivision = $matchDivisions->isNotEmpty();
+
+        $matchTeams = $isTeamEvent
+            ? $this->match->teams()->orderBy('sort_order')->get(['id', 'name'])
+            : collect();
+        $showTeam = $isTeamEvent;
+
+        // Squadding shows division + category + team per shooter, so
+        // eager load them to avoid N+1 on a squad page with 50+ shooters.
         $squads = $this->match->squads()
-            ->with(['shooters' => fn ($q) => $q->with(['division', 'categories'])->orderBy('sort_order')])
+            ->with(['shooters' => fn ($q) => $q->with(['division', 'categories', 'team'])->orderBy('sort_order')])
             ->orderBy('sort_order')
             ->get();
         $realSquads = $squads->filter(fn ($s) => !in_array($s->name, ['Default', 'Unassigned']));
@@ -564,6 +621,11 @@ new #[Layout('components.layouts.app')]
             'dqCount' => $dqCount,
             'userResults' => $userResults,
             'isPrs' => $isPrs,
+            'showDivision' => $showDivision,
+            'matchDivisions' => $matchDivisions,
+            'isTeamEvent' => $isTeamEvent,
+            'showTeam' => $showTeam,
+            'matchTeams' => $matchTeams,
         ];
     }
 }; ?>
@@ -726,8 +788,13 @@ new #[Layout('components.layouts.app')]
                                         <thead><tr class="text-left text-muted border-b border-border/50">
                                             <th class="px-2 py-1.5 font-medium w-10">#</th>
                                             <th class="px-2 py-1.5 font-medium">Shooter</th>
-                                            @if($isPrs)
+                                            @if($showDivision)
                                                 <th class="px-2 py-1.5 font-medium w-40">Division</th>
+                                            @endif
+                                            @if($showTeam)
+                                                <th class="px-2 py-1.5 font-medium w-44">Team</th>
+                                            @endif
+                                            @if($isPrs)
                                                 <th class="px-2 py-1.5 font-medium w-36">Category</th>
                                             @endif
                                             <th class="px-2 py-1.5 font-medium w-20">Status</th>
@@ -744,16 +811,38 @@ new #[Layout('components.layouts.app')]
                                                             <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-amber-500/10 text-amber-400">walk-in</span>
                                                         @endif
                                                     </td>
-                                                    @if($isPrs)
+                                                    @if($showDivision)
                                                         <td class="px-2 py-1.5">
-                                                            @if($shooter->division)
-                                                                <span class="inline-flex items-center rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-inset ring-sky-500/20">
-                                                                    {{ $shooter->division->name }}
-                                                                </span>
+                                                            @if($matchDivisions->isNotEmpty())
+                                                                <select wire:change="setShooterDivision({{ $shooter->id }}, $event.target.value)"
+                                                                        class="w-full rounded-md border border-border bg-app px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none">
+                                                                    <option value="">&mdash;</option>
+                                                                    @foreach($matchDivisions as $div)
+                                                                        <option value="{{ $div->id }}" @selected($shooter->match_division_id === $div->id)>{{ $div->name }}</option>
+                                                                    @endforeach
+                                                                </select>
                                                             @else
-                                                                <span class="text-muted text-xs">&mdash;</span>
+                                                                <span class="text-muted text-xs">No divisions configured</span>
                                                             @endif
                                                         </td>
+                                                    @endif
+                                                    @if($showTeam)
+                                                        <td class="px-2 py-1.5">
+                                                            @if($matchTeams->isNotEmpty())
+                                                                <select wire:change="setShooterTeam({{ $shooter->id }}, $event.target.value)"
+                                                                        class="w-full rounded-md border border-border bg-app px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none
+                                                                            @if(! $shooter->team_id) text-amber-300 border-amber-500/30 @endif">
+                                                                    <option value="">— unassigned —</option>
+                                                                    @foreach($matchTeams as $tm)
+                                                                        <option value="{{ $tm->id }}" @selected($shooter->team_id === $tm->id)>{{ $tm->name }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            @else
+                                                                <span class="text-muted text-xs">No teams yet</span>
+                                                            @endif
+                                                        </td>
+                                                    @endif
+                                                    @if($isPrs)
                                                         <td class="px-2 py-1.5">
                                                             @php $cats = $shooter->categories; @endphp
                                                             @if($cats->isNotEmpty())
