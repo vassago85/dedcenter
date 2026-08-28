@@ -70,6 +70,7 @@ new #[Layout('components.layouts.app')]
         // empty-state all update synchronously from one source, with no server
         // round-trip. Row expansion is client-side too.
         $registrations = MatchRegistration::with(['user', 'match'])
+            ->whereHas('match')
             ->latest()
             ->get();
 
@@ -240,7 +241,7 @@ new #[Layout('components.layouts.app')]
                                         <x-badge-flair :userId="$reg->user_id" :limit="4" />
                                     </div>
                                 </td>
-                                <td class="px-6 py-3 text-secondary">{{ $reg->match->name }}</td>
+                                <td class="px-6 py-3 text-secondary">{{ $reg->match?->name ?? '—' }}</td>
                                 <td class="px-6 py-3 font-mono text-xs text-muted">{{ $reg->payment_reference }}</td>
                                 <td class="px-6 py-3 text-secondary">{{ $reg->amount ? 'R'.number_format($reg->amount, 2) : 'Free' }}</td>
                                 <td class="px-6 py-3">
