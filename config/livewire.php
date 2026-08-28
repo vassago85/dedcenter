@@ -241,15 +241,25 @@ return [
     | Release Token
     |---------------------------------------------------------------------------
     |
-    | This token is stored client-side and sent along with each request to check
-    | a users session to see if a new release has invalidated it. If there is
-    | a mismatch it will throw an error and prompt for a browser refresh.
+    | Stored client-side and sent with every Livewire request. When it doesn't
+    | match the server's current value Livewire throws 419 and any open tab
+    | has to reload.
     |
-    | We derive it from APP_KEY (so it flips the moment the key changes — which
-    | is the trigger for Livewire's own /livewire-<hash>/update endpoint hash
-    | drifting) plus composer.lock's mtime (so it also flips on any deploy that
-    | rebuilds the container image). Kept as a plain scalar so `config:cache`
-    | remains valid.
+    | Previously this mixed `composer.lock`'s mtime into the hash, which meant
+    | every `docker compose build --no-cache app` rotated the token — every
+    | open tab across the platform then 419'd on its next click after every
+    | deploy. On match day that surfaces as constant "A newer version is
+    | available. Refresh to continue." toasts.
+    |
+    | We now derive only from APP_KEY (stable across deploys) with an optional
+    | LIVEWIRE_RELEASE_TOKEN env override for the rare case we truly need to
+    | force-invalidate every tab (breaking Livewire snapshot change, etc.).
+    | Bump the env value, redeploy, once every tab has recovered you can drop
+    | it again.
+    |
+    | Per-component invalidation still works via a `releaseToken()` method on
+    | the component class — use that for surgical resets instead of nuking
+    | every open tab platform-wide.
     |
     */
 
@@ -257,7 +267,7 @@ return [
         hash(
             'sha256',
             (string) env('APP_KEY', '')
-                .'|'.(@filemtime(__DIR__.'/../composer.lock') ?: 0)
+                .'|'.(string) env('LIVEWIRE_RELEASE_TOKEN', '')
         ),
         0,
         12

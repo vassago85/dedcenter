@@ -97,39 +97,42 @@ window.addEventListener('unhandledrejection', (event) => {
 // dropped session) is to show a native `confirm()` modal asking whether to
 // reload. That is jarring, especially on a match-day tab that has been
 // sitting in the background for a few minutes, or immediately after a
-// deploy where every open tab is guaranteed to hit exactly this.
+// deploy where every open tab may hit exactly this.
 //
-// We replace the confirm() with smart recovery:
-//   - If the tab isn't visible OR the user hasn't touched keyboard/mouse
-//     in a while, silently reload — the user won't notice.
-//   - If the user is actively interacting, surface a small,
-//     unobtrusive toast with a manual "Refresh" button so they can choose
-//     when to reload (avoids nuking half-typed forms).
-// Guarded by sessionStorage against reload loops.
+// We replace the confirm() with smart, deduplicated recovery:
+//   - The FIRST 419 in a batch decides what to do (reload silently vs. show
+//     toast) based on whether the user is idle or active.
+//   - Every subsequent 419 in the same tab is a no-op — no reload retries,
+//     no console spam, no duplicate toast. Livewire fires many parallel
+//     requests (wire:poll, multiple components, etc.); after one deploy they
+//     ALL fail at once and we treat them as a single event.
+//   - Silent reload guards against reload loops via sessionStorage: if we
+//     just reloaded and immediately hit another 419, we fall back to the
+//     toast so the user can decide (indicates a real backend problem, not
+//     just a stale tab).
 const RELOAD_STAMP_KEY = 'dc-419-reload-stamp';
 const RELOAD_MIN_GAP_MS = 15_000;
 const ACTIVE_INTERACTION_MS = 30_000;
 
 let lastInteractionAt = Date.now();
+let expiredHandled = false;
 ['mousemove', 'keydown', 'touchstart', 'pointerdown', 'wheel'].forEach((evt) => {
     document.addEventListener(evt, () => { lastInteractionAt = Date.now(); }, { passive: true, capture: true });
 });
 
-function safeReload() {
+function recentlyReloaded() {
     try {
         const last = Number(sessionStorage.getItem(RELOAD_STAMP_KEY) || 0);
-        if (Date.now() - last < RELOAD_MIN_GAP_MS) {
-            // Just reloaded — another 419 this fast means a real backend
-            // problem (mis-set APP_KEY, HTTPS/session mismatch etc.).
-            // Let Livewire's default handler run so the user sees the modal
-            // and can escalate, rather than us hammering reload forever.
-            console.warn('[dc-419] second 419 within reload guard window; letting default handler run');
-            return false;
-        }
+        return (Date.now() - last) < RELOAD_MIN_GAP_MS;
+    } catch (_) {
+        return false;
+    }
+}
+
+function stampReload() {
+    try {
         sessionStorage.setItem(RELOAD_STAMP_KEY, String(Date.now()));
-    } catch (_) { /* sessionStorage disabled — reload anyway */ }
-    window.location.reload();
-    return true;
+    } catch (_) { /* sessionStorage disabled */ }
 }
 
 function showExpiredToast() {
@@ -152,16 +155,31 @@ function showExpiredToast() {
         + 'padding:.4rem .75rem;border-radius:.375rem;cursor:pointer;'
         + 'font:600 12px/1 inherit;">Refresh</button>';
     document.body.appendChild(el);
-    document.getElementById('dc-expired-toast-refresh')?.addEventListener('click', () => safeReload());
+    document.getElementById('dc-expired-toast-refresh')?.addEventListener('click', () => {
+        stampReload();
+        window.location.reload();
+    });
 }
 
 function handleExpired() {
+    // Cascade dedupe: many Livewire components can fail in parallel after a
+    // deploy. Only the first 419 decides recovery; the rest are silent.
+    if (expiredHandled) return;
+    expiredHandled = true;
+
     const idle = Date.now() - lastInteractionAt > ACTIVE_INTERACTION_MS;
-    if (document.hidden || idle) {
-        safeReload();
-    } else {
-        showExpiredToast();
+    const hidden = document.hidden;
+
+    // Silent reload branch: user isn't looking. But if we JUST reloaded and
+    // are 419'ing again, something's actually broken (mis-set APP_KEY,
+    // session driver failure, etc.) — show the toast so the user notices
+    // instead of infinite-looping reloads.
+    if ((hidden || idle) && !recentlyReloaded()) {
+        stampReload();
+        window.location.reload();
+        return;
     }
+    showExpiredToast();
 }
 
 // Also register Livewire hooks so we clear spinners on commit failures
