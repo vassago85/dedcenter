@@ -12,115 +12,128 @@ use Livewire\Volt\Component;
 
 /*
 |--------------------------------------------------------------------------
-| Match Control Center → Reports tab.
+| Match Control Center → Reports tab (organization context).
 |--------------------------------------------------------------------------
-| Becomes the page's primary focus once the match is Completed: every
-| post-match deliverable lives here — public scoreboard link, CSV
-| downloads (standings, full results, RF shots), PDF downloads
-| (standings PDF, full match report HTML, executive summary, post-match
-| narrative), shooter-report preview + send-now action, and the
-| auto-send status indicator.
+| Post-match deliverables surface: public scoreboard link, per-shooter
+| email preview + send-now, plus a per-type download catalogue that
+| dispatches to reports.panels.{standard|royal-flush|prs|elr|alrha}
+| (see the admin mirror at pages/admin/matches/reports.blade.php for
+| the same shape).
 |
-| Pre-Completed matches still get the page (so the MD can preview a
-| "what would the report look like right now?" rendering mid-match) but
-| the destructive Send Reports Now action is gated behind a Completed-
-| or-confirmed warning.
+| Pre-Completed matches still get the page so the MD can preview a
+| "what would the report look like right now?" rendering mid-match,
+| but the destructive Send Reports Now action is gated behind a
+| Completed-or-confirmed warning.
 */
 
 new #[Layout('components.layouts.app')]
-    class extends Component
+class extends Component
+{
+    use HandlesMatchLifecycleTransitions;
+
+    public Organization $organization;
+    public ShootingMatch $match;
+
+    public function mount(Organization $organization, ShootingMatch $match): void
     {
-        use HandlesMatchLifecycleTransitions;
-
-        public Organization $organization;
-        public ShootingMatch $match;
-
-        public function mount(Organization $organization, ShootingMatch $match): void
-        {
-            if (! $match->userCanEditInOrg(auth()->user())) {
-                abort(403, 'You are not authorized to manage reports for this match.');
-            }
-
-            $this->organization = $organization;
-            $this->match = $match;
+        if (! $match->userCanEditInOrg(auth()->user())) {
+            abort(403, 'You are not authorized to manage reports for this match.');
         }
 
-        public function getTitle(): string
-        {
-            return $this->match->name . ' — Reports';
+        $this->organization = $organization;
+        $this->match = $match;
+    }
+
+    public function getTitle(): string
+    {
+        return $this->match->name . ' — Reports';
+    }
+
+    /**
+     * Manual trigger for the post-match shooter report email blast.
+     * Uses MatchReportService::getEmailableShooters() — same set of
+     * recipients the auto-send (1 hour after Completed) targets.
+     */
+    public function sendMatchReports(): void
+    {
+        $service = app(MatchReportService::class);
+        $shooters = $service->getEmailableShooters($this->match);
+
+        if ($shooters->isEmpty()) {
+            Flux::toast('No shooters with linked email addresses found — nothing to send.', variant: 'warning');
+            return;
         }
 
-        /**
-         * Manual trigger for the post-match shooter report email blast.
-         * Lifted from the old Configuration tab so the action lives on
-         * the page that's actually called Reports. Uses the existing
-         * MatchReportService::getEmailableShooters() resolver — same set
-         * of recipients the auto-send (1 hour after Completed) targets.
-         */
-        public function sendMatchReports(): void
-        {
-            $service = app(MatchReportService::class);
-            $shooters = $service->getEmailableShooters($this->match);
-
-            if ($shooters->isEmpty()) {
-                Flux::toast('No shooters with linked email addresses found — nothing to send.', variant: 'warning');
-                return;
-            }
-
-            foreach ($shooters as $shooter) {
-                $report = $service->generateReport($this->match, $shooter);
-                Mail::to($shooter->user->email)
-                    ->queue(new \App\Mail\ShooterMatchReport($report));
-            }
-
-            Flux::toast("Match reports queued for {$shooters->count()} shooters.", variant: 'success');
+        foreach ($shooters as $shooter) {
+            $report = $service->generateReport($this->match, $shooter);
+            Mail::to($shooter->user->email)
+                ->queue(new \App\Mail\ShooterMatchReport($report));
         }
 
-        public function with(): array
-        {
-            $status = $this->match->status;
+        Flux::toast("Match reports queued for {$shooters->count()} shooters.", variant: 'success');
+    }
 
-            $isPrs = ($this->match->scoring_type ?? 'standard') === 'prs';
-            $isElr = ($this->match->scoring_type ?? 'standard') === 'elr';
-            $isStandard = ! $isPrs && ! $isElr;
+    public function with(): array
+    {
+        $status = $this->match->status;
 
-            $shooterCount = $this->match->shooters()->count();
-            $emailableCount = app(MatchReportService::class)->getEmailableShooters($this->match)->count();
+        $scoringType = $this->match->scoring_type ?? 'standard';
+        $isPrs = $scoringType === 'prs';
+        $isElr = $scoringType === 'elr';
+        $isAlrha = $scoringType === 'alrha';
+        $isRoyalFlush = ! $isPrs && ! $isElr && ! $isAlrha && (bool) $this->match->royal_flush_enabled;
 
-            return [
-                'status' => $status,
-                'isPreActive' => $status->ordinal() < MatchStatus::Active->ordinal(),
-                'isCompleted' => $status === MatchStatus::Completed,
-                'isPrs' => $isPrs,
-                'isElr' => $isElr,
-                'isStandard' => $isStandard,
-                'isRoyalFlush' => (bool) $this->match->royal_flush_enabled,
-                'shooterCount' => $shooterCount,
-                'emailableCount' => $emailableCount,
-                'scoreboardUrl' => route('scoreboard', $this->match),
-                'fullMatchReportUrl' => route('org.matches.full-match-report', [$this->organization, $this->match]),
-                'previewReportUrl' => route('org.matches.report.preview', [$this->organization, $this->match]),
-                'csv' => [
-                    'standings' => route('org.matches.export.standings', [$this->organization, $this->match]),
-                    'detailed'  => route('org.matches.export.detailed', [$this->organization, $this->match]),
-                    'rfShots'   => route('matches.report.royal-flush', $this->match),
-                ],
-                'pdf' => [
-                    'standings'        => route('org.matches.export.pdf-standings', [$this->organization, $this->match]),
-                    'detailed'         => route('org.matches.export.pdf-detailed', [$this->organization, $this->match]),
-                    'postMatch'        => route('org.matches.export.pdf-post-match', [$this->organization, $this->match]),
-                    'executiveSummary' => route('org.matches.export.pdf-executive-summary', [$this->organization, $this->match]),
-                ],
-                'elrExports' => $isElr ? [
-                    'rankingsOverall'   => route('org.matches.export.elr-rankings', [$this->organization, $this->match]).'?view=overall',
-                    'rankingsTeams'     => route('org.matches.export.elr-rankings', [$this->organization, $this->match]).'?view=teams',
-                    'rankingsDivisions' => route('org.matches.export.elr-rankings', [$this->organization, $this->match]).'?view=divisions',
-                    'shotsTemplate'     => route('scoreboard.export.elr-shots', $this->match),
-                    'pdfRankings'       => route('org.matches.export.pdf-elr-rankings', [$this->organization, $this->match]),
-                ] : null,
-            ];
-        }
-    }; ?>
+        // Same variant dispatch as the admin mirror. Kept identical so
+        // both surfaces share the reports.panels.* partials.
+        $reportsVariant = match (true) {
+            $isAlrha       => 'alrha',
+            $isElr         => 'elr',
+            $isPrs         => 'prs',
+            $isRoyalFlush  => 'royal-flush',
+            default        => 'standard',
+        };
+
+        $shooterCount = $this->match->shooters()->count();
+        $emailableCount = app(MatchReportService::class)->getEmailableShooters($this->match)->count();
+
+        $urls = [
+            'csv' => [
+                'standings' => route('org.matches.export.standings', [$this->organization, $this->match]),
+                'detailed'  => route('org.matches.export.detailed', [$this->organization, $this->match]),
+                'rfShots'   => route('matches.report.royal-flush', $this->match),
+            ],
+            'pdf' => [
+                'standings'        => route('org.matches.export.pdf-standings', [$this->organization, $this->match]),
+                'detailed'         => route('org.matches.export.pdf-detailed', [$this->organization, $this->match]),
+                'postMatch'        => route('org.matches.export.pdf-post-match', [$this->organization, $this->match]),
+                'executiveSummary' => route('org.matches.export.pdf-executive-summary', [$this->organization, $this->match]),
+            ],
+            'reports' => [
+                'royalFlushHtml' => route('matches.report.royal-flush', $this->match),
+            ],
+            'elr' => $isElr ? [
+                'rankingsOverall'   => route('org.matches.export.elr-rankings', [$this->organization, $this->match]).'?view=overall',
+                'rankingsTeams'     => route('org.matches.export.elr-rankings', [$this->organization, $this->match]).'?view=teams',
+                'rankingsDivisions' => route('org.matches.export.elr-rankings', [$this->organization, $this->match]).'?view=divisions',
+                'shotsTemplate'     => route('scoreboard.export.elr-shots', $this->match),
+                'pdfRankings'       => route('org.matches.export.pdf-elr-rankings', [$this->organization, $this->match]),
+            ] : null,
+        ];
+
+        return [
+            'status' => $status,
+            'isPreActive' => $status->ordinal() < MatchStatus::Active->ordinal(),
+            'isCompleted' => $status === MatchStatus::Completed,
+            'reportsVariant' => $reportsVariant,
+            'shooterCount' => $shooterCount,
+            'emailableCount' => $emailableCount,
+            'scoreboardUrl' => route('scoreboard', $this->match),
+            'fullMatchReportUrl' => route('org.matches.full-match-report', [$this->organization, $this->match]),
+            'previewReportUrl' => route('org.matches.report.preview', [$this->organization, $this->match]),
+            'urls' => $urls,
+        ];
+    }
+}; ?>
 
 <div>
     <x-match-control-shell :match="$match" :organization="$organization">
@@ -140,7 +153,6 @@ new #[Layout('components.layouts.app')]
 
         {{-- ─── Headline: scoreboard + full match report ─────────────── --}}
         <section class="grid gap-4 lg:grid-cols-2">
-            {{-- Public scoreboard --}}
             <article class="rounded-2xl border border-border bg-surface p-5 sm:p-6">
                 <div class="flex items-start gap-3">
                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 text-amber-300">
@@ -162,7 +174,6 @@ new #[Layout('components.layouts.app')]
                 </a>
             </article>
 
-            {{-- Full match report (HTML) --}}
             <article class="rounded-2xl border border-border bg-surface p-5 sm:p-6">
                 <div class="flex items-start gap-3">
                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent">
@@ -170,7 +181,7 @@ new #[Layout('components.layouts.app')]
                     </div>
                     <div class="min-w-0 flex-1">
                         <h3 class="text-base font-semibold text-primary">Full match report</h3>
-                        <p class="mt-0.5 text-xs text-muted">The long-form post-match read: podium, per-stage breakdowns, badges, RF highlights when applicable.</p>
+                        <p class="mt-0.5 text-xs text-muted">The long-form post-match read: podium, per-stage breakdowns, badges, RF highlights.</p>
                     </div>
                 </div>
                 <a
@@ -185,7 +196,7 @@ new #[Layout('components.layouts.app')]
             </article>
         </section>
 
-        {{-- ─── Shooter emails ───────────────────────────────────────── --}}
+        {{-- ─── Shooter reports (preview + send-now) ─────────────────── --}}
         <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">
             <div class="flex items-start gap-3">
                 <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">
@@ -225,175 +236,9 @@ new #[Layout('components.layouts.app')]
             </div>
         </section>
 
-        {{-- ─── Downloads (CSV) ──────────────────────────────────────── --}}
-        <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">
-            <h3 class="flex items-center gap-2 text-base font-semibold text-primary">
-                <x-icon name="file-down" class="h-4 w-4 text-muted" />
-                CSV downloads
-            </h3>
-            <p class="mt-0.5 text-xs text-muted">Spreadsheets for season standings, archive, post-event analysis.</p>
+        {{-- Per-type report catalogue. --}}
+        @include('reports.panels.' . $reportsVariant, ['urls' => $urls])
 
-            <div class="mt-4 grid gap-2 sm:grid-cols-3">
-                <a
-                    href="{{ $csv['standings'] }}"
-                    class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                >
-                    <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-primary">Standings</p>
-                        <p class="text-[11px] text-muted">final placements only</p>
-                    </div>
-                </a>
-                <a
-                    href="{{ $csv['detailed'] }}"
-                    class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                >
-                    <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-primary">Full results</p>
-                        <p class="text-[11px] text-muted">per-stage breakdown</p>
-                    </div>
-                </a>
-                @if($isRoyalFlush)
-                    <a
-                        href="{{ $csv['rfShots'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">RF shots</p>
-                            <p class="text-[11px] text-muted">per-shot Royal Flush</p>
-                        </div>
-                    </a>
-                @endif
-            </div>
-            @if($isElr && ! empty($elrExports))
-                <div class="mt-4 border-t border-border pt-4">
-                    <p class="text-xs font-semibold uppercase tracking-wider text-muted">ELR exports</p>
-                    <div class="mt-3 grid gap-2 sm:grid-cols-3">
-                        <a href="{{ $elrExports['shotsTemplate'] }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2">
-                            <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                            <div class="min-w-0"><p class="text-sm font-semibold text-primary">Shots template</p><p class="text-[11px] text-muted">1/0 fill sheet</p></div>
-                        </a>
-                        <a href="{{ $elrExports['rankingsOverall'] }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2">
-                            <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                            <div class="min-w-0"><p class="text-sm font-semibold text-primary">Rankings CSV</p><p class="text-[11px] text-muted">overall / teams / divisions</p></div>
-                        </a>
-                        <a href="{{ $elrExports['pdfRankings'] }}" class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2">
-                            <x-icon name="download" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                            <div class="min-w-0"><p class="text-sm font-semibold text-primary">Rankings PDF</p><p class="text-[11px] text-muted">print-ready</p></div>
-                        </a>
-                    </div>
-                    <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        <a href="{{ $elrExports['rankingsTeams'] }}" class="text-accent hover:underline">Teams CSV</a>
-                        <span class="text-muted">·</span>
-                        <a href="{{ $elrExports['rankingsDivisions'] }}" class="text-accent hover:underline">Divisions CSV</a>
-                    </div>
-                </div>
-            @endif
-        </section>
-
-        {{-- ─── Downloads (PDF) ──────────────────────────────────────── --}}
-        <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">
-            <h3 class="flex items-center gap-2 text-base font-semibold text-primary">
-                <x-icon name="file-text" class="h-4 w-4 text-muted" />
-                PDF downloads
-            </h3>
-            <p class="mt-0.5 text-xs text-muted">Print-ready PDFs for the prize-giving table, sponsor packs, and post-match comms.</p>
-
-            @if($isElr)
-                {{-- ELR has its own ranking / scoring data shape (stages,
-                     targets, distance-based points) so we surface ELR-native
-                     PDFs here instead of the standard target-set ones, which
-                     would render empty. The standard URLs (standings PDF /
-                     detailed PDF) still work for ELR — they now delegate to
-                     the ELR rankings / full match report PDFs — but the
-                     cards below point straight at the ELR-native endpoints
-                     so the MD sees the right label. --}}
-                <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    <a
-                        href="{{ $elrExports['pdfRankings'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">ELR Rankings PDF</p>
-                            <p class="text-[11px] text-muted">overall · teams · divisions</p>
-                        </div>
-                    </a>
-                    <a
-                        href="{{ $pdf['executiveSummary'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">Full match report PDF</p>
-                            <p class="text-[11px] text-muted">podium · heatmap · per-stage</p>
-                        </div>
-                    </a>
-                    <a
-                        href="{{ $fullMatchReportUrl }}"
-                        target="_blank" rel="noopener"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="external-link" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">Full match report (HTML)</p>
-                            <p class="text-[11px] text-muted">share link · responsive</p>
-                        </div>
-                    </a>
-                </div>
-            @else
-                <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <a
-                        href="{{ $pdf['standings'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">Standings PDF</p>
-                            <p class="text-[11px] text-muted">single-page leaderboard</p>
-                        </div>
-                    </a>
-                    <a
-                        href="{{ $pdf['detailed'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">Detailed PDF</p>
-                            <p class="text-[11px] text-muted">per-stage detail</p>
-                        </div>
-                    </a>
-                    <a
-                        href="{{ $pdf['postMatch'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">Post-match narrative</p>
-                            <p class="text-[11px] text-muted">storytelling format</p>
-                        </div>
-                    </a>
-                    <a
-                        href="{{ $pdf['executiveSummary'] }}"
-                        class="group flex items-center gap-3 rounded-xl border border-border bg-surface-2/40 px-3.5 py-3 transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    >
-                        <x-icon name="file-text" class="h-4 w-4 shrink-0 text-muted group-hover:text-accent" />
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-primary">Executive summary</p>
-                            <p class="text-[11px] text-muted">sponsor / board pack</p>
-                        </div>
-                    </a>
-                </div>
-            @endif
-        </section>
-
-        {{-- ─── Match audit log ───────────────────────────────────────
-             Same component the Scoring tab renders live, in `full`
-             variant for the post-match record. Score corrections are
-             part of the official match record — having them in Reports
-             means an audit isn't a separate tool to remember about. --}}
         <section class="mt-4">
             <x-match-corrections-feed :match="$match" variant="full" :limit="50" />
         </section>
