@@ -103,11 +103,12 @@ new #[Layout('components.layouts.app')]
 
             $topStandings = collect();
             if (in_array($status, [MatchStatus::Active, MatchStatus::Completed], true)) {
-                if (! $this->match->isPrs() && ! $this->match->isElr()) {
-                    $topStandings = (new MatchStandingsService())->standardStandings($this->match)
-                        ->filter(fn ($r) => $r->rank !== null)
-                        ->take(5);
-                }
+                // Type-aware dispatcher — reads from the correct
+                // pipeline (standard scores, ELR/ALRHA elr_shots, PRS
+                // deferred so the panel stays hidden).
+                $topStandings = (new MatchStandingsService())->standingsFor($this->match)
+                    ->filter(fn ($r) => $r->rank !== null)
+                    ->take(5);
             }
 
             // Attendance roster — every shooter in the match with status + score count.

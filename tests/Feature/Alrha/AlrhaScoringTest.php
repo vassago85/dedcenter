@@ -31,9 +31,10 @@ use App\Models\User;
 use App\Services\Scoring\AlrhaScoringService;
 use App\Services\Scoring\ELRScoringService;
 
-function alrhaBuild(string $classValue): array
-{
-    $owner = User::factory()->create(['role' => 'owner']);
+if (! function_exists('alrhaBuild')) {
+    function alrhaBuild(string $classValue): array
+    {
+        $owner = User::factory()->create(['role' => 'owner']);
     $class = AlrhaClass::from($classValue);
 
     $match = ShootingMatch::factory()->active()->alrha($classValue)->create([
@@ -96,23 +97,26 @@ function alrhaBuild(string $classValue): array
     $squad = Squad::create(['match_id' => $match->id, 'name' => 'R1', 'sort_order' => 1]);
 
     return compact('owner', 'match', 'class', 'profile', 'squad', 'cbcTarget', 'farTargets', 'nearTargets');
+    }
 }
 
-function alrhaShoot(int $shooterId, ElrTarget $target, array $shotNumbersHit): void
-{
-    $service = new ELRScoringService();
-    $shooter = Shooter::findOrFail($shooterId);
-    $target->loadMissing('stage.match', 'stage.scoringProfile');
+if (! function_exists('alrhaShoot')) {
+    function alrhaShoot(int $shooterId, ElrTarget $target, array $shotNumbersHit): void
+    {
+        $service = new ELRScoringService();
+        $shooter = Shooter::findOrFail($shooterId);
+        $target->loadMissing('stage.match', 'stage.scoringProfile');
 
-    for ($n = 1; $n <= $target->max_shots; $n++) {
-        $service->recordShot(
-            $shooter,
-            $target,
-            $n,
-            in_array($n, $shotNumbersHit, true) ? ElrShotResult::Hit : ElrShotResult::Miss,
-            $shooter->user_id ?? 1,
-            'device-1',
-        );
+        for ($n = 1; $n <= $target->max_shots; $n++) {
+            $service->recordShot(
+                $shooter,
+                $target,
+                $n,
+                in_array($n, $shotNumbersHit, true) ? ElrShotResult::Hit : ElrShotResult::Miss,
+                $shooter->user_id ?? 1,
+                'device-1',
+            );
+        }
     }
 }
 

@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\UserAchievement;
+use App\Services\Scoring\AlrhaScoringService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,11 @@ class MatchReportService
         $report = match ($match->scoring_type) {
             'prs' => $this->generatePrsReport($match, $shooter),
             'elr' => $this->generateElrReport($match, $shooter),
+            // ALRHA writes shots to `elr_shots`, so it starts from the
+            // ELR report (stage breakdown, gong list, accuracy) and is
+            // then re-summarised using ALRHA rules (per-class rank,
+            // CBC excluded from hits/points).
+            'alrha' => $this->generateAlrhaReport($match, $shooter),
             default => $this->generateStandardReport($match, $shooter),
         };
 
@@ -817,6 +823,118 @@ class MatchReportService
             ),
             'badges' => $this->shooterBadges($match, $shooter),
         ];
+    }
+
+    /**
+     * ALRHA shooter report.
+     *
+     * ALRHA shots live in `elr_shots`, so the base report is generated
+     * through the ELR pipeline (stage breakdown, per-gong hit list,
+     * accuracy fields). We then re-summarise using
+     * `AlrhaScoringService` so the report reflects ALRHA rules:
+     *
+     *   • CBC (Cold Bore Challenge) hits are excluded from `hits`,
+     *     `misses`, and `total_score` (ALRHA rules §4 — CBC is a
+     *     season-long side game, not part of the match score).
+     *   • The `rank` is the shooter's finishing position within their
+     *     own class (Hunters or Varmint), not against the whole field.
+     *   • `winner_name` / `winner_score` on field_stats reflect the
+     *     class winner, so a Varmint shooter sees the top Varmint
+     *     rather than the top Hunter.
+     *
+     * If ALRHA scoring returns no row for this shooter (e.g. bad
+     * legacy data), we fall back to the ELR report as-is rather than
+     * blank the screen.
+     */
+    private function generateAlrhaReport(ShootingMatch $match, Shooter $shooter): array
+    {
+        $report = $this->generateElrReport($match, $shooter);
+
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+
+        // Locate this shooter's ALRHA row + the class-specific block
+        // they belong to. Rows exist in `per_class`; each block has its
+        // own `standings` array (already ranked 1..N within that class).
+        // ELR pipeline rows key shooter as `id` (or `shooter_id` if a
+        // future pipeline swaps the shape); accept either.
+        $shooterRow = null;
+        $classBlock = null;
+        foreach ($data['per_class'] ?? [] as $block) {
+            foreach ($block['standings'] ?? [] as $row) {
+                $rowShooterId = (int) ($row['shooter_id'] ?? $row['id'] ?? 0);
+                if ($rowShooterId === $shooter->id) {
+                    $shooterRow = $row;
+                    $classBlock = $block;
+                    break 2;
+                }
+            }
+        }
+
+        if ($shooterRow === null) {
+            return $report;
+        }
+
+        $classStandings = collect($classBlock['standings'] ?? []);
+        $classRanked = $classStandings
+            ->filter(fn ($r) => ! in_array($r['status'] ?? 'active', MatchStandingsService::NON_RANKED_STATUSES, true))
+            ->values();
+        $classSize = $classRanked->count();
+        $classRank = (int) ($shooterRow['rank'] ?? 0) ?: ($classRanked->count() ?: 1);
+        $classWinner = $classRanked->first();
+        $classFieldPoints = $classRanked->pluck('total_points');
+
+        $hits = (int) ($shooterRow['total_hits'] ?? 0);
+        $shots = (int) ($shooterRow['shots_fired'] ?? 0);
+        $misses = max(0, $shots - $hits);
+
+        // Total possible ALRHA points for this class = number of
+        // non-CBC targets × 5 (max per-target value). We reuse the
+        // report's existing target count minus the CBC targets in the
+        // shooter's stages so `max_possible` isn't inflated by the CBC
+        // shot the rules already say doesn't count.
+        $existingTargets = (int) ($report['summary']['total_targets'] ?? 0);
+        $cbcShotsFired = (int) ($shooterRow['cbc_shots_fired'] ?? 0);
+        $alrhaTargets = max(0, $existingTargets - $cbcShotsFired);
+        $maxPossible = $alrhaTargets * 5.0;
+
+        $totalPoints = (float) ($shooterRow['total_points'] ?? 0);
+
+        $report['summary'] = array_merge($report['summary'] ?? [], [
+            'total_score' => round($totalPoints, 2),
+            'max_possible' => round($maxPossible, 2),
+            'hits' => $hits,
+            'misses' => $misses,
+            'total_targets' => $alrhaTargets,
+            'hit_rate' => $alrhaTargets > 0 ? round($hits / $alrhaTargets * 100, 1) : 0,
+            // CBC surfaces separately so the shooter can see they hit
+            // the cold bore even though it doesn't count towards their
+            // match score.
+            'cbc_hits' => (int) ($shooterRow['cbc_hits'] ?? 0),
+            'cbc_points' => round((float) ($shooterRow['cbc_points'] ?? 0), 2),
+        ]);
+
+        $report['placement'] = $this->placement($classRank, max($classSize, 1));
+
+        $report['field_stats'] = array_merge($report['field_stats'] ?? [], [
+            'avg_score' => $classFieldPoints->isNotEmpty() ? round((float) $classFieldPoints->avg(), 1) : 0,
+            'median_score' => $classFieldPoints->isNotEmpty() ? round($this->median($classFieldPoints), 1) : 0,
+            'top_score' => $classFieldPoints->max() ?? 0,
+            'winner_name' => $classWinner['name'] ?? null,
+            'winner_score' => (float) ($classWinner['total_points'] ?? 0),
+        ]);
+
+        // Tag the match block so downstream views can render the ALRHA
+        // class chip / prize table when they want to. Class comes from
+        // the *block* the shooter was resolved into, not the shooter
+        // row's `alrha_class` — legacy single-class matches have null
+        // on the row but a real class on the block.
+        $report['match'] = array_merge($report['match'] ?? [], [
+            'scoring_type' => 'alrha',
+            'alrha_class' => $classBlock['class'] ?? ($shooterRow['alrha_class'] ?? null),
+            'alrha_class_label' => $classBlock['class_label'] ?? null,
+        ]);
+
+        return $report;
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────

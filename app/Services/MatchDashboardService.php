@@ -304,30 +304,41 @@ class MatchDashboardService
 
     private function scoringProgress(ShootingMatch $match, Collection $shooters): array
     {
-        if ($match->isElr()) {
+        // ALRHA and ELR both write shot rows to `elr_shots`, not to the
+        // legacy `scores` table. Gate on `usesElrPipeline()` (which is
+        // true for both) so ALRHA hubs stop reporting "0 shots
+        // recorded" while the scoring app is happily saving hits.
+        if ($match->usesElrPipeline()) {
             $shooterIds = $shooters->pluck('id');
             $shots = ElrShot::whereIn('shooter_id', $shooterIds)->get();
             $hits = $shots->where('result', ElrShotResult::Hit)->count();
             $misses = $shots->where('result', ElrShotResult::Miss)->count();
             $total = $hits + $misses;
 
-            $teamCount = max(1, $match->teams()->count());
-            $stageProgress = $match->elrStages->map(function ($stage) use ($teamCount) {
-                $completed = ElrTeamStageEntry::where('elr_stage_id', $stage->id)
-                    ->whereNotNull('completed_at')
-                    ->count();
-                $timedOut = ElrTeamStageEntry::where('elr_stage_id', $stage->id)
-                    ->where('timed_out', true)
-                    ->count();
+            // Team-stage progress is ELR-only (team gong sequence). ALRHA
+            // doesn't use ElrTeamStageEntry, so its stage_progress
+            // stays as an empty collection — the hub already renders
+            // the panel conditionally.
+            $stageProgress = collect();
+            if ($match->isElr()) {
+                $teamCount = max(1, $match->teams()->count());
+                $stageProgress = $match->elrStages->map(function ($stage) use ($teamCount) {
+                    $completed = ElrTeamStageEntry::where('elr_stage_id', $stage->id)
+                        ->whereNotNull('completed_at')
+                        ->count();
+                    $timedOut = ElrTeamStageEntry::where('elr_stage_id', $stage->id)
+                        ->where('timed_out', true)
+                        ->count();
 
-                return [
-                    'stage_id' => $stage->id,
-                    'label' => $stage->label,
-                    'teams_completed' => $completed,
-                    'teams_total' => $teamCount,
-                    'timed_out' => $timedOut,
-                ];
-            });
+                    return [
+                        'stage_id' => $stage->id,
+                        'label' => $stage->label,
+                        'teams_completed' => $completed,
+                        'teams_total' => $teamCount,
+                        'timed_out' => $timedOut,
+                    ];
+                });
+            }
 
             return [
                 'shots_recorded' => $total,

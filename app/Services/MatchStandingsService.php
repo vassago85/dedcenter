@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use App\Services\Scoring\AlrhaScoringService;
+use App\Services\Scoring\ELRScoringService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -101,6 +103,155 @@ class MatchStandingsService
                 'status' => $row->status ?? 'dq',
                 'rank' => null,
             ]);
+        }
+
+        return $standings;
+    }
+
+    /**
+     * Type-aware standings dispatcher. Returns the same row shape as
+     * `standardStandings()` — `shooter_id`, `name`, `squad`, `hits`,
+     * `misses`, `total_score`, `status`, `rank` — regardless of the
+     * match's scoring type.
+     *
+     * This is the method any UI-facing "give me the leaderboard" caller
+     * should use (match hub Top-5, ShooterBestFinishes rank lookup,
+     * shooter report). Only badge / achievement code paths that need
+     * scoring-type-specific tie-breakers should keep going to the
+     * dedicated `*Standings()` methods.
+     */
+    public function standingsFor(ShootingMatch $match, ?array $onlyShooterIds = null): Collection
+    {
+        if ($match->isAlrha()) {
+            return $this->alrhaStandings($match, $onlyShooterIds);
+        }
+
+        if ($match->isElr()) {
+            return $this->elrStandings($match, $onlyShooterIds);
+        }
+
+        // PRS still doesn't have a first-class standings view here; the
+        // match hub already hides Top-5 for PRS via the caller-side
+        // guard. Falling back to standardStandings() would read the
+        // empty `scores` table and lie, so we return an empty collection
+        // and let the caller keep hiding the panel.
+        if ($match->isPrs()) {
+            return collect();
+        }
+
+        return $this->standardStandings($match, $onlyShooterIds);
+    }
+
+    /**
+     * ALRHA standings mapped into the standard row shape. Uses
+     * `AlrhaScoringService` so CBC hits/points are excluded (per §4 of
+     * the ALRHA rules) and dual-class matches are surfaced together in
+     * one leaderboard for the hub Top-5 (per-class filters live on the
+     * scoreboard itself).
+     */
+    public function alrhaStandings(ShootingMatch $match, ?array $onlyShooterIds = null): Collection
+    {
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+
+        // Flatten per-class blocks into a single ranked list. Dual-class
+        // matches are then re-ranked as one field so the hub Top-5 shows
+        // the top shooters across the whole match, not just one class.
+        $rows = [];
+        foreach ($data['per_class'] ?? [] as $block) {
+            foreach ($block['standings'] ?? [] as $row) {
+                $rows[] = $row;
+            }
+        }
+
+        // Fallback for single-class matches whose block only sits at the
+        // top level (older data shape).
+        if ($rows === [] && ! empty($data['standings'])) {
+            $rows = $data['standings'];
+        }
+
+        return $this->mapElrPipelineRows($rows, $onlyShooterIds);
+    }
+
+    /**
+     * ELR standings mapped into the standard row shape.
+     */
+    public function elrStandings(ShootingMatch $match, ?array $onlyShooterIds = null): Collection
+    {
+        $data = app(ELRScoringService::class)->calculateStandings($match);
+
+        return $this->mapElrPipelineRows($data['standings'] ?? [], $onlyShooterIds);
+    }
+
+    /**
+     * Take rows out of the ELR/ALRHA scoring pipeline (associative
+     * arrays with `total_points` / `total_hits` / `shots_fired`) and
+     * project them into the plain-object row shape the rest of the app
+     * consumes.
+     *
+     * Re-ranks after filtering so `rank` is always 1..N over the returned
+     * ranked shooters. DQ / no-show rows keep `rank = null` and are
+     * pushed to the tail, matching `standardStandings()` semantics.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int>|null                   $onlyShooterIds
+     */
+    private function mapElrPipelineRows(array $rows, ?array $onlyShooterIds): Collection
+    {
+        $onlySet = $onlyShooterIds === null ? null : array_flip($onlyShooterIds);
+
+        $ranked = [];
+        $nonRanked = [];
+
+        foreach ($rows as $row) {
+            // ELR pipeline rows use `id` for the shooter primary key
+            // (see ELRScoringService::calculateStandings); AlrhaScoring
+            // preserves the same shape. Accept `shooter_id` too so
+            // future pipelines can hand us either key.
+            $shooterId = (int) ($row['shooter_id'] ?? $row['id'] ?? 0);
+            if ($shooterId <= 0) {
+                continue;
+            }
+            if ($onlySet !== null && ! isset($onlySet[$shooterId])) {
+                continue;
+            }
+
+            $status = $row['status'] ?? 'active';
+            $hits = (int) ($row['total_hits'] ?? 0);
+            $fired = (int) ($row['shots_fired'] ?? 0);
+            $misses = max(0, $fired - $hits);
+
+            $entry = (object) [
+                'shooter_id' => $shooterId,
+                'name' => (string) ($row['name'] ?? ''),
+                'squad' => $row['squad_name'] ?? null,
+                'hits' => $hits,
+                'misses' => $misses,
+                'total_score' => round((float) ($row['total_points'] ?? 0), 2),
+                'status' => $status,
+                'rank' => null,
+            ];
+
+            if (in_array($status, self::NON_RANKED_STATUSES, true)) {
+                $nonRanked[] = $entry;
+            } else {
+                $ranked[] = $entry;
+            }
+        }
+
+        // Re-rank (rows come in scoring-pipeline order, which is already
+        // points-desc, but a filter could have removed the leader; the
+        // rank numbers must always be dense 1..N).
+        usort($ranked, fn ($a, $b) => $b->total_score <=> $a->total_score);
+
+        $standings = collect();
+        foreach ($ranked as $i => $row) {
+            $row->rank = $i + 1;
+            $standings->push($row);
+        }
+        // DQ before no-show, otherwise pipeline order.
+        usort($nonRanked, fn ($a, $b) => ($a->status === 'dq' ? 0 : 1) <=> ($b->status === 'dq' ? 0 : 1));
+        foreach ($nonRanked as $row) {
+            $standings->push($row);
         }
 
         return $standings;

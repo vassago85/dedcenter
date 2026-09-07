@@ -90,10 +90,11 @@ new #[Layout('components.layouts.app')]
         {
             $status = $this->match->status;
 
-            $standings = collect();
-            if (! $this->match->isPrs() && ! $this->match->isElr()) {
-                $standings = (new MatchStandingsService())->standardStandings($this->match);
-            }
+            // Type-aware dispatcher — reads from the correct pipeline
+            // (standard `scores`, ELR/ALRHA `elr_shots`, PRS deferred).
+            // Without this, ALRHA + ELR match hubs read the empty
+            // `scores` table and every shooter shows 0 hits / 0 pts.
+            $standings = (new MatchStandingsService())->standingsFor($this->match);
 
             $topStandings = $standings->filter(fn ($r) => $r->rank !== null)->take(5);
 
