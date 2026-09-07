@@ -216,3 +216,45 @@ it('excludes coached shooters from category prize lists but keeps them in overal
     expect($open['rows'])->toHaveCount(1);
     expect($open['rows'][0]['name'])->toBe('Eligible');
 });
+
+it('scoreboard page shows ALRHA points from elr_shots, not zeros from the scores table', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Scoreboard Alice']);
+    alrhaShoot($shooter->id, $ctx['farTargets'][0], [1, 3, 4]); // 5+3+2 = 10
+
+    $this->actingAs($ctx['owner'])
+        ->get(route('scoreboard', $ctx['match']))
+        ->assertOk()
+        ->assertSee('Scoreboard Alice')
+        ->assertSee('10.0');
+});
+
+it('standings CSV for ALRHA lists points from elr_shots', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Csv Alice']);
+    alrhaShoot($shooter->id, $ctx['farTargets'][0], [1, 3, 4]); // 10 pts
+
+    $csv = $this->actingAs($ctx['owner'])
+        ->get(route('admin.matches.export.standings', $ctx['match']))
+        ->assertOk()
+        ->streamedContent();
+
+    expect($csv)->toContain('Csv Alice');
+    expect($csv)->toContain('10');
+    expect($csv)->not->toMatch('/Csv Alice.*,0(\.0+)?\s*$/m');
+});
+
+it('PDF standings tables for ALRHA use per-class points from elr_shots', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Pdf Alice']);
+    alrhaShoot($shooter->id, $ctx['farTargets'][0], [1, 3, 4]); // 10 pts
+
+    $tables = (new AlrhaScoringService(new ELRScoringService()))
+        ->pdfStandingsTables($ctx['match']);
+
+    expect($tables)->toHaveCount(1);
+    expect($tables[0]['class'])->toBe('varmint');
+    expect($tables[0]['shooters'][0]->name)->toBe('Pdf Alice');
+    expect((float) $tables[0]['shooters'][0]->agg_total)->toBe(10.0);
+    expect((int) $tables[0]['shooters'][0]->agg_hits)->toBe(3);
+});

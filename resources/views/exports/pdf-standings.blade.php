@@ -75,6 +75,15 @@
         .standings tr.rank-3 .rank-cell { color: #fb923c; font-weight: 800; }
 
         .standings .total { font-weight: 800; color: #f8fafc; }
+
+        .section-title {
+            margin: 16px 0 4px;
+            color: #f8fafc;
+            font-size: 11pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
     </style>
 </head>
 <body>
@@ -96,32 +105,43 @@
             </table>
         @endif
 
-        <table class="standings">
-            <thead>
-                <tr>
-                    <th style="width: 48px;" class="right">Rank</th>
-                    <th>Name</th>
-                    <th>Squad</th>
-                    <th>Division</th>
-                    <th class="right">Hits</th>
-                    <th class="right">Misses</th>
-                    <th class="right">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($shooters as $i => $s)
-                    <tr class="{{ $i < 3 ? 'rank-' . ($i + 1) : '' }}">
-                        <td class="rank-cell right">{{ $i + 1 }}</td>
-                        <td>{{ $s->name }}</td>
-                        <td>{{ $s->squad }}</td>
-                        <td>{{ $s->division }}</td>
-                        <td class="right">{{ (int) $s->agg_hits }}</td>
-                        <td class="right">{{ (int) $s->agg_misses }}</td>
-                        <td class="right total">{{ number_format((float) $s->agg_total, 2) }}</td>
+        @php
+            $sections = ! empty($classTables)
+                ? $classTables
+                : [['class_label' => null, 'shooters' => $shooters]];
+        @endphp
+
+        @foreach($sections as $section)
+            @if(! empty($section['class_label']) && count($sections) > 1)
+                <h2 class="section-title">{{ $section['class_label'] }}</h2>
+            @endif
+            <table class="standings">
+                <thead>
+                    <tr>
+                        <th style="width: 48px;" class="right">Rank</th>
+                        <th>Name</th>
+                        <th>Squad</th>
+                        <th>Division</th>
+                        <th class="right">Hits</th>
+                        <th class="right">Misses</th>
+                        <th class="right">Total</th>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach($section['shooters'] as $i => $s)
+                        <tr class="{{ $i < 3 ? 'rank-' . ($i + 1) : '' }}">
+                            <td class="rank-cell right">{{ $i + 1 }}</td>
+                            <td>{{ $s->name }}</td>
+                            <td>{{ $s->squad }}</td>
+                            <td>{{ $s->division }}</td>
+                            <td class="right">{{ (int) $s->agg_hits }}</td>
+                            <td class="right">{{ (int) $s->agg_misses }}</td>
+                            <td class="right total">{{ number_format((float) $s->agg_total, 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endforeach
 
         @include('exports.partials.pdf-footer')
     </div>

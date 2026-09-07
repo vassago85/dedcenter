@@ -102,6 +102,45 @@ class AlrhaScoringService implements ScoringEngineInterface
     }
 
     /**
+     * PDF standings sections keyed by class. Dual-class matches emit one
+     * table per class so hunters and varmint are never mixed. Each shooter
+     * row uses the same shape as the standard standings PDF (name / squad /
+     * division / hits / misses / total) so the existing template can render
+     * ALRHA points from elr_shots instead of the empty `scores` table.
+     *
+     * @return array<int, array{class: string, class_label: string, shooters: list<object>}>
+     */
+    public function pdfStandingsTables(ShootingMatch $match): array
+    {
+        $data = $this->calculateStandings($match);
+        $tables = [];
+
+        foreach ($data['per_class'] ?? [] as $classValue => $block) {
+            $shooters = [];
+            foreach ($block['standings'] ?? [] as $row) {
+                $hits = (int) ($row['total_hits'] ?? 0);
+                $fired = (int) ($row['shots_fired'] ?? 0);
+                $shooters[] = (object) [
+                    'name' => $row['name'] ?? '',
+                    'squad' => $row['squad_name'] ?? '',
+                    'division' => $block['class_label'] ?? '',
+                    'agg_hits' => $hits,
+                    'agg_misses' => max(0, $fired - $hits),
+                    'agg_total' => (float) ($row['total_points'] ?? 0),
+                ];
+            }
+
+            $tables[] = [
+                'class' => (string) $classValue,
+                'class_label' => $block['class_label'] ?? (string) $classValue,
+                'shooters' => $shooters,
+            ];
+        }
+
+        return $tables;
+    }
+
+    /**
      * Assemble a per-class block: filtered/ranked shooter rows, CBC
      * prize table, team leaderboard (Hunters only), and category slices.
      *

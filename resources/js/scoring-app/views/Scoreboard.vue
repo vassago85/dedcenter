@@ -22,7 +22,8 @@
                 </router-link>
                 <h1 class="text-lg font-bold">Results</h1>
                 <span v-if="isPrs" class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">PRS</span>
-                <span v-if="isElr" class="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">ELR</span>
+                <span v-if="isAlrha" class="rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold uppercase">ALRHA</span>
+                <span v-else-if="isElr" class="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">ELR</span>
                 <div class="ml-auto flex items-center gap-3">
                     <span v-if="autoRefresh" class="flex items-center gap-1 text-[10px] text-muted">
                         <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
@@ -94,7 +95,7 @@
                         Score Sheet
                     </button>
                     <button
-                        v-if="sideBetEnabled && royalFlushEnabled && isMd && !isElr"
+                        v-if="sideBetEnabled && royalFlushEnabled && isMd && !usesElrPipeline"
                         @click="viewMode = 'sidebet'"
                         class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
                         :class="viewMode === 'sidebet' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
@@ -102,7 +103,7 @@
                         Side Bet
                     </button>
                     <button
-                        v-if="royalFlushEnabled && !isElr && !isPrs"
+                        v-if="royalFlushEnabled && !usesElrPipeline && !isPrs"
                         @click="viewMode = 'royalflush'"
                         class="flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
                         :class="viewMode === 'royalflush' ? 'bg-amber-600 text-white' : 'bg-surface text-muted hover:bg-surface-2'"
@@ -189,7 +190,7 @@
                 </template>
 
                 <!-- =================== STANDARD SUMMARY LEADERBOARD =================== -->
-                <template v-else-if="viewMode === 'summary' && !isElr && !isPrs">
+                <template v-else-if="viewMode === 'summary' && !usesElrPipeline && !isPrs">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -254,7 +255,15 @@
                 </template>
 
                 <!-- =================== ELR SUMMARY LEADERBOARD =================== -->
-                <template v-else-if="viewMode === 'summary' && isElr">
+                <template v-else-if="viewMode === 'summary' && usesElrPipeline">
+                    <div v-if="alrhaClasses.length > 1" class="mb-3 flex flex-wrap items-center gap-2">
+                        <span class="text-xs uppercase tracking-wide text-muted">Class</span>
+                        <button v-for="cls in alrhaClasses" :key="cls.value" type="button" @click="setAlrhaClass(cls.value)"
+                                class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                                :class="activeAlrhaClass === cls.value ? 'bg-accent text-primary' : 'bg-surface text-muted hover:bg-surface-2'">
+                            {{ cls.label }}
+                        </button>
+                    </div>
                     <!-- Division filter chips — only rendered when the match has divisions -->
                     <div v-if="elrDivisions.length" class="mb-3 flex flex-wrap items-center gap-2">
                         <span class="text-xs uppercase tracking-wide text-muted">Division</span>
@@ -403,7 +412,7 @@
                 </template>
 
                 <!-- =================== STANDARD DETAILED BREAKDOWN =================== -->
-                <template v-else-if="viewMode === 'detailed' && !isElr">
+                <template v-else-if="viewMode === 'detailed' && !usesElrPipeline">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -480,7 +489,7 @@
                 </template>
 
                 <!-- =================== ELR DETAILED BREAKDOWN =================== -->
-                <template v-else-if="viewMode === 'detailed' && isElr">
+                <template v-else-if="viewMode === 'detailed' && usesElrPipeline">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
                         <p class="text-muted">No scores recorded yet.</p>
                     </div>
@@ -1006,6 +1015,11 @@ const matchName = ref('');
 const matchDate = ref('');
 const isPrs = ref(false);
 const isElr = ref(false);
+const isAlrha = ref(false);
+const usesElrPipeline = computed(() => isElr.value || isAlrha.value);
+const alrhaClasses = ref([]);
+const alrhaPerClass = ref({});
+const activeAlrhaClass = ref(null);
 const elrStages = ref([]);
 // ELR divisions surfaced as chip filters above the leaderboard. `null` =
 // "All shooters" (no filter); selecting a chip refetches with ?division=ID
@@ -1062,11 +1076,17 @@ function setElrDivision(id) {
     fetchData();
 }
 
+function setAlrhaClass(value) {
+    activeAlrhaClass.value = value;
+    const block = alrhaPerClass.value[value];
+    standings.value = block?.standings ?? [];
+}
+
 async function fetchData() {
     loading.value = true;
     error.value = null;
     try {
-        const scoringType = isPrs.value ? 'prs' : (isElr.value ? 'elr' : null);
+        const scoringType = isPrs.value ? 'prs' : (usesElrPipeline.value ? 'elr' : null);
         // PRS doesn't support detailed=1; ELR carries an optional division
         // filter so chip changes refetch within-division standings.
         const params = new URLSearchParams();
@@ -1081,6 +1101,7 @@ async function fetchData() {
         matchDate.value = data.match?.date ?? '';
         isPrs.value = data.match?.scoring_type === 'prs';
         isElr.value = data.match?.scoring_type === 'elr';
+        isAlrha.value = data.match?.scoring_type === 'alrha';
 
         if (data.match?.scores_published === false) {
             scoresHidden.value = true;
@@ -1093,11 +1114,25 @@ async function fetchData() {
             royalFlush.value = [];
             royalFlushEnabled.value = false;
             elrStages.value = [];
+            alrhaClasses.value = [];
+            alrhaPerClass.value = {};
         } else {
             scoresHidden.value = false;
             hiddenMessage.value = '';
 
-            if (isElr.value) {
+            if (isAlrha.value) {
+                alrhaPerClass.value = data.per_class ?? {};
+                alrhaClasses.value = data.match?.alrha_classes ?? [];
+                if (!activeAlrhaClass.value && alrhaClasses.value.length) {
+                    activeAlrhaClass.value = alrhaClasses.value[0].value;
+                }
+                const block = activeAlrhaClass.value
+                    ? alrhaPerClass.value[activeAlrhaClass.value]
+                    : null;
+                standings.value = block?.standings ?? data.standings ?? [];
+                elrStages.value = data.stages ?? [];
+                elrDivisions.value = data.divisions ?? [];
+            } else if (isElr.value) {
                 standings.value = data.standings ?? [];
                 elrStages.value = data.stages ?? [];
                 elrDivisions.value = data.divisions ?? [];

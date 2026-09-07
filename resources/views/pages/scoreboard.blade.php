@@ -49,9 +49,25 @@ new #[Layout('components.layouts.app')]
     {
         $isPrs = $this->match->isPrs();
         $isElr = $this->match->isElr();
+        $isAlrha = $this->match->isAlrha();
+        $usesElrPipeline = $this->match->usesElrPipeline();
 
         $elrStandingsById = collect();
-        if ($isElr) {
+        if ($isAlrha) {
+            $alrhaData = (new \App\Services\Scoring\AlrhaScoringService(
+                new \App\Services\Scoring\ELRScoringService()
+            ))->calculateStandings(
+                $this->match,
+                ['division' => $this->activeDivision ? (string) $this->activeDivision : null],
+            );
+            $alrhaById = [];
+            foreach ($alrhaData['per_class'] ?? [] as $block) {
+                foreach ($block['standings'] ?? [] as $row) {
+                    $alrhaById[$row['id']] = $row;
+                }
+            }
+            $elrStandingsById = collect($alrhaById);
+        } elseif ($isElr) {
             $elrData = (new \App\Services\Scoring\ELRScoringService())->calculateStandings(
                 $this->match,
                 ['division' => $this->activeDivision ? (string) $this->activeDivision : null],
@@ -108,7 +124,7 @@ new #[Layout('components.layouts.app')]
         $shooterQuery = $this->match->shooters()
             ->with(['squad', 'division', 'user:id,email,name']);
 
-        if (!$isPrs && !$isElr) {
+        if (!$isPrs && !$usesElrPipeline) {
             $shooterQuery->withCount([
                 'scores as hits_count' => fn ($q) => $q->where('is_hit', true),
                 'scores as misses_count' => fn ($q) => $q->where('is_hit', false),
@@ -153,7 +169,7 @@ new #[Layout('components.layouts.app')]
         }
 
         $shooters = $shooterQuery->get()
-            ->map(function ($shooter) use ($isPrs, $isElr, $elrStandingsById, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots) {
+            ->map(function ($shooter) use ($isPrs, $usesElrPipeline, $elrStandingsById, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots) {
                 if ($isPrs) {
                     $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
                     $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
@@ -170,7 +186,7 @@ new #[Layout('components.layouts.app')]
                         $grid[$shot->stage_id][$shot->shot_number] = $result;
                     }
                     $shooter->shot_grid = $grid;
-                } elseif ($isElr) {
+                } elseif ($usesElrPipeline) {
                     $row = $elrStandingsById->get($shooter->id, []);
                     $shooter->display_score = (float) ($row['total_points'] ?? 0);
                     $shooter->hits_count = (int) ($row['total_hits'] ?? 0);
@@ -330,7 +346,7 @@ new #[Layout('components.layouts.app')]
             }
         }
 
-        $isStandard = !$isPrs && !$this->match->isElr();
+        $isStandard = !$isPrs && !$usesElrPipeline;
         $detailedData = collect();
         $targetSetDetails = collect();
 
@@ -623,6 +639,7 @@ new #[Layout('components.layouts.app')]
             'teamLeaderboard' => $teamLeaderboard,
             'teamCategories' => $teamCategories,
             'isElr' => $isElr,
+            'isAlrha' => $isAlrha,
             'unclaimedCount' => $unclaimedCount,
             'stageProgress' => $stageProgress,
         ];
@@ -658,6 +675,9 @@ new #[Layout('components.layouts.app')]
                 <h1 class="max-w-full text-2xl font-black leading-tight tracking-tight break-words sm:text-4xl lg:text-5xl">{{ $match->name }}</h1>
                 @if($isPrs)
                     <span class="shrink-0 rounded bg-amber-600 px-2 py-1 text-xs font-bold uppercase">PRS</span>
+                @endif
+                @if($isAlrha)
+                    <span class="shrink-0 rounded bg-emerald-700 px-2 py-1 text-xs font-bold uppercase">ALRHA</span>
                 @endif
                 @if($match->status === \App\Enums\MatchStatus::Active)
                     <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 sm:px-3">

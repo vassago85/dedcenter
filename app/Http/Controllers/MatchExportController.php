@@ -15,6 +15,7 @@ use App\Services\MatchReportService;
 use App\Services\MatchStandingsService;
 use App\Services\PdfDocumentRenderer;
 use App\Services\RoyalFlushHighlightsService;
+use App\Services\Scoring\AlrhaScoringService;
 use App\Services\Scoring\ELRScoringService;
 use App\Services\Scoring\ElrRankingService;
 use App\Services\SponsorPlacementResolver;
@@ -39,6 +40,10 @@ class MatchExportController extends Controller
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
 
+        if ($match->isAlrha()) {
+            return $this->streamCsv("{$slug}-standings.csv", fn ($out) => $this->alrhaStandings($match, $out));
+        }
+
         if ($match->isElr()) {
             $division = $request->query('division');
             $suffix = $division ? '-' . Str::slug((string) $division) : '';
@@ -60,6 +65,10 @@ class MatchExportController extends Controller
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
+
+        if ($match->isAlrha()) {
+            return $this->streamCsv("{$slug}-detailed.csv", fn ($out) => $this->alrhaDetailed($match, $out));
+        }
 
         if ($match->isElr()) {
             $division = $request->query('division');
@@ -945,6 +954,85 @@ class MatchExportController extends Controller
         }
     }
 
+    private function alrhaStandings(ShootingMatch $match, $out): void
+    {
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+        $isDual = (bool) ($data['match']['is_dual_class'] ?? false);
+
+        $header = ['Rank', 'Name', 'Squad'];
+        if ($isDual) {
+            $header[] = 'Class';
+        }
+        $header = array_merge($header, ['Total Points', 'Total Hits', '1st Round Hits', 'Furthest Hit (m)']);
+        fputcsv($out, $header);
+
+        foreach ($data['per_class'] ?? [] as $block) {
+            foreach ($block['standings'] ?? [] as $s) {
+                $row = [$s['rank'], $s['name'], $s['squad_name'] ?? ''];
+                if ($isDual) {
+                    $row[] = $block['class_label'] ?? '';
+                }
+                $row[] = $s['total_points'];
+                $row[] = $s['total_hits'];
+                $row[] = $s['first_round_hits'] ?? 0;
+                $row[] = $s['furthest_hit_m'] ?? 0;
+                fputcsv($out, $row);
+            }
+        }
+    }
+
+    private function alrhaDetailed(ShootingMatch $match, $out): void
+    {
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+        $isDual = (bool) ($data['match']['is_dual_class'] ?? false);
+        $stages = $data['stages'] ?? [];
+
+        $header = ['Rank', 'Name', 'Squad'];
+        if ($isDual) {
+            $header[] = 'Class';
+        }
+        foreach ($stages as $stage) {
+            foreach ($stage['targets'] ?? [] as $target) {
+                $maxShots = (int) ($target['max_shots'] ?? 0);
+                for ($s = 1; $s <= $maxShots; $s++) {
+                    $header[] = "{$stage['label']} - {$target['name']} S{$s}";
+                }
+            }
+            $header[] = "{$stage['label']} Points";
+        }
+        $header = array_merge($header, ['Total Points', 'Total Hits', '1st Round Hits', 'Furthest Hit (m)']);
+        fputcsv($out, $header);
+
+        foreach ($data['per_class'] ?? [] as $block) {
+            foreach ($block['standings'] ?? [] as $entry) {
+                $row = [$entry['rank'], $entry['name'], $entry['squad_name'] ?? ''];
+                if ($isDual) {
+                    $row[] = $block['class_label'] ?? '';
+                }
+
+                foreach ($stages as $si => $stage) {
+                    $entryStage = $entry['stages'][$si] ?? null;
+                    foreach ($stage['targets'] ?? [] as $ti => $target) {
+                        $entryTarget = $entryStage['targets'][$ti] ?? null;
+                        $shots = $entryTarget['shots'] ?? [];
+                        $maxShots = (int) ($target['max_shots'] ?? 0);
+                        for ($s = 1; $s <= $maxShots; $s++) {
+                            $shot = collect($shots)->firstWhere('shot_number', $s);
+                            $row[] = $shot ? ucfirst((string) $shot['result']) : '-';
+                        }
+                    }
+                    $row[] = $entryStage['points'] ?? 0;
+                }
+
+                $row[] = $entry['total_points'];
+                $row[] = $entry['total_hits'];
+                $row[] = $entry['first_round_hits'] ?? 0;
+                $row[] = $entry['furthest_hit_m'] ?? 0;
+                fputcsv($out, $row);
+            }
+        }
+    }
+
     private function elrStandings(ShootingMatch $match, $out, ?string $division = null): void
     {
         $data = (new ELRScoringService)->calculateStandings($match, ['division' => $division], completedOnly: false);
@@ -1012,11 +1100,17 @@ class MatchExportController extends Controller
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
 
-        // ELR matches don't populate `scores` or `target_sets` — the legacy
-        // Standings PDF query returns zero rows. Delegate to the ELR
-        // rankings PDF (overall + teams + divisions on one print-ready
-        // page) so the Standings PDF button on the Reports page yields a
-        // useful document for ELR matches instead of an empty leaderboard.
+        // ALRHA and ELR store shots in elr_shots, not scores/gongs. The
+        // legacy Standings PDF query against `scores` prints a full field
+        // of zeros (Dwandzani 2026). ALRHA gets its own per-class tables;
+        // ELR still delegates to the rankings PDF.
+        if ($match->isAlrha()) {
+            $slug = Str::slug($match->name);
+            $data = $this->buildPdfAlrhaStandingsData($match);
+
+            return $renderer->stream('exports.pdf-standings', $data, "{$slug}-standings.pdf");
+        }
+
         if ($match->isElr()) {
             return $this->pdfElrRankings($organization, $match, $renderer);
         }
@@ -2758,6 +2852,19 @@ class MatchExportController extends Controller
         return [
             'participants' => $participants,
             'cascade_columns' => $cascadeColumns,
+        ];
+    }
+
+    private function buildPdfAlrhaStandingsData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $resolver = app(SponsorPlacementResolver::class);
+
+        return [
+            'match' => $match,
+            'shooters' => collect(),
+            'classTables' => app(AlrhaScoringService::class)->pdfStandingsTables($match),
+            'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
         ];
     }
 
