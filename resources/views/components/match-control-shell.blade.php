@@ -30,7 +30,50 @@
     every page so the MD never has to reorient between tabs.
 --}}
 
-<div {{ $attributes->merge(['class' => 'mx-auto w-full max-w-[1200px] space-y-4 sm:space-y-5']) }}>
+{{--
+    x-data / visibilitychange listener
+    ─────────────────────────────────
+    Livewire snapshots the mounted $match into the client-side component
+    state and doesn't re-fetch until the page is hard-reloaded. That
+    means a Match Control Center tab left open in the background stays
+    frozen at whatever the match status was when it mounted — even if
+    another admin, another tab, or a scheduled command (e.g. the
+    auto-close-past-scheduled-date scheduler) has moved the match on
+    since. The stepper, header, and Reports tab all read stale.
+
+    Fix: when the browser tab regains visibility, ask Livewire to
+    re-render the component. Livewire's $refresh triggers the same
+    render-cycle rehydration a real interaction would, so
+    HandlesMatchLifecycleTransitions' fresh-from-DB checks (added on
+    the same commit) rerun and the shell + stepper snap to the current
+    truth. Debounced to avoid a flood when a rapid tab-switcher pings
+    the same tab twice inside a second.
+
+    Only runs on authenticated admin surfaces — the shell is only ever
+    embedded on Match Control Center pages, so no guard needed here.
+--}}
+<div
+    x-data="{
+        _stale: false,
+        _timer: null,
+        onFocus() {
+            if (this._timer) return;
+            this._timer = setTimeout(() => {
+                this._timer = null;
+                if (typeof this.$wire?.$refresh === 'function') {
+                    this.$wire.$refresh();
+                }
+            }, 300);
+        },
+    }"
+    x-init="
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') { onFocus(); }
+        });
+        window.addEventListener('focus', () => onFocus());
+    "
+    {{ $attributes->merge(['class' => 'mx-auto w-full max-w-[1200px] space-y-4 sm:space-y-5']) }}
+>
     <x-match-control-header :match="$match" :organization="$organization" />
 
     <x-match-progress :match="$match" />

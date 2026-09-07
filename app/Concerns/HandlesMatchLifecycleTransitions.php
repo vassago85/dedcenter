@@ -60,8 +60,40 @@ trait HandlesMatchLifecycleTransitions
     {
         $targetStatus = MatchStatus::from($target);
 
+        // Refresh from DB before validating. Livewire snapshots the model
+        // into the client component on mount(), so a tab that was opened
+        // when the match was Active still thinks it's Active even after
+        // another admin (or another tab, or a scheduled command) advanced
+        // the match. Without this refresh, a stale click hits the
+        // canTransitionTo guard with the *snapshotted* status and either
+        // (a) fires a legal transition against a value the DB has since
+        // moved past (silently no-op / phantom "success") or (b) trips
+        // the guard with the confusing "Invalid status transition" toast
+        // because the *actual* DB status can't reach the target either.
+        $this->match->refresh();
+
+        // Same-state fast path. If the DB already shows the match at the
+        // target status, this is a stale-tab click, not an illegal
+        // transition. Surface friendly context ("someone else already did
+        // it") + re-hydrate the local component so the stepper, header,
+        // and tabs jump to the fresh state without a hard reload.
+        if ($this->match->status === $targetStatus) {
+            $this->safeToast("Match is already {$targetStatus->label()} — refreshed.", 'success');
+            return;
+        }
+
         if (! $this->match->status->canTransitionTo($targetStatus)) {
-            $this->safeToast('Invalid status transition.', 'danger');
+            // Fresh DB check said no. Include current + target labels so
+            // the operator sees *why* the transition was rejected instead
+            // of the previous cryptic one-liner. Common trigger: another
+            // admin already advanced past the target status (e.g. tab
+            // shows Ready, DB is Completed — Completed can't go back
+            // through Ready without an explicit reopen).
+            $current = $this->match->status;
+            $this->safeToast(
+                "Can't move from {$current->label()} to {$targetStatus->label()} — refresh the page and try again.",
+                'danger'
+            );
             return;
         }
 
