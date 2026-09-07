@@ -257,10 +257,25 @@ class AlrhaScoringService implements ScoringEngineInterface
 
     /**
      * Peel CBC contributions off each shooter row so the reported
-     * total_points / total_hits reflect the class-total prize table.
-     * Also restricts totals to targets that belong to the shooter's
-     * own class stage tree — shots against another class's targets
-     * (should be impossible in normal play) do not contribute.
+     * total_points / total_hits / shots_fired reflect the class-total
+     * prize table. CBC is scored on its own prize table (§CBC) and
+     * NEVER contributes to the class score — neither the points
+     * column, nor the hits column, nor the shots-fired denominator on
+     * the class standings. The CBC hit lives on `cbc_hits` /
+     * `cbc_points` so the CBC tab + season-long CBC leaderboard can
+     * consume it separately.
+     *
+     * Why peel `shots_fired` too: the public scoreboard derives the
+     * Miss column as `shots_fired - hits_count`. If we peel CBC out of
+     * hits but leave it in shots_fired, a clean-run shooter who hit
+     * the cold bore reads as "25 hits · 1 miss" (the phantom miss is
+     * actually the CBC hit — see the Simon Steyn regression report).
+     * We track the raw CBC shot count so nothing downstream loses the
+     * fact that a shot was taken on the CBC target.
+     *
+     * Also restricts totals to targets that belong to the shooter's own
+     * class stage tree — shots against another class's targets (should
+     * be impossible in normal play) do not contribute.
      *
      * @param  array<int, array<string, mixed>>  $rows
      * @param  array<int, true>                  $classTargetIds
@@ -270,14 +285,48 @@ class AlrhaScoringService implements ScoringEngineInterface
     {
         return array_map(function ($row) use ($classTargetIds, $cbcTargetIds) {
             [$classPoints, $classHits, $cbcPoints, $cbcHits] = $this->classAndCbcTotals($row, $classTargetIds, $cbcTargetIds);
+            $cbcShotsFired = $this->cbcShotsFired($row, $cbcTargetIds);
 
             $row['cbc_points'] = round($cbcPoints, 2);
             $row['cbc_hits'] = $cbcHits;
+            $row['cbc_shots_fired'] = $cbcShotsFired;
             $row['total_points'] = round(max(0.0, $classPoints - $cbcPoints), 2);
             $row['total_hits'] = max(0, $classHits - $cbcHits);
+            // Peel CBC shots out of shots_fired so the Miss column on
+            // the scoreboard (misses = shots_fired − hits) doesn't
+            // count the CBC shot as a phantom miss.
+            $row['shots_fired'] = max(0, (int) ($row['shots_fired'] ?? 0) - $cbcShotsFired);
 
             return $row;
         }, $rows);
+    }
+
+    /**
+     * Count every shot (hit or miss) a shooter fired at a CBC target.
+     * Not-taken slots are excluded — they represent shots the shooter
+     * never actually engaged.
+     *
+     * @param  array<int, true>  $cbcTargetIds
+     */
+    private function cbcShotsFired(array $row, array $cbcTargetIds): int
+    {
+        $count = 0;
+        foreach ($row['stages'] ?? [] as $stage) {
+            foreach ($stage['targets'] ?? [] as $target) {
+                $targetId = (int) ($target['target_id'] ?? $target['id'] ?? 0);
+                if (! isset($cbcTargetIds[$targetId])) {
+                    continue;
+                }
+                foreach ($target['shots'] ?? [] as $shot) {
+                    $result = $shot['result'] ?? null;
+                    if ($result === 'hit' || $result === 'miss') {
+                        $count++;
+                    }
+                }
+            }
+        }
+
+        return $count;
     }
 
     /**

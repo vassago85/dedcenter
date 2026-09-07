@@ -36,6 +36,7 @@ use App\Models\User;
 use App\Services\Scoring\AlrhaScoringService;
 use App\Services\Scoring\AlrhaSharedRifleValidator;
 use App\Services\Scoring\ELRScoringService;
+use Livewire\Volt\Volt;
 
 /**
  * Build one dual-class ALRHA match with:
@@ -322,4 +323,267 @@ it('still fires the shared-rifle adjacency warning across classes', function () 
     expect($conflicts[0]['key'])->toBe('rifle-1');
     expect(collect($conflicts[0]['shooters'])->pluck('name')->all())
         ->toEqualCanonicalizing(['Hunter A', 'Varmint A']);
+});
+
+it('scoreboard filters dual-class standings by hunters and varmint', function () {
+    $ctx = alrhaDualBuild();
+
+    $hunter = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Alice Far',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $varmint = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Bob Near',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+
+    alrhaShootDual($hunter->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+    alrhaShootDual($varmint->id, $ctx['stagesByClass']['varmint']['far_targets'][0], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->assertSee('Alice Far')
+        ->assertSee('Bob Near')
+        ->assertSee('LR Hunters')
+        ->assertSee('LR Varmint')
+        ->call('filterAlrhaClass', 'hunters')
+        ->assertSee('Alice Far')
+        ->assertDontSee('Bob Near')
+        ->call('filterAlrhaClass', 'varmint')
+        ->assertSee('Bob Near')
+        ->assertDontSee('Alice Far');
+});
+
+/**
+ * The scoreboards.alrha include owns the ALRHA-specific UI. This test
+ * pins the shape a spectator sees when hitting /scoreboard/{match} for
+ * a dual-class ALRHA match:
+ *
+ *   - CLASS chips (All / LR Hunters / LR Varmint)
+ *   - ALRHA prize-table columns: Points, 1st Rd, Furthest (m)
+ *   - Dedicated Cold Bore Challenge tab and Categories tab
+ *   - No generic "Score" gong-total column from the standard/RF table
+ *   - No PRS-only "TB Time / N/T" columns
+ *
+ * The generic table would render for ALRHA if the dispatcher fell
+ * through to scoreboards/royal-flush (the old behaviour that hid the
+ * ALRHA columns behind an empty Hits / Miss / Score table).
+ */
+it('scoreboard renders ALRHA-specific columns and tabs, not the generic gong table', function () {
+    $ctx = alrhaDualBuild();
+
+    $hunter = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Alice Far',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $varmint = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Bob Near',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+
+    alrhaShootDual($hunter->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+    alrhaShootDual($varmint->id, $ctx['stagesByClass']['varmint']['far_targets'][0], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        // Class chips and tabs the ALRHA template contributes.
+        ->assertSee('CLASS')
+        ->assertSee('LR Hunters')
+        ->assertSee('LR Varmint')
+        ->assertSee('Standings')
+        ->assertSee('Cold Bore Challenge')
+        ->assertSee('Categories')
+        // ALRHA prize columns (not present in the standard/RF template).
+        ->assertSee('Points')
+        ->assertSee('1st', false)
+        ->assertSee('Furthest', false)
+        // Generic table headings that would leak through if the
+        // dispatcher fell back to royal-flush for ALRHA.
+        ->assertDontSee('Detailed Breakdown')
+        ->assertDontSee('Royal Flush')
+        ->assertDontSee('TB Time')
+        ->assertDontSee('N/T');
+});
+
+/**
+ * Switching to the Cold Bore Challenge tab must swap the table body
+ * for the per-class CBC prize table, not the generic standings. Pins
+ * the ALRHA tab wiring in scoreboards/alrha.blade.php.
+ */
+it('scoreboard cold bore tab renders per-class CBC prize tables', function () {
+    $ctx = alrhaDualBuild();
+
+    $hunter = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'CBC Hunter',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $varmint = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'CBC Varmint',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+
+    alrhaShootDual($hunter->id, $ctx['stagesByClass']['hunters']['cbc_target'], [1]);
+    alrhaShootDual($varmint->id, $ctx['stagesByClass']['varmint']['cbc_target'], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('setTab', 'cbc')
+        // Both class CBC prize tables render (dual-class match).
+        ->assertSee('CBC Hunter')
+        ->assertSee('CBC Varmint')
+        ->assertSee(AlrhaClass::Hunters->coldBoreTargetName())
+        ->assertSee(AlrhaClass::Varmint->coldBoreTargetName());
+});
+
+/**
+ * Clicking a shooter row on the ALRHA Standings tab must expand into
+ * the per-stage / per-target / per-shot breakdown so a spectator can
+ * see *why* the total is what it is. Pins:
+ *   - toggleExpand($shooterId) drives the disclosure state.
+ *   - The scoreboards.partials.alrha-shooter-breakdown partial renders
+ *     each stage label and each target name.
+ *   - CBC targets carry a "CBC" chip in the expanded body so the "why
+ *     doesn't my Cold Bore count?" story is visible in-line.
+ */
+it('scoreboard standings row expands into per-stage per-target breakdown', function () {
+    $ctx = alrhaDualBuild();
+
+    $hunter = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Breakdown Hunter',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+
+    // Score CBC (should badge as CBC in the breakdown) and one Far target.
+    alrhaShootDual($hunter->id, $ctx['stagesByClass']['hunters']['cbc_target'], [1]);
+    alrhaShootDual($hunter->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1, 2]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('filterAlrhaClass', 'hunters')
+        ->call('toggleExpand', $hunter->id)
+        // Stage labels from the alrhaDualBuild fixture.
+        ->assertSee('H CBC')
+        ->assertSee('H Far')
+        // Target rows in the breakdown.
+        ->assertSee(AlrhaClass::Hunters->coldBoreTargetName())
+        // CBC chip: makes clear this target doesn't feed the main total.
+        ->assertSee('CBC');
+});
+
+/**
+ * A cold-bore hit is a rare, notable event — it doesn't roll into the
+ * class prize points but the shooter did it. Pin that the standings
+ * row surfaces a "CBC ✓" chip when cbc_hits > 0, so a spectator sees
+ * who nailed the cold-bore without opening the CBC tab.
+ */
+it('scoreboard standings row shows a CBC chip when the shooter hit the cold bore', function () {
+    $ctx = alrhaDualBuild();
+
+    $withCbc = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Cold Bore Ace',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $noCbc = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Cold Bore Miss',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+
+    alrhaShootDual($withCbc->id, $ctx['stagesByClass']['hunters']['cbc_target'], [1]);
+    alrhaShootDual($withCbc->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+    // "Miss" shooter puts one round on paper but doesn't get the CBC.
+    alrhaShootDual($noCbc->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('filterAlrhaClass', 'hunters')
+        // The CBC chip is the literal string "CBC ✓" in the row body.
+        ->assertSee('CBC ✓', false);
+});
+
+/**
+ * The Prize Book tab lays out every ALRHA prize table in the printed-
+ * programme order (Hunter Team → Hunter Individual → Hunter category
+ * slices → Varmint Open → Varmint Junior → Varmint Ladies) as an
+ * accordion. Pins that all six reference sections show up for a
+ * dual-class match with hunter teams, junior hunters, and ladies.
+ */
+it('scoreboard prize book tab surfaces all ALRHA prize sections', function () {
+    $ctx = alrhaDualBuild();
+
+    $openCat = MatchCategory::create([
+        'match_id' => $ctx['match']->id, 'name' => 'Open', 'slug' => 'open', 'sort_order' => 0,
+    ]);
+    $ladiesCat = MatchCategory::create([
+        'match_id' => $ctx['match']->id, 'name' => 'Ladies', 'slug' => 'ladies', 'sort_order' => 1,
+    ]);
+    $juniorCat = MatchCategory::create([
+        'match_id' => $ctx['match']->id, 'name' => 'Junior', 'slug' => 'junior', 'sort_order' => 2,
+    ]);
+
+    $teamA = Team::create([
+        'match_id' => $ctx['match']->id, 'name' => 'Team A', 'max_size' => 2, 'sort_order' => 1,
+    ]);
+    $hunter1 = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'team_id' => $teamA->id, 'name' => 'Hunter Adult',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $hunter2 = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'team_id' => $teamA->id, 'name' => 'Hunter Jnr',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $hunter2->categories()->attach($juniorCat->id);
+
+    $varmOpen = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'name' => 'Varmint Open',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+    $varmOpen->categories()->attach($openCat->id);
+    $varmLadies = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'name' => 'Varmint Ladies',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+    $varmLadies->categories()->attach($ladiesCat->id);
+    $varmJnr = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'name' => 'Varmint Jnr',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+    $varmJnr->categories()->attach($juniorCat->id);
+
+    // One hit each so every prize table has a non-empty rows[] and the
+    // Prize Book actually renders the section headers instead of
+    // skipping them as empty.
+    alrhaShootDual($hunter1->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+    alrhaShootDual($hunter2->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+    alrhaShootDual($varmOpen->id, $ctx['stagesByClass']['varmint']['far_targets'][0], [1]);
+    alrhaShootDual($varmLadies->id, $ctx['stagesByClass']['varmint']['far_targets'][0], [1]);
+    alrhaShootDual($varmJnr->id, $ctx['stagesByClass']['varmint']['far_targets'][0], [1]);
+    alrhaShootDual($hunter1->id, $ctx['stagesByClass']['hunters']['cbc_target'], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('setTab', 'prize-book')
+        // Reference sections from the printed programme.
+        ->assertSee('Hunter Team')
+        ->assertSee('Hunter Individual')
+        ->assertSee('Hunter Junior')
+        ->assertSee('Varmint Open')
+        ->assertSee('Varmint Junior')
+        ->assertSee('Varmint Ladies')
+        // CBC prize table is included per class so year-end prizes cover it too.
+        ->assertSee('Hunter Cold Bore Challenge');
 });

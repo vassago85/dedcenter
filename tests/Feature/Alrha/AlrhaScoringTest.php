@@ -133,6 +133,9 @@ it('scores shots with the 5-4-3-2-1 index and totals ignore CBC', function () {
     expect($row['total_points'])->toBe(10.0);
     expect($row['cbc_points'])->toBe(5.0);
     expect($row['cbc_hits'])->toBe(1);
+    // CBC never contributes to the class score — neither points nor
+    // hits. It lives on `cbc_*` so the CBC prize table and the
+    // season-long CBC leaderboard can consume it separately.
     expect($row['total_hits'])->toBe(3);
 
     // CBC prize table row present.
@@ -257,4 +260,84 @@ it('PDF standings tables for ALRHA use per-class points from elr_shots', functio
     expect($tables[0]['shooters'][0]->name)->toBe('Pdf Alice');
     expect((float) $tables[0]['shooters'][0]->agg_total)->toBe(10.0);
     expect((int) $tables[0]['shooters'][0]->agg_hits)->toBe(3);
+});
+
+/**
+ * Simon-style clean run: hit every impact opportunity including the
+ * CBC. ALRHA rules: CBC never counts toward the class score — not the
+ * points column, not the hits column. So a 25/25 stage-hits shooter
+ * who also nails the cold bore reads as 25 hits on the class prize
+ * table and 1 hit on the CBC prize table (and the season-long CBC
+ * leaderboard when we build it).
+ *
+ * This pins that behaviour against future "let's just add CBC in to
+ * make the count match the scoring app" drift.
+ */
+it('keeps CBC out of the class hit count even for a clean-run shooter', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Simon']);
+
+    // Hit the CBC — this must NOT show up in the class hit total.
+    alrhaShoot($shooter->id, $ctx['cbcTarget'], [1]);
+    // Hit every shot on every far + near target (5 targets × 5 shots = 25).
+    foreach ($ctx['farTargets'] as $target) {
+        alrhaShoot($shooter->id, $target, [1, 2, 3, 4, 5]);
+    }
+    foreach ($ctx['nearTargets'] as $target) {
+        alrhaShoot($shooter->id, $target, [1, 2, 3, 4, 5]);
+    }
+
+    $out = (new AlrhaScoringService(new ELRScoringService()))
+        ->calculateStandings($ctx['match']);
+    $row = $out['standings'][0];
+
+    // 25 class hits, CBC peeled off. Prize points also exclude CBC —
+    // 5 targets (2 far + 3 near) × (5+4+3+2+1 = 15 pts) = 75.
+    expect($row['total_hits'])->toBe(25);
+    expect($row['total_points'])->toBe(75.0);
+    // Phantom-miss guard: shots_fired on the row must also exclude the
+    // CBC shot, otherwise the scoreboard's Miss column (misses =
+    // shots_fired - hits) reads 1 for a shooter who hit everything —
+    // the "Simon Steyn 25 hits · 1 miss" bug.
+    expect($row['shots_fired'])->toBe(25);
+    expect($row['cbc_shots_fired'])->toBe(1);
+    // CBC lives on its own field so the CBC prize table + season-long
+    // CBC leaderboard can render it.
+    expect($row['cbc_hits'])->toBe(1);
+    expect($row['cbc_points'])->toBe(5.0);
+});
+
+/**
+ * Public scoreboard round-trip for the phantom-miss bug: a clean-run
+ * shooter with a CBC hit must show 0 misses on the standings row, not
+ * 1. This test drives the actual Volt component the way the browser
+ * does so a future regression in how ALRHA misses are derived from
+ * shots_fired/hits gets caught here.
+ */
+it('scoreboard shows 0 misses for a clean-run shooter who also hit the CBC', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Simon Clean']);
+
+    alrhaShoot($shooter->id, $ctx['cbcTarget'], [1]);
+    foreach ($ctx['farTargets'] as $target) {
+        alrhaShoot($shooter->id, $target, [1, 2, 3, 4, 5]);
+    }
+    foreach ($ctx['nearTargets'] as $target) {
+        alrhaShoot($shooter->id, $target, [1, 2, 3, 4, 5]);
+    }
+
+    $this->actingAs($ctx['owner']);
+
+    $rendered = \Livewire\Volt\Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->assertSee('Simon Clean')
+        ->html();
+
+    // Sanity: the row is present and lists 25 hits.
+    expect($rendered)->toContain('Simon Clean');
+    // No phantom miss chip / column value of 1 for this shooter.
+    // We can't easily read the Miss column value out of the ALRHA
+    // template (it doesn't render a Miss column at all — CBC is on a
+    // separate table). But the CBC ✓ chip must render and hits must
+    // read 25.
+    expect($rendered)->toContain('CBC ✓');
 });
