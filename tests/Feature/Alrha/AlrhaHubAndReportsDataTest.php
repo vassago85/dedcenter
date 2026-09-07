@@ -34,6 +34,7 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
 use App\Models\User;
+use App\Http\Controllers\MatchExportController;
 use App\Services\MatchDashboardService;
 use App\Services\MatchReportService;
 use App\Services\MatchStandingsService;
@@ -350,4 +351,39 @@ it('MatchStandingsService::elrStandings returns non-zero total_score for ELR mat
     expect($rows)->toHaveCount(1);
     expect($rows->first()->total_score)->toBeGreaterThan(0.0);
     expect($rows->first()->name)->toBe('ELR Alice');
+});
+
+it('ALRHA Full Match Report heatmap and stats come from elr_shots, not zeros', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Report Alice']);
+    alrhaShoot($shooter->id, $ctx['farTargets'][0], [1, 3, 4]); // 10 pts, 3 hits
+
+    $controller = app(MatchExportController::class);
+    $ref = new \ReflectionMethod($controller, 'buildExecutiveSummaryData');
+    $data = $ref->invoke($controller, $ctx['match']);
+
+    expect($data['standings'])->toHaveCount(1);
+    expect((float) $data['standings']->first()->total_score)->toBe(10.0);
+    expect((int) $data['standings']->first()->hits)->toBe(3);
+
+    expect($data['statCards']['winnerScore'])->toBe(10.0);
+    expect($data['statCards']['totalHits'])->toBeGreaterThan(0);
+    expect($data['statCards']['totalShots'])->toBeGreaterThan(0);
+
+    $row = collect($data['heatmap'])->firstWhere('name', 'Report Alice');
+    expect($row)->not->toBeNull();
+    expect($row['total_score'])->toBe(10.0);
+    expect(collect($row['cells'])->where('state', 'hit')->count())->toBeGreaterThan(0);
+});
+
+it('ALRHA Full Match Report HTML page renders shooter points from elr_shots', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Html Alice']);
+    alrhaShoot($shooter->id, $ctx['farTargets'][0], [1, 3, 4]); // 10 pts
+
+    $this->actingAs($ctx['owner'])
+        ->get(route('admin.matches.full-match-report', $ctx['match']))
+        ->assertOk()
+        ->assertSee('Html Alice')
+        ->assertSee('10');
 });

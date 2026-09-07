@@ -97,7 +97,7 @@ class extends Component
             'csv' => [
                 'standings' => route('admin.matches.export.standings', $this->match),
                 'detailed'  => route('admin.matches.export.detailed', $this->match),
-                'rfShots'   => route('matches.report.royal-flush', $this->match),
+                'rfShots'   => route('scoreboard.export.rf-shots', $this->match),
             ],
             'pdf' => [
                 'standings'        => route('admin.matches.export.pdf-standings', $this->match),

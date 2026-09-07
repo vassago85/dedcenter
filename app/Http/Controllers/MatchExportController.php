@@ -1115,6 +1115,18 @@ class MatchExportController extends Controller
             return $this->pdfElrRankings($organization, $match, $renderer);
         }
 
+        // PRS matches don't populate `scores` — points/hits/misses come
+        // from `prs_stage_results`. Ranking uses PRS tiebreakers (raw
+        // hits → tiebreaker-stage hits → tiebreaker-stage time → agg
+        // match time). Route through the PRS builder so the PDF isn't
+        // a wall of zeros.
+        if ($match->isPrs() && PrsStageResult::where('match_id', $match->id)->exists()) {
+            $slug = Str::slug($match->name);
+            $data = $this->buildPdfPrsStandingsData($match);
+
+            return $renderer->stream('exports.pdf-standings', $data, "{$slug}-standings.pdf");
+        }
+
         $slug = Str::slug($match->name);
         $data = $this->buildPdfStandingsData($match);
 
@@ -1144,12 +1156,13 @@ class MatchExportController extends Controller
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
 
-        // ELR matches: the per-stage / per-target breakdown lives on the
-        // Full Match Report (heatmap + podium + per-stage stats), which is
-        // now ELR-aware. Send "Detailed PDF" there for ELR so the button
-        // produces a useful document instead of the empty target-set
-        // grid this method builds for standard matches.
-        if ($match->isElr()) {
+        // ELR / ALRHA / modern PRS don't write the legacy `scores`
+        // table this method's default grid reads. The Full Match Report
+        // is already type-aware (elr_shots / AlrhaScoringService /
+        // prs_*), so send "Detailed PDF" there instead of a missing
+        // view or an empty gong grid.
+        if ($match->isElr() || $match->isAlrha()
+            || ($match->isPrs() && PrsStageResult::where('match_id', $match->id)->exists())) {
             return $this->pdfFullMatchReport($organization, $match, $renderer);
         }
 
@@ -2257,6 +2270,16 @@ class MatchExportController extends Controller
             return $this->buildElrPostMatchReportData($match);
         }
 
+        // ALRHA matches share the ELR shot pipeline but apply their own
+        // scoring rules (5-4-3-2-1 per shot slot, CBC excluded, per-class
+        // ranking). Route to a dedicated builder so the Full Match Report
+        // heatmap, podium, and stat cards match what shooters see on the
+        // scoreboard rather than the empty gong grid the standard path
+        // produced from `scores`.
+        if ($match->isAlrha()) {
+            return $this->buildAlrhaPostMatchReportData($match);
+        }
+
         $targetSets = $match->targetSets()
             ->orderBy('sort_order')
             ->with(['gongs' => fn ($q) => $q->orderBy('number')])
@@ -2864,6 +2887,493 @@ class MatchExportController extends Controller
             'match' => $match,
             'shooters' => collect(),
             'classTables' => app(AlrhaScoringService::class)->pdfStandingsTables($match),
+            'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
+        ];
+    }
+
+    /**
+     * ALRHA-shaped post-match data for the Full Match Report / Executive
+     * Summary. Mirrors `buildElrPostMatchReportData()` — same envelope,
+     * heatmap-per-stage — but sourced from AlrhaScoringService so CBC is
+     * peeled out of totals and rows are ranked by ALRHA points, not
+     * ELR normalized score.
+     *
+     * Dual-class matches are surfaced as a single combined heatmap here
+     * (same "all classes" view as the scoreboard's default filter);
+     * class-specific standings tables live on the ALRHA Standings PDF
+     * via `pdfStandingsTables()`.
+     */
+    private function buildAlrhaPostMatchReportData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+        $stages = $data['stages'] ?? [];
+
+        // Flatten per-class blocks into one ranked field so the heatmap
+        // shows every shooter, not just the primary class's roster. This
+        // preserves each row's class-adjusted `total_points` (CBC
+        // excluded) from AlrhaScoringService.
+        $rawStandings = [];
+        foreach ($data['per_class'] ?? [] as $block) {
+            foreach ($block['standings'] ?? [] as $row) {
+                $rawStandings[] = $row;
+            }
+        }
+        if ($rawStandings === [] && ! empty($data['standings'])) {
+            $rawStandings = $data['standings'];
+        }
+
+        // Re-rank the combined field by ALRHA total_points so the Full
+        // Match Report top-3 podium reflects "top of the match" (across
+        // classes), matching what the hub Top-5 now shows.
+        usort($rawStandings, fn ($a, $b) => (float) ($b['total_points'] ?? 0) <=> (float) ($a['total_points'] ?? 0));
+
+        $standings = collect($rawStandings)->map(function ($s, $index) {
+            $caliber = $s['caliber'] ?? null;
+            $name = $s['name'] ?? '';
+            $displayName = $caliber ? trim($name).' — '.trim((string) $caliber) : $name;
+            $status = $s['status'] ?? 'active';
+            $isNonRanked = in_array($status, MatchStandingsService::NON_RANKED_STATUSES, true);
+            $shotsFired = (int) ($s['shots_fired'] ?? 0);
+            $hits = (int) ($s['total_hits'] ?? 0);
+
+            return (object) [
+                'shooter_id' => (int) ($s['shooter_id'] ?? $s['id'] ?? 0),
+                'user_id' => $s['user_id'] ?? null,
+                'rank' => $isNonRanked ? null : ($index + 1),
+                'name' => $displayName,
+                'squad' => $s['squad_name'] ?? null,
+                'status' => $status,
+                'total_score' => (float) ($s['total_points'] ?? 0),
+                'hits' => $hits,
+                'misses' => max(0, $shotsFired - $hits),
+                // Kept on the row so the report template can chip the
+                // CBC winner (or a shooter's clean cold bore) even
+                // though the total column already excludes CBC.
+                'cbc_hits' => (int) ($s['cbc_hits'] ?? 0),
+                'cbc_points' => round((float) ($s['cbc_points'] ?? 0), 2),
+                'alrha_class' => $s['alrha_class'] ?? null,
+            ];
+        });
+
+        // Per-shooter stage map so we can walk shots once per (shooter,
+        // stage) when filling distanceTables.
+        $shooterStageMap = [];
+        foreach ($rawStandings as $s) {
+            $shooterId = (int) ($s['shooter_id'] ?? $s['id'] ?? 0);
+            $shooterStageMap[$shooterId] = [];
+            foreach ($s['stages'] ?? [] as $stage) {
+                $shooterStageMap[$shooterId][(int) $stage['stage_id']] = $stage['targets'] ?? [];
+            }
+        }
+
+        // One distance-table entry per ALRHA stage. Each target
+        // contributes one "gong" column showing whether the shooter
+        // put *any* shot on it (the target's total points for that
+        // shooter are aggregated across all 5 shot slots). Per-shot
+        // fidelity lives on the Detailed PDF; the Full Match Report
+        // stays at target-level to keep the heatmap readable.
+        $distanceTables = [];
+        foreach ($stages as $stage) {
+            $stageId = (int) $stage['id'];
+            $targets = $stage['targets'] ?? [];
+
+            $gongs = [];
+            foreach ($targets as $idx => $target) {
+                $gongs[] = [
+                    'number' => $idx + 1,
+                    'label' => $target['name'] ?? ('T'.($idx + 1)),
+                    'multiplier' => 5.0, // ALRHA max value per target = shot #1
+                    'points_per_hit' => 5.0,
+                ];
+            }
+
+            $rows = [];
+            foreach ($standings as $standing) {
+                $shooterId = $standing->shooter_id;
+                $stageTargets = $shooterStageMap[$shooterId][$stageId] ?? [];
+                $targetsById = collect($stageTargets)->keyBy(
+                    fn ($t) => (int) ($t['target_id'] ?? $t['id'] ?? 0)
+                );
+
+                $cells = [];
+                $rowHits = 0;
+                $rowMisses = 0;
+                $rowSubtotal = 0.0;
+
+                foreach ($targets as $target) {
+                    $targetId = (int) ($target['id'] ?? $target['target_id'] ?? 0);
+                    $shooterTarget = $targetsById->get($targetId);
+                    $shots = $shooterTarget['shots'] ?? [];
+                    $isCbc = (bool) ($target['is_cold_bore'] ?? false);
+
+                    $anyHit = false;
+                    $anyShot = false;
+                    $points = 0.0;
+                    foreach ($shots as $shot) {
+                        if (($shot['result'] ?? null) === 'hit') {
+                            $anyHit = true;
+                            $anyShot = true;
+                            $points += (float) ($shot['points'] ?? 0);
+                        } elseif (($shot['result'] ?? null) === 'miss') {
+                            $anyShot = true;
+                        }
+                    }
+
+                    // CBC hits render on the heatmap so the range crew
+                    // can see who tagged the cold bore, but they never
+                    // add to the row subtotal / hit tally per ALRHA §4.
+                    if ($anyHit) {
+                        $cells[] = ['state' => 'hit', 'points' => round($points, 2)];
+                        if (! $isCbc) {
+                            $rowHits++;
+                            $rowSubtotal += $points;
+                        }
+                    } elseif ($anyShot) {
+                        $cells[] = ['state' => 'miss', 'points' => null];
+                        if (! $isCbc) {
+                            $rowMisses++;
+                        }
+                    } else {
+                        $cells[] = ['state' => 'none', 'points' => null];
+                    }
+                }
+
+                $rows[] = [
+                    'shooter_id' => $shooterId,
+                    'user_id' => $standing->user_id,
+                    'rank' => $standing->rank,
+                    'name' => $standing->name,
+                    'caliber' => $this->caliberFromShooterName($standing->name),
+                    'squad' => $standing->squad,
+                    'status' => $standing->status,
+                    'cells' => $cells,
+                    'hits' => $rowHits,
+                    'misses' => $rowMisses,
+                    'subtotal' => round($rowSubtotal, 2),
+                ];
+            }
+
+            $distanceTables[] = [
+                'label' => $stage['label'] ?? ('Stage '.$stageId),
+                // Synthetic distance key so each ALRHA stage becomes
+                // its own column group in the heatmap header rather
+                // than colliding with other stages at the same nominal
+                // distance.
+                'distance_meters' => $stageId,
+                'distance_multiplier' => 1.0,
+                'gongs' => $gongs,
+                'rows' => $rows,
+            ];
+        }
+
+        return [
+            'match' => $match,
+            'standings' => $standings,
+            'targetSets' => collect(),
+            'distanceTables' => $distanceTables,
+            'rfLeaderboard' => collect(),
+            'sideBetCascade' => null,
+            'generatedAt' => now(),
+        ];
+    }
+
+    /**
+     * ALRHA Detailed PDF data. Each ELR target contributes one column
+     * per shot slot (1..max_shots), producing a wide grid where a
+     * scorer can eyeball every shot on every target for every shooter.
+     * CBC target is included as its own "stage" so a shooter's cold
+     * bore hit shows, but its columns don't feed the row total (ALRHA
+     * §4 — CBC is a side game).
+     *
+     * The template (`exports.pdf-alrha-detailed`) is a dedicated ALRHA
+     * grid rather than a squeeze into `pdf-detailed.blade.php`, which
+     * hard-codes a target_sets/gongs shape ill-suited to shot-index
+     * scoring.
+     */
+    private function buildPdfAlrhaDetailedData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $resolver = app(SponsorPlacementResolver::class);
+
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+        $stages = $data['stages'] ?? [];
+
+        // Flatten per-class blocks into one ranked field, class-tag
+        // each row so dual-class matches can group in the template.
+        $rawStandings = [];
+        foreach ($data['per_class'] ?? [] as $block) {
+            foreach ($block['standings'] ?? [] as $row) {
+                $row['alrha_class_label'] = $block['class_label'] ?? null;
+                $rawStandings[] = $row;
+            }
+        }
+        if ($rawStandings === [] && ! empty($data['standings'])) {
+            $rawStandings = $data['standings'];
+        }
+        usort($rawStandings, fn ($a, $b) => (float) ($b['total_points'] ?? 0) <=> (float) ($a['total_points'] ?? 0));
+
+        // Shape the stage / target / shot-slot skeleton once; each
+        // shooter row lays their shot results over it.
+        $stageColumns = [];
+        foreach ($stages as $stage) {
+            $targetColumns = [];
+            foreach ($stage['targets'] ?? [] as $target) {
+                $maxShots = max(1, (int) ($target['max_shots'] ?? 1));
+                $targetColumns[] = [
+                    'target_id' => (int) $target['id'],
+                    'label' => $target['name'] ?? '',
+                    'distance_m' => (int) ($target['distance_m'] ?? 0),
+                    'shot_slots' => range(1, $maxShots),
+                    'is_cbc' => (bool) ($target['is_cold_bore'] ?? false),
+                ];
+            }
+            $stageColumns[] = [
+                'stage_id' => (int) $stage['id'],
+                'label' => $stage['label'] ?? '',
+                'targets' => $targetColumns,
+            ];
+        }
+
+        $shooterStageMap = [];
+        foreach ($rawStandings as $s) {
+            $shooterId = (int) ($s['shooter_id'] ?? $s['id'] ?? 0);
+            $shooterStageMap[$shooterId] = [];
+            foreach ($s['stages'] ?? [] as $stage) {
+                $shooterStageMap[$shooterId][(int) $stage['stage_id']] = collect($stage['targets'] ?? [])
+                    ->keyBy('target_id');
+            }
+        }
+
+        $rows = [];
+        foreach ($rawStandings as $index => $s) {
+            $shooterId = (int) ($s['shooter_id'] ?? $s['id'] ?? 0);
+            $status = $s['status'] ?? 'active';
+            $isNonRanked = in_array($status, MatchStandingsService::NON_RANKED_STATUSES, true);
+
+            $stageCells = [];
+            foreach ($stageColumns as $stage) {
+                $targetsById = $shooterStageMap[$shooterId][$stage['stage_id']] ?? collect();
+                $stageSubtotal = 0.0;
+                $targetCells = [];
+
+                foreach ($stage['targets'] as $target) {
+                    $shooterTarget = $targetsById->get($target['target_id']);
+                    $shotsByNumber = collect($shooterTarget['shots'] ?? [])
+                        ->keyBy(fn ($shot) => (int) ($shot['shot_number'] ?? 0));
+
+                    $slotResults = [];
+                    $targetPoints = 0.0;
+                    foreach ($target['shot_slots'] as $slot) {
+                        $shot = $shotsByNumber->get($slot);
+                        if ($shot === null) {
+                            $slotResults[] = ['state' => 'none', 'points' => null];
+                            continue;
+                        }
+                        $result = $shot['result'] ?? null;
+                        if ($result === 'hit') {
+                            $points = (float) ($shot['points'] ?? 0);
+                            $slotResults[] = ['state' => 'hit', 'points' => round($points, 2)];
+                            $targetPoints += $points;
+                        } elseif ($result === 'miss') {
+                            $slotResults[] = ['state' => 'miss', 'points' => null];
+                        } else {
+                            $slotResults[] = ['state' => 'none', 'points' => null];
+                        }
+                    }
+
+                    // CBC target still renders (so scorers see the CB
+                    // was hit) but never feeds the row subtotal per
+                    // ALRHA §4.
+                    if (! $target['is_cbc']) {
+                        $stageSubtotal += $targetPoints;
+                    }
+
+                    $targetCells[] = [
+                        'target_id' => $target['target_id'],
+                        'label' => $target['label'],
+                        'distance_m' => $target['distance_m'],
+                        'is_cbc' => $target['is_cbc'],
+                        'slots' => $slotResults,
+                        'subtotal' => round($targetPoints, 2),
+                    ];
+                }
+
+                $stageCells[] = [
+                    'stage_id' => $stage['stage_id'],
+                    'label' => $stage['label'],
+                    'targets' => $targetCells,
+                    'subtotal' => round($stageSubtotal, 2),
+                ];
+            }
+
+            $rows[] = [
+                'rank' => $isNonRanked ? null : ($index + 1),
+                'name' => $s['name'] ?? '',
+                'squad' => $s['squad_name'] ?? '',
+                'class_label' => $s['alrha_class_label'] ?? null,
+                'status' => $status,
+                'stages' => $stageCells,
+                'hits' => (int) ($s['total_hits'] ?? 0),
+                'shots_fired' => (int) ($s['shots_fired'] ?? 0),
+                'total' => round((float) ($s['total_points'] ?? 0), 2),
+                'cbc_hits' => (int) ($s['cbc_hits'] ?? 0),
+                'cbc_points' => round((float) ($s['cbc_points'] ?? 0), 2),
+            ];
+        }
+
+        return [
+            'match' => $match,
+            'stageColumns' => $stageColumns,
+            'rows' => $rows,
+            'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
+        ];
+    }
+
+    /**
+     * PRS Standings PDF data. Uses the same PRS tiebreaker sort as
+     * `prsStandingsForReport()` and `MatchExportController::prsStandings()`
+     * (raw hits desc → tiebreaker-stage hits desc → tiebreaker-stage
+     * time asc → aggregate match time asc) so every PRS surface agrees
+     * on the finishing order. Row shape matches
+     * `buildPdfStandingsData()` so the standard `pdf-standings.blade`
+     * renders it without further changes.
+     */
+    private function buildPdfPrsStandingsData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $divisionNames = $this->divisionLookup($match);
+        $resolver = app(SponsorPlacementResolver::class);
+
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with('gongs')
+            ->get();
+
+        $standings = $this->prsStandingsForReport($match, $targetSets);
+
+        $shooters = $standings->map(fn ($row) => (object) [
+            'shooter_id' => $row->shooter_id,
+            'name' => $row->name,
+            'squad' => $row->squad,
+            'agg_hits' => $row->hits,
+            'agg_misses' => $row->misses,
+            'agg_total' => (float) ($row->total_score ?? 0),
+            'division' => $divisionNames[$row->shooter_id] ?? '',
+        ]);
+
+        return [
+            'match' => $match,
+            'shooters' => $shooters,
+            'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
+        ];
+    }
+
+    /**
+     * PRS Detailed PDF data. Per-shooter × per-stage grid: one cell per
+     * shot in `prs_shot_scores` (H/M/-), stage subtotal from
+     * `prs_stage_results`, plus a stage-time column so range crews can
+     * see the timing that broke ties. Row order is the same PRS
+     * tiebreaker chain as the Standings PDF.
+     */
+    private function buildPdfPrsDetailedData(ShootingMatch $match): array
+    {
+        $match->load('organization');
+        $divisionNames = $this->divisionLookup($match);
+        $resolver = app(SponsorPlacementResolver::class);
+
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->get();
+
+        $standings = $this->prsStandingsForReport($match, $targetSets);
+        $shooterIds = $standings->pluck('shooter_id')->all();
+
+        $shotScores = PrsShotScore::query()
+            ->whereIn('shooter_id', $shooterIds)
+            ->get()
+            ->groupBy('shooter_id');
+
+        $stageResults = PrsStageResult::query()
+            ->whereIn('shooter_id', $shooterIds)
+            ->get()
+            // ($shooter_id, $stage_id) => result
+            ->keyBy(fn ($r) => $r->shooter_id.'-'.$r->stage_id);
+
+        // Every stage advertises its max-shots via `expected_shots`
+        // (falls back to the stage's shot count if column is null so
+        // legacy PRS matches still render). This drives the "S1..Sn"
+        // column count per stage.
+        $stageMeta = $targetSets->map(function ($ts) use ($shotScores) {
+            $expected = (int) ($ts->expected_shots ?? 0);
+            if ($expected <= 0) {
+                // Fall back to the highest shot_number seen for this
+                // stage across all shooters.
+                $expected = (int) $shotScores
+                    ->flatten(1)
+                    ->where('stage_id', $ts->id)
+                    ->max('shot_number');
+                $expected = max(1, $expected);
+            }
+
+            return [
+                'stage_id' => (int) $ts->id,
+                'label' => $ts->label ?: (string) $ts->id,
+                'shot_slots' => range(1, $expected),
+                'is_tiebreaker' => (bool) $ts->is_tiebreaker,
+            ];
+        });
+
+        $rows = $standings->map(function ($standing) use ($stageMeta, $shotScores, $stageResults, $divisionNames) {
+            $shooterShots = $shotScores->get($standing->shooter_id, collect())->groupBy('stage_id');
+
+            $stageCells = [];
+            foreach ($stageMeta as $stage) {
+                $stageId = $stage['stage_id'];
+                $result = $stageResults->get($standing->shooter_id.'-'.$stageId);
+                $shots = $shooterShots->get($stageId, collect())->keyBy(fn ($s) => (int) $s->shot_number);
+
+                $slotResults = [];
+                foreach ($stage['shot_slots'] as $slot) {
+                    $shot = $shots->get($slot);
+                    if ($shot === null) {
+                        $slotResults[] = 'none';
+                    } else {
+                        $slotResults[] = $shot->is_hit ? 'hit' : 'miss';
+                    }
+                }
+
+                $stageCells[] = [
+                    'stage_id' => $stageId,
+                    'label' => $stage['label'],
+                    'slots' => $slotResults,
+                    'hits' => $result ? (int) $result->hits : 0,
+                    'misses' => $result ? (int) $result->misses : 0,
+                    'time_seconds' => $result?->official_time_seconds !== null
+                        ? (float) $result->official_time_seconds
+                        : null,
+                    'is_tiebreaker' => $stage['is_tiebreaker'],
+                ];
+            }
+
+            return [
+                'rank' => $standing->rank,
+                'name' => $standing->name,
+                'squad' => $standing->squad,
+                'division' => $divisionNames[$standing->shooter_id] ?? '',
+                'status' => $standing->status ?? 'active',
+                'stages' => $stageCells,
+                'hits' => $standing->hits,
+                'misses' => $standing->misses,
+                'total' => (int) ($standing->total_score ?? 0),
+            ];
+        })->values();
+
+        return [
+            'match' => $match,
+            'stageMeta' => $stageMeta,
+            'rows' => $rows,
             'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
         ];
     }

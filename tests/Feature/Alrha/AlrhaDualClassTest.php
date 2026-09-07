@@ -482,6 +482,52 @@ it('scoreboard standings row expands into per-stage per-target breakdown', funct
 });
 
 /**
+ * Dual-class expand must only show the class the shooter actually
+ * shot. A Hunter opening their row must not see Varmint Far/Near/CBC
+ * (and vice versa) — those cards were empty zeros and looked like
+ * missed stages.
+ */
+it('scoreboard expand hides the other class stages on a dual-class match', function () {
+    $ctx = alrhaDualBuild();
+
+    $hunter = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Hunter Only',
+        'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $varmint = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id,
+        'name' => 'Varmint Only',
+        'alrha_class' => AlrhaClass::Varmint->value,
+    ]);
+
+    alrhaShootDual($hunter->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+    alrhaShootDual($varmint->id, $ctx['stagesByClass']['varmint']['far_targets'][0], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('filterAlrhaClass', 'hunters')
+        ->call('toggleExpand', $hunter->id)
+        ->assertSee('H Far')
+        ->assertSee('H Near')
+        ->assertSee('H CBC')
+        ->assertDontSee('V Far')
+        ->assertDontSee('V Near')
+        ->assertDontSee('V CBC');
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('filterAlrhaClass', 'varmint')
+        ->call('toggleExpand', $varmint->id)
+        ->assertSee('V Far')
+        ->assertSee('V Near')
+        ->assertSee('V CBC')
+        ->assertDontSee('H Far')
+        ->assertDontSee('H Near')
+        ->assertDontSee('H CBC');
+});
+
+/**
  * A cold-bore hit is a rare, notable event — it doesn't roll into the
  * class prize points but the shooter did it. Pin that the standings
  * row surfaces a "CBC ✓" chip when cbc_hits > 0, so a spectator sees

@@ -296,6 +296,11 @@ class AlrhaScoringService implements ScoringEngineInterface
             // the scoreboard (misses = shots_fired − hits) doesn't
             // count the CBC shot as a phantom miss.
             $row['shots_fired'] = max(0, (int) ($row['shots_fired'] ?? 0) - $cbcShotsFired);
+            // Dual-class matches share one ELR stage tree. Keep only this
+            // class's stages on the row so the scoreboard expand (and any
+            // other consumer of `$row['stages']`) never shows a Hunter
+            // the Varmint Far/Near/CBC cards, or vice versa.
+            $row['stages'] = $this->filterStagesToClass($row['stages'] ?? [], $classTargetIds);
 
             return $row;
         }, $rows);
@@ -327,6 +332,38 @@ class AlrhaScoringService implements ScoringEngineInterface
         }
 
         return $count;
+    }
+
+    /**
+     * Drop stages/targets that don't belong to this class's stage tree.
+     * A stage with no remaining targets is omitted entirely.
+     *
+     * @param  array<int, array<string, mixed>>  $stages
+     * @param  array<int, true>                  $classTargetIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterStagesToClass(array $stages, array $classTargetIds): array
+    {
+        $filtered = [];
+
+        foreach ($stages as $stage) {
+            $targets = [];
+            foreach ($stage['targets'] ?? [] as $target) {
+                $targetId = (int) ($target['target_id'] ?? $target['id'] ?? 0);
+                if ($targetId > 0 && isset($classTargetIds[$targetId])) {
+                    $targets[] = $target;
+                }
+            }
+
+            if ($targets === []) {
+                continue;
+            }
+
+            $stage['targets'] = $targets;
+            $filtered[] = $stage;
+        }
+
+        return $filtered;
     }
 
     /**
