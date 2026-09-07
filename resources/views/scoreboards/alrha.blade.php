@@ -543,69 +543,9 @@
      ============================================================ --}}
 @if($alrhaTab === 'prize-book')
     @php
-        // Build the accordion sections in the exact printed-programme
-        // order. Each section is a self-contained payload the row
-        // partial can render — we don't inline table logic here so the
-        // list stays scannable.
-        $prizeSections = [];
-        foreach ($visibleClassBlocks as $block) {
-            $classValue = $block['class'] ?? null;
-            $classLabel = $block['class_label'] ?? '';
-            $classShort = $classValue === \App\Enums\AlrhaClass::Hunters->value ? 'Hunter' : 'Varmint';
-
-            // Team prize (Hunters only).
-            if ($classValue === \App\Enums\AlrhaClass::Hunters->value && ! empty($block['teams'])) {
-                $prizeSections[] = [
-                    'kind' => 'teams',
-                    'title' => 'Hunter Team',
-                    'subtitle' => 'Two-shooter team totals',
-                    'rows' => $block['teams'],
-                ];
-            }
-
-            // Individual overall for this class.
-            if (! empty($block['standings'])) {
-                $prizeSections[] = [
-                    'kind' => 'standings',
-                    'title' => "{$classShort} Individual",
-                    'subtitle' => "{$classLabel} — overall prize table",
-                    'rows' => $block['standings'],
-                ];
-            }
-
-            // Per-category slices. Skip the "Open" duplicate of the
-            // overall individual for Hunters (Hunters has no Ladies,
-            // and Open == overall for the class); keep Junior always,
-            // and for Varmint keep Open/Ladies/Junior so the reference
-            // layout (Varmint Open / Varmint Junior / Varmint Ladies)
-            // is reproduced.
-            foreach ($block['categories'] ?? [] as $slice) {
-                $slug = $slice['slug'] ?? null;
-                if ($classValue === \App\Enums\AlrhaClass::Hunters->value && $slug === 'open') {
-                    continue;
-                }
-                if (empty($slice['rows'])) {
-                    continue;
-                }
-                $prizeSections[] = [
-                    'kind' => 'category',
-                    'title' => "{$classShort} " . ($slug === 'open' ? 'Open' : ($slug === 'ladies' ? 'Ladies' : ($slug === 'junior' ? 'Junior' : ucfirst((string) $slug)))),
-                    'subtitle' => "{$classLabel} — " . strtolower($slice['name'] ?? '') . ' prize table',
-                    'rows' => $slice['rows'],
-                ];
-            }
-
-            // Cold Bore Challenge for this class.
-            if (! empty($block['cbc'])) {
-                $classEnum = \App\Enums\AlrhaClass::tryFrom($classValue ?? '');
-                $prizeSections[] = [
-                    'kind' => 'cbc',
-                    'title' => "{$classShort} Cold Bore Challenge",
-                    'subtitle' => $classEnum?->coldBoreTargetName() ?? 'Cold Bore Challenge',
-                    'rows' => $block['cbc'],
-                ];
-            }
-        }
+        $prizeSections = collect($alrhaData['prize_sections'] ?? [])
+            ->filter(fn ($section) => ! $activeAlrhaClass || ($section['class'] ?? null) === $activeAlrhaClass)
+            ->values();
     @endphp
 
     <div class="space-y-2" x-data="{ open: null }">

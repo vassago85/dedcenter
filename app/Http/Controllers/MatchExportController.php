@@ -1222,10 +1222,10 @@ class MatchExportController extends Controller
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
         $slug = Str::slug($match->name);
-        $data = $this->buildExecutiveSummaryData($match);
+        [$view, $data] = $this->fullMatchReportPayload($match);
 
         return $renderer->stream(
-            'exports.pdf-executive-summary',
+            $view,
             $data,
             "{$slug}-full-match-report.pdf",
             null,
@@ -1246,7 +1246,7 @@ class MatchExportController extends Controller
     {
         $this->ensureOrgMatch($organization, $match);
         $this->authorizeExport($match);
-        $data = $this->buildExecutiveSummaryData($match);
+        [$view, $data] = $this->fullMatchReportPayload($match);
 
         // Same Laravel-injects-an-empty-Organization gotcha as ensureOrgMatch:
         // on the admin route (no `{organization}` segment) `$organization`
@@ -1256,7 +1256,7 @@ class MatchExportController extends Controller
             ? route('org.matches.export.pdf-executive-summary', [$organization, $match])
             : route('admin.matches.export.pdf-executive-summary', $match);
 
-        return view('exports.pdf-executive-summary', $data + [
+        return view($view, $data + [
             'viewMode' => 'html',
             'downloadUrl' => $downloadUrl,
         ]);
@@ -1283,7 +1283,7 @@ class MatchExportController extends Controller
             abort_unless($mayPreview, 404, 'Results for this match have not been published yet.');
         }
 
-        $data = $this->buildExecutiveSummaryData($match);
+        [$view, $data] = $this->fullMatchReportPayload($match);
 
         $downloadUrl = null;
         $user = $request->user();
@@ -1295,7 +1295,7 @@ class MatchExportController extends Controller
             }
         }
 
-        return view('exports.pdf-executive-summary', $data + [
+        return view($view, $data + [
             'viewMode' => 'html',
             'downloadUrl' => $downloadUrl,
         ]);
@@ -1309,6 +1309,83 @@ class MatchExportController extends Controller
     public function pdfExecutiveSummary(?Organization $organization, ShootingMatch $match, PdfDocumentRenderer $renderer)
     {
         return $this->pdfFullMatchReport($organization, $match, $renderer);
+    }
+
+    /**
+     * Pick the Full Match Report view + payload for this match type.
+     * ALRHA gets the prize-book report (per-class podiums, teams, CBC);
+     * everything else keeps the existing heatmap / PRS score-sheet.
+     *
+     * @return array{0: string, 1: array<string, mixed>}
+     */
+    private function fullMatchReportPayload(ShootingMatch $match): array
+    {
+        if ($match->isAlrha()) {
+            return ['exports.pdf-alrha-full-report', $this->buildAlrhaFullMatchReportData($match)];
+        }
+
+        return ['exports.pdf-executive-summary', $this->buildExecutiveSummaryData($match)];
+    }
+
+    /**
+     * ALRHA Full Match Report — prize-book shaped, not a gong heatmap.
+     * Same sections the scoreboard Prize Book tab uses, plus a per-class
+     * podium strip so the document reads as an ALRHA prize programme.
+     */
+    private function buildAlrhaFullMatchReportData(ShootingMatch $match): array
+    {
+        $match->loadMissing('organization');
+        $data = app(AlrhaScoringService::class)->calculateStandings($match);
+        $resolver = app(SponsorPlacementResolver::class);
+
+        $classPodiums = [];
+        $hunterCount = 0;
+        $varmintCount = 0;
+        $cbcHits = 0;
+        $teamCount = 0;
+
+        foreach ($data['per_class'] ?? [] as $classValue => $block) {
+            $standings = collect($block['standings'] ?? []);
+            $eligible = $standings
+                ->filter(fn ($row) => empty($row['is_coached'])
+                    && ! in_array($row['status'] ?? 'active', MatchStandingsService::NON_RANKED_STATUSES, true))
+                ->values();
+
+            if ($classValue === 'hunters') {
+                $hunterCount = $eligible->count();
+                $teamCount = count($block['teams'] ?? []);
+            } else {
+                $varmintCount += $eligible->count();
+            }
+
+            foreach ($block['cbc'] ?? [] as $cbcRow) {
+                $cbcHits += (int) ($cbcRow['cbc_hits'] ?? 0);
+            }
+
+            $classPodiums[] = [
+                'class' => $classValue,
+                'label' => $block['class_label'] ?? (string) $classValue,
+                'first' => $eligible->get(0),
+                'second' => $eligible->get(1),
+                'third' => $eligible->get(2),
+            ];
+        }
+
+        return [
+            'match' => $match,
+            'prizeSections' => $data['prize_sections'] ?? [],
+            'classPodiums' => $classPodiums,
+            'isDualClass' => (bool) ($data['match']['is_dual_class'] ?? false),
+            'statCards' => [
+                'hunters' => $hunterCount,
+                'varmint' => $varmintCount,
+                'teams' => $teamCount,
+                'cbcHits' => $cbcHits,
+                'shooters' => $hunterCount + $varmintCount,
+            ],
+            'sponsorAssignment' => $resolver->resolve(PlacementKey::GlobalExports, $match->id),
+            'generatedAt' => now(),
+        ];
     }
 
     /**

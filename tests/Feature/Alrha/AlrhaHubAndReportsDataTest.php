@@ -353,27 +353,24 @@ it('MatchStandingsService::elrStandings returns non-zero total_score for ELR mat
     expect($rows->first()->name)->toBe('ELR Alice');
 });
 
-it('ALRHA Full Match Report heatmap and stats come from elr_shots, not zeros', function () {
+it('ALRHA Full Match Report prize book payload comes from elr_shots, not zeros', function () {
     $ctx = alrhaBuild('varmint');
     $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Report Alice']);
     alrhaShoot($shooter->id, $ctx['farTargets'][0], [1, 3, 4]); // 10 pts, 3 hits
 
     $controller = app(MatchExportController::class);
-    $ref = new \ReflectionMethod($controller, 'buildExecutiveSummaryData');
+    $ref = new \ReflectionMethod($controller, 'buildAlrhaFullMatchReportData');
     $data = $ref->invoke($controller, $ctx['match']);
 
-    expect($data['standings'])->toHaveCount(1);
-    expect((float) $data['standings']->first()->total_score)->toBe(10.0);
-    expect((int) $data['standings']->first()->hits)->toBe(3);
+    expect($data['prizeSections'])->not->toBeEmpty();
+    $individual = collect($data['prizeSections'])->firstWhere('kind', 'standings');
+    expect($individual['title'])->toBe('Varmint Individual');
+    expect($individual['rows'][0]['name'])->toBe('Report Alice');
+    expect((float) $individual['rows'][0]['total_points'])->toBe(10.0);
 
-    expect($data['statCards']['winnerScore'])->toBe(10.0);
-    expect($data['statCards']['totalHits'])->toBeGreaterThan(0);
-    expect($data['statCards']['totalShots'])->toBeGreaterThan(0);
-
-    $row = collect($data['heatmap'])->firstWhere('name', 'Report Alice');
-    expect($row)->not->toBeNull();
-    expect($row['total_score'])->toBe(10.0);
-    expect(collect($row['cells'])->where('state', 'hit')->count())->toBeGreaterThan(0);
+    expect($data['classPodiums'][0]['first']['name'] ?? null)->toBe('Report Alice');
+    expect($data['statCards']['shooters'])->toBe(1);
+    expect($data['statCards']['varmint'])->toBe(1);
 });
 
 it('ALRHA Full Match Report HTML page renders shooter points from elr_shots', function () {
@@ -385,5 +382,8 @@ it('ALRHA Full Match Report HTML page renders shooter points from elr_shots', fu
         ->get(route('admin.matches.full-match-report', $ctx['match']))
         ->assertOk()
         ->assertSee('Html Alice')
-        ->assertSee('10');
+        ->assertSee('ALRHA Prize Book')
+        ->assertSee('Varmint Individual')
+        ->assertSee('10.00')
+        ->assertDontSee('G1');
 });

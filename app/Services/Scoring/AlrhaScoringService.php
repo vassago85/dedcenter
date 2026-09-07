@@ -96,9 +96,89 @@ class AlrhaScoringService implements ScoringEngineInterface
             // Per-class fields (new consumers). Keyed by class value so
             // the UI can iterate deterministically.
             'per_class' => $perClass,
+            // Printed-programme prize book — same order the Full Match
+            // Report and the scoreboard Prize Book tab render.
+            'prize_sections' => $this->buildPrizeBookSections($perClass),
             'divisions' => $base['divisions'] ?? [],
             'active_division' => $base['active_division'] ?? null,
         ];
+    }
+
+    /**
+     * Prize-book sections in printed-programme order:
+     *   Hunter Team → Hunter Individual → Hunter categories →
+     *   Varmint Individual → Varmint categories → CBC per class.
+     *
+     * Empty sections are omitted so a match without ladies / teams
+     * doesn't print a blank table.
+     *
+     * @param  array<string, array<string, mixed>>  $perClass
+     * @return list<array{kind:string,class:?string,title:string,subtitle:?string,rows:array}>
+     */
+    public function buildPrizeBookSections(array $perClass): array
+    {
+        $sections = [];
+
+        foreach ($perClass as $classValue => $block) {
+            $classLabel = $block['class_label'] ?? (string) $classValue;
+            $classShort = $classValue === AlrhaClass::Hunters->value ? 'Hunter' : 'Varmint';
+
+            if ($classValue === AlrhaClass::Hunters->value && ! empty($block['teams'])) {
+                $sections[] = [
+                    'kind' => 'teams',
+                    'class' => $classValue,
+                    'title' => 'Hunter Team',
+                    'subtitle' => 'Two-shooter team totals',
+                    'rows' => $block['teams'],
+                ];
+            }
+
+            if (! empty($block['standings'])) {
+                $sections[] = [
+                    'kind' => 'standings',
+                    'class' => $classValue,
+                    'title' => "{$classShort} Individual",
+                    'subtitle' => "{$classLabel} — overall prize table",
+                    'rows' => $block['standings'],
+                ];
+            }
+
+            foreach ($block['categories'] ?? [] as $slice) {
+                $slug = $slice['slug'] ?? null;
+                if ($classValue === AlrhaClass::Hunters->value && $slug === 'open') {
+                    continue;
+                }
+                if (empty($slice['rows'])) {
+                    continue;
+                }
+                $catTitle = match ($slug) {
+                    'open' => 'Open',
+                    'ladies' => 'Ladies',
+                    'junior' => 'Junior',
+                    default => ucfirst((string) $slug),
+                };
+                $sections[] = [
+                    'kind' => 'category',
+                    'class' => $classValue,
+                    'title' => "{$classShort} {$catTitle}",
+                    'subtitle' => "{$classLabel} — ".strtolower((string) ($slice['name'] ?? $catTitle)).' prize table',
+                    'rows' => $slice['rows'],
+                ];
+            }
+
+            if (! empty($block['cbc'])) {
+                $classEnum = AlrhaClass::tryFrom((string) $classValue);
+                $sections[] = [
+                    'kind' => 'cbc',
+                    'class' => $classValue,
+                    'title' => "{$classShort} Cold Bore Challenge",
+                    'subtitle' => $classEnum?->coldBoreTargetName() ?? 'Cold Bore Challenge',
+                    'rows' => $block['cbc'],
+                ];
+            }
+        }
+
+        return $sections;
     }
 
     /**
