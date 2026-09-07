@@ -243,6 +243,99 @@ it('public ALRHA shooter report route renders points from elr_shots, not zeros',
         ->assertSee('10.0');
 });
 
+it('ALRHA shooter report renders per-shot stage breakdown (5 dots per Varmint target, not 1)', function () {
+    // Simon-style clean run on a Varmint match. Under the ELR
+    // pipeline's target-level shape, Near stage would show
+    // "3 hits / 0 miss" (3 targets cleaned) — misleading because
+    // each target is a five-shot engagement. ALRHA report must
+    // expand this to per-shot so Near shows "15 hits / 0 miss" and
+    // the dot strip carries 15 entries with values 5/4/3/2/1
+    // under each target.
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Shot Level']);
+
+    alrhaShoot($shooter->id, $ctx['cbcTarget'], [1]);
+    foreach ($ctx['farTargets'] as $target) {
+        alrhaShoot($shooter->id, $target, [1, 2, 3, 4, 5]);
+    }
+    foreach ($ctx['nearTargets'] as $target) {
+        alrhaShoot($shooter->id, $target, [1, 2, 3, 4, 5]);
+    }
+
+    $report = (new MatchReportService)->generateReport($ctx['match'], $shooter);
+
+    // Stages come back as CBC, Far, Near (sort_order).
+    expect($report['stages'])->toHaveCount(3);
+
+    $near = collect($report['stages'])->firstWhere('label', 'Near');
+    expect($near)->not->toBeNull();
+
+    // Varmint Near has 3 targets × 5 shots each = 15 shots.
+    // Was 3/0 pre-fix (one hit/miss per target).
+    expect($near['hits'])->toBe(15);
+    expect($near['misses'])->toBe(0);
+    // One dot per shot in the strip.
+    expect($near['gongs'])->toHaveCount(15);
+    expect(collect($near['gongs'])->pluck('result')->unique()->all())->toBe(['hit']);
+    // Value strip carries the actual 5/4/3/2/1 per shot so the
+    // template's value row renders under each target's five dots.
+    $firstTargetShots = collect($near['gongs'])->take(5)->pluck('value')->all();
+    expect($firstTargetShots)->toBe([5.0, 4.0, 3.0, 2.0, 1.0]);
+
+    // Best-stage headline should read "15/15 impacts" on Near
+    // (was "3/3 impacts" pre-fix).
+    expect($report['best_stage']['hits'])->toBe(15);
+    expect($report['best_stage']['targets'])->toBe(15);
+    // CBC (1 shot, 5 pts) must never win best-stage against Near
+    // (15 shots, 45 pts) — regardless it's kept out of the
+    // comparison because it's a side game.
+    expect($report['best_stage']['label'])->not->toBe('CBC');
+});
+
+it('ALRHA shooter report keeps the CBC stage in the stage list even though it is excluded from best-stage', function () {
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'CBC Visible']);
+    alrhaShoot($shooter->id, $ctx['cbcTarget'], [1]);
+    alrhaShoot($shooter->id, $ctx['farTargets'][0], [1]); // 5 pts on Far
+
+    $report = (new MatchReportService)->generateReport($ctx['match'], $shooter);
+
+    $cbc = collect($report['stages'])->firstWhere('label', 'CBC');
+    expect($cbc)->not->toBeNull();
+    expect($cbc['is_cbc'])->toBeTrue();
+    expect($cbc['hits'])->toBe(1);
+    expect($cbc['gongs'])->toHaveCount(1);
+    // But CBC never wins best-stage (side game).
+    expect($report['best_stage']['label'])->toBe('Far');
+});
+
+it('ALRHA shooter report emits grey dots for unfired shot slots', function () {
+    // Shooter takes only shots #1 and #3 on one Far target — slots
+    // #2, #4, #5 are `no_shots` and should render as grey dashes.
+    $ctx = alrhaBuild('varmint');
+    $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Partial']);
+
+    // alrhaShoot() always records all 5 slots (hit/miss). Reach
+    // into the ELR service directly so we can leave real gaps.
+    $service = new ELRScoringService();
+    $target = $ctx['farTargets'][0];
+    $target->loadMissing('stage.match', 'stage.scoringProfile');
+    $service->recordShot($shooter, $target, 1, ElrShotResult::Hit, $ctx['owner']->id, 'device-1');
+    $service->recordShot($shooter, $target, 3, ElrShotResult::Hit, $ctx['owner']->id, 'device-1');
+
+    $report = (new MatchReportService)->generateReport($ctx['match'], $shooter);
+    $far = collect($report['stages'])->firstWhere('label', 'Far');
+
+    // One target × 5 shot slots. 2 shots taken, 3 no_shots. The
+    // Varmint Far block has 2 targets, so the second target
+    // contributes another 5 no_shots → 8 total no_shots.
+    $noShotDots = collect($far['gongs'])->where('result', 'no_shot')->count();
+    $hitDots = collect($far['gongs'])->where('result', 'hit')->count();
+    expect($hitDots)->toBe(2);
+    expect($noShotDots)->toBeGreaterThanOrEqual(3);
+    expect($far['hits'])->toBe(2);
+});
+
 it('MatchStandingsService::elrStandings returns non-zero total_score for ELR matches', function () {
     // Sibling regression: same fix applied to ELR so hubs of pure ELR
     // matches don't accidentally drift back onto the empty scores

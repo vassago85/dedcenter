@@ -829,13 +829,26 @@ class MatchReportService
      * ALRHA shooter report.
      *
      * ALRHA shots live in `elr_shots`, so the base report is generated
-     * through the ELR pipeline (stage breakdown, per-gong hit list,
-     * accuracy fields). We then re-summarise using
-     * `AlrhaScoringService` so the report reflects ALRHA rules:
+     * through the ELR pipeline (per-target stage skeleton, accuracy
+     * fields). We then re-summarise using `AlrhaScoringService` and
+     * re-expand the stage breakdown to *shot-level* so the report
+     * reflects ALRHA rules:
      *
+     *   • Every ALRHA shot is scored 5-4-3-2-1 by shot order — each
+     *     target is a five-shot engagement, not a single hit/miss
+     *     event. The stage strip therefore emits one dot per shot
+     *     (up to `max_shots` per target), and the stage "hits" /
+     *     "miss" line counts *shots*, not targets. Without this the
+     *     Near stage of a Varmint clean-run reads "3 hits / 0 miss"
+     *     for what was actually a 15-shot clean run — the mismatch
+     *     the shooter is seeing between the summary tile (per-shot)
+     *     and the stage row (per-target).
      *   • CBC (Cold Bore Challenge) hits are excluded from `hits`,
-     *     `misses`, and `total_score` (ALRHA rules §4 — CBC is a
-     *     season-long side game, not part of the match score).
+     *     `misses`, and `total_score` on the summary (ALRHA rules §4
+     *     — CBC is a season-long side game, not part of the match
+     *     score). The CBC stage still renders in the stage list so
+     *     the shooter can see they hit / missed the cold bore, but
+     *     it's kept out of best-stage / worst-stage comparison.
      *   • The `rank` is the shooter's finishing position within their
      *     own class (Hunters or Varmint), not against the whole field.
      *   • `winner_name` / `winner_score` on field_stats reflect the
@@ -849,6 +862,26 @@ class MatchReportService
     private function generateAlrhaReport(ShootingMatch $match, Shooter $shooter): array
     {
         $report = $this->generateElrReport($match, $shooter);
+
+        // Replace the ELR per-target stage list with an ALRHA
+        // per-shot one so the checkmarks and hits/miss line agree
+        // with the 5-4-3-2-1 scoring the summary tile is built on.
+        $shotStages = $this->buildAlrhaShotLevelStages($match, $shooter);
+        if ($shotStages !== []) {
+            $report['stages'] = $shotStages;
+            // Best/worst-stage headlines are derived from stage
+            // hits/misses/targets, so once the stage rows go
+            // shot-level, these follow automatically. CBC is a
+            // side game — filter it out so a 1-shot CBC hit can't
+            // be reported as "best stage" against a 45-pt Near
+            // clean-run.
+            $competitionStages = array_values(array_filter(
+                $shotStages,
+                fn ($s) => empty($s['is_cbc']),
+            ));
+            $report['best_stage'] = $this->bestStage($competitionStages);
+            $report['worst_stage'] = $this->worstStage($competitionStages);
+        }
 
         $data = app(AlrhaScoringService::class)->calculateStandings($match);
 
@@ -935,6 +968,139 @@ class MatchReportService
         ]);
 
         return $report;
+    }
+
+    /**
+     * Build the per-shot stage list for an ALRHA shooter report.
+     *
+     * For every stage we walk each target in `sort_order` and emit
+     * one `gongs[]` entry per shot slot (1..`max_shots`). The
+     * template's dot strip then renders one green ✓ per hit shot,
+     * one red ✗ per miss, and one grey dash for a shot slot the
+     * shooter never took. Values under each dot are the actual
+     * `points_awarded` on that shot — for a standard ALRHA
+     * 5-4-3-2-1 profile this ends up rendering "5 4 3 2 1"
+     * underneath the five dots of each target, which is exactly
+     * how ALRHA range officers score by hand.
+     *
+     * `stages[i]['hits']` / `misses` / `no_shots` count shots too so
+     * the stage stat line ("15 hits / 0 miss") agrees with the
+     * summary tile at the top of the report. `is_cbc` is set on
+     * the CBC stage so the caller can filter it out of the best /
+     * worst-stage comparison.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildAlrhaShotLevelStages(ShootingMatch $match, Shooter $shooter): array
+    {
+        $stages = $match->elrStages()
+            ->with(['targets' => fn ($q) => $q->orderBy('sort_order')])
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($stages->isEmpty()) {
+            return [];
+        }
+
+        $allTargetIds = $stages->flatMap(fn ($s) => $s->targets->pluck('id'))->all();
+        $shotsByTarget = ElrShot::query()
+            ->where('shooter_id', $shooter->id)
+            ->whereIn('elr_target_id', $allTargetIds)
+            ->get()
+            ->groupBy('elr_target_id');
+
+        $out = [];
+        foreach ($stages as $stage) {
+            $stageHits = 0;
+            $stageMisses = 0;
+            $stageNoShots = 0;
+            $stagePoints = 0.0;
+            $stageIsCbc = false;
+            $gongDetails = [];
+            $expectedShots = 0;
+
+            foreach ($stage->targets as $target) {
+                $maxShots = max(1, (int) ($target->max_shots ?? 1));
+                $expectedShots += $maxShots;
+                if ($target->is_cold_bore) {
+                    $stageIsCbc = true;
+                }
+
+                $shotsByNumber = ($shotsByTarget->get($target->id, collect()))
+                    ->keyBy(fn ($shot) => (int) $shot->shot_number);
+
+                for ($shotNumber = 1; $shotNumber <= $maxShots; $shotNumber++) {
+                    $shot = $shotsByNumber->get($shotNumber);
+
+                    if ($shot === null) {
+                        $stageNoShots++;
+                        $gongDetails[] = [
+                            'number' => $shotNumber,
+                            'label' => $this->alrhaShotLabel($target, $shotNumber, $maxShots),
+                            'result' => 'no_shot',
+                            'value' => null,
+                            'points' => 0,
+                        ];
+                        continue;
+                    }
+
+                    $isHit = $shot->isHit();
+                    $points = (float) ($shot->points_awarded ?? 0);
+
+                    if ($isHit) {
+                        $stageHits++;
+                        $stagePoints += $points;
+                    } else {
+                        $stageMisses++;
+                    }
+
+                    $gongDetails[] = [
+                        'number' => $shotNumber,
+                        'label' => $this->alrhaShotLabel($target, $shotNumber, $maxShots),
+                        'result' => $isHit ? 'hit' : 'miss',
+                        // `value` drives the point-strip under the
+                        // dots — rendered when at least one shot
+                        // has a distinct value (ALRHA's 5/4/3/2/1
+                        // is always distinct). We fall back to a
+                        // by-shot-number default so a miss still
+                        // shows the slot's *potential* value.
+                        'value' => $points > 0 ? $points : max(0, 6 - $shotNumber),
+                        'points' => round($points, 2),
+                    ];
+                }
+            }
+
+            $out[] = [
+                'label' => $stage->label,
+                'distance_meters' => null,
+                'distance_multiplier' => null,
+                'hits' => $stageHits,
+                'misses' => $stageMisses,
+                'no_shots' => $stageNoShots,
+                'score' => round($stagePoints, 2),
+                'time' => null,
+                'hit_rate' => $expectedShots > 0
+                    ? round($stageHits / $expectedShots * 100, 1)
+                    : 0,
+                'gongs' => $gongDetails,
+                'is_cbc' => $stageIsCbc,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Per-shot label for the ALRHA report's dot strip. Single-shot
+     * targets (CBC) keep the plain target label; multi-shot targets
+     * add "#N" so the dots for one target read "700m #1 #2 #3 #4 #5"
+     * left-to-right and shooters can eyeball which shot each dot
+     * represents.
+     */
+    private function alrhaShotLabel($target, int $shotNumber, int $maxShots): string
+    {
+        $base = trim(sprintf('%s (%dm)', $target->name ?? '', (int) ($target->distance_m ?? 0)));
+        return $maxShots > 1 ? sprintf('%s #%d', $base, $shotNumber) : $base;
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────
