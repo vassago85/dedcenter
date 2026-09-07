@@ -98,16 +98,8 @@ new #[Layout('components.layouts.app')]
 
             $topStandings = $standings->filter(fn ($r) => $r->rank !== null)->take(5);
 
-            $allShooters = Shooter::query()
-                ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-                ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
-                ->where('squads.match_id', $this->match->id)
-                ->select('shooters.*', 'squads.name as squad_name')
-                ->selectRaw('COUNT(scores.id) as scored_shots')
-                ->groupBy('shooters.id', 'squads.name')
-                ->orderBy('squads.name')
-                ->orderBy('shooters.sort_order')
-                ->get();
+            $dashboardService = new MatchDashboardService();
+            $allShooters = $dashboardService->attendanceRoster($this->match);
 
             $attendanceCounts = [
                 'active' => $allShooters->where('status', 'active')->count(),
@@ -122,7 +114,7 @@ new #[Layout('components.layouts.app')]
             $user = auth()->user();
             $canExport = $user && $user->isAdmin();
 
-            $dashboard = (new MatchDashboardService())->build($this->match);
+            $dashboard = $dashboardService->build($this->match);
 
             return [
                 'status' => $status,

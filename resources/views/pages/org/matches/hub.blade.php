@@ -111,17 +111,7 @@ new #[Layout('components.layouts.app')]
                     ->take(5);
             }
 
-            // Attendance roster — every shooter in the match with status + score count.
-            $allShooters = Shooter::query()
-                ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-                ->leftJoin('scores', 'shooters.id', '=', 'scores.shooter_id')
-                ->where('squads.match_id', $this->match->id)
-                ->select('shooters.*', 'squads.name as squad_name')
-                ->selectRaw('COUNT(scores.id) as scored_shots')
-                ->groupBy('shooters.id', 'squads.name')
-                ->orderBy('squads.name')
-                ->orderBy('shooters.sort_order')
-                ->get();
+            $allShooters = (new MatchDashboardService())->attendanceRoster($this->match);
 
             $attendanceCounts = [
                 'active' => $allShooters->where('status', 'active')->count(),

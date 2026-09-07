@@ -135,6 +135,18 @@ if (! function_exists('alrhaShoot')) {
     }
 }
 
+it('hub attendance roster counts ALRHA shots from elr_shots, not zeros', function () {
+    $ctx = alrhaBuild('varmint');
+    $alice = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Roster Alice']);
+    $idle = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Roster Idle']);
+    alrhaShoot($alice->id, $ctx['farTargets'][0], [1, 3, 4]); // 5 recorded shots (3 hits)
+
+    $roster = (new MatchDashboardService)->attendanceRoster($ctx['match']);
+
+    expect((int) $roster->firstWhere('id', $alice->id)->scored_shots)->toBe(5);
+    expect((int) $roster->firstWhere('id', $idle->id)->scored_shots)->toBe(0);
+});
+
 it('hub scoring progress reports shots recorded from elr_shots for ALRHA', function () {
     $ctx = alrhaBuild('varmint');
     $shooter = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'name' => 'Hub Alice']);

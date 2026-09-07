@@ -10,6 +10,7 @@ use App\Models\ElrShot;
 use App\Models\ElrStageDivisionRange;
 use App\Models\ElrTeamStageEntry;
 use App\Models\MatchRegistration;
+use App\Models\PrsShotScore;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
@@ -300,6 +301,55 @@ class MatchDashboardService
         }
 
         return $mismatches;
+    }
+
+    /**
+     * Attendance roster for the match hub: every shooter plus how many
+     * shots they have on file. Reads the type-correct shot store so
+     * ALRHA / ELR rows don't sit at "0 shots scored" while Top-5
+     * already shows 25 hits from `elr_shots`.
+     */
+    public function attendanceRoster(ShootingMatch $match): Collection
+    {
+        $shooters = Shooter::query()
+            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+            ->where('squads.match_id', $match->id)
+            ->select('shooters.*', 'squads.name as squad_name')
+            ->orderBy('squads.name')
+            ->orderBy('shooters.sort_order')
+            ->get();
+
+        $ids = $shooters->pluck('id');
+        $counts = collect();
+
+        if ($ids->isNotEmpty()) {
+            if ($match->usesElrPipeline()) {
+                $counts = ElrShot::query()
+                    ->whereIn('shooter_id', $ids)
+                    ->whereIn('result', [ElrShotResult::Hit, ElrShotResult::Miss])
+                    ->selectRaw('shooter_id, COUNT(*) as scored_shots')
+                    ->groupBy('shooter_id')
+                    ->pluck('scored_shots', 'shooter_id');
+            } elseif ($match->isPrs()) {
+                $counts = PrsShotScore::query()
+                    ->whereIn('shooter_id', $ids)
+                    ->selectRaw('shooter_id, COUNT(*) as scored_shots')
+                    ->groupBy('shooter_id')
+                    ->pluck('scored_shots', 'shooter_id');
+            } else {
+                $counts = Score::query()
+                    ->whereIn('shooter_id', $ids)
+                    ->selectRaw('shooter_id, COUNT(*) as scored_shots')
+                    ->groupBy('shooter_id')
+                    ->pluck('scored_shots', 'shooter_id');
+            }
+        }
+
+        $shooters->each(function ($shooter) use ($counts) {
+            $shooter->scored_shots = (int) ($counts[$shooter->id] ?? 0);
+        });
+
+        return $shooters;
     }
 
     private function scoringProgress(ShootingMatch $match, Collection $shooters): array
