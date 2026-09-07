@@ -386,16 +386,32 @@
                 @endphp
                 <div class="rounded-2xl border border-border {{ $ringClass }} ring-1 px-4 py-3 sm:px-5 sm:py-4 {{ $canExpand ? 'cursor-pointer hover:bg-surface/40' : '' }}"
                     @if($canExpand) wire:click="toggleExpand({{ $teamToggleKey }})" @endif>
+                    @php
+                        // Prize table ranks Hunters *teams*, so the team's
+                        // registered name is the primary label. The pair
+                        // concat lives below as supporting context so
+                        // spectators can see who's on the team without
+                        // making the pair name look like the team name.
+                        $teamName = trim((string) ($team['team'] ?? ''));
+                        if ($teamName === '' && $teamId > 0) {
+                            $teamName = 'Team ' . $teamId;
+                        }
+                        $pairLabel = null;
+                        if (! empty($team['shooter_1_name'])) {
+                            $pairLabel = $team['shooter_1_name'];
+                            if (! empty($team['shooter_2_name'])) {
+                                $pairLabel .= ' & ' . $team['shooter_2_name'];
+                            }
+                        }
+                    @endphp
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <span class="text-xl font-black tabular-nums {{ $rankClass }} sm:text-2xl">#{{ $rank }}</span>
-                        <span class="text-base font-semibold text-primary sm:text-lg">
-                            @if(! empty($team['shooter_1_name']))
-                                {{ $team['shooter_1_name'] }}
-                                @if(! empty($team['shooter_2_name']))
-                                    <span class="mx-1 text-muted">&amp;</span>{{ $team['shooter_2_name'] }}
-                                @endif
-                            @else
-                                Unassigned team
+                        <span class="flex min-w-0 flex-col">
+                            <span class="text-base font-semibold text-primary sm:text-lg">
+                                {{ $teamName !== '' ? $teamName : 'Unassigned team' }}
+                            </span>
+                            @if($pairLabel)
+                                <span class="text-xs text-muted sm:text-sm">{{ $pairLabel }}</span>
                             @endif
                         </span>
                         @if($canExpand)
@@ -623,13 +639,27 @@
                                     </thead>
                                     <tbody class="divide-y divide-border/50">
                                         @foreach($section['rows'] as $team)
-                                            @php $tRank = (int) ($team['rank'] ?? 0); @endphp
+                                            @php
+                                                $tRank = (int) ($team['rank'] ?? 0);
+                                                $tTeamId = (int) ($team['team_id'] ?? 0);
+                                                $tTeamName = trim((string) ($team['team'] ?? ''));
+                                                if ($tTeamName === '' && $tTeamId > 0) {
+                                                    $tTeamName = 'Team ' . $tTeamId;
+                                                }
+                                                $tPairLabel = null;
+                                                if (! empty($team['shooter_1_name'])) {
+                                                    $tPairLabel = $team['shooter_1_name'];
+                                                    if (! empty($team['shooter_2_name'])) {
+                                                        $tPairLabel .= ' & ' . $team['shooter_2_name'];
+                                                    }
+                                                }
+                                            @endphp
                                             <tr>
                                                 <td class="py-2 pr-3 font-bold tabular-nums text-muted">{{ $tRank }}</td>
-                                                <td class="py-2 pr-3 text-primary">
-                                                    {{ $team['shooter_1_name'] ?? 'Shooter 1' }}
-                                                    @if(! empty($team['shooter_2_name']))
-                                                        <span class="mx-1 text-muted">&amp;</span>{{ $team['shooter_2_name'] }}
+                                                <td class="py-2 pr-3">
+                                                    <div class="text-primary">{{ $tTeamName !== '' ? $tTeamName : 'Unassigned team' }}</div>
+                                                    @if($tPairLabel)
+                                                        <div class="text-xs text-muted">{{ $tPairLabel }}</div>
                                                     @endif
                                                 </td>
                                                 <td class="py-2 pr-3 text-right font-bold tabular-nums text-emerald-300">{{ number_format((float) ($team['team_total_points'] ?? 0), 2) }}</td>

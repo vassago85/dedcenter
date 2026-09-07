@@ -587,3 +587,43 @@ it('scoreboard prize book tab surfaces all ALRHA prize sections', function () {
         // CBC prize table is included per class so year-end prizes cover it too.
         ->assertSee('Hunter Cold Bore Challenge');
 });
+
+/**
+ * Hunters is a team class, so the Teams tab and the Prize Book Team
+ * section MUST lead with the team's registered name — not a "Shooter1
+ * & Shooter2" concat, which reads like the team name and is what the
+ * scoreboard used to render. The pair label stays as a subtitle so
+ * spectators can still see who's on the team.
+ */
+it('scoreboard teams tab leads with the team name, not the pair concat', function () {
+    $ctx = alrhaDualBuild();
+
+    $rangeRiders = Team::create([
+        'match_id' => $ctx['match']->id,
+        'name' => 'Range Riders',
+        'max_size' => 2,
+        'sort_order' => 1,
+    ]);
+
+    $jani = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'team_id' => $rangeRiders->id,
+        'name' => 'Jani Goosen', 'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+    $morne = Shooter::factory()->create([
+        'squad_id' => $ctx['squad']->id, 'team_id' => $rangeRiders->id,
+        'name' => 'Morne vd Merwe', 'alrha_class' => AlrhaClass::Hunters->value,
+    ]);
+
+    alrhaShootDual($jani->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1, 2]);
+    alrhaShootDual($morne->id, $ctx['stagesByClass']['hunters']['far_targets'][0], [1]);
+
+    $this->actingAs($ctx['owner']);
+
+    Volt::test('scoreboard', ['match' => $ctx['match']])
+        ->call('filterAlrhaClass', 'hunters')
+        ->call('setTab', 'teams')
+        // Team name is the primary label on the Teams tab.
+        ->assertSee('Range Riders')
+        // Pair concat is still visible (as a subtitle) so viewers know the roster.
+        ->assertSee('Jani Goosen & Morne vd Merwe');
+});
