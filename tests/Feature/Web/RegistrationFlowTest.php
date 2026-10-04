@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\MatchRegistration;
+use App\Models\Organization;
 use App\Models\Setting;
 use App\Models\ShootingMatch;
 use App\Models\User;
@@ -108,4 +109,33 @@ it('allows admin to reject a registration', function () {
     $reg->refresh();
 
     expect($reg->payment_status)->toBe('rejected');
+});
+
+it('shows a closed registration message on the portal when the viewer is not registered', function () {
+    $user = User::factory()->create();
+    $organization = Organization::factory()->create();
+    $match = ShootingMatch::factory()->create([
+        'organization_id' => $organization->id,
+        'status' => MatchStatus::Active,
+    ]);
+
+    Volt::actingAs($user)
+        ->test('portal.match-detail', [
+            'organization' => $organization,
+            'match' => $match,
+        ])
+        ->assertOk()
+        ->assertSee('Registration is closed.');
+});
+
+it('lets a member view a squadding match they are not registered for', function () {
+    $user = User::factory()->create();
+    $match = ShootingMatch::factory()->create([
+        'status' => MatchStatus::SquaddingOpen,
+    ]);
+
+    Volt::actingAs($user)
+        ->test('member.match-detail', ['match' => $match])
+        ->assertOk()
+        ->assertSee('Registration is closed.');
 });

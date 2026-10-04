@@ -504,7 +504,7 @@ new #[Layout('components.layouts.app')]
                 <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
             </div>
 
-        @elseif($registration->isRejected())
+        @elseif($registration && $registration->isRejected())
             {{-- Rejected --}}
             <div class="rounded-lg border border-red-800 bg-red-900/20 p-4">
                 <div class="flex items-center gap-2">
@@ -516,7 +516,7 @@ new #[Layout('components.layouts.app')]
                 @endif
             </div>
 
-        @elseif($registration->isProofSubmitted())
+        @elseif($registration && $registration->isProofSubmitted())
             {{-- Awaiting review --}}
             <div class="rounded-lg border border-blue-800 bg-blue-900/20 p-4">
                 <div class="flex items-center gap-2">
@@ -526,7 +526,7 @@ new #[Layout('components.layouts.app')]
                 <p class="mt-1 text-xs text-muted">Reference: {{ $registration->payment_reference }}</p>
             </div>
 
-        @elseif($registration->isPending())
+        @elseif($registration && $registration->isPending())
             {{-- Pending payment --}}
             <div class="space-y-4">
                 <div class="rounded-lg border border-amber-800 bg-amber-900/20 p-4">
@@ -589,6 +589,12 @@ new #[Layout('components.layouts.app')]
                         </div>
                     </form>
                 </div>
+            </div>
+
+        @elseif(! $registration)
+            <div class="rounded-lg border border-amber-800 bg-amber-900/20 p-4">
+                <p class="text-sm font-medium text-amber-400">Registration is closed.</p>
+                <p class="mt-1 text-xs text-muted">This match is not accepting new entries.</p>
             </div>
         @endif
     </div>
