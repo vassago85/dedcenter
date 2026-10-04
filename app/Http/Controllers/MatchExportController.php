@@ -208,6 +208,49 @@ class MatchExportController extends Controller
         return strcasecmp((string) $division['division'], (string) $filter) === 0;
     }
 
+    /**
+     * Re-order aggregated standings rows (shape: shooter_id + agg_total)
+     * so shooters tied on `agg_total` are resolved by the small-gong
+     * cascade. Keeps every export (CSV / PDF) in lockstep with the live
+     * scoreboard and Full Match Report ordering. See
+     * {@see MatchStandingsService} for the full tiebreak rule.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function tiebreakStandardStandings(ShootingMatch $match, \Illuminate\Support\Collection $rows): \Illuminate\Support\Collection
+    {
+        if ($rows->count() < 2) {
+            return $rows;
+        }
+
+        $totals = $rows->map(fn ($r) => round((float) ($r->agg_total ?? 0), 2))->all();
+        if (count($totals) === count(array_unique($totals, SORT_NUMERIC))) {
+            return $rows;
+        }
+
+        $profiles = (new MatchStandingsService)->smallGongTiebreakProfiles(
+            $match,
+            $rows->pluck('shooter_id')->map(fn ($v) => (int) $v)->all(),
+        );
+
+        $arr = $rows->all();
+        usort($arr, function ($a, $b) use ($profiles) {
+            $aTotal = round((float) ($a->agg_total ?? 0), 2);
+            $bTotal = round((float) ($b->agg_total ?? 0), 2);
+            if ($aTotal !== $bTotal) {
+                return $bTotal <=> $aTotal;
+            }
+
+            return MatchStandingsService::compareSmallGongTiebreak(
+                $profiles[(int) $a->shooter_id] ?? null,
+                $profiles[(int) $b->shooter_id] ?? null,
+            );
+        });
+
+        return collect($arr);
+    }
+
     // ── Standard ────────────────────────────────────────────────
 
     private function standardStandings(ShootingMatch $match, $out): void
@@ -227,6 +270,10 @@ class MatchExportController extends Controller
             ->groupBy('shooters.id', 'shooters.name', 'squads.name')
             ->orderByDesc('agg_total')
             ->get();
+
+        // Resolve ties on total score with the small-gong cascade so the
+        // CSV matches the live scoreboard / Full Match Report ordering.
+        $shooters = $this->tiebreakStandardStandings($match, $shooters);
 
         fputcsv($out, ['Rank', 'Name', 'Squad', 'Division', 'Hits', 'Misses', 'Total Score']);
 
@@ -3475,7 +3522,11 @@ class MatchExportController extends Controller
             ->selectRaw('COALESCE(SUM(CASE WHEN scores.is_hit = 1 THEN COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier ELSE 0 END), 0) as agg_total')
             ->groupBy('shooters.id', 'shooters.name', 'squads.name')
             ->orderByDesc('agg_total')
-            ->get()
+            ->get();
+
+        // Resolve ties on total score with the small-gong cascade so the
+        // PDF matches the live scoreboard / Full Match Report ordering.
+        $shooters = $this->tiebreakStandardStandings($match, $shooters)
             ->each(fn ($s) => $s->division = $divisionNames[(int) $s->shooter_id] ?? '');
 
         return [

@@ -208,6 +208,114 @@ it('keys the podium by TRUE finishing rank and leaves an unlinked finisher\'s sl
     ]);
 });
 
+it('breaks total-score ties on the small-gong cascade (jannie beats daniel at 7 by hitting more Aces)', function () {
+    // Regression — Royal Flush 3 Oct 2026 podium: Daniel and Jannie both
+    // scored 129, Daniel with 17 hits, Jannie with 16. The MD's rule is
+    // "ties go to whoever hit the smaller / higher-scoring targets", not
+    // whoever had the higher hit count. standardStandings() must apply
+    // the Side-Bet-style small-gong cascade so Jannie (more hits on the
+    // small/Ace gong) ranks above Daniel at the same total.
+    //
+    // Scaled down to easy integers: both score 7 points, Daniel with 4
+    // hits spread across all gong tiers, Jannie with 3 hits
+    // concentrated on the smallest (Ace) gong at each distance.
+    $owner = User::factory()->create();
+    $match = ShootingMatch::factory()->create([
+        'created_by' => $owner->id,
+        'scoring_type' => 'standard',
+    ]);
+
+    // Royal-Flush-shaped: two target sets, each with Ace / King / Small.
+    // Rank 0 within each set = the Ace (highest multiplier). Points per
+    // hit = distance_multiplier × gong_multiplier. Both distances use
+    // multiplier 1.0 so the arithmetic reads straight off the gong
+    // multipliers and distance doesn't skew the primary total.
+    $buildSet = function (string $label, int $distance, int $sort) use ($match) {
+        $set = TargetSet::create([
+            'match_id' => $match->id, 'label' => $label,
+            'distance_meters' => $distance, 'distance_multiplier' => 1.0, 'sort_order' => $sort,
+        ]);
+        return [
+            'ace' => Gong::create(['target_set_id' => $set->id, 'number' => 1, 'label' => 'A', 'multiplier' => '3.00']),
+            'king' => Gong::create(['target_set_id' => $set->id, 'number' => 2, 'label' => 'K', 'multiplier' => '2.00']),
+            'small' => Gong::create(['target_set_id' => $set->id, 'number' => 3, 'label' => '3', 'multiplier' => '1.00']),
+        ];
+    };
+    $near = $buildSet('400m', 400, 1);
+    $far = $buildSet('700m', 700, 2);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Relay 7']);
+
+    // Daniel — 1 Ace + 1 King + 2 Small = 3 + 2 + 1 + 1 = 7
+    // (4 hits, 1 Ace at rank 0, lots of filler on the easier gongs)
+    $daniel = Shooter::create(['name' => 'Daniel', 'squad_id' => $squad->id, 'status' => 'active']);
+    ($this->hit)($daniel, $near['ace']);
+    ($this->hit)($daniel, $near['king']);
+    ($this->hit)($daniel, $near['small']);
+    ($this->hit)($daniel, $far['small']);
+
+    // Jannie — 2 Aces + 1 Small = 3 + 3 + 1 = 7
+    // (3 hits, 2 Aces at rank 0 — the "small / high-scoring" targets)
+    $jannie = Shooter::create(['name' => 'Jannie', 'squad_id' => $squad->id, 'status' => 'active']);
+    ($this->hit)($jannie, $near['ace']);
+    ($this->hit)($jannie, $far['ace']);
+    ($this->hit)($jannie, $near['small']);
+
+    $standings = (new MatchStandingsService())->standardStandings($match)->values();
+
+    // Both tied on 7. Jannie has 2 Ace (rank-0) hits vs Daniel's 1, so
+    // Jannie wins the tiebreak and ranks 1st — even though Daniel landed
+    // one more hit overall.
+    expect((float) $standings[0]->total_score)->toBe(7.0)
+        ->and((float) $standings[1]->total_score)->toBe(7.0)
+        ->and($standings[0]->name)->toBe('Jannie')
+        ->and($standings[0]->hits)->toBe(3)
+        ->and($standings[0]->rank)->toBe(1)
+        ->and($standings[1]->name)->toBe('Daniel')
+        ->and($standings[1]->hits)->toBe(4)
+        ->and($standings[1]->rank)->toBe(2);
+});
+
+it('cascades the small-gong tiebreaker to the furthest distance when gong counts tie', function () {
+    // Both shooters hit exactly 1 Ace and nothing else — same total, same
+    // count at rank 0. The cascade should then prefer the shooter who
+    // got that Ace at the LONGER distance.
+    $owner = User::factory()->create();
+    $match = ShootingMatch::factory()->create([
+        'created_by' => $owner->id,
+        'scoring_type' => 'standard',
+    ]);
+
+    $near = TargetSet::create([
+        'match_id' => $match->id, 'label' => '400m',
+        'distance_meters' => 400, 'distance_multiplier' => 1.0, 'sort_order' => 1,
+    ]);
+    $far = TargetSet::create([
+        'match_id' => $match->id, 'label' => '700m',
+        'distance_meters' => 700, 'distance_multiplier' => 1.0, 'sort_order' => 2,
+    ]);
+    // Same gong multipliers at both distances so "rank 0 = Ace" is
+    // consistent across sets and totals genuinely tie.
+    $nearAce = Gong::create(['target_set_id' => $near->id, 'number' => 1, 'label' => 'A', 'multiplier' => '2.00']);
+    $farAce = Gong::create(['target_set_id' => $far->id, 'number' => 1, 'label' => 'A', 'multiplier' => '2.00']);
+
+    $squad = Squad::create(['match_id' => $match->id, 'name' => 'Alpha']);
+
+    $closeShooter = Shooter::create(['name' => 'Close', 'squad_id' => $squad->id, 'status' => 'active']);
+    ($this->hit)($closeShooter, $nearAce);
+
+    $farShooter = Shooter::create(['name' => 'Far', 'squad_id' => $squad->id, 'status' => 'active']);
+    ($this->hit)($farShooter, $farAce);
+
+    $standings = (new MatchStandingsService())->standardStandings($match)->values();
+
+    expect((float) $standings[0]->total_score)->toBe((float) $standings[1]->total_score)
+        ->and($standings[0]->name)->toBe('Far')
+        ->and($standings[0]->rank)->toBe(1)
+        ->and($standings[1]->name)->toBe('Close')
+        ->and($standings[1]->rank)->toBe(2);
+});
+
 it('PRS podium keeps true rank when the top finishers are unclaimed (match-54 scenario)', function () {
     // Reproduces the PPRC match: the two top finishers are unclaimed
     // walk-ins, and a lower finisher has a real account. The lower shooter

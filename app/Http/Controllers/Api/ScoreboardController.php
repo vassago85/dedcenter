@@ -187,6 +187,13 @@ class ScoreboardController extends Controller
         ->sortByDesc('total_score')
         ->values();
 
+        // Apply the small-gong cascade as the tiebreaker so shooters
+        // tied on total_score are ranked by who hit the smaller /
+        // higher-scoring gongs first. Keeps the detailed scoreboard in
+        // lockstep with the summary scoreboard and the Full Match
+        // Report.
+        $standings = $this->applySmallGongTiebreakerToArrayRows($match, $standings);
+
         $maxScore = max((float) $standings->max('total_score'), 1.0);
         $standings = $standings->map(function ($entry) use ($maxScore, $totalGongCount) {
             $entry['relative_score'] = round($entry['total_score'] / $maxScore * 100, 2);
@@ -364,9 +371,16 @@ class ScoreboardController extends Controller
             ->orderByDesc('agg_total')
             ->get();
 
-        $active = $shooters->where('status', '!=', 'dq');
-        $dqd = $shooters->where('status', 'dq');
+        $active = $shooters->where('status', '!=', 'dq')->values();
+        $dqd = $shooters->where('status', 'dq')->values();
         $maxScore = max((float) $active->max('agg_total'), 1.0);
+
+        // Resolve ties among active shooters with the small-gong cascade
+        // so the live scoreboard matches the Full Match Report ordering
+        // (shooters tied on total points are ranked by who hit the
+        // smaller / higher-scoring gongs first). See the class docblock
+        // on MatchStandingsService for the full rule.
+        $active = $this->applySmallGongTiebreakerToSqlRows($match, $active);
 
         $leaderboard = $active->values()->map(fn ($shooter, $index) => [
             'rank' => $index + 1,
@@ -429,6 +443,90 @@ class ScoreboardController extends Controller
         }
 
         return response()->json($response);
+    }
+
+    /**
+     * Re-order aggregated SQL rows (shape: shooter_id + agg_total) so
+     * shooters tied on `agg_total` are resolved by the small-gong
+     * cascade. See MatchStandingsService for the full rule. Skips the
+     * extra profile query entirely when nothing is tied.
+     *
+     * @param  Collection<int, object>  $rows
+     * @return Collection<int, object>
+     */
+    private function applySmallGongTiebreakerToSqlRows(ShootingMatch $match, Collection $rows): Collection
+    {
+        if ($rows->count() < 2) {
+            return $rows;
+        }
+
+        $totals = $rows->map(fn ($r) => round((float) ($r->agg_total ?? 0), 2))->all();
+        if (count($totals) === count(array_unique($totals, SORT_NUMERIC))) {
+            return $rows;
+        }
+
+        $profiles = (new \App\Services\MatchStandingsService)->smallGongTiebreakProfiles(
+            $match,
+            $rows->pluck('shooter_id')->map(fn ($v) => (int) $v)->all(),
+        );
+
+        $arr = $rows->all();
+        usort($arr, function ($a, $b) use ($profiles) {
+            $aTotal = round((float) ($a->agg_total ?? 0), 2);
+            $bTotal = round((float) ($b->agg_total ?? 0), 2);
+            if ($aTotal !== $bTotal) {
+                return $bTotal <=> $aTotal;
+            }
+
+            return \App\Services\MatchStandingsService::compareSmallGongTiebreak(
+                $profiles[(int) $a->shooter_id] ?? null,
+                $profiles[(int) $b->shooter_id] ?? null,
+            );
+        });
+
+        return collect($arr);
+    }
+
+    /**
+     * Re-order array-shaped standings (shape: ['id' => int, 'total_score' => float])
+     * so shooters tied on `total_score` are resolved by the small-gong
+     * cascade. Used by the detailed scoreboard which builds totals in
+     * PHP rather than SQL.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function applySmallGongTiebreakerToArrayRows(ShootingMatch $match, Collection $rows): Collection
+    {
+        if ($rows->count() < 2) {
+            return $rows;
+        }
+
+        $totals = $rows->map(fn ($r) => round((float) ($r['total_score'] ?? 0), 2))->all();
+        if (count($totals) === count(array_unique($totals, SORT_NUMERIC))) {
+            return $rows;
+        }
+
+        $profiles = (new \App\Services\MatchStandingsService)->smallGongTiebreakProfiles(
+            $match,
+            $rows->pluck('id')->map(fn ($v) => (int) $v)->all(),
+        );
+
+        $arr = $rows->all();
+        usort($arr, function ($a, $b) use ($profiles) {
+            $aTotal = round((float) ($a['total_score'] ?? 0), 2);
+            $bTotal = round((float) ($b['total_score'] ?? 0), 2);
+            if ($aTotal !== $bTotal) {
+                return $bTotal <=> $aTotal;
+            }
+
+            return \App\Services\MatchStandingsService::compareSmallGongTiebreak(
+                $profiles[(int) ($a['id'] ?? 0)] ?? null,
+                $profiles[(int) ($b['id'] ?? 0)] ?? null,
+            );
+        });
+
+        return collect($arr);
     }
 
     /**
