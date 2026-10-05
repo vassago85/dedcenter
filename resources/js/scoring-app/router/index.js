@@ -32,12 +32,6 @@ const routes = [
         props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
     {
-        path: '/score/:matchId/squad',
-        name: 'squad-select',
-        component: () => import('../views/SquadSelect.vue'),
-        props: (route) => ({ matchId: Number(route.params.matchId) }),
-    },
-    {
         path: '/score/:matchId/scoring',
         name: 'scoring',
         component: () => import('../views/ScoringRouter.vue'),

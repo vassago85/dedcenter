@@ -9,6 +9,7 @@ use App\Models\Shooter;
 use App\Models\Score;
 use App\Models\User;
 use App\Enums\MatchStatus;
+use Livewire\Volt\Volt;
 
 it('shows leaderboard page for an organization', function () {
     $org = Organization::factory()->create();
@@ -69,13 +70,19 @@ it('calculates leaderboard correctly', function () {
         ]);
     }
 
-    // Match 1: 1.00, Match 2: 1.00, Match 3: 1.00
-    // Best of 2 = 2.00
+    // Relative scoring: the only shooter wins each match for 100 points.
+    // Best of 2 = 200.
 
     $this->get("/leaderboard/{$org->slug}")
         ->assertOk()
-        ->assertSee($user->name)
-        ->assertSee('2.00');
+        ->assertSee($user->name);
+
+    $standings = Volt::test('leaderboard', ['organization' => $org])->viewData('leaderboard');
+
+    expect($standings)->toHaveCount(1)
+        ->and($standings->first()['name'])->toBe($user->name)
+        ->and($standings->first()['season_total'])->toBe(200)
+        ->and($standings->first()['counting_results'])->toBe(2);
 });
 
 it('includes child org matches in league leaderboard', function () {
@@ -111,6 +118,11 @@ it('includes child org matches in league leaderboard', function () {
 
     $this->get("/leaderboard/{$league->slug}")
         ->assertOk()
-        ->assertSee('Club Shooter')
-        ->assertSee('5.00');
+        ->assertSee('Club Shooter');
+
+    $standings = Volt::test('leaderboard', ['organization' => $league])->viewData('leaderboard');
+
+    expect($standings)->toHaveCount(1)
+        ->and($standings->first()['name'])->toBe('Club Shooter')
+        ->and($standings->first()['season_total'])->toBe(100);
 });

@@ -347,7 +347,7 @@ new #[Layout('components.layouts.app')]
     </div>
 
     {{-- Watch Live / View Results banner --}}
-    <a href="{{ route('live', $match) }}"
+    <a href="{{ route('scoreboard', $match) }}"
        class="flex items-center justify-between gap-4 rounded-xl border {{ $match->status === \App\Enums\MatchStatus::Active ? 'border-green-700/50 bg-gradient-to-r from-green-900/30 to-surface' : 'border-border bg-surface' }} px-6 py-4 transition-colors hover:border-green-600/60">
         <div class="flex items-center gap-3">
             @if($match->status === \App\Enums\MatchStatus::Active)
@@ -725,11 +725,8 @@ new #[Layout('components.layouts.app')]
 
     {{-- Scoreboard links --}}
     <div class="flex flex-wrap items-center justify-center gap-3">
-        <flux:button href="{{ route('live', $match) }}" variant="primary" class="{{ $match->status === \App\Enums\MatchStatus::Active ? '!bg-green-600 hover:!bg-green-700' : '!bg-surface-2 hover:!bg-surface-2' }}">
+        <flux:button href="{{ route('scoreboard', $match) }}" variant="primary" class="{{ $match->status === \App\Enums\MatchStatus::Active ? '!bg-green-600 hover:!bg-green-700' : '!bg-surface-2 hover:!bg-surface-2' }}">
             {{ $match->status === \App\Enums\MatchStatus::Active ? 'Watch Live Scores' : 'View Results' }}
-        </flux:button>
-        <flux:button href="{{ route('scoreboard', $match) }}" variant="ghost">
-            TV Scoreboard
         </flux:button>
         @if(
             $match->status === \App\Enums\MatchStatus::Completed

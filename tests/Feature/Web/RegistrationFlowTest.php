@@ -12,6 +12,22 @@ beforeEach(function () {
     Setting::set('bank_reference_prefix', 'DC');
 });
 
+function fillRequiredEquipment($component)
+{
+    return $component
+        ->set('caliber', '6.5 Creedmoor')
+        ->set('bullet_brand_type', 'Hornady ELD-M')
+        ->set('bullet_weight', '140gr')
+        ->set('barrel_brand_length', 'Bartlein 26"')
+        ->set('trigger_brand', 'TriggerTech')
+        ->set('stock_chassis_brand', 'MPA')
+        ->set('muzzle_brake_silencer_brand', 'Area 419')
+        ->set('scope_brand_type', 'Vortex Razor')
+        ->set('scope_mount_brand', 'Spuhr')
+        ->set('bipod_brand', 'Atlas')
+        ->set('contact_number', '0820000000');
+}
+
 it('allows a member to view an active match detail page', function () {
     $user = User::factory()->create();
     $match = ShootingMatch::factory()->create(['status' => MatchStatus::Active]);
@@ -28,9 +44,9 @@ it('allows a member to register for a free match', function () {
         'entry_fee' => null,
     ]);
 
-    Volt::actingAs($user)
-        ->test('member.match-detail', ['match' => $match])
-        ->call('register');
+    fillRequiredEquipment(Volt::actingAs($user)->test('member.match-detail', ['match' => $match]))
+        ->call('register')
+        ->assertHasNoErrors();
 
     $reg = MatchRegistration::where('match_id', $match->id)->where('user_id', $user->id)->first();
 
@@ -45,9 +61,9 @@ it('allows a member to register for a paid match', function () {
         'entry_fee' => 150.00,
     ]);
 
-    Volt::actingAs($user)
-        ->test('member.match-detail', ['match' => $match])
-        ->call('register');
+    fillRequiredEquipment(Volt::actingAs($user)->test('member.match-detail', ['match' => $match]))
+        ->call('register')
+        ->assertHasNoErrors();
 
     $reg = MatchRegistration::where('match_id', $match->id)->where('user_id', $user->id)->first();
 
@@ -64,8 +80,7 @@ it('prevents double registration for the same match', function () {
         'entry_fee' => null,
     ]);
 
-    Volt::actingAs($user)
-        ->test('member.match-detail', ['match' => $match])
+    fillRequiredEquipment(Volt::actingAs($user)->test('member.match-detail', ['match' => $match]))
         ->call('register')
         ->call('register');
 

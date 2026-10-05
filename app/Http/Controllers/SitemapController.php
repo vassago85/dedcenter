@@ -39,12 +39,6 @@ class SitemapController extends Controller
                 'priority' => $match->status === MatchStatus::Active ? '0.9' : '0.6',
                 'changefreq' => $match->status === MatchStatus::Active ? 'hourly' : 'monthly',
             ]);
-            $urls->push([
-                'loc' => route('live', $match),
-                'lastmod' => ($match->updated_at ?? $match->created_at)?->toW3cString(),
-                'priority' => $match->status === MatchStatus::Active ? '0.9' : '0.5',
-                'changefreq' => $match->status === MatchStatus::Active ? 'always' : 'monthly',
-            ]);
         }
 
         $orgs = Organization::all();

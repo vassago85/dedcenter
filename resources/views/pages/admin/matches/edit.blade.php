@@ -1437,7 +1437,7 @@ new #[Layout('components.layouts.app')]
             $data['elrScoringProfiles'] = \App\Models\ElrScoringProfile::where('match_id', $this->match->id)->orderBy('name')->get();
 
             if (in_array($this->match->status, [MatchStatus::Active, MatchStatus::Completed, MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready])) {
-                $liveUrl = route('live', $this->match);
+                $liveUrl = route('scoreboard', $this->match);
                 $options = new QROptions(['outputInterface' => QRMarkupSVG::class, 'svgUseCssProperties' => false, 'scale' => 5]);
                 $data['qrCodeSvg'] = (new QRCode($options))->render($liveUrl);
                 $data['liveUrl'] = $liveUrl;
@@ -1707,7 +1707,7 @@ new #[Layout('components.layouts.app')]
                         <h2 class="text-lg font-semibold text-primary">Live Scoreboard QR</h2>
                         <p class="mt-1 text-sm text-muted">Share this code so spectators can follow scores live on their phones.</p>
                     </div>
-                    <flux:button href="{{ route('live', $match) }}" target="_blank" variant="ghost" size="sm">Open Live Scoreboard</flux:button>
+                    <flux:button href="{{ route('scoreboard', $match) }}" target="_blank" variant="ghost" size="sm">Open Scoreboard</flux:button>
                 </div>
                 <div class="flex items-start gap-4">
                     <div class="rounded-lg bg-white p-2 w-32 h-32 flex-shrink-0"><img src="{{ $qrCodeSvg }}" alt="QR Code" class="w-full h-full" /></div>

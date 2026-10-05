@@ -202,6 +202,7 @@ it('renders badges with their real labels in the share view', function () {
         'label' => 'Iron Shooter',
         'description' => 'Stayed on the line all match.',
         'category' => 'lifetime',
+        'scope' => 'lifetime',
         'competition_type' => 'standard',
         'is_active' => true,
         'sort_order' => 0,

@@ -52,6 +52,14 @@ onMounted(async () => {
         router.replace({ name: 'match-overview', params: { matchId: props.matchId } });
         return;
     }
+    // Relay matches score from the matrix. This route stays for PRS, ELR,
+    // ALRHA, and the ?correct= deep link from the corrections feed.
+    const scoringType = matchStore.currentMatch?.scoring_type;
+    const relayMatch = scoringType && !['prs', 'elr', 'alrha'].includes(scoringType);
+    if (relayMatch && !route.query.correct) {
+        router.replace({ name: 'scoring-matrix', params: { matchId: props.matchId } });
+        return;
+    }
     ready.value = true;
 });
 </script>

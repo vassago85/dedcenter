@@ -2,19 +2,10 @@
     <div class="min-h-screen bg-app text-primary">
         <header class="border-b border-border bg-surface px-4 py-4">
             <div class="mx-auto flex max-w-4xl items-center gap-3">
-                <!--
-                    Back goes to ScoringRouter, not the Match Overview. The
-                    overview re-fires `fetchMatch` and flashes a "loading
-                    match" spinner that feels like a re-download. The router
-                    restores the last squad/stage/screen from localStorage
-                    so the scorer lands straight back on the shooter list
-                    they were last on. ScoringRouter bounces to overview
-                    when the match is already completed, so we don't end up
-                    in a dead-end on closed matches.
-                -->
                 <router-link
-                    :to="{ name: 'scoring', params: { matchId: props.matchId } }"
+                    :to="backTarget"
                     class="text-muted hover:text-primary"
+                    aria-label="Back"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -1166,6 +1157,15 @@ const isPrs = ref(false);
 const isElr = ref(false);
 const isAlrha = ref(false);
 const usesElrPipeline = computed(() => isElr.value || isAlrha.value);
+const backTarget = computed(() => {
+    if (isPrs.value || usesElrPipeline.value) {
+        return { name: 'scoring', params: { matchId: props.matchId } };
+    }
+    if (matchName.value) {
+        return { name: 'scoring-matrix', params: { matchId: props.matchId } };
+    }
+    return { name: 'match-overview', params: { matchId: props.matchId } };
+});
 const alrhaClasses = ref([]);
 const alrhaPerClass = ref({});
 const activeAlrhaClass = ref(null);

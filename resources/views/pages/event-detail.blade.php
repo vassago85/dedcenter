@@ -334,7 +334,7 @@ new #[Layout('components.layouts.app')]
 
     {{-- ══════════ ACTIVE: LIVE BANNER ══════════ --}}
     @if($isActive)
-        <a href="{{ route('live', $match) }}"
+        <a href="{{ route('scoreboard', $match) }}"
            class="flex min-h-[44px] items-center justify-between gap-4 rounded-xl border border-green-700/50 bg-gradient-to-r from-green-900/30 to-surface px-6 py-4 transition-colors hover:border-green-600/60 focus:outline-none focus:ring-2 focus:ring-accent">
             <div class="flex items-center gap-3">
                 <span class="relative flex h-3 w-3">
@@ -799,14 +799,9 @@ new #[Layout('components.layouts.app')]
 
         {{-- Scoreboard link --}}
         <div class="flex flex-wrap items-center justify-center gap-3">
-            <flux:button href="{{ route('live', $match) }}" variant="primary" size="sm" class="min-h-[44px] focus:ring-2 focus:ring-accent focus:outline-none {{ $isActive ? '!bg-green-600 hover:!bg-green-700' : '' }}">
-                {{ $isActive ? 'Full Live Scoreboard' : 'TV Scoreboard' }}
+            <flux:button href="{{ route('scoreboard', $match) }}" variant="primary" size="sm" class="min-h-[44px] focus:ring-2 focus:ring-accent focus:outline-none {{ $isActive ? '!bg-green-600 hover:!bg-green-700' : '' }}">
+                {{ $isActive ? 'Watch Live Scores' : 'Scoreboard' }}
             </flux:button>
-            @if(!$isActive)
-                <flux:button href="{{ route('scoreboard', $match) }}" variant="ghost" size="sm" class="min-h-[44px] focus:ring-2 focus:ring-accent focus:outline-none">
-                    Scoreboard View
-                </flux:button>
-            @endif
         </div>
     @endif
 

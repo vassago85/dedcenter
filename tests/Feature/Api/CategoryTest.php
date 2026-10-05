@@ -303,9 +303,9 @@ test('prs scoreboard filters by both division and category', function () {
 // ── Live Scoreboard with Categories ──
 
 test('live scoreboard shows category filter tabs', function () {
-    // The live page only renders division/category filter chips for the
+    // The scoreboard only renders division/category filter chips for the
     // "scores published" branch AND for categories that are actually
-    // attached to shooters — see resources/views/pages/live.blade.php's
+    // attached to shooters — see resources/views/pages/scoreboard.blade.php's
     // `usedCategoryIds` query. So the test seeds both:
     //   1) scores_published on the match, and
     //   2) a shooter attached to each category.
@@ -319,7 +319,7 @@ test('live scoreboard shows category filter tabs', function () {
     $alice->categories()->sync([$ladies->id]);
     $bob->categories()->sync([$junior->id]);
 
-    $response = $this->get("/live/{$this->match->id}");
+    $response = $this->get("/scoreboard/{$this->match->id}");
 
     $response->assertOk();
     $response->assertSee('Ladies');

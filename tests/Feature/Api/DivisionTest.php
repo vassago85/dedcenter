@@ -220,24 +220,23 @@ test('prs scoreboard filters by division', function () {
 
 // ── Live Scoreboard Page ──
 
-test('live scoreboard page loads without auth', function () {
-    $response = $this->get("/live/{$this->match->id}");
-
-    $response->assertOk();
+test('old live url redirects to the scoreboard', function () {
+    $this->get("/live/{$this->match->id}")
+        ->assertRedirect(route('scoreboard', $this->match));
 });
 
-test('live scoreboard page shows match name', function () {
+test('scoreboard page shows match name', function () {
     $this->match->update(['name' => 'Test Live Match']);
 
-    $response = $this->get("/live/{$this->match->id}");
+    $response = $this->get("/scoreboard/{$this->match->id}");
 
     $response->assertOk();
     $response->assertSee('Test Live Match');
 });
 
-test('live scoreboard shows division filter tabs', function () {
+test('scoreboard shows division filter tabs', function () {
     // Filter chips only render once scores_published is on AND at least
-    // one shooter is attached to the division (see live.blade.php's
+    // one shooter is attached to the division (see scoreboard.blade.php's
     // `usedDivisionIds` derivation).
     $this->match->update(['scores_published' => true]);
 
@@ -247,7 +246,7 @@ test('live scoreboard shows division filter tabs', function () {
     Shooter::factory()->create(['squad_id' => $this->squad->id, 'name' => 'Alice', 'match_division_id' => $minor->id]);
     Shooter::factory()->create(['squad_id' => $this->squad->id, 'name' => 'Bob', 'match_division_id' => $major->id]);
 
-    $response = $this->get("/live/{$this->match->id}");
+    $response = $this->get("/scoreboard/{$this->match->id}");
 
     $response->assertOk();
     $response->assertSee('Minor');

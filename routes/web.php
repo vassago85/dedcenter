@@ -107,7 +107,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/scoreboard/{match}/export/pdf-elr-rankings', [MatchExportController::class, 'pdfElrRankings'])->name('scoreboard.export.pdf-elr-rankings');
     Route::get('/matches/{match}/report/royal-flush', [MatchExportController::class, 'royalFlushReport'])->name('matches.report.royal-flush');
 });
-Volt::route('/live/{match}', 'live')->name('live');
+// Bookmarks and printed QR codes still use /live/{match}. The public
+// scoreboard is the one results page, so this only forwards there.
+Route::get('/live/{match}', function (\App\Models\ShootingMatch $match) {
+    return redirect()->route('scoreboard', $match, 301);
+})->name('live');
 Route::get('/badges-preview', BadgeGalleryController::class)->name('badges.preview');
 Volt::route('/events', 'events')->name('events');
 Volt::route('/events/{match}', 'event-detail')->name('events.show');
@@ -144,7 +148,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/settings', 'member.settings')->name('settings');
     Volt::route('/notifications', 'member.notifications')->name('notifications');
     Volt::route('/settings/notifications', 'member.notification-settings')->name('settings.notifications');
-    Volt::route('/events/{match}/register', 'member.register-for-match')->name('events.register');
     Route::get('/matches/{match}/report/download', [MatchReportController::class, 'download'])->name('matches.report.download');
 
     // Personal shooter report.
