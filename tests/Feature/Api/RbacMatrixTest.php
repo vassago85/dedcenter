@@ -224,6 +224,42 @@ test('/score redirects pure shooters (no token issued)', function () {
     expect($this->shooter->tokens()->where('name', 'scoring-session')->count())->toBe(0);
 });
 
+test('match abilities follow one bar per action', function () {
+    expect($this->ro->can('score', $this->match))->toBeTrue()
+        ->and($this->ro->can('squad', $this->match))->toBeTrue()
+        ->and($this->ro->can('manage', $this->match))->toBeFalse()
+        ->and($this->ro->can('export', $this->match))->toBeFalse()
+        ->and($this->ro->can('maintain', $this->match))->toBeFalse()
+        ->and($this->md->can('manage', $this->match))->toBeTrue()
+        ->and($this->md->can('maintain', $this->match))->toBeTrue()
+        ->and($this->shooter->can('score', $this->match))->toBeFalse()
+        ->and($this->shooter->can('view', $this->match))->toBeFalse();
+});
+
+test('a range officer who created the match can export it but cannot run repair tools', function () {
+    $match = ShootingMatch::factory()->active()->create([
+        'created_by' => $this->ro->id,
+        'organization_id' => $this->org->id,
+        'scoring_type' => 'standard',
+    ]);
+
+    expect($this->ro->can('export', $match))->toBeTrue()
+        ->and($this->ro->can('manage', $match))->toBeTrue()
+        ->and($this->ro->can('maintain', $match))->toBeFalse();
+
+    $this->actingAs($this->shooter)
+        ->get(route('scoreboard.export.standings', $match))
+        ->assertForbidden();
+
+    $export = $this->actingAs($this->ro)
+        ->get(route('scoreboard.export.standings', $match));
+    expect($export->getStatusCode())->not->toBe(403);
+
+    $this->actingAs($this->ro)
+        ->postJson("/api/matches/{$match->id}/prs-backfill")
+        ->assertForbidden();
+});
+
 test('/score issues a scoped scoring token for range officers', function () {
     $this->actingAs($this->ro)
         ->get('/score')

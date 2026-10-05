@@ -230,9 +230,15 @@ const activeSquad = computed(() => squads.value.find(s => s.id === activeSquadId
 
 // Shooters currently visible for scoring. On dual-class matches we
 // respect the class filter (Both/Hunters/Varmint); on single-class we
-// show everyone in the relay.
+// show everyone in the relay. Withdrawn / DQ'd shooters are *always*
+// filtered out — same rule as the standard flow. Without this, an RO
+// who marked someone absent at Roll Call (or an MD-issued DQ) would
+// still be walked through that shooter when they tapped Next.
+const activeShootersInSquad = computed(() => {
+    return (activeSquad.value?.shooters ?? []).filter(sh => sh.status === 'active');
+});
 const shooters = computed(() => {
-    const all = activeSquad.value?.shooters ?? [];
+    const all = activeShootersInSquad.value;
     if (!isDualClass.value || classFilter.value === 'all') {
         return all;
     }
@@ -241,7 +247,7 @@ const shooters = computed(() => {
 const activeShooter = computed(() => shooters.value[activeShooterIndex.value] ?? null);
 
 const classFilterOptions = computed(() => {
-    const all = activeSquad.value?.shooters ?? [];
+    const all = activeShootersInSquad.value;
     const count = c => all.filter(sh => (sh.alrha_class ?? '') === c).length;
     return [
         { value: 'all', label: 'Both classes', count: all.length },

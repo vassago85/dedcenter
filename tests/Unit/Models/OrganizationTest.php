@@ -69,17 +69,28 @@ it('detects ownership', function () {
     expect($org->isOwnedBy($other))->toBeFalse();
 });
 
-it('checks if user can manage', function () {
-    $admin = User::factory()->admin()->create();
-    $orgAdmin = User::factory()->create();
+it('splits org access into view, manage, and team', function () {
+    $platform = User::factory()->admin()->create();
+    $ro = User::factory()->create();
+    $md = User::factory()->create();
+    $owner = User::factory()->create();
     $member = User::factory()->create();
 
     $org = Organization::factory()->create();
-    $org->admins()->attach($orgAdmin->id, ['is_range_officer' => true]);
+    $org->admins()->attach($ro->id, ['is_range_officer' => true]);
+    $org->admins()->attach($md->id, ['is_match_director' => true]);
+    $org->admins()->attach($owner->id, ['is_owner' => true]);
 
-    expect($org->userCanManage($admin))->toBeTrue();
-    expect($org->userCanManage($orgAdmin))->toBeTrue();
-    expect($org->userCanManage($member))->toBeFalse();
+    expect($platform->can('view', $org))->toBeTrue()
+        ->and($platform->can('manage', $org))->toBeTrue()
+        ->and($platform->can('manageTeam', $org))->toBeTrue()
+        ->and($ro->can('view', $org))->toBeTrue()
+        ->and($ro->can('manage', $org))->toBeFalse()
+        ->and($ro->can('manageTeam', $org))->toBeFalse()
+        ->and($md->can('manage', $org))->toBeTrue()
+        ->and($md->can('manageTeam', $org))->toBeFalse()
+        ->and($owner->can('manageTeam', $org))->toBeTrue()
+        ->and($member->can('view', $org))->toBeFalse();
 });
 
 it('resolves by slug in routes', function () {

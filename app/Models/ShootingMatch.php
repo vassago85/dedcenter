@@ -503,32 +503,12 @@ class ShootingMatch extends Model
 
     public function userCanEditInOrg(?User $user): bool
     {
-        if (! $user) {
-            return false;
-        }
-        if ($user->isOwner()) {
-            return true;
-        }
-        if ($this->organization_id && $user->isOrgMatchDirector($this->organization)) {
-            return true;
-        }
-
-        return (int) $this->created_by === (int) $user->id;
+        return $user?->can('manage', $this) ?? false;
     }
 
     public function userCanManageSquadding(?User $user): bool
     {
-        if (! $user) {
-            return false;
-        }
-        if ($user->isOwner()) {
-            return true;
-        }
-        if ($this->organization_id && $user->isOrgRangeOfficer($this->organization)) {
-            return true;
-        }
-
-        return (int) $this->created_by === (int) $user->id;
+        return $user?->can('squad', $this) ?? false;
     }
 
     // ── Advertising Helpers ──

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\ScoreManagementController;
+use App\Http\Controllers\Api\ShooterManagementController;
 use App\Http\Controllers\Api\SeasonController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Middleware\EnforceDeviceLock;
@@ -138,6 +139,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // web. Both standard and PRS scoring routed through here.
         Route::post('matches/{match}/shooters/{shooter}/correct', [ScoreManagementController::class, 'correctSingleShooter']);
 
+        // Walk-ins, squad moves, and firing order for Manage Shooters.
+        Route::post('matches/{match}/shooters', [ShooterManagementController::class, 'store']);
+        Route::patch('matches/{match}/shooters/{shooter}/squad', [ShooterManagementController::class, 'move']);
+        Route::patch('matches/{match}/shooters/{shooter}/order', [ShooterManagementController::class, 'reorder']);
+
         // Side-bet buy-in management (MD only) — drives the scoring-app's
         // Buy-Ins sub-tab so the MD can add/remove shooters from the pot
         // without leaving the scoring SPA.
@@ -157,10 +163,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // anyone could mutate scoring data by hitting the URL). Kept inline so
     // the auth check lives next to the handler.
     $requireMatchDirector = function (Request $request, ShootingMatch $match): void {
-        $user = $request->user();
-        $authorized = $user && ($user->isAdmin()
-            || ($match->organization && $user->isOrgMatchDirector($match->organization)));
-        abort_unless($authorized, 403, 'Match director only.');
+        abort_unless($request->user()?->can('maintain', $match), 403, 'Match director only.');
     };
 
     Route::post('matches/{match}/prs-backfill', function (Request $request, ShootingMatch $match) use ($requireMatchDirector) {

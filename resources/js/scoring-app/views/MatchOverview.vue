@@ -2,7 +2,7 @@
     <div class="min-h-screen bg-slate-900 text-white">
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <router-link :to="{ name: 'home' }" class="text-slate-400 hover:text-white">
+                <router-link :to="{ name: 'match-select' }" class="text-slate-400 hover:text-white" aria-label="Back to matches">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
@@ -164,7 +164,19 @@
 
                     <!-- Squads summary -->
                     <div class="rounded-xl border border-slate-700 bg-slate-800 p-4">
-                        <h3 class="mb-3 text-sm font-semibold text-slate-400 uppercase tracking-wider">Squads</h3>
+                        <div class="mb-3 flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Squads</h3>
+                            <router-link
+                                v-if="matchStore.canManageSquadding"
+                                :to="{ name: 'manage-shooters', params: { matchId: props.matchId } }"
+                                class="inline-flex items-center gap-1 rounded-md border border-emerald-700/50 bg-emerald-900/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-900/40"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                                </svg>
+                                Manage
+                            </router-link>
+                        </div>
                         <div class="space-y-2">
                             <div
                                 v-for="squad in matchStore.squads"
@@ -264,8 +276,8 @@
                             </template>
                         </template>
 
-                        <!-- PRS / ELR: single Start Scoring button that goes through ScoringRouter -->
-                        <template v-else-if="matchStore.currentMatch.scoring_type === 'prs' || matchStore.currentMatch.scoring_type === 'elr'">
+                        <!-- PRS, ELR, and ALRHA score inside their own flow. -->
+                        <template v-else-if="matchStore.currentMatch.scoring_type === 'prs' || matchStore.currentMatch.scoring_type === 'elr' || matchStore.currentMatch.scoring_type === 'alrha'">
                             <router-link
                                 :to="{ name: 'scoring', params: { matchId: props.matchId } }"
                                 class="flex items-center justify-center gap-2 rounded-xl bg-red-600 py-4 text-lg font-bold text-white shadow-lg transition-colors hover:bg-red-700 active:bg-red-800"
@@ -277,7 +289,7 @@
                             </router-link>
                         </template>
 
-                        <!-- Standard / Relay: Scoring Matrix + squad-based buttons -->
+                        <!-- Relay matches go matrix → roll call → scoring so absent shooters are withdrawn first. -->
                         <template v-else>
                             <router-link
                                 :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
@@ -288,38 +300,6 @@
                                 </svg>
                                 Scoring Matrix
                             </router-link>
-
-                            <template v-if="matchStore.hasSquadLock">
-                                <router-link
-                                    :to="{ name: 'scoring', params: { matchId: props.matchId } }"
-                                    class="flex items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 py-3 font-semibold text-white transition-colors hover:bg-slate-700"
-                                >
-                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-                                    </svg>
-                                    Continue Scoring &mdash; {{ matchStore.lockedSquadName }}
-                                </router-link>
-                                <router-link
-                                    :to="{ name: 'squad-select', params: { matchId: props.matchId } }"
-                                    class="flex items-center justify-center gap-2 rounded-xl border border-amber-700 bg-amber-900/20 py-3 font-semibold text-amber-300 transition-colors hover:bg-amber-900/40"
-                                >
-                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-                                    </svg>
-                                    Change Squad
-                                </router-link>
-                            </template>
-                            <template v-else>
-                                <router-link
-                                    :to="{ name: 'scoring', params: { matchId: props.matchId } }"
-                                    class="flex items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 py-3 font-semibold text-white transition-colors hover:bg-slate-700"
-                                >
-                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-                                    </svg>
-                                    Start Scoring
-                                </router-link>
-                            </template>
                         </template>
                         <router-link
                             v-if="matchStore.currentMatch.status !== 'completed'"

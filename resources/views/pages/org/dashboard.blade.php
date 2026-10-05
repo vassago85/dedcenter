@@ -25,7 +25,7 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
-        if (! auth()->user()?->isOrgAdmin($this->organization)) {
+        if (! auth()->user()?->can('view', $this->organization)) {
             Flux::toast('Not authorized.', variant: 'danger');
             return;
         }

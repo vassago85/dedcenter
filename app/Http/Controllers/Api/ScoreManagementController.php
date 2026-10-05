@@ -840,45 +840,21 @@ class ScoreManagementController extends Controller
         ]);
     }
 
-    /**
-     * MD-level bar for destructive / match-lifecycle actions: reassign,
-     * reshoot, publish/unpublish, move-stage, complete, reopen, side-bet
-     * management. Platform admins (owner + match_director) bypass; the
-     * match creator is treated as MD for their own match; otherwise the
-     * user must be an org MATCH DIRECTOR of the match's org. Prior to the
-     * RBAC audit this helper called `isOrgAdmin` (= range officer), which
-     * silently let ROs complete/reopen matches and reassign scores.
-     */
     private function authorizeMatchDirector(Request $request, ShootingMatch $match): void
     {
-        $user = $request->user();
-
-        $authorized = $user && ($user->isAdmin()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgMatchDirector($match->organization)));
-
-        if (! $authorized) {
-            abort(403, 'Only the match director or admin can perform this action.');
-        }
+        abort_unless(
+            $request->user()?->can('manage', $match),
+            403,
+            'Only the match director or admin can perform this action.',
+        );
     }
 
-    /**
-     * RO-level bar for operational-during-scoring actions: single-shooter
-     * corrections, correction-log writes, audit-log read. Range officers
-     * legitimately need these on the day, so this stays permissive by
-     * design — anything that changes the match's final state or lifecycle
-     * must use `authorizeMatchDirector()` instead.
-     */
     private function authorizeScorer(Request $request, ShootingMatch $match): void
     {
-        $user = $request->user();
-
-        $authorized = $user && ($user->isAdmin()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgRangeOfficer($match->organization)));
-
-        if (! $authorized) {
-            abort(403, 'Only match staff can perform this action.');
-        }
+        abort_unless(
+            $request->user()?->can('score', $match),
+            403,
+            'Only match staff can perform this action.',
+        );
     }
 }

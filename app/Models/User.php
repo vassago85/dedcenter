@@ -240,6 +240,11 @@ class User extends Authenticatable
             || $this->hasOrgRole($organization, 'range_officer');
     }
 
+    /**
+     * Org-area access: range officer and above. Same check as
+     * OrganizationPolicy::view. The name is historical — it is not the
+     * match-director bar.
+     */
     public function isOrgAdmin(Organization $organization): bool
     {
         return $this->isOrgRangeOfficer($organization);

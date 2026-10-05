@@ -3616,19 +3616,11 @@ class MatchExportController extends Controller
 
     private function authorizeExport(ShootingMatch $match): void
     {
-        $user = auth()->user();
-
-        abort_unless($user, 403);
-
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        if ($match->organization_id && $user->isOrgMatchDirector($match->organization)) {
-            return;
-        }
-
-        abort(403, 'Only match directors and organization owners can download results.');
+        abort_unless(
+            auth()->user()?->can('export', $match),
+            403,
+            'Only match directors and organization owners can download results.',
+        );
     }
 
     /**

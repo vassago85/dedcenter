@@ -148,23 +148,12 @@ class DisqualificationController extends Controller
         ]);
     }
 
-    /**
-     * DQs are high-stakes lifecycle actions (they nuke a shooter's result
-     * for the match), so the bar is MATCH DIRECTOR, not range officer.
-     * Before the RBAC audit this helper checked `isOrgRangeOfficer`, which
-     * silently let any RO issue or revoke DQs despite the comment on the
-     * abort message clearly reading "Only match directors...".
-     */
     private function authorizeMatchDirector(Request $request, ShootingMatch $match): void
     {
-        $user = $request->user();
-
-        $canManage = $user && ($user->isAdmin()
-            || $match->created_by === $user->id
-            || ($match->organization && $user->isOrgMatchDirector($match->organization)));
-
-        if (! $canManage) {
-            abort(403, 'Only match directors can issue disqualifications.');
-        }
+        abort_unless(
+            $request->user()?->can('disqualify', $match),
+            403,
+            'Only match directors can issue disqualifications.',
+        );
     }
 }

@@ -662,6 +662,7 @@ const effectiveMultiplier = computed(() => {
 });
 
 // ── Shooters ──
+// Withdrawn and DQ'd shooters stay out of the firing order.
 const shooters = computed(() => {
     if (isScoped.value && scopedSquad.value) {
         return scopedSquad.value.shooters
@@ -674,7 +675,8 @@ const shooters = computed(() => {
             .filter(s => s.status === 'active')
             .map(s => ({ ...s, squadName: squad.name }));
     }
-    return matchStore.hasSquadLock ? matchStore.squadShooters : matchStore.allShooters;
+    const fallback = matchStore.hasSquadLock ? matchStore.squadShooters : matchStore.allShooters;
+    return fallback.filter(s => s.status === 'active');
 });
 const currentShooter = computed(() => shooters.value[scoringStore.currentShooterIndex]);
 
@@ -1222,6 +1224,11 @@ onMounted(async () => {
                 scoringStore.currentShooterIndex = idx;
                 currentView.value = 'scoring';
             }
+        }
+
+        // Matrix "Review & correct scores" lands here.
+        if (route.query.view === 'relay-summary') {
+            currentView.value = 'relay-summary';
         }
     }
 });

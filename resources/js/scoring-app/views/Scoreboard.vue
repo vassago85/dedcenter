@@ -112,6 +112,30 @@
                     </button>
                 </div>
 
+                <!-- ALRHA prize-table tabs — match the public scoreboard. -->
+                <div v-if="isAlrha && viewMode === 'summary'" class="mb-4 flex gap-1.5 overflow-x-auto">
+                    <button type="button" @click="alrhaTab = 'standings'"
+                            class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                            :class="alrhaTab === 'standings' ? 'bg-emerald-700 text-white' : 'bg-surface text-muted hover:bg-surface-2'">
+                        Standings
+                    </button>
+                    <button type="button" @click="alrhaTab = 'cbc'"
+                            class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                            :class="alrhaTab === 'cbc' ? 'bg-emerald-700 text-white' : 'bg-surface text-muted hover:bg-surface-2'">
+                        Cold Bore
+                    </button>
+                    <button v-if="hasAlrhaTeams" type="button" @click="alrhaTab = 'teams'"
+                            class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                            :class="alrhaTab === 'teams' ? 'bg-emerald-700 text-white' : 'bg-surface text-muted hover:bg-surface-2'">
+                        Teams
+                    </button>
+                    <button type="button" @click="alrhaTab = 'prize-book'"
+                            class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+                            :class="alrhaTab === 'prize-book' ? 'bg-emerald-700 text-white' : 'bg-surface text-muted hover:bg-surface-2'">
+                        Prize Book
+                    </button>
+                </div>
+
                 <!-- =================== PRS SUMMARY LEADERBOARD =================== -->
                 <template v-if="viewMode === 'summary' && isPrs">
                     <div v-if="!standings.length" class="rounded-xl border border-border bg-surface p-8 text-center">
@@ -254,8 +278,109 @@
                     </div>
                 </template>
 
+                <!-- =================== ALRHA COLD BORE =================== -->
+                <template v-else-if="viewMode === 'summary' && isAlrha && alrhaTab === 'cbc'">
+                    <div v-if="!alrhaCbc.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No Cold Bore hits recorded yet.</p>
+                    </div>
+                    <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-3 py-3 text-center w-10">#</th>
+                                    <th class="px-3 py-3">Shooter</th>
+                                    <th class="px-3 py-3">Relay</th>
+                                    <th class="px-3 py-3 text-center text-green-400">Hits</th>
+                                    <th class="px-3 py-3 text-right font-bold">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <tr v-for="entry in alrhaCbc" :key="'cbc-' + entry.id" class="transition-colors hover:bg-surface-2" :class="rankRowClass(entry.rank)">
+                                    <td class="px-3 py-3 text-center">
+                                        <span v-if="entry.rank <= 3" class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold" :class="medalClass(entry.rank)">{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-3 py-3 text-muted">{{ entry.squad_name }}</td>
+                                    <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.cbc_hits }}</td>
+                                    <td class="px-3 py-3 text-right font-bold tabular-nums">{{ Number(entry.cbc_points ?? 0).toFixed(2) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mt-3 text-center text-[11px] text-muted">CBC hits do not count toward the class total.</p>
+                </template>
+
+                <!-- =================== ALRHA TEAMS =================== -->
+                <template v-else-if="viewMode === 'summary' && isAlrha && alrhaTab === 'teams'">
+                    <div v-if="!alrhaTeams.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">No team scores recorded yet.</p>
+                    </div>
+                    <div v-else class="overflow-x-auto rounded-xl border border-border bg-surface">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-left text-muted">
+                                    <th class="px-3 py-3 text-center w-10">#</th>
+                                    <th class="px-3 py-3">Team</th>
+                                    <th class="px-3 py-3">Shooters</th>
+                                    <th class="px-3 py-3 text-center text-green-400">Hits</th>
+                                    <th class="px-3 py-3 text-right font-bold">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                <tr v-for="entry in alrhaTeams" :key="'team-' + (entry.team_id ?? entry.team)" class="transition-colors hover:bg-surface-2" :class="rankRowClass(entry.rank)">
+                                    <td class="px-3 py-3 text-center">
+                                        <span v-if="entry.rank <= 3" class="inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold" :class="medalClass(entry.rank)">{{ entry.rank }}</span>
+                                        <span v-else class="text-muted">{{ entry.rank }}</span>
+                                    </td>
+                                    <td class="px-3 py-3 font-medium">{{ alrhaTeamName(entry) }}</td>
+                                    <td class="px-3 py-3 text-muted text-xs">{{ alrhaTeamMembers(entry) }}</td>
+                                    <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.team_total_hits }}</td>
+                                    <td class="px-3 py-3 text-right font-bold tabular-nums">{{ Number(entry.team_total_points ?? entry.team_total_score ?? 0).toFixed(2) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+
+                <!-- =================== ALRHA PRIZE BOOK =================== -->
+                <template v-else-if="viewMode === 'summary' && isAlrha && alrhaTab === 'prize-book'">
+                    <div v-if="!visiblePrizeSections.length" class="rounded-xl border border-border bg-surface p-8 text-center">
+                        <p class="text-muted">Prize tables populate as scores are recorded.</p>
+                    </div>
+                    <div v-else class="space-y-5">
+                        <section v-for="(section, sIdx) in visiblePrizeSections" :key="'prize-' + sIdx" class="overflow-hidden rounded-xl border border-border bg-surface">
+                            <div class="border-b border-border px-4 py-3">
+                                <h3 class="text-sm font-bold">{{ section.title }}</h3>
+                                <p v-if="section.subtitle" class="text-[11px] text-muted">{{ section.subtitle }}</p>
+                            </div>
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-border text-left text-muted">
+                                        <th class="px-3 py-2 text-center w-10">#</th>
+                                        <th class="px-3 py-2">{{ section.kind === 'teams' ? 'Team' : 'Shooter' }}</th>
+                                        <th class="px-3 py-2 text-center text-green-400">Hits</th>
+                                        <th class="px-3 py-2 text-right font-bold">Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border">
+                                    <tr v-for="row in (section.rows ?? [])" :key="section.kind + '-' + (row.id ?? row.team_id ?? row.rank)" class="hover:bg-surface-2" :class="rankRowClass(row.rank)">
+                                        <td class="px-3 py-2 text-center text-muted">{{ row.rank }}</td>
+                                        <td class="px-3 py-2 font-medium">
+                                            {{ section.kind === 'teams' ? alrhaTeamName(row) : row.name }}
+                                            <span v-if="section.kind !== 'teams' && (row.cbc_hits ?? 0) > 0" class="ml-1 rounded-full border border-amber-400/50 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-300">CBC ✓</span>
+                                        </td>
+                                        <td class="px-3 py-2 text-center text-green-400 tabular-nums">{{ section.kind === 'cbc' ? row.cbc_hits : (row.team_total_hits ?? row.total_hits) }}</td>
+                                        <td class="px-3 py-2 text-right font-bold tabular-nums">{{ Number(section.kind === 'cbc' ? row.cbc_points : (row.team_total_points ?? row.team_total_score ?? row.total_points ?? 0)).toFixed(2) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </section>
+                    </div>
+                </template>
+
                 <!-- =================== ELR SUMMARY LEADERBOARD =================== -->
-                <template v-else-if="viewMode === 'summary' && usesElrPipeline">
+                <template v-else-if="viewMode === 'summary' && usesElrPipeline && (!isAlrha || alrhaTab === 'standings')">
                     <div v-if="alrhaClasses.length > 1" class="mb-3 flex flex-wrap items-center gap-2">
                         <span class="text-xs uppercase tracking-wide text-muted">Class</span>
                         <button v-for="cls in alrhaClasses" :key="cls.value" type="button" @click="setAlrhaClass(cls.value)"
@@ -313,13 +438,27 @@
                                         >{{ entry.rank }}</span>
                                         <span v-else class="text-muted">{{ entry.rank }}</span>
                                     </td>
-                                    <td class="px-3 py-3 font-medium">{{ entry.name }}</td>
+                                    <td class="px-3 py-3 font-medium">
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span>{{ entry.name }}</span>
+                                            <span v-if="isAlrha && (entry.cbc_hits ?? 0) > 0"
+                                                  class="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300">
+                                                CBC ✓
+                                            </span>
+                                            <span v-if="entry.is_coached"
+                                                  class="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200/80">
+                                                Coached
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td class="px-3 py-3 text-muted">{{ entry.squad_name }}</td>
                                     <td v-if="elrDivisions.length" class="px-3 py-3 text-muted">
                                         {{ entry.division || '—' }}
                                     </td>
                                     <td class="px-3 py-3 text-center tabular-nums font-bold">{{ entry.total_points }}</td>
-                                    <td class="px-3 py-3 text-center text-green-400 tabular-nums">{{ entry.total_hits }}</td>
+                                    <td class="px-3 py-3 text-center text-green-400 tabular-nums">
+                                        {{ entry.total_hits }}<span v-if="isAlrha && (entry.cbc_hits ?? 0) > 0" class="ml-1 text-[10px] font-bold uppercase text-amber-300">+ CB</span>
+                                    </td>
                                     <td class="px-3 py-3 text-center tabular-nums">{{ entry.first_round_hits }}</td>
                                     <td class="px-3 py-3 text-center tabular-nums">{{ entry.furthest_hit_m ?? '&mdash;' }}</td>
                                     <td class="px-3 py-3 text-right text-lg font-bold tabular-nums">
@@ -513,7 +652,7 @@
 
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-semibold">{{ entry.name }}</p>
-                                    <p class="text-xs text-muted">{{ entry.squad_name }} &middot; {{ entry.total_hits }} hits &middot; {{ entry.total_points }} pts</p>
+                                    <p class="text-xs text-muted">{{ entry.squad_name }} &middot; {{ entry.total_hits }} hits<span v-if="isAlrha && (entry.cbc_hits ?? 0) > 0" class="text-amber-300"> + CB</span> &middot; {{ entry.total_points }} pts</p>
                                 </div>
 
                                 <div class="text-right">
@@ -555,6 +694,8 @@
                                                 <span class="text-muted">
                                                     {{ target.distance_m ? target.distance_m + 'm' : 'Target ' + (tIdx + 1) }}
                                                     <span v-if="target.name" class="text-secondary">({{ target.name }})</span>
+                                                    <span v-if="target.is_cold_bore || target.alrha_block === 'cbc'"
+                                                          class="ml-1 rounded bg-amber-500/15 px-1 py-0.5 text-[9px] font-bold uppercase text-amber-300">CBC</span>
                                                 </span>
                                                 <span v-if="elrTargetHit(target)" class="font-bold text-green-400">HIT +{{ elrTargetPoints(target) }}</span>
                                                 <span v-else-if="target.shots?.length" class="font-bold text-red-400">MISS</span>
@@ -871,12 +1012,12 @@
 
                 <!-- =================== ROYAL FLUSH =================== -->
                 <template v-else-if="viewMode === 'royalflush'">
-                    <div v-if="rfDistances.length > 1" class="mb-4 rounded-2xl border border-amber-600/30 bg-surface/40 p-3">
+                    <div v-if="rfDistances.length" class="mb-4 rounded-2xl border border-amber-600/30 bg-surface/40 p-3">
                         <div class="mb-2.5 flex items-center gap-2">
                             <svg class="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
                             </svg>
-                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Filter flushes by distance</span>
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Prize table by distance</span>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             <button
@@ -895,7 +1036,10 @@
                             >{{ dist }}m</button>
                         </div>
                         <p v-if="rfDistanceFilter" class="mt-2.5 text-xs text-amber-200/70">
-                            Showing shooters who flushed <span class="font-bold text-amber-300">{{ rfDistanceFilter }}m</span>. Tap <span class="font-semibold">All distances</span> to clear.
+                            {{ rfDistanceFilter }}m prize giving — shooters who flushed this distance, ranked by match score.
+                        </p>
+                        <p v-else class="mt-2.5 text-xs text-muted">
+                            Tap a distance to see that prize table.
                         </p>
                     </div>
 
@@ -905,6 +1049,10 @@
                         </p>
                     </div>
                     <div v-else class="overflow-hidden rounded-xl border border-amber-700/50 bg-surface">
+                        <div v-if="rfDistanceFilter" class="border-b border-amber-700/40 bg-amber-900/20 px-4 py-2.5">
+                            <p class="text-sm font-bold text-amber-300">{{ rfDistanceFilter }}m prize table</p>
+                            <p class="text-[11px] text-amber-200/70">{{ filteredRoyalFlush.length }} shooter{{ filteredRoyalFlush.length === 1 ? '' : 's' }} flushed this distance</p>
+                        </div>
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="border-b border-border text-left text-muted">
@@ -1011,6 +1159,7 @@ let buyInsVisibilityHandler = null;
 const royalFlush = ref([]);
 const royalFlushEnabled = ref(false);
 const rfDistanceFilter = ref(null);
+const rfApiDistances = ref([]);
 const matchName = ref('');
 const matchDate = ref('');
 const isPrs = ref(false);
@@ -1020,6 +1169,10 @@ const usesElrPipeline = computed(() => isElr.value || isAlrha.value);
 const alrhaClasses = ref([]);
 const alrhaPerClass = ref({});
 const activeAlrhaClass = ref(null);
+const alrhaTab = ref('standings');
+const alrhaCbc = ref([]);
+const alrhaTeams = ref([]);
+const alrhaPrizeSections = ref([]);
 const elrStages = ref([]);
 // ELR divisions surfaced as chip filters above the leaderboard. `null` =
 // "All shooters" (no filter); selecting a chip refetches with ?division=ID
@@ -1076,10 +1229,49 @@ function setElrDivision(id) {
     fetchData();
 }
 
+function applyAlrhaBlock(value) {
+    const block = value ? alrhaPerClass.value[value] : null;
+    standings.value = block?.standings ?? [];
+    alrhaCbc.value = block?.cbc ?? [];
+    alrhaTeams.value = block?.teams ?? [];
+}
+
+function applyRoyalFlushExtras(payload) {
+    if (!payload?.match) return;
+    isMd.value = isMd.value || !!payload.match.is_md;
+    if (payload.match.side_bet_enabled) {
+        sideBetEnabled.value = true;
+        if (payload.side_bet) sideBet.value = payload.side_bet;
+    }
+    if (payload.match.royal_flush_enabled) {
+        royalFlushEnabled.value = true;
+        if (Array.isArray(payload.royal_flush)) royalFlush.value = payload.royal_flush;
+        if (Array.isArray(payload.rf_distances) && payload.rf_distances.length) {
+            rfApiDistances.value = payload.rf_distances.map(Number).filter((d) => Number.isFinite(d) && d > 0);
+        }
+    }
+}
+
 function setAlrhaClass(value) {
     activeAlrhaClass.value = value;
-    const block = alrhaPerClass.value[value];
-    standings.value = block?.standings ?? [];
+    applyAlrhaBlock(value);
+}
+
+function alrhaTeamName(entry) {
+    if (entry?.team) return entry.team;
+    const a = entry?.shooter_1_name;
+    const b = entry?.shooter_2_name;
+    if (a && b) return `${a} & ${b}`;
+    return a || b || 'Team';
+}
+
+function alrhaTeamMembers(entry) {
+    if (Array.isArray(entry?.members) && entry.members.length) {
+        return entry.members.map((m) => m.name).filter(Boolean).join(' · ');
+    }
+    const a = entry?.shooter_1_name;
+    const b = entry?.shooter_2_name;
+    return [a, b].filter(Boolean).join(' · ') || '—';
 }
 
 async function fetchData() {
@@ -1091,7 +1283,7 @@ async function fetchData() {
         // filter so chip changes refetch within-division standings.
         const params = new URLSearchParams();
         if (scoringType !== 'prs') params.set('detailed', '1');
-        if (isElr.value && activeElrDivision.value) {
+        if ((isElr.value || isAlrha.value) && activeElrDivision.value) {
             params.set('division', String(activeElrDivision.value));
         }
         const qs = params.toString();
@@ -1113,9 +1305,13 @@ async function fetchData() {
             isMd.value = false;
             royalFlush.value = [];
             royalFlushEnabled.value = false;
+            rfApiDistances.value = [];
             elrStages.value = [];
             alrhaClasses.value = [];
             alrhaPerClass.value = {};
+            alrhaCbc.value = [];
+            alrhaTeams.value = [];
+            alrhaPrizeSections.value = [];
         } else {
             scoresHidden.value = false;
             hiddenMessage.value = '';
@@ -1123,13 +1319,16 @@ async function fetchData() {
             if (isAlrha.value) {
                 alrhaPerClass.value = data.per_class ?? {};
                 alrhaClasses.value = data.match?.alrha_classes ?? [];
+                alrhaPrizeSections.value = data.prize_sections ?? [];
                 if (!activeAlrhaClass.value && alrhaClasses.value.length) {
                     activeAlrhaClass.value = alrhaClasses.value[0].value;
                 }
-                const block = activeAlrhaClass.value
-                    ? alrhaPerClass.value[activeAlrhaClass.value]
-                    : null;
-                standings.value = block?.standings ?? data.standings ?? [];
+                applyAlrhaBlock(activeAlrhaClass.value);
+                if (!standings.value.length) {
+                    standings.value = data.standings ?? [];
+                    alrhaCbc.value = data.cbc ?? [];
+                    alrhaTeams.value = data.teams ?? [];
+                }
                 elrStages.value = data.stages ?? [];
                 elrDivisions.value = data.divisions ?? [];
             } else if (isElr.value) {
@@ -1142,17 +1341,11 @@ async function fetchData() {
             } else {
                 targetSets.value = data.target_sets ?? [];
                 standings.value = data.standings ?? [];
+                applyRoyalFlushExtras(data);
 
-                const mainRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
-                isMd.value = !!mainRes.data.match?.is_md;
-
-                if (mainRes.data.match?.side_bet_enabled && mainRes.data.side_bet) {
-                    sideBetEnabled.value = true;
-                    sideBet.value = mainRes.data.side_bet ?? [];
-                }
-                if (mainRes.data.match?.royal_flush_enabled && mainRes.data.royal_flush) {
-                    royalFlushEnabled.value = true;
-                    royalFlush.value = mainRes.data.royal_flush ?? [];
+                if (!royalFlushEnabled.value || !sideBetEnabled.value) {
+                    const mainRes = await axios.get(`/api/matches/${props.matchId}/scoreboard`);
+                    applyRoyalFlushExtras(mainRes.data);
                 }
             }
         }
@@ -1167,27 +1360,42 @@ async function fetchData() {
 
 const totalTargetCount = computed(() => targetSets.value.reduce((sum, ts) => sum + (ts.gong_count || 0), 0));
 
+const hasAlrhaTeams = computed(() => {
+    if (activeAlrhaClass.value === 'varmint') return false;
+    if (alrhaTeams.value.length) return true;
+    return Object.entries(alrhaPerClass.value).some(([key, block]) => (
+        key === 'hunters' && (block?.teams?.length ?? 0) > 0
+    ));
+});
+
+const visiblePrizeSections = computed(() => {
+    const all = alrhaPrizeSections.value ?? [];
+    if (!activeAlrhaClass.value) return all;
+    return all.filter((section) => !section.class || section.class === activeAlrhaClass.value);
+});
+
 // Unique stage distances for the Royal Flush preview filter. Prefer the
 // match target sets so chips exist before anyone has flushed; fall back
 // to distances already present on flush rows.
 const rfDistances = computed(() => {
+    const fromApi = (rfApiDistances.value ?? []).map(Number).filter((d) => Number.isFinite(d) && d > 0);
     const fromSets = targetSets.value
         .map((ts) => Number(ts.distance_meters))
         .filter((d) => Number.isFinite(d) && d > 0);
-    if (fromSets.length) {
-        return [...new Set(fromSets)].sort((a, b) => b - a);
-    }
-    const fromFlushes = royalFlush.value.flatMap((e) => e.flush_distances ?? []).map(Number);
-    return [...new Set(fromFlushes.filter((d) => Number.isFinite(d) && d > 0))].sort((a, b) => b - a);
+    const fromFlushes = royalFlush.value.flatMap((e) => e.flush_distances ?? []).map(Number)
+        .filter((d) => Number.isFinite(d) && d > 0);
+    return [...new Set([...fromApi, ...fromSets, ...fromFlushes])].sort((a, b) => b - a);
 });
 
 const filteredRoyalFlush = computed(() => {
     const selected = rfDistanceFilter.value;
-    const list = selected == null
-        ? royalFlush.value
-        : royalFlush.value.filter((e) =>
+    let list = (royalFlush.value ?? []).filter((e) => (e.flush_count ?? e.flush_distances?.length ?? 0) > 0);
+    if (selected != null) {
+        list = list.filter((e) =>
             (e.flush_distances ?? []).some((d) => Number(d) === Number(selected)),
         );
+        list = [...list].sort((a, b) => Number(b.total_score ?? 0) - Number(a.total_score ?? 0));
+    }
     return list.map((e, i) => ({ ...e, rank: i + 1 }));
 });
 

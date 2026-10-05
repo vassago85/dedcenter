@@ -32,7 +32,7 @@ class ProofOfPaymentController extends Controller
         $authorized = $user && (
             $user->isAdmin()
             || $registration->user_id === $user->id
-            || ($match && $match->organization_id && $match->organization && $user->isOrgAdmin($match->organization))
+            || ($match?->organization && $user->can('view', $match->organization))
         );
 
         abort_unless($authorized, 403, 'You are not authorized to view this document.');

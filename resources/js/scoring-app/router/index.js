@@ -62,6 +62,12 @@ const routes = [
         props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
     {
+        path: '/score/:matchId/shooters',
+        name: 'manage-shooters',
+        component: () => import('../views/ManageShooters.vue'),
+        props: (route) => ({ matchId: Number(route.params.matchId) }),
+    },
+    {
         path: '/score/:matchId/relay/:squadId/distance/:targetSetId/rollcall',
         name: 'roll-call',
         component: () => import('../views/RollCall.vue'),
@@ -80,12 +86,6 @@ const routes = [
             squadId: Number(route.params.squadId),
             targetSetId: Number(route.params.targetSetId),
         }),
-    },
-    {
-        path: '/score/:matchId/elr',
-        name: 'elr-scoring',
-        component: () => import('../views/ElrScoringFlow.vue'),
-        props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
     {
         path: '/score/seasons',

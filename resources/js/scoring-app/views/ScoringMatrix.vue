@@ -131,6 +131,20 @@
                                     v-if="isSquadExpanded(squad.id, ts.id)"
                                     class="border-t border-border/70 bg-surface-2/30 px-4 py-2"
                                 >
+                                    <button
+                                        v-if="cellStatus(squad.id, ts.id) !== 'pending'"
+                                        class="mb-2 flex w-full items-center gap-2 rounded-lg border border-amber-600/40 bg-amber-600/10 px-3 py-2 text-left text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-600/20 active:scale-[0.99]"
+                                        @click="openCorrections(squad.id, ts.id)"
+                                    >
+                                        <svg class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13L2.25 21.75l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                        </svg>
+                                        <span class="flex-1">Review &amp; correct scores</span>
+                                        <svg class="h-4 w-4 flex-shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                        </svg>
+                                    </button>
+
                                     <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted">Jump to shooter</p>
                                     <div v-if="squadShooters(squad).length === 0" class="px-2 py-2 text-xs text-muted">
                                         No active shooters in this squad.
@@ -333,6 +347,14 @@ function openShooter(squadId, tsId, shooterId) {
         name: 'scoped-scoring',
         params: { matchId: matchId.value, squadId, targetSetId: tsId },
         query: { shooter: shooterId },
+    });
+}
+
+function openCorrections(squadId, tsId) {
+    router.push({
+        name: 'scoped-scoring',
+        params: { matchId: matchId.value, squadId, targetSetId: tsId },
+        query: { view: 'relay-summary' },
     });
 }
 

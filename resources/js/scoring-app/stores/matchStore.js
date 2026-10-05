@@ -64,6 +64,14 @@ export const useMatchStore = defineStore('match', {
             );
         },
         canManage: (state) => state.currentMatch?.can_manage ?? false,
+        // Wider than canManage: RO + MD + creator + owner. Older cached
+        // payloads omit the flag, so fall back to canManage. The API enforces this.
+        canManageSquadding: (state) => {
+            const match = state.currentMatch;
+            if (!match) return false;
+            if (typeof match.can_manage_squadding === 'boolean') return match.can_manage_squadding;
+            return !!match.can_manage;
+        },
         hasSquadLock: (state) => !!state.lockedSquadId,
         hasStageLock: (state) => !!state.lockedStageId,
         hasAnyLock: (state) => !!state.lockedSquadId || !!state.lockedStageId,
@@ -241,6 +249,86 @@ export const useMatchStore = defineStore('match', {
                     }
                 }
             }
+        },
+
+        // Patch the in-memory match so scoring stays on screen. A full refetch
+        // flips ScoringMatrix / ScoringFlow back to a loading state.
+        async addShooter(matchId, payload) {
+            const { data } = await axios.post(`/api/matches/${matchId}/shooters`, payload);
+            const created = data.shooter;
+            if (this.currentMatch && created) {
+                const squad = this.currentMatch.squads.find(s => s.id === created.squad_id);
+                if (squad) {
+                    squad.shooters.push({
+                        id: created.id,
+                        name: created.name,
+                        bib_number: created.bib_number,
+                        sort_order: created.sort_order,
+                        division_id: created.division_id ?? null,
+                        division: created.division ?? null,
+                        team_id: null,
+                        team: null,
+                        category_ids: [],
+                        status: created.status ?? 'active',
+                        alrha_class: null,
+                        is_coached: false,
+                        gong_position: null,
+                        shared_rifle_key: null,
+                    });
+                }
+            }
+            return created;
+        },
+
+        async moveShooterToSquad(matchId, shooterId, targetSquadId) {
+            const { data } = await axios.patch(
+                `/api/matches/${matchId}/shooters/${shooterId}/squad`,
+                { squad_id: targetSquadId },
+            );
+            const updated = data.shooter;
+            if (this.currentMatch && updated) {
+                let moving = null;
+                for (const squad of this.currentMatch.squads) {
+                    const idx = squad.shooters.findIndex(s => s.id === shooterId);
+                    if (idx >= 0) {
+                        moving = squad.shooters.splice(idx, 1)[0];
+                        break;
+                    }
+                }
+                if (moving) {
+                    moving.sort_order = updated.sort_order;
+                    const target = this.currentMatch.squads.find(s => s.id === updated.squad_id);
+                    if (target) target.shooters.push(moving);
+                }
+            }
+            return updated;
+        },
+
+        async reorderShooter(matchId, shooterId, direction) {
+            const { data } = await axios.patch(
+                `/api/matches/${matchId}/shooters/${shooterId}/order`,
+                { direction },
+            );
+            const updated = data.shooter;
+            if (this.currentMatch && updated) {
+                // API returns only the moved shooter. Swap sort_order with
+                // whoever currently holds the slot they just took.
+                const squad = this.currentMatch.squads.find(s => s.id === updated.squad_id);
+                if (squad) {
+                    const self = squad.shooters.find(s => s.id === updated.id);
+                    if (self) {
+                        const oldSort = self.sort_order;
+                        const neighbour = squad.shooters.find(
+                            s => s.id !== updated.id && s.sort_order === updated.sort_order,
+                        );
+                        if (neighbour) {
+                            neighbour.sort_order = oldSort;
+                        }
+                        self.sort_order = updated.sort_order;
+                    }
+                }
+            }
+            return updated;
         },
 
         async issueDisqualification(matchId, shooterId, reason, targetSetId = null) {

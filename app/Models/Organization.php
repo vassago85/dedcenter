@@ -222,15 +222,6 @@ class Organization extends Model
         return $this->admins()->wherePivot('is_owner', true)->where('user_id', $user->id)->exists();
     }
 
-    public function userCanManage(User $user): bool
-    {
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return $this->admins()->where('user_id', $user->id)->exists();
-    }
-
     public function getRouteKeyName(): string
     {
         return 'slug';

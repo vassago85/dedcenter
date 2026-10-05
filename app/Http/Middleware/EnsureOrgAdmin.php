@@ -17,7 +17,7 @@ class EnsureOrgAdmin
             $organization = Organization::where('slug', $organization)->firstOrFail();
         }
 
-        if (! $request->user()?->isOrgAdmin($organization)) {
+        if (! $request->user()?->can('view', $organization)) {
             abort(403, 'You are not authorized to manage this organization.');
         }
 

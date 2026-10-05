@@ -6,23 +6,13 @@ use App\Models\ShootingMatch;
 use App\Models\User;
 
 /**
- * Canonical authorization rules for match access. Introduced by the RBAC
- * audit as the source of truth so we stop duplicating the same
- * `isOwner || created_by || isOrgX($org)` snippet across every controller
- * and Volt component.
+ * One place for match access. Call `$user->can('score', $match)` and friends.
  *
- * Migration status (2026-08-02):
- *   - New routes / new code MUST use this policy via `$user->can(...)`,
- *     `Gate::allows(...)`, or route `can:` middleware.
- *   - Existing controllers (ScoreManagementController, DisqualificationController,
- *     MatchExportController, Api\ScoreController, Api\PrsScoreController,
- *     Api\ElrScoreController) still ship inline checks — those checks call
- *     the SAME underlying model helpers this policy delegates to, so they
- *     stay in sync. They will be migrated in a follow-up so a single edit
- *     to a policy method updates every consumer.
- *
- * Laravel 11 auto-discovers policies at `App\Policies\{Model}Policy`, so no
- * registration is required — `$user->can('score', $match)` just works.
+ *   view      org member, match staff, the creator, or a platform admin
+ *   score     range officer and above, or the creator
+ *   squad     same people as score — walk-ins and firing order
+ *   manage    match director and above, or the creator — complete, DQ, export
+ *   maintain  match director and above, not merely the creator — repair tools
  */
 class ShootingMatchPolicy
 {
@@ -37,7 +27,7 @@ class ShootingMatchPolicy
             return true;
         }
 
-        if ($match->created_by === $user->id) {
+        if ($this->createdThisMatch($user, $match)) {
             return true;
         }
 
@@ -49,59 +39,60 @@ class ShootingMatchPolicy
         return $match->staff()->where('users.id', $user->id)->exists();
     }
 
-    /**
-     * Can the user record scores for this match? Range-officer bar — this
-     * is the operational-during-scoring role. Matches the inline check in
-     * `Api\ScoreController::store`, `Api\PrsScoreController::store`, and
-     * `Api\ElrScoreController::store`.
-     */
+    /** Record scores, correct a shooter, or change shooter status. Range-officer bar. */
     public function score(User $user, ShootingMatch $match): bool
     {
         return $user->isAdmin()
-            || $match->created_by === $user->id
+            || $this->createdThisMatch($user, $match)
             || ($match->organization !== null && $user->isOrgRangeOfficer($match->organization));
     }
 
-    /**
-     * Can the user apply a single-shooter score correction on the day?
-     * Same bar as `score()` — this is an RO's own fix-up flow, not a
-     * match-lifecycle action.
-     */
+    /** Walk-ins, squad moves, and firing order. Same people as score(). */
+    public function squad(User $user, ShootingMatch $match): bool
+    {
+        return $this->score($user, $match);
+    }
+
+    /** Fix a score on the day. Same people as score(). */
     public function correct(User $user, ShootingMatch $match): bool
     {
         return $this->score($user, $match);
     }
 
     /**
-     * Can the user perform destructive / match-lifecycle actions —
-     * complete, reopen, reassign scores, reshoot a stage, publish, move a
-     * scored stage, manage side-bet buy-ins? MATCH DIRECTOR bar. Prior to
-     * the RBAC audit `authorizeMatchDirector` was actually checking
-     * `isOrgAdmin` (= range officer), which silently let ROs complete /
-     * reopen matches; this policy captures the corrected bar.
+     * Complete, reopen, reassign, publish, side bets, DQ, and exports.
+     * Match director and above, plus the person who created the match.
      */
     public function manage(User $user, ShootingMatch $match): bool
     {
         return $user->isAdmin()
-            || $match->created_by === $user->id
+            || $this->createdThisMatch($user, $match)
             || ($match->organization !== null && $user->isOrgMatchDirector($match->organization));
     }
 
-    /**
-     * Can the user issue / revoke disqualifications? MD-only — same bar
-     * as `manage()`. Mirrors `Api\DisqualificationController::authorizeMatchDirector`.
-     */
     public function disqualify(User $user, ShootingMatch $match): bool
     {
         return $this->manage($user, $match);
     }
 
-    /**
-     * Can the user download match exports (CSV / PDF)? MD-only. Mirrors
-     * `MatchExportController::authorizeExport`.
-     */
     public function export(User $user, ShootingMatch $match): bool
     {
         return $this->manage($user, $match);
+    }
+
+    /**
+     * Repair tools (PRS backfill / diagnostic). Org match directors and
+     * platform admins only — creating the match is not enough.
+     */
+    public function maintain(User $user, ShootingMatch $match): bool
+    {
+        return $user->isAdmin()
+            || ($match->organization !== null && $user->isOrgMatchDirector($match->organization));
+    }
+
+    private function createdThisMatch(User $user, ShootingMatch $match): bool
+    {
+        return $match->created_by !== null
+            && (int) $match->created_by === (int) $user->id;
     }
 }
