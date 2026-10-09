@@ -153,6 +153,51 @@ it('approving a claim for an imported shooter re-points the shooter AND the plac
     expect(User::find($placeholder->id))->not->toBeNull();
 });
 
+it('approval merges into the claimant\'s own registration when they also entered the match', function () {
+    $match = ShootingMatch::factory()->create(['status' => MatchStatus::Completed]);
+    $squad = Squad::factory()->create(['match_id' => $match->id]);
+    $placeholder = makePlaceholderUser($match);
+    $claimant = User::factory()->create(['email' => 'claimant@example.com']);
+    $admin = User::factory()->create(['role' => 'owner']);
+
+    $shooter = Shooter::factory()->create(['squad_id' => $squad->id, 'user_id' => $placeholder->id]);
+    $imported = MatchRegistration::factory()->confirmed()->create([
+        'match_id' => $match->id,
+        'user_id' => $placeholder->id,
+        'caliber' => '6.5 Creedmoor',
+        'scope_brand_type' => 'Imported Scope',
+    ]);
+    $own = MatchRegistration::factory()->confirmed()->create([
+        'match_id' => $match->id,
+        'user_id' => $claimant->id,
+        'caliber' => null,
+        'scope_brand_type' => 'My Scope',
+    ]);
+
+    $badge = Achievement::query()->firstOrCreate(
+        ['slug' => 'claim-merge-badge'],
+        ['label' => 'Claim Merge', 'description' => 'x', 'category' => 'match_special', 'scope' => 'match', 'is_repeatable' => false, 'sort_order' => 999, 'is_active' => true],
+    );
+    UserAchievement::create(['user_id' => $claimant->id, 'achievement_id' => $badge->id, 'match_id' => $match->id, 'awarded_at' => now()]);
+    UserAchievement::create(['user_id' => $placeholder->id, 'achievement_id' => $badge->id, 'match_id' => $match->id, 'awarded_at' => now()]);
+
+    $claim = ShooterAccountClaim::create([
+        'user_id' => $claimant->id,
+        'shooter_id' => $shooter->id,
+        'match_id' => $match->id,
+        'status' => ShooterClaimStatus::Pending,
+    ]);
+
+    $outcome = app(ShooterAccountClaimService::class)->approve($claim, $admin->id);
+
+    expect($outcome)->toBe(ShooterAccountClaimService::APPROVED_IMPORTED)
+        ->and($shooter->fresh()->user_id)->toBe($claimant->id)
+        ->and(MatchRegistration::where('match_id', $match->id)->pluck('id')->all())->toBe([$own->id])
+        ->and($own->fresh()->caliber)->toBe('6.5 Creedmoor')
+        ->and($own->fresh()->scope_brand_type)->toBe('My Scope')
+        ->and(UserAchievement::where('user_id', $claimant->id)->where('achievement_id', $badge->id)->where('match_id', $match->id)->count())->toBe(1);
+});
+
 it('approval rejects when shooter is linked to a different REAL account', function () {
     $match = ShootingMatch::factory()->create(['status' => MatchStatus::Completed]);
     $squad = Squad::factory()->create(['match_id' => $match->id]);

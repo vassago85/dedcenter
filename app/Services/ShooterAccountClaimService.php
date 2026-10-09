@@ -6,6 +6,7 @@ use App\Enums\ShooterClaimStatus;
 use App\Models\MatchRegistration;
 use App\Models\ShooterAccountClaim;
 use App\Models\UserAchievement;
+use App\Models\UserEquipmentProfile;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -73,12 +74,15 @@ class ShooterAccountClaimService
             $claim->shooter->update(['user_id' => $claim->user_id]);
 
             if ($placeholderUserId !== null) {
-                MatchRegistration::where('user_id', $placeholderUserId)
+                $this->moveImportedRegistration($placeholderUserId, $claim->user_id, $claim->match_id);
+
+                $alreadyHeld = UserAchievement::where('user_id', $claim->user_id)
                     ->where('match_id', $claim->match_id)
-                    ->update(['user_id' => $claim->user_id]);
+                    ->pluck('achievement_id');
 
                 UserAchievement::where('user_id', $placeholderUserId)
                     ->where('match_id', $claim->match_id)
+                    ->whereNotIn('achievement_id', $alreadyHeld)
                     ->update(['user_id' => $claim->user_id]);
             }
 
@@ -103,5 +107,35 @@ class ShooterAccountClaimService
         return $placeholderUserId !== null
             ? self::APPROVED_IMPORTED
             : self::APPROVED_WALKIN;
+    }
+
+    /**
+     * Hand the imported registration to the claimant. A user can only hold one
+     * registration per match, so if they also entered themselves we keep theirs,
+     * fill its blank equipment fields from the import, and drop the import.
+     */
+    private function moveImportedRegistration(int $fromUserId, int $toUserId, int $matchId): void
+    {
+        $imported = MatchRegistration::where('user_id', $fromUserId)->where('match_id', $matchId)->first();
+        if (! $imported) {
+            return;
+        }
+
+        $own = MatchRegistration::where('user_id', $toUserId)->where('match_id', $matchId)->first();
+        if (! $own) {
+            $imported->update(['user_id' => $toUserId]);
+
+            return;
+        }
+
+        $fill = collect([...UserEquipmentProfile::EQUIPMENT_FIELDS, 'rifle_id', 'division_id', 'category_id', 'alrha_class'])
+            ->filter(fn (string $field) => blank($own->{$field}) && filled($imported->{$field}))
+            ->mapWithKeys(fn (string $field) => [$field => $imported->{$field}])
+            ->all();
+
+        if ($fill) {
+            $own->update($fill);
+        }
+        $imported->delete();
     }
 }
