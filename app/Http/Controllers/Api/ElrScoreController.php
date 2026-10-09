@@ -10,9 +10,11 @@ use App\Models\ElrTarget;
 use App\Models\ElrTeamStageEntry;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
+use App\Rules\InIdSet;
 use App\Services\ScoreAuditService;
 use App\Services\Scoring\ELRScoringService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ElrScoreController extends Controller
@@ -32,16 +34,12 @@ class ElrScoreController extends Controller
             ], 423);
         }
 
-        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
-        $validTargetIds = ElrTarget::query()
-            ->whereIn('elr_stage_id', $match->elrStages()->pluck('id'))
-            ->pluck('id')
-            ->toArray();
-
         $validated = $request->validate([
             'shots' => ['required', 'array', 'min:1'],
-            'shots.*.shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
-            'shots.*.elr_target_id' => ['required', 'integer', Rule::in($validTargetIds)],
+            'shots.*.shooter_id' => ['required', 'integer', new InIdSet($match->shooters()->pluck('shooters.id'))],
+            'shots.*.elr_target_id' => ['required', 'integer', new InIdSet(
+                ElrTarget::whereIn('elr_stage_id', $match->elrStages()->select('id'))->pluck('id')
+            )],
             'shots.*.shot_number' => ['required', 'integer', 'min:1'],
             'shots.*.result' => ['required', 'string', Rule::in(['hit', 'miss', 'not_taken'])],
             'shots.*.device_id' => ['required', 'string', 'max:255'],
@@ -51,98 +49,110 @@ class ElrScoreController extends Controller
         $isTeam = $match->elrEngagementMode()->isTeamSequence();
         $service = new ELRScoringService;
 
-        $saved = [];
+        $shots = collect($validated['shots']);
+        $match->loadMissing('elrScoringProfile');
+        $targets = ElrTarget::with('stage.scoringProfile')
+            ->whereIn('id', $shots->pluck('elr_target_id')->unique())
+            ->get()
+            ->each(fn (ElrTarget $t) => $t->stage?->setRelation('match', $match))
+            ->keyBy('id');
+
+        $shotKey = fn ($shooterId, $targetId, $shotNumber) => "{$shooterId}-{$targetId}-{$shotNumber}";
+        $existingShots = ElrShot::whereIn('shooter_id', $shots->pluck('shooter_id')->unique())
+            ->whereIn('elr_target_id', $targets->keys())
+            ->get()
+            ->keyBy(fn (ElrShot $s) => $shotKey($s->shooter_id, $s->elr_target_id, $s->shot_number));
+
         // (shooterId => [targetId => ElrTarget]) pairs touched this batch,
         // so team-sequence scoring can recompute each affected gong once.
         $affected = [];
-        $submittedKeys = [];
 
-        foreach ($validated['shots'] as $shotData) {
-            $target = ElrTarget::with('stage.scoringProfile', 'stage.match.elrScoringProfile')->find($shotData['elr_target_id']);
-            if (! $target) {
-                continue;
-            }
+        $savedShots = DB::transaction(function () use ($validated, $targets, $existingShots, $shotKey, $isTeam, $user, $match, $request, $service, &$affected) {
+            $savedShots = [];
 
-            $result = ElrShotResult::from($shotData['result']);
-
-            // For team gong-sequence matches the impact-based recompute below
-            // owns points/multiplier; we just persist the raw result here.
-            // Every other mode keeps the existing shot-number scoring.
-            $pointsAwarded = 0;
-            $multiplier = $target->multiplierForShot($shotData['shot_number']);
-            if (! $isTeam && $result === ElrShotResult::Hit) {
-                $pointsAwarded = $target->pointsForShot($shotData['shot_number']);
-            }
-
-            $existingShot = ElrShot::where('shooter_id', $shotData['shooter_id'])
-                ->where('elr_target_id', $shotData['elr_target_id'])
-                ->where('shot_number', $shotData['shot_number'])
-                ->first();
-            $oldShotValues = $existingShot?->toArray();
-
-            $values = [
-                'result' => $result,
-                'distance_at_score' => (int) $target->distance_m,
-                'recorded_by' => $user->id,
-                'device_id' => $shotData['device_id'],
-                'recorded_at' => $shotData['recorded_at'],
-                'synced_at' => now(),
-            ];
-            if (! $isTeam) {
-                $values['points_awarded'] = $pointsAwarded;
-                $values['multiplier_at_score'] = $multiplier;
-            }
-
-            $shot = ElrShot::updateOrCreate(
-                [
-                    'shooter_id' => $shotData['shooter_id'],
-                    'elr_target_id' => $shotData['elr_target_id'],
-                    'shot_number' => $shotData['shot_number'],
-                ],
-                $values,
-            );
-
-            if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shotData['result']) {
-                ScoreAuditService::logUpdated($match->id, $shot, $oldShotValues, null, $request);
-            } elseif (! $existingShot) {
-                ScoreAuditService::logCreated($match->id, $shot, $request);
-            }
-
-            $affected[$shotData['shooter_id']][$target->id] = $target;
-            $submittedKeys[] = [$shotData['shooter_id'], $target->id, $shotData['shot_number']];
-        }
-
-        if ($isTeam) {
-            foreach ($affected as $shooterId => $targets) {
-                foreach ($targets as $target) {
-                    $service->recomputeTargetImpacts((int) $shooterId, $target);
+            foreach ($validated['shots'] as $shotData) {
+                $target = $targets->get($shotData['elr_target_id']);
+                if (! $target) {
+                    continue;
                 }
+
+                $result = ElrShotResult::from($shotData['result']);
+
+                // For team gong-sequence matches the impact-based recompute below
+                // owns points/multiplier; we just persist the raw result here.
+                // Every other mode keeps the existing shot-number scoring.
+                $values = [
+                    'result' => $result,
+                    'distance_at_score' => (int) $target->distance_m,
+                    'recorded_by' => $user->id,
+                    'device_id' => $shotData['device_id'],
+                    'recorded_at' => $shotData['recorded_at'],
+                    'synced_at' => now(),
+                ];
+                if (! $isTeam) {
+                    $values['points_awarded'] = $result === ElrShotResult::Hit
+                        ? $target->pointsForShot($shotData['shot_number'])
+                        : 0;
+                    $values['multiplier_at_score'] = $target->multiplierForShot($shotData['shot_number']);
+                }
+
+                $key = $shotKey($shotData['shooter_id'], $target->id, $shotData['shot_number']);
+                $existingShot = $existingShots->get($key);
+                $oldShotValues = $existingShot?->toArray();
+
+                $shot = $existingShot ?? new ElrShot([
+                    'shooter_id' => $shotData['shooter_id'],
+                    'elr_target_id' => $target->id,
+                    'shot_number' => $shotData['shot_number'],
+                ]);
+                $shot->fill($values)->save();
+                $existingShots->put($key, $shot);
+
+                if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shotData['result']) {
+                    ScoreAuditService::logUpdated($match->id, $shot, $oldShotValues, null, $request);
+                } elseif (! $existingShot) {
+                    ScoreAuditService::logCreated($match->id, $shot, $request);
+                }
+
+                $affected[$shotData['shooter_id']][$target->id] = $target;
+                $savedShots[] = $shot;
             }
 
-            $this->reopenAffectedTeamStages($match, $affected, $request);
-        }
+            if ($isTeam) {
+                foreach ($affected as $shooterId => $shooterTargets) {
+                    foreach ($shooterTargets as $target) {
+                        $service->recomputeTargetImpacts((int) $shooterId, $target);
+                    }
+                }
 
-        // Build the response from the freshest stored values (team-sequence
-        // recompute may have changed points/impact on the submitted shots).
-        foreach ($submittedKeys as [$shooterId, $targetId, $shotNumber]) {
-            $shot = ElrShot::where('shooter_id', $shooterId)
-                ->where('elr_target_id', $targetId)
-                ->where('shot_number', $shotNumber)
-                ->first();
-            if (! $shot) {
-                continue;
+                $this->reopenAffectedTeamStages($match, $affected, $request);
             }
 
-            $saved[] = [
-                'id' => $shot->id,
-                'shooter_id' => $shot->shooter_id,
-                'elr_target_id' => $shot->elr_target_id,
-                'shot_number' => $shot->shot_number,
-                'impact_number' => $shot->impact_number,
-                'result' => $shot->result->value,
-                'points_awarded' => (float) $shot->points_awarded,
-            ];
+            return $savedShots;
+        });
+
+        // Team-sequence recompute may have changed points/impact on the
+        // submitted shots, so re-read those once; other modes are current.
+        if ($isTeam && $savedShots) {
+            $fresh = ElrShot::whereIn('shooter_id', array_keys($affected))
+                ->whereIn('elr_target_id', $targets->keys())
+                ->get()
+                ->keyBy(fn (ElrShot $s) => $shotKey($s->shooter_id, $s->elr_target_id, $s->shot_number));
+            $savedShots = array_filter(array_map(
+                fn (ElrShot $s) => $fresh->get($shotKey($s->shooter_id, $s->elr_target_id, $s->shot_number)),
+                $savedShots,
+            ));
         }
+
+        $saved = array_values(array_map(fn (ElrShot $shot) => [
+            'id' => $shot->id,
+            'shooter_id' => $shot->shooter_id,
+            'elr_target_id' => $shot->elr_target_id,
+            'shot_number' => $shot->shot_number,
+            'impact_number' => $shot->impact_number,
+            'result' => $shot->result->value,
+            'points_awarded' => (float) $shot->points_awarded,
+        ], $savedShots));
 
         return response()->json(['data' => $saved]);
     }
@@ -270,24 +280,24 @@ class ElrScoreController extends Controller
      */
     private function storeTeamStageScores(ShootingMatch $match, ElrTeamStageEntry $entry): void
     {
-        $stageTargetIds = ElrTarget::where('elr_stage_id', $entry->elr_stage_id)->pluck('id');
-
-        $shooters = Shooter::whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
-            ->where('team_id', $entry->team_id)
-            ->get(['id', 'name']);
-
-        $scoreFor = fn (int $shooterId): float => (float) ElrShot::where('shooter_id', $shooterId)
-            ->whereIn('elr_target_id', $stageTargetIds)
-            ->where('result', ElrShotResult::Hit)
-            ->sum('points_awarded');
+        $shooters = $match->shooters()
+            ->where('shooters.team_id', $entry->team_id)
+            ->get(['shooters.id', 'shooters.name']);
 
         // Order so shooter_1 is the designated first shooter for this stage.
         $ordered = $shooters->sortBy(fn ($s) => $s->id === $entry->first_shooter_id ? 0 : 1)->values();
         $s1 = $ordered->get(0);
         $s2 = $ordered->get(1);
 
-        $s1Score = $s1 ? $scoreFor($s1->id) : 0.0;
-        $s2Score = $s2 ? $scoreFor($s2->id) : 0.0;
+        $points = ElrShot::whereIn('shooter_id', $ordered->take(2)->pluck('id'))
+            ->whereIn('elr_target_id', ElrTarget::where('elr_stage_id', $entry->elr_stage_id)->select('id'))
+            ->where('result', ElrShotResult::Hit)
+            ->groupBy('shooter_id')
+            ->selectRaw('shooter_id, SUM(points_awarded) as points')
+            ->pluck('points', 'shooter_id');
+
+        $s1Score = $s1 ? (float) ($points[$s1->id] ?? 0) : 0.0;
+        $s2Score = $s2 ? (float) ($points[$s2->id] ?? 0) : 0.0;
 
         $entry->forceFill([
             'shooter_1_id' => $s1?->id,
@@ -325,15 +335,17 @@ class ElrScoreController extends Controller
             }
         }
 
-        foreach ($pairs as [$teamId, $stageId]) {
-            $entry = ElrTeamStageEntry::where('team_id', $teamId)
-                ->where('elr_stage_id', $stageId)
-                ->whereNotNull('completed_at')
-                ->first();
-            if (! $entry) {
-                continue;
-            }
+        if (! $pairs) {
+            return;
+        }
 
+        $entries = ElrTeamStageEntry::whereIn('team_id', array_column($pairs, 0))
+            ->whereIn('elr_stage_id', array_column($pairs, 1))
+            ->whereNotNull('completed_at')
+            ->get()
+            ->filter(fn ($e) => isset($pairs["{$e->team_id}-{$e->elr_stage_id}"]));
+
+        foreach ($entries as $entry) {
             $old = ['completed_at' => $entry->completed_at?->toIso8601String()];
             $entry->completed_at = null;
             $entry->timed_out = false;
@@ -349,51 +361,5 @@ class ElrScoreController extends Controller
                 $request,
             );
         }
-    }
-
-    public function progress(Request $request, ShootingMatch $match)
-    {
-        abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to view scores for this match.');
-
-        $shooterId = $request->query('shooter_id');
-        if (! $shooterId) {
-            return response()->json(['message' => 'shooter_id required'], 422);
-        }
-
-        $shooter = $match->shooters()->where('shooters.id', $shooterId)->first();
-        if (! $shooter) {
-            return response()->json(['message' => 'Shooter not found in this match'], 404);
-        }
-
-        $service = new ELRScoringService;
-        $stages = $match->elrStages()->with(['targets', 'scoringProfile'])->get();
-
-        $progress = $stages->map(fn ($stage) => [
-            'stage_id' => $stage->id,
-            'label' => $stage->label,
-            'stage_type' => $stage->stage_type->value,
-            'targets' => $service->getStageProgress($stage, $shooter),
-        ]);
-
-        return response()->json(['data' => $progress]);
-    }
-
-    public function firingOrder(Request $request, ShootingMatch $match)
-    {
-        abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to view scores for this match.');
-        abort_unless($match->isElr() && $match->elrEngagementMode()?->isTeamSequence(), 404);
-
-        $validated = $request->validate([
-            'squad_id' => 'required|integer',
-            'elr_stage_id' => 'required|integer',
-        ]);
-
-        $order = \App\Services\Scoring\ElrSquadTeamOrderService::getNextFiringOrder(
-            $match,
-            (int) $validated['squad_id'],
-            (int) $validated['elr_stage_id'],
-        );
-
-        return response()->json(['order' => $order]);
     }
 }

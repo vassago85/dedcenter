@@ -7,9 +7,12 @@
     $badgeConfig = BadgeGalleryController::BADGE_CONFIG;
     $tierOrder = ['featured' => 0, 'elite' => 1, 'milestone' => 2, 'earned' => 3];
 
-    $badges = UserAchievement::where('user_id', $userId)
+    $allBadges = UserAchievement::where('user_id', $userId)
         ->with('achievement')
-        ->get()
+        ->get();
+    $total = $allBadges->count();
+
+    $badges = $allBadges
         ->unique('achievement_id')
         ->sortBy(function ($b) use ($badgeConfig, $tierOrder) {
             $tier = $badgeConfig[$b->achievement->slug]['tier'] ?? 'earned';
@@ -17,7 +20,6 @@
         })
         ->take($limit);
 
-    $total = UserAchievement::where('user_id', $userId)->count();
     $remaining = max(0, $total - $badges->count());
 
     $familyStyles = [

@@ -25,9 +25,4 @@ class StagePosition extends Model
     {
         return $this->belongsTo(TargetSet::class, 'stage_id');
     }
-
-    public function shotSequenceEntries(): HasMany
-    {
-        return $this->hasMany(StageShotSequence::class, 'position_id');
-    }
 }

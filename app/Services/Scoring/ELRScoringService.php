@@ -4,13 +4,12 @@ namespace App\Services\Scoring;
 
 use App\Enums\ElrShotResult;
 use App\Models\ElrShot;
-use App\Models\ElrStage;
 use App\Models\ElrTarget;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use Illuminate\Support\Facades\DB;
 
-class ELRScoringService implements ScoringEngineInterface
+class ELRScoringService
 {
     /**
      * Build ELR standings for a match.
@@ -107,6 +106,7 @@ class ELRScoringService implements ScoringEngineInterface
         $allShots = ElrShot::query()
             ->whereIn('shooter_id', $shooters->pluck('id'))
             ->whereIn('elr_target_id', $allTargetIds)
+            ->orderBy('shot_number')
             ->get()
             ->groupBy('shooter_id');
 
@@ -168,7 +168,7 @@ class ELRScoringService implements ScoringEngineInterface
                         continue;
                     }
 
-                    $targetShots = $shotsByTarget->get($target->id, collect())->sortBy('shot_number');
+                    $targetShots = $shotsByTarget->get($target->id, collect());
                     $targetResult = [];
 
                     foreach ($targetShots as $shot) {
@@ -268,13 +268,7 @@ class ELRScoringService implements ScoringEngineInterface
             ];
         });
 
-        $sorted = $standings
-            ->sortByDesc('total_points')
-            ->sortByDesc('furthest_hit_m')
-            ->sortByDesc('total_points')
-            ->values();
-
-        // Proper sort: points desc, then furthest hit desc as tiebreaker
+        // Points desc, then furthest hit desc, then first-round hits desc.
         $sorted = $standings->sort(function ($a, $b) {
             if ($a['total_points'] !== $b['total_points']) {
                 return $b['total_points'] <=> $a['total_points'];
@@ -511,57 +505,5 @@ class ELRScoringService implements ScoringEngineInterface
                 $shot->save();
             }
         }
-    }
-
-    /**
-     * Return the current progression state for a shooter in an ELR stage.
-     * For ladder stages, indicates which target is currently unlocked.
-     */
-    public function getStageProgress(ElrStage $stage, Shooter $shooter): array
-    {
-        $targets = $stage->targets;
-        $shots = ElrShot::where('shooter_id', $shooter->id)
-            ->whereIn('elr_target_id', $targets->pluck('id'))
-            ->get()
-            ->groupBy('elr_target_id');
-
-        $progress = [];
-        $ladderBlocked = false;
-
-        foreach ($targets as $target) {
-            $targetShots = $shots->get($target->id, collect());
-            $hitAchieved = $targetShots->contains(fn ($s) => $s->isHit());
-            $shotsTaken = $targetShots->count();
-            $maxedOut = $shotsTaken >= $target->max_shots;
-
-            $status = 'pending';
-            if ($hitAchieved) {
-                $status = 'hit';
-            } elseif ($maxedOut) {
-                $status = 'exhausted';
-            } elseif ($shotsTaken > 0) {
-                $status = 'in_progress';
-            }
-
-            $locked = $ladderBlocked && $stage->isLadder();
-
-            $progress[] = [
-                'target_id' => $target->id,
-                'name' => $target->name,
-                'distance_m' => $target->distance_m,
-                'base_points' => (float) $target->base_points,
-                'max_shots' => $target->max_shots,
-                'shots_taken' => $shotsTaken,
-                'hit' => $hitAchieved,
-                'status' => $locked ? 'locked' : $status,
-                'locked' => $locked,
-            ];
-
-            if ($stage->isLadder() && $target->must_hit_to_advance && ! $hitAchieved) {
-                $ladderBlocked = true;
-            }
-        }
-
-        return $progress;
     }
 }

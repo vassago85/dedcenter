@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
+import { isStandaloneApk } from '../lib/platform';
 
 const LAST_MATCH_KEY = 'dc_last_match_id';
 const MODE_KEY = 'dc_pwa_mode';
@@ -110,9 +111,9 @@ const router = createRouter({
     routes,
 });
 
-router.afterEach((to) => {
+router.afterEach((to, from) => {
     const matchId = to.params?.matchId;
-    if (matchId) {
+    if (matchId && matchId !== from.params?.matchId) {
         localStorage.setItem(LAST_MATCH_KEY, matchId);
     }
 });
@@ -122,7 +123,8 @@ router.beforeEach(async (to, from, next) => {
         const userStore = useUserStore();
         await userStore.ensureLoaded();
 
-        const mode = localStorage.getItem(MODE_KEY);
+        // Member mode needs cloud-only endpoints, so the APK always scores.
+        const mode = isStandaloneApk() ? null : localStorage.getItem(MODE_KEY);
 
         // Users who can score default to Scoring Mode (HomeView) unless they
         // have explicitly chosen Member Mode. This means MDs/ROs/Owners land

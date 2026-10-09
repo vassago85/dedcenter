@@ -26,8 +26,7 @@ class SponsorPlacementResolver
         // 0. Full-package shortcut: if this is one of the 3 advertising keys
         //    and the match has a full_package_brand set, resolve immediately.
         if ($matchId && in_array($placementKey, PlacementKey::advertisingPlacements())) {
-            $match = ShootingMatch::find($matchId);
-            if ($match?->full_package_brand_id) {
+            if (ShootingMatch::whereKey($matchId)->value('full_package_brand_id')) {
                 $assignment = SponsorAssignment::forMatch($matchId)
                     ->forPlacement($placementKey)
                     ->with('sponsor')

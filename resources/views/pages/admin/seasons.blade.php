@@ -91,7 +91,7 @@ new #[Layout('components.layouts.app')]
         full explanation. Without this, opening/closing a season and then
         navigating back leaves the row in its pre-change state. --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <div>
         <h1 class="text-2xl font-bold text-white">Seasons</h1>

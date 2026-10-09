@@ -72,11 +72,6 @@ class Sponsor extends Model
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now));
     }
 
-    public function scopeAssignableByMatchDirector($query)
-    {
-        return $query->where('assignable_by_match_director', true);
-    }
-
     // ── Helpers ──
 
     public function isCurrentlyValid(): bool

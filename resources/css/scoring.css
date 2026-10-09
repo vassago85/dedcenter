@@ -2,6 +2,11 @@
 
 @source '../js/scoring-app/**/*.vue';
 
+/* The web page stacks a 3rem shell bar (h-12) above the SPA; the APK has none. */
+body.has-scoring-shell #scoring-app .min-h-screen {
+    min-height: calc(100dvh - 3rem);
+}
+
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 

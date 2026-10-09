@@ -108,7 +108,6 @@ new #[Layout('components.layouts.app')]
                 'dq' => $allShooters->where('status', 'dq')->count(),
             ];
 
-            $squadsCount = $this->match->squads()->count();
             $sideBetBoughtIn = $this->match->side_bet_enabled ? $this->match->sideBetShooters()->count() : 0;
 
             $user = auth()->user();

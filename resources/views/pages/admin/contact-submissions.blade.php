@@ -44,7 +44,7 @@ new #[Layout('components.layouts.app')]
         with the database.
     --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.settings'), 'label' => 'General', 'active' => false],

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Models\ShootingMatch;
 use App\Models\Score;
@@ -83,11 +83,12 @@ new #[Layout('components.layouts.app')]
             $elrStandingsById = collect($elrData['standings'] ?? [])->keyBy('id');
         }
 
-        $usedDivisionIds = $this->match->shooters()->whereNotNull('match_division_id')->distinct()->pluck('match_division_id')->toArray();
+        $matchShooterRows = $this->match->shooters()->get(['shooters.id', 'shooters.match_division_id']);
+        $usedDivisionIds = $matchShooterRows->pluck('match_division_id')->filter()->unique()->values()->all();
         $divisions = $this->match->divisions()->whereIn('id', $usedDivisionIds)->orderBy('sort_order')->get();
 
         $usedCategoryIds = DB::table('match_category_shooter')
-            ->whereIn('shooter_id', $this->match->shooters()->pluck('shooters.id'))
+            ->whereIn('shooter_id', $matchShooterRows->pluck('id'))
             ->distinct()
             ->pluck('match_category_id')
             ->toArray();
@@ -110,10 +111,9 @@ new #[Layout('components.layouts.app')]
         $totalTargets = 0;
 
         if ($isPrs) {
-            $targetSets = $this->match->targetSets()->get();
-            $targetSetIds = $targetSets->pluck('id');
+            $targetSets = $this->match->targetSets()->withCount('gongs')->get();
             $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
-            $totalTargets = \App\Models\Gong::whereIn('target_set_id', $targetSetIds)->count();
+            $totalTargets = (int) $targetSets->sum('gongs_count');
 
             $shooterTimes = \App\Models\PrsStageResult::where('match_id', $this->match->id)
                 ->whereNotNull('official_time_seconds')
@@ -180,18 +180,27 @@ new #[Layout('components.layouts.app')]
         $prsShots = collect();
         $prsTargetSets = collect();
         if ($isPrs) {
-            foreach ($targetSets as $ts) {
-                $ts->gongs_count = \App\Models\Gong::where('target_set_id', $ts->id)->count();
-            }
             $prsTargetSets = $targetSets;
             $prsShots = \App\Models\PrsShotScore::where('match_id', $this->match->id)
                 ->orderBy('shot_number')
-                ->get()
+                ->toBase()
+                ->get(['shooter_id', 'stage_id', 'shot_number', 'result'])
                 ->groupBy('shooter_id');
         }
 
+        $standardTotals = (! $isPrs && ! $usesElrPipeline)
+            ? DB::table('scores')
+                ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
+                ->leftJoin('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
+                ->whereIn('scores.shooter_id', $matchShooterRows->pluck('id'))
+                ->where('scores.is_hit', true)
+                ->groupBy('scores.shooter_id')
+                ->selectRaw('scores.shooter_id, SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier) as total')
+                ->pluck('total', 'scores.shooter_id')
+            : collect();
+
         $shooters = $shooterQuery->get()
-            ->map(function ($shooter) use ($isPrs, $usesElrPipeline, $elrStandingsById, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots) {
+            ->map(function ($shooter) use ($isPrs, $usesElrPipeline, $elrStandingsById, $shooterTimes, $tbHits, $tbTimes, $totalTargets, $prsHitsMap, $prsMissesMap, $prsShots, $standardTotals) {
                 if ($isPrs) {
                     $shooter->hits_count = $prsHitsMap[$shooter->id] ?? 0;
                     $shooter->misses_count = $prsMissesMap[$shooter->id] ?? 0;
@@ -223,11 +232,7 @@ new #[Layout('components.layouts.app')]
                     $shooter->furthest_hit_m = (int) ($row['furthest_hit_m'] ?? 0);
                     $shooter->normalized_score = $row['normalized_score'] ?? null;
                 } else {
-                    $shooter->display_score = (float) $shooter->scores()
-                        ->where('is_hit', true)
-                        ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-                        ->leftJoin('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
-                        ->sum(DB::raw('COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier'));
+                    $shooter->display_score = (float) ($standardTotals[$shooter->id] ?? 0);
                     $shooter->display_time = 0;
                 }
                 return $shooter;
@@ -469,6 +474,14 @@ new #[Layout('components.layouts.app')]
                 ->get();
         }
 
+        // Per-row badge chips, loaded once instead of one query per row.
+        $rowBadgesByUser = match (true) {
+            $usesElrPipeline => collect(),
+            $isPrs || $royalFlushEnabled => $matchBadges,
+            default => \App\Models\UserAchievement::where('match_id', $this->match->id)->with('achievement')->get(),
+        };
+        $rowBadgesByUser = $rowBadgesByUser->sortByDesc('awarded_at')->groupBy('user_id');
+
         // Custom registration field values visible on scoreboard
         $scoreboardFields = $this->match->customFields()
             ->where('show_on_scoreboard', true)
@@ -612,21 +625,19 @@ new #[Layout('components.layouts.app')]
                     'percent' => $percent,
                 ];
             } elseif ($isStandard) {
-                $standardStages = $this->match->targetSets()->with('gongs:id,target_set_id')->get();
-                $totalStages = $standardStages->count();
+                $standardStageIds = $this->match->targetSets()->pluck('id');
+                $totalStages = $standardStageIds->count();
 
                 if ($totalStages > 0 && $activeShooterIds->count() > 0) {
-                    $gongIdByStage = $standardStages->mapWithKeys(fn ($ts) => [$ts->id => $ts->gongs->pluck('id')]);
-                    $stageScoreCounts = [];
-                    foreach ($standardStages as $ts) {
-                        $gongIds = $gongIdByStage[$ts->id];
-                        if ($gongIds->isEmpty()) continue;
-                        $scoredShooters = \App\Models\Score::whereIn('gong_id', $gongIds)
-                            ->whereIn('shooter_id', $activeShooterIds)
-                            ->distinct()
-                            ->count('shooter_id');
-                        $stageScoreCounts[$ts->id] = $scoredShooters;
-                    }
+                    $stageScoreCounts = \App\Models\Score::query()
+                        ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
+                        ->whereIn('gongs.target_set_id', $standardStageIds)
+                        ->whereIn('scores.shooter_id', $activeShooterIds)
+                        ->groupBy('gongs.target_set_id')
+                        ->selectRaw('gongs.target_set_id, COUNT(DISTINCT scores.shooter_id) as scored')
+                        ->pluck('scored', 'gongs.target_set_id')
+                        ->map(fn ($c) => (int) $c)
+                        ->all();
 
                     $stagesUnderway = count(array_filter($stageScoreCounts, fn ($c) => $c > 0));
                     $stagesComplete = count(array_filter($stageScoreCounts, fn ($c) => $c >= $activeShooterIds->count()));
@@ -677,6 +688,7 @@ new #[Layout('components.layouts.app')]
             'targetSetDetails' => $targetSetDetails,
             'prsTargetSets' => $prsTargetSets,
             'matchBadges' => $matchBadges,
+            'rowBadgesByUser' => $rowBadgesByUser,
             'customFieldMap' => $customFieldMap,
             'isTeamEvent' => $isTeamEvent,
             'teamLeaderboard' => $teamLeaderboard,
@@ -690,7 +702,7 @@ new #[Layout('components.layouts.app')]
     }
 }; ?>
 
-<div wire:poll.5s class="scoreboard-page min-h-screen min-w-0 max-w-full overflow-x-hidden bg-app text-primary px-3 py-4 sm:px-6 lg:p-10">
+<div @if(in_array($match->status, [\App\Enums\MatchStatus::Ready, \App\Enums\MatchStatus::Active], true)) wire:poll.5s.visible @else wire:poll.60s.visible @endif class="scoreboard-page min-h-screen min-w-0 max-w-full overflow-x-hidden bg-app text-primary px-3 py-4 sm:px-6 lg:p-10">
     @php
         $scoreboardUser = auth()->user();
         $scoreboardIsMd = $scoreboardUser && $match->organization_id && $scoreboardUser->isOrgMatchDirector($match->organization);
@@ -767,10 +779,7 @@ new #[Layout('components.layouts.app')]
             @endif
             <x-powered-by-block feature="results" :match-id="$match->id" variant="inline" />
             @php
-                $user = auth()->user();
-                $canExport = $user
-                    ? ($user->isAdmin() || ($match->organization_id && $user->isOrgMatchDirector($match->organization)))
-                    : false;
+                $canExport = $scoreboardCanManage;
             @endphp
             @if($match->status === \App\Enums\MatchStatus::Completed && ($match->scoresArePublic() || $canExport))
                 <div class="mt-3 flex flex-wrap gap-2">
@@ -884,7 +893,7 @@ new #[Layout('components.layouts.app')]
          is the primary path for members to link a result to their account
          until we move registrations fully through DeadCenter. --}}
     @if($unclaimedCount > 0 && ($match->status === \App\Enums\MatchStatus::Completed || $match->status === \App\Enums\MatchStatus::Active))
-        <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-accent/30 bg-gradient-to-r from-accent/10 to-accent/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-5 sm:py-4">
+        <div wire:key="claim-banner" class="mb-4 flex flex-col gap-3 rounded-2xl border border-accent/30 bg-gradient-to-r from-accent/10 to-accent/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-5 sm:py-4">
             <div class="flex items-start gap-3">
                 <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/15 ring-1 ring-accent/30 sm:h-10 sm:w-10">
                     <x-icon name="user-plus" class="h-4 w-4 text-accent sm:h-5 sm:w-5" />

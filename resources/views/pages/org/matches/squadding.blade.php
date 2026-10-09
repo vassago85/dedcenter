@@ -108,6 +108,10 @@ new #[Layout('components.layouts.app')]
     public function closeSquadding(): void
     {
         if ($this->match->status === MatchStatus::SquaddingOpen) {
+            if ($this->matchStageCount() === 0) {
+                Flux::toast('Add at least one stage before starting the match — shooters can’t be scored without one.', variant: 'danger');
+                return;
+            }
             $this->match->update(['status' => MatchStatus::Active]);
             Flux::toast('Squadding closed. Match is now active.', variant: 'success');
         }
@@ -195,15 +199,7 @@ new #[Layout('components.layouts.app')]
         $regsToAssign = $confirmedRegs->filter(fn ($r) => !in_array($r->user_id, $existingShooterUserIds));
 
         foreach ($regsToAssign as $reg) {
-            $squad = $match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
-            $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-            Shooter::create([
-                'squad_id' => $squad->id,
-                'name' => $reg->user->name,
-                'user_id' => $reg->user_id,
-                'sort_order' => $maxSort + 1,
-                'alrha_class' => $reg->alrha_class?->value,
-            ]);
+            $reg->ensureShooter();
         }
 
         $allShooters = $match->shooters()->get();
@@ -475,28 +471,16 @@ new #[Layout('components.layouts.app')]
 
     public function markAllNoShow(): void
     {
-        $shooters = $this->match->shooters()->where('status', 'active')->get();
-        $hasScores = $shooters->filter(fn ($s) => $s->scores()->exists() || $s->prsStageResults()->exists());
-        $toMark = $shooters->diff($hasScores);
-        $toMark->each(fn ($s) => $s->update(['status' => 'no_show']));
-        Flux::toast("{$toMark->count()} shooter(s) without scores marked as no-show.", variant: 'warning');
+        $ids = $this->match->shooters()
+            ->where('shooters.status', 'active')
+            ->whereDoesntHave('scores')
+            ->whereDoesntHave('prsStageResults')
+            ->pluck('shooters.id');
+        $marked = $ids->isEmpty() ? 0 : Shooter::whereIn('id', $ids)->update(['status' => 'no_show']);
+        Flux::toast("{$marked} shooter(s) without scores marked as no-show.", variant: 'warning');
     }
 
     // ── Walk-in with user search ──
-
-    public function searchUsers(): array
-    {
-        if (strlen($this->walkinSearch) < 2) return [];
-
-        $existingUserIds = $this->match->shooters()->whereNotNull('user_id')->pluck('user_id')->toArray();
-
-        return User::where('name', 'like', "%{$this->walkinSearch}%")
-            ->orWhere('email', 'like', "%{$this->walkinSearch}%")
-            ->whereNotIn('id', $existingUserIds)
-            ->limit(8)
-            ->get(['id', 'name', 'email'])
-            ->toArray();
-    }
 
     public function selectWalkinUser(int $userId): void
     {
@@ -707,56 +691,6 @@ new #[Layout('components.layouts.app')]
         }
 
         $shooter->update(['team_id' => $tid]);
-    }
-
-    public function setShooterAlrhaClass(int $shooterId, ?string $class): void
-    {
-        $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
-        if (! $shooter) {
-            return;
-        }
-
-        $value = in_array($class, ['hunters', 'varmint'], true) ? $class : null;
-        $shooter->update(['alrha_class' => $value]);
-        Flux::toast("{$shooter->name} set to " . ($value ? ucfirst($value) : 'no class') . '.', variant: 'success');
-    }
-
-    /**
-     * Bulk-fill missing ALRHA classes from confirmed registrations. Useful
-     * on a dual-class ALRHA match after everyone has picked their class
-     * at registration but before the MD has squadded them.
-     */
-    public function backfillAlrhaClassesFromRegistrations(): void
-    {
-        if (! $this->match->isAlrha()) {
-            return;
-        }
-
-        $missing = $this->match->shooters()
-            ->whereNull('shooters.alrha_class')
-            ->whereNotNull('shooters.user_id')
-            ->get();
-
-        $regsByUser = $this->match->registrations()
-            ->whereNotNull('alrha_class')
-            ->get()
-            ->keyBy('user_id');
-
-        $updated = 0;
-        foreach ($missing as $shooter) {
-            $reg = $regsByUser->get($shooter->user_id);
-            if ($reg && $reg->alrha_class) {
-                $shooter->update(['alrha_class' => $reg->alrha_class->value]);
-                $updated++;
-            }
-        }
-
-        Flux::toast(
-            $updated > 0
-                ? "Backfilled ALRHA class for {$updated} " . \Illuminate\Support\Str::plural('shooter', $updated) . '.'
-                : 'Nothing to backfill — every squadded shooter already has a class.',
-            variant: $updated > 0 ? 'success' : 'warning',
-        );
     }
 
     public function with(): array

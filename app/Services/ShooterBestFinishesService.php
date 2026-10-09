@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 /*
  * NOTE on scoring-type coverage:
- * Standard matches use MatchStandingsService directly (cheap aggregate query).
+ * Standard and ALRHA matches use MatchStandingsService::standingsFor().
  * PRS / ELR matches use MatchReportService::generateReport() so we get the
  * exact same rank that the per-shooter PDF and the in-app match report
  * surface — no tie-breaker logic duplicated in two places. The cost of
@@ -135,7 +135,8 @@ class ShooterBestFinishesService
      * Return [rank, fieldSize] for a given shooter within a match, or null if
      * the shooter wasn't ranked (DQ / no-show / no scoring data yet).
      *
-     * Standard matches go through MatchStandingsService directly. PRS / ELR
+     * Standard and ALRHA matches go through MatchStandingsService::standingsFor()
+     * so ALRHA ranks come from its own scorer (CBC excluded). PRS / ELR
      * matches defer to MatchReportService so the dashboard "best finish"
      * matches the rank shown on the per-shooter report (same tie-breaker
      * rules, same field-size definition).
@@ -148,7 +149,7 @@ class ShooterBestFinishesService
             return $this->prsOrElrRank($match, $shooter);
         }
 
-        $standings = $service->standardStandings($match);
+        $standings = $service->standingsFor($match);
         $row = $standings->firstWhere('shooter_id', $shooter->id);
 
         if ($row === null || $row->rank === null) {

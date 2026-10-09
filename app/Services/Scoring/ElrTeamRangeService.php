@@ -55,10 +55,11 @@ class ElrTeamRangeService
         }
 
         $ranges = $stage->divisionRanges()->get();
+        $divisions = MatchDivision::whereIn('id', $ranges->pluck('match_division_id'))->get()->keyBy('id');
 
-        DB::transaction(function () use ($ranges, $targets, $stageTargetIds) {
+        DB::transaction(function () use ($ranges, $divisions, $targets, $stageTargetIds) {
             foreach ($ranges as $range) {
-                $division = MatchDivision::find($range->match_division_id);
+                $division = $divisions->get($range->match_division_id);
                 if (! $division) {
                     continue;
                 }
@@ -78,19 +79,5 @@ class ElrTeamRangeService
                 }
             }
         });
-    }
-
-    /**
-     * Current ranges for a stage keyed by division id, for the editor UI.
-     *
-     * @return array<int, array{gong_start:int, gong_end:int}>
-     */
-    public function rangesForStage(ElrStage $stage): array
-    {
-        return $stage->divisionRanges()
-            ->get()
-            ->keyBy('match_division_id')
-            ->map(fn ($r) => ['gong_start' => $r->gong_start, 'gong_end' => $r->gong_end])
-            ->all();
     }
 }

@@ -41,16 +41,6 @@ class Achievement extends Model
         return $this->category === 'repeatable';
     }
 
-    public function isLifetime(): bool
-    {
-        return $this->category === 'lifetime';
-    }
-
-    public function isMatchSpecial(): bool
-    {
-        return $this->category === 'match_special';
-    }
-
     public function isPrs(): bool
     {
         return $this->competition_type === 'prs';
@@ -59,11 +49,6 @@ class Achievement extends Model
     public function isRoyalFlush(): bool
     {
         return $this->competition_type === 'royal_flush';
-    }
-
-    public function scopeForCompetition($query, string $type)
-    {
-        return $query->where('competition_type', $type);
     }
 
     public static function bySlug(string $slug): ?self

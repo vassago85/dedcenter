@@ -12,18 +12,6 @@ export const useUserStore = defineStore('user', {
 
     getters: {
         canScore: (state) => state.user?.can_score ?? false,
-        // Role-aware home URL from `/api/user`. Falls back to `/dashboard`
-        // for offline / unauthenticated / older Laravel builds that don't
-        // yet return `home_url` on the user payload — this keeps the "Exit
-        // scoring app" pill useful even before the server is redeployed.
-        homeUrl: (state) => state.user?.home_url ?? '/dashboard',
-        mode: () => localStorage.getItem(MODE_KEY),
-        isScoreMode() {
-            return this.canScore && this.mode === 'score';
-        },
-        isMemberMode() {
-            return !this.canScore || this.mode === 'member';
-        },
     },
 
     actions: {
@@ -62,10 +50,6 @@ export const useUserStore = defineStore('user', {
 
         setMode(mode) {
             localStorage.setItem(MODE_KEY, mode);
-        },
-
-        clearMode() {
-            localStorage.removeItem(MODE_KEY);
         },
     },
 });

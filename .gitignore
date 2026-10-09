@@ -18,6 +18,7 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/e2e
 /vendor
 # Auto-published package assets (Livewire, Filament, etc). Regenerated
 # by `php artisan vendor:publish` on deploy — don't track the copies.

@@ -965,12 +965,6 @@ new #[Layout('components.layouts.app')]
         }
     }
 
-    public function updateGongTargetSizeMm(int $gongId, string $value): void
-    {
-        $gong = Gong::findOrFail($gongId);
-        $gong->update(['target_size_mm' => $value !== '' ? max(0.01, (float) $value) : null]);
-    }
-
     // ── ELR Stages ──
 
     public function addElrStage(): void

@@ -49,17 +49,8 @@ use Illuminate\Support\Collection;
 class RoyalFlushShotStatusService
 {
     /**
-     * @return array<string, mixed> shooter-centric status payload (see class docblock for shape)
-     */
-    public function forShooter(ShootingMatch $match, Shooter $shooter): array
-    {
-        return $this->forShooters($match, collect([$shooter]))
-            ->first() ?? $this->emptyStatus($shooter, false);
-    }
-
-    /**
-     * Bulk variant — one round-trip for a whole squad / the shooters touched
-     * by a score-submission batch. Always returns one entry per passed-in
+     * Status for a whole squad / the shooters touched by a score-submission
+     * batch, in one round-trip. Always returns one entry per passed-in
      * shooter, even when RF is disabled on the match, so callers can assume
      * a stable shape.
      *

@@ -29,11 +29,9 @@ new #[Layout('components.layouts.app')]
                 ->distinct('squad_id')
                 ->count();
 
-            $podiumBadges = UserAchievement::where('user_id', $userId)
+            $podiumCount = UserAchievement::where('user_id', $userId)
                 ->whereHas('achievement', fn ($q) => $q->whereIn('slug', ['podium-gold', 'podium-silver', 'podium-bronze']))
-                ->get();
-
-            $podiumCount = $podiumBadges->count();
+                ->count();
 
             $bestFinishes = (new ShooterBestFinishesService)->forUser($user);
 
@@ -58,6 +56,7 @@ new #[Layout('components.layouts.app')]
 
             $liveMatches = ShootingMatch::with('organization')
                 ->activeLiveToday()
+                ->withCount('shooters')
                 ->orderBy('date', 'desc')
                 ->get();
 
@@ -84,7 +83,8 @@ new #[Layout('components.layouts.app')]
                 ->withCount('shooters')
                 ->latest('date')
                 ->take(4)
-                ->get();
+                ->get()
+                ->each(fn ($m) => $m->setAttribute('has_my_report', true));
 
             $myOrgs = $user->organizations()->withPivot('is_owner', 'is_match_director', 'is_range_officer', 'is_shooter')->get();
             $primaryOrg = $myOrgs->first();

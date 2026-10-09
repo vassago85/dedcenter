@@ -243,7 +243,7 @@ const props = defineProps({
     existingPrsTime: { type: [Number, null], default: null },
 });
 
-const emit = defineEmits(['close', 'corrected', 'queued', 'reopen-success']);
+const emit = defineEmits(['close', 'corrected']);
 
 // Mutable state
 const gongState = ref({});           // gong_id => true|false|null
@@ -379,7 +379,6 @@ async function save() {
         const stageId = props.mode === 'prs' ? props.stage.id : props.targetSet.id;
         await queueShooterCorrection(props.matchId, props.shooter.id, stageId, payload);
         queuedMessage.value = 'Saved locally. Will sync when you\'re back online.';
-        emit('queued', { matchId: props.matchId, shooterId: props.shooter.id, stageId, payload });
         saving.value = false;
         setTimeout(() => emit('close'), 700);
         return;
@@ -416,7 +415,6 @@ async function reopenAndRetry() {
     errorMessage.value = '';
     try {
         await axios.post(`/api/matches/${props.matchId}/reopen`);
-        emit('reopen-success');
         // Re-issue the correction and silently re-complete the match.
         const payload = buildPayload();
         const { data } = await axios.post(

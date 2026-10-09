@@ -48,14 +48,4 @@ class AlrhaScoringGroup extends Model
     {
         return $this->hasMany(AlrhaScoringGroupMember::class)->orderBy('sort_order');
     }
-
-    public function isHunterPair(): bool
-    {
-        return $this->type === self::TYPE_HUNTER_PAIR;
-    }
-
-    public function isVarmintTriple(): bool
-    {
-        return $this->type === self::TYPE_VARMINT_TRIPLE;
-    }
 }

@@ -145,21 +145,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Synthetic / non-human account: either an @import.invalid placeholder
-     * awaiting shooter-claim OR a seed/demo account under *.deadcenter.local.
-     * Used by admin surfaces (e.g. /admin/members) to hide these from the
-     * default view so real humans don't get lost in the crowd.
+     * Synthetic / non-human accounts: @import.invalid placeholders awaiting
+     * shooter-claim and seed/demo accounts under *.deadcenter.local.
      */
-    public function isPlaceholderAccount(): bool
-    {
-        if (! is_string($this->email)) {
-            return false;
-        }
-        $email = strtolower($this->email);
-        return str_ends_with($email, self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX)
-            || str_ends_with($email, '.deadcenter.local');
-    }
-
     public function scopeExcludingPlaceholders($query)
     {
         return $query
@@ -180,36 +168,6 @@ class User extends Authenticatable
         return $this->onboarded_at !== null;
     }
 
-    /**
-     * All active role keys for this user in the given organization.
-     */
-    public function orgRoles(Organization $organization): array
-    {
-        $pivot = $this->organizations()
-            ->where('organization_id', $organization->id)
-            ->first()?->pivot;
-
-        if (! $pivot) {
-            return [];
-        }
-
-        $roles = [];
-        if ($pivot->is_owner) {
-            $roles[] = 'owner';
-        }
-        if ($pivot->is_match_director) {
-            $roles[] = 'match_director';
-        }
-        if ($pivot->is_range_officer) {
-            $roles[] = 'range_officer';
-        }
-        if ($pivot->is_shooter) {
-            $roles[] = 'shooter';
-        }
-
-        return $roles;
-    }
-
     public function hasOrgRole(Organization $organization, string $role): bool
     {
         $key = "is_{$role}";
@@ -225,19 +183,31 @@ class User extends Authenticatable
         return $this->isOwner() || $this->hasOrgRole($organization, 'owner');
     }
 
+    /**
+     * @param  list<string>  $roles  pivot flag names without the `is_` prefix
+     */
+    public function hasAnyOrgRole(Organization $organization, array $roles): bool
+    {
+        return $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->where(function ($q) use ($roles) {
+                foreach ($roles as $role) {
+                    $q->orWhere("organization_admins.is_{$role}", true);
+                }
+            })
+            ->exists();
+    }
+
     public function isOrgMatchDirector(Organization $organization): bool
     {
         return $this->isOwner() || $this->isMatchDirector()
-            || $this->hasOrgRole($organization, 'owner')
-            || $this->hasOrgRole($organization, 'match_director');
+            || $this->hasAnyOrgRole($organization, ['owner', 'match_director']);
     }
 
     public function isOrgRangeOfficer(Organization $organization): bool
     {
         return $this->isOwner() || $this->isMatchDirector()
-            || $this->hasOrgRole($organization, 'owner')
-            || $this->hasOrgRole($organization, 'match_director')
-            || $this->hasOrgRole($organization, 'range_officer');
+            || $this->hasAnyOrgRole($organization, ['owner', 'match_director', 'range_officer']);
     }
 
     /**
@@ -252,14 +222,23 @@ class User extends Authenticatable
 
     public function canScore(): bool
     {
-        return $this->isOwner() || $this->isMatchDirector()
-            || $this->organizations()
-                ->where(function ($q) {
-                    $q->where('organization_admins.is_owner', true)
-                        ->orWhere('organization_admins.is_match_director', true)
-                        ->orWhere('organization_admins.is_range_officer', true);
-                })
-                ->exists();
+        if ($this->isOwner() || $this->isMatchDirector()) {
+            return true;
+        }
+
+        if ($this->relationLoaded('organizations')) {
+            return $this->organizations->contains(
+                fn ($o) => $o->pivot->is_owner || $o->pivot->is_match_director || $o->pivot->is_range_officer
+            );
+        }
+
+        return $this->organizations()
+            ->where(function ($q) {
+                $q->where('organization_admins.is_owner', true)
+                    ->orWhere('organization_admins.is_match_director', true)
+                    ->orWhere('organization_admins.is_range_officer', true);
+            })
+            ->exists();
     }
 
     public function wantsNotification(string $type): bool

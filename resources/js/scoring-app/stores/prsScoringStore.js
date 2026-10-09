@@ -21,10 +21,6 @@ export const usePrsScoringStore = defineStore('prsScoring', {
         shots: [],
         currentShotIndex: 0,
         rawTimeSeconds: null,
-        isTimerRunning: false,
-        timerStartedAt: null,
-        timerElapsed: 0,
-        timerMode: 'manual',
         rawDigits: '',
         stageCompletions: new Map(),
         syncing: false,
@@ -37,25 +33,7 @@ export const usePrsScoringStore = defineStore('prsScoring', {
         hits: (state) => state.shots.filter(s => s.result === 'hit').length,
         misses: (state) => state.shots.filter(s => s.result === 'miss').length,
         notTaken: (state) => state.shots.filter(s => s.result === 'not_taken').length,
-        currentShotNumber: (state) => state.currentShotIndex + 1,
-        allShotsScored: (state) => state.shots.every(s => s.result !== 'not_taken'),
-        isComplete: (state) => (shooterId, stageId) => {
-            return state.stageCompletions.has(`${shooterId}-${stageId}`);
-        },
-        shooterStatus: (state) => (shooterId, stageId) => {
-            const key = `${shooterId}-${stageId}`;
-            if (state.stageCompletions.has(key)) return 'COMPLETED';
-            return 'NOT_STARTED';
-        },
-        completionData: (state) => (shooterId, stageId) => {
-            return state.stageCompletions.get(`${shooterId}-${stageId}`) ?? null;
-        },
-        effectiveTime: (state) => {
-            if (state.timerMode === 'manual') {
-                return state.rawTimeSeconds ?? 0;
-            }
-            return state.rawTimeSeconds !== null ? state.rawTimeSeconds : state.timerElapsed;
-        },
+        effectiveTime: (state) => state.rawTimeSeconds ?? 0,
     },
 
     actions: {
@@ -68,10 +46,6 @@ export const usePrsScoringStore = defineStore('prsScoring', {
             this.shots = [];
             this.currentShotIndex = 0;
             this.rawTimeSeconds = null;
-            this.isTimerRunning = false;
-            this.timerStartedAt = null;
-            this.timerElapsed = 0;
-            this.timerMode = 'manual';
             this.rawDigits = '';
             this.stageCompletions = new Map();
             this.authExpired = false;
@@ -115,9 +89,6 @@ export const usePrsScoringStore = defineStore('prsScoring', {
             }
             this.currentShotIndex = 0;
             this.rawTimeSeconds = null;
-            this.isTimerRunning = false;
-            this.timerStartedAt = null;
-            this.timerElapsed = 0;
             this.rawDigits = '';
         },
 
@@ -140,19 +111,6 @@ export const usePrsScoringStore = defineStore('prsScoring', {
             if (index >= 0 && index < this.shots.length) {
                 this.currentShotIndex = index;
             }
-        },
-
-        async loadShooterState(shooterId, stageId) {
-            const key = `${shooterId}-${stageId}`;
-            const completion = this.stageCompletions.get(key);
-            if (completion) {
-                return completion;
-            }
-            const localShots = await db.prsShotScores
-                .where('[shooterId+stageId]')
-                .equals([shooterId, stageId])
-                .toArray();
-            return localShots.length > 0 ? localShots : null;
         },
 
         async completeStage(matchId, stageId, shooterId, squadId, stage) {
@@ -188,33 +146,34 @@ export const usePrsScoringStore = defineStore('prsScoring', {
 
             this.stageCompletions.set(`${shooterId}-${stageId}`, completion);
 
-            await db.prsShotScores.where('[shooterId+stageId]').equals([shooterId, stageId]).delete();
-            for (const shot of this.shots) {
-                await db.prsShotScores.add({
+            const recordedAt = new Date().toISOString();
+            await db.transaction('rw', db.prsShotScores, db.prsStageResults, async () => {
+                await db.prsShotScores.where('[shooterId+stageId]').equals([shooterId, stageId]).delete();
+                await db.prsShotScores.bulkAdd(this.shots.map(shot => ({
                     matchId,
                     stageId,
                     shooterId,
                     shotNumber: shot.shot_number,
                     result: shot.result,
                     deviceId: this.deviceId,
-                    recordedAt: new Date().toISOString(),
+                    recordedAt,
+                    synced: false,
+                })));
+
+                await db.prsStageResults.where('[shooterId+stageId]').equals([shooterId, stageId]).delete();
+                await db.prsStageResults.add({
+                    matchId,
+                    stageId,
+                    shooterId,
+                    squadId,
+                    hits: completion.hits,
+                    misses: completion.misses,
+                    notTaken: completion.notTaken,
+                    rawTime: payload.raw_time_seconds,
+                    officialTime: payload.raw_time_seconds,
+                    completedAt: recordedAt,
                     synced: false,
                 });
-            }
-
-            await db.prsStageResults.where('[shooterId+stageId]').equals([shooterId, stageId]).delete();
-            await db.prsStageResults.add({
-                matchId,
-                stageId,
-                shooterId,
-                squadId,
-                hits: this.hits,
-                misses: this.misses,
-                notTaken: this.notTaken,
-                rawTime: payload.raw_time_seconds,
-                officialTime: payload.raw_time_seconds,
-                completedAt: new Date().toISOString(),
-                synced: false,
             });
 
             await this.updatePendingCount();
@@ -329,14 +288,10 @@ export const usePrsScoringStore = defineStore('prsScoring', {
         },
 
         async updatePendingCount() {
-            const pendingShots = await db.prsShotScores
-                .where('matchId').equals(this.matchId)
-                .filter(s => !s.synced)
-                .count();
-            const pendingResults = await db.prsStageResults
-                .where('matchId').equals(this.matchId)
-                .filter(r => !r.synced)
-                .count();
+            const [pendingShots, pendingResults] = await Promise.all([
+                db.prsShotScores.where('matchId').equals(this.matchId).filter(s => !s.synced).count(),
+                db.prsStageResults.where('matchId').equals(this.matchId).filter(r => !r.synced).count(),
+            ]);
             this.pendingCount = pendingShots + pendingResults;
         },
 
@@ -357,9 +312,6 @@ export const usePrsScoringStore = defineStore('prsScoring', {
         },
 
         resetTimer() {
-            this.isTimerRunning = false;
-            this.timerStartedAt = null;
-            this.timerElapsed = 0;
             this.rawTimeSeconds = null;
             this.rawDigits = '';
         },

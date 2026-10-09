@@ -356,7 +356,7 @@ new #[Layout('components.layouts.app')]
         the user navigates back. Forcing $refresh on livewire:navigated
         re-runs with() so the list always matches the database. --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <div>
         <flux:heading size="xl">Members</flux:heading>

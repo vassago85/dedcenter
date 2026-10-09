@@ -3,6 +3,7 @@
 use App\Enums\PrsShotResult;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DisqualificationController;
+use App\Http\Controllers\Api\ElrRankingController;
 use App\Http\Controllers\Api\ElrScoreController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MemberMatchController;
@@ -18,9 +19,9 @@ use App\Http\Middleware\EnforceDeviceLock;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
 use App\Models\Score;
+use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
-use App\Models\UserAchievement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -28,16 +29,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
 Route::get('matches/{match}/scoreboard', [ScoreboardController::class, 'show']);
-Route::get('matches/{match}/elr-rankings', [\App\Http\Controllers\Api\ElrRankingController::class, 'show']);
-
-// matches/{match}/badges moved inside auth:sanctum below (used to be
-// public and grouped by user_id, which let anyone enumerate user IDs
-// against arbitrary matches). No public consumer references it — the
-// public scoreboard renders badges server-side.
-
-// prs-backfill moved inside auth:sanctum + MD gate + POST — used to be a
-// public GET, which meant anyone on the internet could mutate scoring data
-// by hitting the URL. See docblock on the handler below.
+Route::get('matches/{match}/elr-rankings', [ElrRankingController::class, 'show']);
 
 Route::get('seasons', [SeasonController::class, 'index']);
 Route::get('seasons/{season}/standings', [SeasonController::class, 'standings']);
@@ -45,66 +37,12 @@ Route::get('seasons/{season}/standings', [SeasonController::class, 'standings'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('user', [AuthController::class, 'user']);
     Route::post('logout', [AuthController::class, 'logout']);
-    Route::post('auth/verify-password', [AuthController::class, 'verifyPassword']);
+    Route::post('auth/verify-password', [AuthController::class, 'verifyPassword'])->middleware('throttle:10,1');
 
     Route::get('matches', [MatchController::class, 'index']);
     Route::get('matches/{match}', [MatchController::class, 'show']);
 
     Route::get('member/matches', [MemberMatchController::class, 'index']);
-
-    Route::get('member/achievements', function (Request $request) {
-        $badges = UserAchievement::where('user_id', $request->user()->id)
-            ->with(['achievement:id,slug,label,description,category,scope,is_repeatable', 'match:id,name,date'])
-            ->orderByDesc('awarded_at')
-            ->get()
-            ->map(fn ($ua) => [
-                'id' => $ua->id,
-                'slug' => $ua->achievement->slug,
-                'label' => $ua->achievement->label,
-                'description' => $ua->achievement->description,
-                'category' => $ua->achievement->category,
-                'match_name' => $ua->match?->name,
-                'match_date' => $ua->match?->date?->toDateString(),
-                'awarded_at' => $ua->awarded_at->toIso8601String(),
-                'metadata' => $ua->metadata,
-            ]);
-
-        $grouped = [
-            'repeatable' => $badges->where('category', 'repeatable')->values(),
-            'lifetime' => $badges->where('category', 'lifetime')->values(),
-            'match_special' => $badges->where('category', 'match_special')->values(),
-        ];
-
-        return response()->json([
-            'achievements' => $grouped,
-            'total_count' => $badges->count(),
-        ]);
-    });
-
-    // Badges for a match, keyed by SHOOTER id (not user id). Previously this
-    // was public and keyed by user_id, which let anyone enumerate user IDs
-    // against arbitrary matches. The scoreboard already renders badges
-    // server-side, so this endpoint just gives the native app a compact
-    // fetch when the SPA needs them without hitting the full scoreboard.
-    Route::get('matches/{match}/badges', function (ShootingMatch $match) {
-        $userToShooter = \App\Models\Shooter::query()
-            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
-            ->whereNotNull('user_id')
-            ->pluck('id', 'user_id');
-
-        $badges = UserAchievement::where('match_id', $match->id)
-            ->whereIn('user_id', $userToShooter->keys())
-            ->with('achievement:id,slug,label,description,category')
-            ->get()
-            ->groupBy(fn ($ua) => (int) $userToShooter[$ua->user_id])
-            ->map(fn ($group) => $group->map(fn ($ua) => [
-                'slug' => $ua->achievement->slug,
-                'label' => $ua->achievement->label,
-                'category' => $ua->achievement->category,
-            ])->values());
-
-        return response()->json(['badges' => $badges]);
-    });
 
     // ── Scoring surface ──────────────────────────────────────────────
     // Every route here is driven exclusively by the scoring app. Enforce the
@@ -116,21 +54,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('ability:scoring')->group(function () {
         Route::post('matches/{match}/scores', [ScoreController::class, 'store']);
         Route::patch('matches/{match}/shooters/{shooter}/status', [ScoreController::class, 'updateShooterStatus']);
-        Route::get('matches/{match}/shooters/{shooter}/royal-flush-status', [ScoreController::class, 'royalFlushStatus']);
         Route::post('matches/{match}/elr-shots', [ElrScoreController::class, 'store']);
-        Route::get('matches/{match}/elr-progress', [ElrScoreController::class, 'progress']);
-        Route::get('matches/{match}/elr-firing-order', [ElrScoreController::class, 'firingOrder']);
         Route::post('matches/{match}/elr-team-stage', [ElrScoreController::class, 'teamStage']);
 
         Route::post('matches/{match}/stages/{stage}/score', [PrsScoreController::class, 'store'])->middleware(EnforceDeviceLock::class);
         Route::get('matches/{match}/stages/{stage}/scores', [PrsScoreController::class, 'show']);
 
-        // Score management (MD only)
-        Route::post('matches/{match}/scores/reassign', [ScoreManagementController::class, 'reassign']);
-        Route::post('matches/{match}/scores/reshoot', [ScoreManagementController::class, 'reshoot']);
-        Route::get('matches/{match}/audit-log', [ScoreManagementController::class, 'auditLog']);
-        Route::post('matches/{match}/scores/publish', [ScoreManagementController::class, 'togglePublish']);
-        Route::post('matches/{match}/scores/move-stage', [ScoreManagementController::class, 'moveStage']);
+        // PRS corrections — same paths and payloads as the Android hub.
+        Route::post('matches/{match}/stages/{stage}/reassign', [ScoreManagementController::class, 'reassignStage']);
+        Route::post('matches/{match}/stages/{stage}/move', [ScoreManagementController::class, 'moveStage']);
+        Route::get('matches/{match}/correction-logs', [ScoreManagementController::class, 'correctionLogs']);
         Route::post('matches/{match}/correction-logs', [ScoreManagementController::class, 'storeCorrectionLogs']);
         Route::post('matches/{match}/complete', [ScoreManagementController::class, 'completeMatch']);
         Route::post('matches/{match}/reopen', [ScoreManagementController::class, 'reopenMatch']);
@@ -175,14 +108,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
         $shots = PrsShotScore::where('match_id', $match->id)->get();
         $grouped = $shots->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
+        $existing = PrsStageResult::whereIn('stage_id', $shots->pluck('stage_id')->unique())
+            ->get(['shooter_id', 'stage_id'])
+            ->mapWithKeys(fn ($r) => ["{$r->shooter_id}-{$r->stage_id}" => true]);
         $created = 0;
 
         foreach ($grouped as $key => $stageShots) {
-            [$shooterId, $stageId] = explode('-', $key);
-            $existing = PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stageId)->first();
-            if ($existing) {
+            if ($existing->has($key)) {
                 continue;
             }
+            [$shooterId, $stageId] = explode('-', $key);
 
             $hits = $stageShots->where('result', PrsShotResult::Hit)->count();
             $misses = $stageShots->where('result', PrsShotResult::Miss)->count();
@@ -208,8 +143,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         $stageResults = PrsStageResult::where('match_id', $match->id)->get();
         $shotScores = PrsShotScore::where('match_id', $match->id)->count();
-        $stages = $match->targetSets()->get(['id', 'label', 'is_timed_stage', 'total_shots']);
-        $gongCounts = $stages->mapWithKeys(fn ($s) => [$s->id => $s->gongs()->count()]);
+        $stages = $match->targetSets()->select(['id', 'label', 'is_timed_stage', 'total_shots'])->withCount('gongs')->get();
+        $matchShooterIds = Shooter::whereIn('squad_id', $match->squads()->select('id'))->select('id');
 
         return response()->json([
             'match_id' => $match->id,
@@ -220,7 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 'label' => $s->label,
                 'is_timed' => $s->is_timed_stage,
                 'total_shots' => $s->total_shots,
-                'gong_count' => $gongCounts[$s->id] ?? 0,
+                'gong_count' => $s->gongs_count,
             ]),
             'prs_stage_results' => $stageResults->map(fn ($r) => [
                 'shooter_id' => $r->shooter_id,
@@ -231,8 +166,8 @@ Route::middleware('auth:sanctum')->group(function () {
                 'updated_at' => $r->updated_at?->toIso8601String(),
             ]),
             'total_prs_shot_scores' => $shotScores,
-            'standard_scores_count' => Score::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
-            'stage_times_count' => StageTime::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)))->count(),
+            'standard_scores_count' => Score::whereIn('shooter_id', $matchShooterIds)->count(),
+            'stage_times_count' => StageTime::whereIn('shooter_id', $matchShooterIds)->count(),
         ]);
     });
 
@@ -257,7 +192,7 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json(['success' => true]);
     });
     Route::post('notifications/read-all', function (Request $request) {
-        $request->user()->unreadNotifications->markAsRead();
+        $request->user()->unreadNotifications()->update(['read_at' => now()]);
 
         return response()->json(['success' => true]);
     });

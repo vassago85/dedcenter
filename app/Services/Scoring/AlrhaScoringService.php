@@ -33,7 +33,7 @@ use App\Models\ShootingMatch;
  *   3. Furthest hit metres, desc.
  *   4. Alphabetical name (stable, so exports are deterministic).
  */
-class AlrhaScoringService implements ScoringEngineInterface
+class AlrhaScoringService
 {
     public function __construct(private ELRScoringService $elr) {}
 
@@ -45,9 +45,7 @@ class AlrhaScoringService implements ScoringEngineInterface
         // Legacy single-class fall-through: rows will have alrha_class = null
         // but the match still has one. Treat those rows as belonging to
         // the match-level class so the prize tables render sensibly.
-        $legacyClass = count($classes) === 1 && ! $match->isDualClassAlrha()
-            ? $classes[0]
-            : null;
+        $legacyClass = count($classes) === 1 ? $classes[0] : null;
 
         // CBC target ids per class, based on stage tags (dual) or class
         // CBC-distance heuristic (legacy single-class matches without

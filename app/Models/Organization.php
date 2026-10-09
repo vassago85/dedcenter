@@ -114,11 +114,6 @@ class Organization extends Model
         return $query->where('type', $type);
     }
 
-    public function scopeTopLevel($query)
-    {
-        return $query->whereNull('parent_id');
-    }
-
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
@@ -180,14 +175,6 @@ class Organization extends Model
     public function hasPortalAdRights(): bool
     {
         return (bool) $this->portal_ad_rights;
-    }
-
-    /**
-     * @deprecated Use {@see canAccessPortal()}. Kept for call sites that mean “portal is live”.
-     */
-    public function hasPortal(): bool
-    {
-        return $this->canAccessPortal();
     }
 
     /**

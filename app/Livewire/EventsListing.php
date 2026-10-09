@@ -110,14 +110,20 @@ class EventsListing extends Component
         $matches = $query->paginate(12);
         $organizations = Organization::where('status', 'active')->orderBy('name')->get(['id', 'name']);
 
-        $baseCounts = fn () => $applyFilters(ShootingMatch::where('status', '!=', MatchStatus::Draft));
-        $upcomingCount = $baseCounts()->whereIn('status', [
+        $statusCounts = $applyFilters(ShootingMatch::where('status', '!=', MatchStatus::Draft))
+            ->groupBy('status')
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->toBase()
+            ->pluck('aggregate', 'status');
+        $countFor = fn (MatchStatus ...$statuses) => (int) collect($statuses)->sum(fn ($s) => $statusCounts[$s->value] ?? 0);
+
+        $upcomingCount = $countFor(
             MatchStatus::PreRegistration, MatchStatus::RegistrationOpen,
             MatchStatus::RegistrationClosed, MatchStatus::SquaddingOpen,
             MatchStatus::SquaddingClosed, MatchStatus::Ready,
-        ])->count();
-        $liveCount = $baseCounts()->where('status', MatchStatus::Active)->count();
-        $completedCount = $baseCounts()->where('status', MatchStatus::Completed)->count();
+        );
+        $liveCount = $countFor(MatchStatus::Active);
+        $completedCount = $countFor(MatchStatus::Completed);
         // My Events count MUST share the same filter scope as the list below
         // it — otherwise a Province or Organisation filter renders "My Events
         // 7" over a 2-card list and the badge lies about the tab's contents.

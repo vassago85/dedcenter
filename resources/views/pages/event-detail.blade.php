@@ -31,11 +31,6 @@ new #[Layout('components.layouts.app')]
         $this->activeTab = $tab;
     }
 
-    public function setDayFilter(int $day): void
-    {
-        $this->dayFilter = $day;
-    }
-
     public function filterDivision(?int $id): void
     {
         $this->activeDivision = $id;
@@ -427,7 +422,7 @@ new #[Layout('components.layouts.app')]
     @endif
 
     {{-- ══════════ DOWNLOAD RESULTS (completed) ══════════ --}}
-    @if($isCompleted)
+    @if($isCompleted && auth()->user()?->can('export', $match))
         <div class="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-5 py-3">
             <span class="text-sm font-medium text-secondary">Download Results:</span>
             <a href="{{ route('scoreboard.export.standings', $match) }}"

@@ -210,11 +210,6 @@ class ShootingMatch extends Model
         return $this->hasMany(PrsStageResult::class, 'match_id');
     }
 
-    public function auditLogs(): HasMany
-    {
-        return $this->hasMany(ScoreAuditLog::class, 'match_id');
-    }
-
     public function disqualifications(): HasMany
     {
         return $this->hasMany(Disqualification::class, 'match_id');
@@ -243,16 +238,6 @@ class ShootingMatch extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(MatchMessage::class, 'match_id');
-    }
-
-    public function parentMatch(): BelongsTo
-    {
-        return $this->belongsTo(self::class, 'parent_match_id');
-    }
-
-    public function childMatches(): HasMany
-    {
-        return $this->hasMany(self::class, 'parent_match_id');
     }
 
     // ── Computed Attributes ──
@@ -331,11 +316,6 @@ class ShootingMatch extends Model
             MatchStatus::PreRegistration,
             MatchStatus::RegistrationOpen,
         ]);
-    }
-
-    public function canSquad(): bool
-    {
-        return $this->status === MatchStatus::SquaddingOpen;
     }
 
     public function isFree(): bool
@@ -444,18 +424,6 @@ class ShootingMatch extends Model
     }
 
     /**
-     * Group relays into concurrent blocks based on concurrent_relays setting.
-     * E.g. concurrent_relays=2, 8 squads → [[1,2],[3,4],[5,6],[7,8]] (using squad IDs).
-     */
-    public function concurrentRelayGroups(): array
-    {
-        $squads = $this->squads()->orderBy('sort_order')->pluck('id')->all();
-        $size = max(1, $this->concurrent_relays ?? 2);
-
-        return array_chunk($squads, $size);
-    }
-
-    /**
      * Active matches whose event date is today — used for “Live Now” so past-dated
      * matches do not stay promoted after their day (before cron marks them completed).
      */
@@ -551,13 +519,6 @@ class ShootingMatch extends Model
             ->all();
     }
 
-    public function isPackageAvailable(): bool
-    {
-        return $this->advertising_mode === AdvertisingMode::PublicOpen
-            && ! $this->isFullPackageSold()
-            && ! $this->hasIndividualPlacements();
-    }
-
     // ── Featured Helpers ──
 
     public function isFeatured(): bool
@@ -595,11 +556,5 @@ class ShootingMatch extends Model
     public function isMultiDay(): bool
     {
         return ($this->match_days ?? 1) > 1;
-    }
-
-    public function registrationFieldConfig(string $field): string
-    {
-        $config = $this->registration_fields_config ?? [];
-        return $config[$field] ?? 'hidden';
     }
 }

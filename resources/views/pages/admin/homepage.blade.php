@@ -118,7 +118,7 @@ new #[Layout('components.layouts.app')]
         full explanation. Without this, edited copy / featured items can
         revert visually on back-navigation. --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.settings'), 'label' => 'General', 'active' => false],

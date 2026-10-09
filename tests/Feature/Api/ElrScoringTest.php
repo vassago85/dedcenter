@@ -139,33 +139,6 @@ it('calculates standings for static stage correctly', function () {
         ->and($standing['furthest_hit_m'])->toBe(1200);
 });
 
-// ── Ladder Stage Progression ──
-
-it('tracks ladder stage progression correctly', function () {
-    $service = new ELRScoringService();
-    $service->recordShot($this->shooter, $this->target1, 1, ElrShotResult::Hit);
-
-    $progress = $service->getStageProgress($this->ladderStage, $this->shooter);
-
-    expect($progress[0]['status'])->toBe('hit')
-        ->and($progress[0]['locked'])->toBeFalse()
-        ->and($progress[1]['status'])->toBe('pending')
-        ->and($progress[1]['locked'])->toBeFalse();
-});
-
-it('locks next target when previous is not hit in ladder mode', function () {
-    $service = new ELRScoringService();
-    $service->recordShot($this->shooter, $this->target1, 1, ElrShotResult::Miss);
-    $service->recordShot($this->shooter, $this->target1, 2, ElrShotResult::Miss);
-    $service->recordShot($this->shooter, $this->target1, 3, ElrShotResult::Miss);
-
-    $progress = $service->getStageProgress($this->ladderStage, $this->shooter);
-
-    expect($progress[0]['status'])->toBe('exhausted')
-        ->and($progress[1]['locked'])->toBeTrue()
-        ->and($progress[1]['status'])->toBe('locked');
-});
-
 // ── Normalized Score ──
 
 it('calculates normalized scores relative to top shooter', function () {

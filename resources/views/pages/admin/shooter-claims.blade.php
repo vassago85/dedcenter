@@ -107,7 +107,7 @@ new #[Layout('components.layouts.app')]
         the "X pending" badge always match the database.
     --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <div class="flex items-center justify-between">
         <div>

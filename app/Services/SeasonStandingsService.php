@@ -39,7 +39,7 @@ class SeasonStandingsService
     {
         $matches = $season->matches()
             ->whereIn('status', ['active', 'completed'])
-            ->with(['targetSets.gongs', 'squads.shooters', 'organization'])
+            ->with(['targetSets.gongs', 'organization'])
             ->orderBy('date')
             ->get();
 
@@ -70,7 +70,7 @@ class SeasonStandingsService
         $matches = ShootingMatch::query()
             ->whereIn('organization_id', $ids)
             ->whereIn('status', ['active', 'completed'])
-            ->with(['targetSets.gongs', 'squads.shooters', 'organization'])
+            ->with(['targetSets.gongs', 'organization'])
             ->orderBy('date')
             ->get();
 
@@ -235,17 +235,19 @@ class SeasonStandingsService
         $allScores = Score::query()
             ->whereIn('shooter_id', $shooters->pluck('id'))
             ->whereIn('gong_id', $allGongs->pluck('id'))
-            ->get()
+            ->toBase()
+            ->get(['shooter_id', 'gong_id', 'is_hit'])
             ->groupBy('shooter_id');
 
-        $gongTsMap = [];
+        $gongPoints = [];
         foreach ($targetSets as $ts) {
+            $distMult = (float) ($ts->distance_multiplier ?? 1);
             foreach ($ts->gongs as $g) {
-                $gongTsMap[$g->id] = $ts;
+                $gongPoints[$g->id] = $distMult * $g->multiplier;
             }
         }
 
-        return $shooters->map(function ($shooter) use ($allScores, $gongTsMap) {
+        return $shooters->map(function ($shooter) use ($allScores, $gongPoints) {
             $scores = $allScores->get($shooter->id, collect());
             $total = 0;
             $hits = 0;
@@ -254,10 +256,7 @@ class SeasonStandingsService
             foreach ($scores as $score) {
                 if ($score->is_hit) {
                     $hits++;
-                    $ts = $gongTsMap[$score->gong_id] ?? null;
-                    $distMult = $ts ? (float) ($ts->distance_multiplier ?? 1) : 1;
-                    $gongMult = $score->gong ? $score->gong->multiplier : 1;
-                    $total += $distMult * $gongMult;
+                    $total += $gongPoints[$score->gong_id] ?? 1;
                 } else {
                     $misses++;
                 }

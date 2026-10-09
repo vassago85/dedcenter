@@ -70,19 +70,9 @@ class MatchRegistration extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function equipmentProfile(): BelongsTo
-    {
-        return $this->belongsTo(UserEquipmentProfile::class, 'equipment_profile_id');
-    }
-
     public function rifle(): BelongsTo
     {
         return $this->belongsTo(Rifle::class);
-    }
-
-    public function ammoLoad(): BelongsTo
-    {
-        return $this->belongsTo(AmmoLoad::class);
     }
 
     public function division(): BelongsTo
@@ -148,9 +138,51 @@ class MatchRegistration extends Model
         return (bool) $this->is_free_entry;
     }
 
-    public function scopeSharesRifleWith($query, string $name)
+    /**
+     * Confirm the entry and put the shooter on the match roster. Safe to call
+     * twice (double-clicked approve, stale tab): the roster entry is reused.
+     */
+    public function confirm(bool $freeEntry = false): Shooter
     {
-        return $query->where('share_rifle_with', $name);
+        $shooter = $this->ensureShooter();
+
+        $this->update($freeEntry
+            ? ['payment_status' => 'confirmed', 'is_free_entry' => true, 'amount' => 0]
+            : ['payment_status' => 'confirmed']);
+
+        return $shooter;
+    }
+
+    /**
+     * The registrant's shooter row in this match, created in the Default squad
+     * with the division, class and category chosen at entry if there isn't one.
+     */
+    public function ensureShooter(): Shooter
+    {
+        $existing = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $this->match_id))
+            ->where('user_id', $this->user_id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $squad = $this->match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
+
+        $shooter = $squad->shooters()->create([
+            'name' => $this->user->name,
+            'user_id' => $this->user_id,
+            'sort_order' => ($squad->shooters()->max('sort_order') ?? 0) + 1,
+            'match_division_id' => $this->division_id,
+            'alrha_class' => $this->alrha_class?->value,
+        ]);
+
+        if ($this->category_id) {
+            $shooter->categories()->syncWithoutDetaching([$this->category_id]);
+        }
+
+        return $shooter;
     }
 
     /**

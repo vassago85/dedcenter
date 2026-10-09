@@ -207,7 +207,7 @@ new #[Layout('components.layouts.app')]
         full explanation. Without this, sponsor assignment changes don't
         survive a navigate-away-and-back. --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.advertising'), 'label' => 'Match Placements', 'active' => false],

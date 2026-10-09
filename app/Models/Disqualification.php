@@ -23,11 +23,6 @@ class Disqualification extends Model
         return $this->target_set_id === null;
     }
 
-    public function isStageDq(): bool
-    {
-        return $this->target_set_id !== null;
-    }
-
     public function match(): BelongsTo
     {
         return $this->belongsTo(ShootingMatch::class, 'match_id');

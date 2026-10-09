@@ -686,6 +686,23 @@ const timerWarning = computed(() => remainingSeconds.value !== null && remaining
 const timerCritical = computed(() => remainingSeconds.value !== null && remainingSeconds.value <= 20 && remainingSeconds.value > 0);
 const timerOver = computed(() => inOvertime.value);
 
+// The 1s tick only matters while the current team's clock is running.
+// Sync flush refreshes nowTick before the buzzer watcher sees a new entry.
+const tickActive = computed(() => timerRunning.value && !!timeLimitSeconds.value);
+watch(tickActive, (active) => {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    if (!active) return;
+    nowTick.value = Date.now();
+    timerInterval = setInterval(() => {
+        nowTick.value = Date.now();
+        // Auto-finalize when the countdown hits zero while actively scoring.
+        if (currentView.value === 'scoring' && remainingSeconds.value === 0 && !currentTimedOut.value && currentEntry.value?.startedAt) {
+            finishStage({ timedOut: true });
+        }
+    }, 1000);
+}, { flush: 'sync', immediate: true });
+
 // ── Audio cues (WebAudio so we don't need to ship any sound files) ──
 // AudioContext lives on the window — created lazily on first user gesture
 // (the Start timer tap counts) so mobile autoplay restrictions don't bite.
@@ -879,10 +896,6 @@ function restoreProgress() {
         return true;
     } catch { return false; }
 }
-function clearProgress() {
-    try { localStorage.removeItem(STATE_KEY); } catch { /* ignore */ }
-}
-
 // ── Navigation ──
 function selectStage(idx) {
     currentStageIndex.value = idx;
@@ -1047,11 +1060,12 @@ function flashPoints(pts) {
 async function persistLeg(leg) {
     const recorded = elrStore.getShotsForTarget(leg.shooter.id, leg.target.id);
     const recomputed = recomputeLeg(recorded, leg.target, profile.value, distanceBased.value);
+    const changed = [];
     for (const r of recomputed) {
         const existing = recorded.find(s => s.shotNumber === r.shotNumber);
         if (!existing) continue;
         if ((existing.impactNumber ?? null) !== (r.impactNumber ?? null) || Number(existing.pointsAwarded) !== Number(r.points)) {
-            await elrStore.recordShot({
+            changed.push({
                 matchId: props.matchId,
                 shooterId: leg.shooter.id,
                 elrTargetId: leg.target.id,
@@ -1062,6 +1076,7 @@ async function persistLeg(leg) {
             });
         }
     }
+    if (changed.length) await elrStore.recordShots(changed);
 }
 
 // Pending guided-mode shot held while waiting on the MD to type an overtime
@@ -1257,18 +1272,6 @@ function continueFromSummary() {
     saveProgress();
 }
 
-// ── Timer tick + expiry handling ──
-function startTimerLoop() {
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-        nowTick.value = Date.now();
-        // Auto-finalize when the countdown hits zero while actively scoring.
-        if (currentView.value === 'scoring' && remainingSeconds.value === 0 && !currentTimedOut.value && currentEntry.value?.startedAt) {
-            finishStage({ timedOut: true });
-        }
-    }, 1000);
-}
-
 onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
         await matchStore.fetchMatch(props.matchId);
@@ -1290,11 +1293,8 @@ onMounted(async () => {
                 startedAt: e.started_at,
                 completedAt: e.completed_at,
                 timedOut: e.timed_out,
+                synced: true,
             });
-            // mark synced (came from server)
-            const key = `${e.team_id}-${e.elr_stage_id}`;
-            const entry = elrStore.teamStageEntries.get(key);
-            if (entry) elrStore.teamStageEntries.set(key, { ...entry, synced: true });
         }
     }
 
@@ -1303,15 +1303,17 @@ onMounted(async () => {
         currentView.value = 'stage-select';
     }
 
-    startTimerLoop();
-
+    let polling = false;
     syncInterval = setInterval(async () => {
-        if (!navigator.onLine) return;
-        if (elrStore.pendingCount > 0) await elrStore.syncShots();
+        if (!navigator.onLine || document.hidden || polling) return;
+        polling = true;
         try {
-            await matchStore.fetchMatch(props.matchId);
+            if (elrStore.pendingCount > 0) await elrStore.syncShots();
+            await matchStore.fetchMatch(props.matchId, { silent: true });
             await elrStore.refreshShots(props.matchId);
-        } catch { /* offline */ }
+        } catch { /* offline */ } finally {
+            polling = false;
+        }
     }, 15000);
 });
 
@@ -1319,5 +1321,7 @@ onUnmounted(() => {
     clearInterval(timerInterval);
     clearInterval(syncInterval);
     clearTimeout(flashTimeout);
+    // Left assigned (closed) so a buzzer tail firing after unmount can't open a new context.
+    audioCtx?.close().catch(() => {});
 });
 </script>

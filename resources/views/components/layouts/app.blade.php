@@ -42,10 +42,7 @@
         if ($currentOrg && ! $currentOrg instanceof \App\Models\Organization) {
             $currentOrg = \App\Models\Organization::where('slug', $currentOrg)->first();
         }
-        $leaderboardOrg = request()->route('organization');
-        if ($leaderboardOrg && ! $leaderboardOrg instanceof \App\Models\Organization) {
-            $leaderboardOrg = \App\Models\Organization::where('slug', $leaderboardOrg)->first();
-        }
+        $leaderboardOrg = $currentOrg;
         $authUser = auth()->user();
         $userOrgs = $authUser ? $authUser->organizations : collect();
         $unreadNotifCount = $authUser?->unreadNotifications()->count() ?? 0;
@@ -341,6 +338,7 @@
     @endif
 
     <flux:toast />
+    <x-flash-toasts />
     @fluxScripts
     <x-pwa-nav />
     <x-install-prompt />

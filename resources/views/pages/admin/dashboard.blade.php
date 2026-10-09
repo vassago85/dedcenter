@@ -154,7 +154,7 @@ new #[Layout('components.layouts.app')]
         a page admins use sparingly.
     --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     {{-- Recent matches --}}
     <x-panel title="Recent matches" subtitle="Latest matches across all organizations" :padding="false">

@@ -23,7 +23,9 @@ if (! function_exists('user_available_modes')) {
             'url'   => route('dashboard'),
         ];
 
-        $ownedOrg = $user->ownedOrganizations()->first();
+        $ownedOrg = $user->relationLoaded('organizations')
+            ? $user->organizations->first(fn ($o) => (bool) $o->pivot->is_owner)
+            : $user->ownedOrganizations()->first();
         if ($ownedOrg) {
             $modes[] = [
                 'slug'  => 'org',

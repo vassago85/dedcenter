@@ -77,9 +77,4 @@ class ScoreAuditService
             $request,
         );
     }
-
-    public static function logReshoot(int $matchId, Model $auditable, string $reason, ?Request $request = null): ScoreAuditLog
-    {
-        return static::log($matchId, $auditable, 'reshoot', null, ['is_reshoot' => true], $reason, $request);
-    }
 }

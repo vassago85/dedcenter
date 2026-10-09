@@ -8,6 +8,7 @@
         "dev": "vite"
     },
     "devDependencies": {
+        "@playwright/test": "^1.64.0",
         "@tailwindcss/vite": "^4.0.0",
         "@vitejs/plugin-vue": "^6.0.5",
         "axios": "^1.11.0",

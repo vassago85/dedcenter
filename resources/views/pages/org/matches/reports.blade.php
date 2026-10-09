@@ -94,7 +94,7 @@ class extends Component
         };
 
         $shooterCount = $this->match->shooters()->count();
-        $emailableCount = app(MatchReportService::class)->getEmailableShooters($this->match)->count();
+        $emailableCount = app(MatchReportService::class)->countEmailableShooters($this->match);
 
         $urls = [
             'csv' => [

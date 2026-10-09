@@ -66,12 +66,8 @@
             }, 300);
         },
     }"
-    x-init="
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') { onFocus(); }
-        });
-        window.addEventListener('focus', () => onFocus());
-    "
+    x-on:visibilitychange.document="document.visibilityState === 'visible' && onFocus()"
+    x-on:focus.window="onFocus()"
     {{ $attributes->merge(['class' => 'mx-auto w-full max-w-[1200px] space-y-4 sm:space-y-5']) }}
 >
     <x-match-control-header :match="$match" :organization="$organization" />

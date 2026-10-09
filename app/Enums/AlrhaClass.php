@@ -95,19 +95,6 @@ enum AlrhaClass: string
     }
 
     /**
-     * Peer-scoring group size (§General Rules — Scoring):
-     *  - Hunters: teams score each other in pairs → 2 teams per group.
-     *  - Varmint: shooters score each other in groups of three.
-     */
-    public function peerGroupSize(): int
-    {
-        return match ($this) {
-            self::Hunters => 2, // 2 teams (of 2 shooters) → 4 people total
-            self::Varmint => 3, // 3 individual shooters
-        };
-    }
-
-    /**
      * Category slugs published for the year-end prize tables. Hunters has
      * no Ladies category (§Rules — Ladies & Juniors section for Hunters
      * has no Ladies field entry).

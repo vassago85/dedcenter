@@ -57,12 +57,6 @@ export const useMatchStore = defineStore('match', {
             if (!squad) return [];
             return squad.shooters.map(sh => ({ ...sh, squadName: squad.name }));
         },
-        allGongs: (state) => {
-            if (!state.currentMatch?.target_sets) return [];
-            return state.currentMatch.target_sets.flatMap((ts) =>
-                ts.gongs.map((g) => ({ ...g, targetSetLabel: ts.label, distance: ts.distance_meters }))
-            );
-        },
         canManage: (state) => state.currentMatch?.can_manage ?? false,
         // Wider than canManage: RO + MD + creator + owner. Older cached
         // payloads omit the flag, so fall back to canManage. The API enforces this.
@@ -78,25 +72,45 @@ export const useMatchStore = defineStore('match', {
 
         completionMatrix: (state) => {
             if (!state.currentMatch) return {};
-            const scores = state.currentMatch.scores || [];
+            const squads = state.currentMatch.squads || [];
+            const targetSets = state.currentMatch.target_sets || [];
+
+            const gongToSet = new Map();
+            for (const ts of targetSets) {
+                for (const g of ts.gongs) gongToSet.set(g.id, ts.id);
+            }
+
+            const activeShooterToSquad = new Map();
+            const activeCounts = new Map();
+            const counts = new Map();
+            for (const squad of squads) {
+                let active = 0;
+                for (const sh of squad.shooters) {
+                    if (sh.status !== 'active') continue;
+                    activeShooterToSquad.set(sh.id, squad.id);
+                    active++;
+                }
+                activeCounts.set(squad.id, active);
+                counts.set(squad.id, new Map());
+            }
+
+            for (const score of (state.currentMatch.scores || [])) {
+                const squadId = activeShooterToSquad.get(score.shooter_id);
+                if (squadId === undefined) continue;
+                const tsId = gongToSet.get(score.gong_id);
+                if (tsId === undefined) continue;
+                const squadCounts = counts.get(squadId);
+                squadCounts.set(tsId, (squadCounts.get(tsId) ?? 0) + 1);
+            }
+
             const matrix = {};
-
-            for (const squad of (state.currentMatch.squads || [])) {
+            for (const squad of squads) {
                 matrix[squad.id] = {};
-                const activeShooters = squad.shooters.filter(s => s.status === 'active');
-
-                for (const ts of (state.currentMatch.target_sets || [])) {
-                    const gongIds = new Set(ts.gongs.map(g => g.id));
-                    const shooterIds = new Set(activeShooters.map(s => s.id));
-                    const expected = activeShooters.length * ts.gongs.length;
-
-                    let actual = 0;
-                    for (const score of scores) {
-                        if (shooterIds.has(score.shooter_id) && gongIds.has(score.gong_id)) {
-                            actual++;
-                        }
-                    }
-
+                const active = activeCounts.get(squad.id);
+                const squadCounts = counts.get(squad.id);
+                for (const ts of targetSets) {
+                    const expected = active * ts.gongs.length;
+                    const actual = squadCounts.get(ts.id) ?? 0;
                     matrix[squad.id][ts.id] = {
                         expected,
                         actual,
@@ -202,11 +216,6 @@ export const useMatchStore = defineStore('match', {
         clearAllLocks() {
             this.unlockSquad();
             this.unlockStage();
-        },
-
-        async cacheMatch(match) {
-            await db.matches.put(plain(match));
-            this.cachedMatchIds.add(match.id);
         },
 
         async checkCachedMatches() {
@@ -372,26 +381,6 @@ export const useMatchStore = defineStore('match', {
             if (listEntry) {
                 listEntry.status = 'active';
             }
-            return data;
-        },
-
-        async revokeDisqualification(matchId, dqId) {
-            const { data } = await axios.delete(`/api/matches/${matchId}/disqualifications/${dqId}`);
-
-            if (this.currentMatch?.disqualifications) {
-                const dq = this.currentMatch.disqualifications.find(d => d.id === dqId);
-                if (dq && dq.type === 'match') {
-                    for (const squad of this.currentMatch.squads) {
-                        const shooter = squad.shooters.find(s => s.id === dq.shooter_id);
-                        if (shooter) {
-                            shooter.status = 'active';
-                            break;
-                        }
-                    }
-                }
-                this.currentMatch.disqualifications = this.currentMatch.disqualifications.filter(d => d.id !== dqId);
-            }
-
             return data;
         },
     },

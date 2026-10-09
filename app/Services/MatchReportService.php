@@ -12,6 +12,7 @@ use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\UserAchievement;
 use App\Services\Scoring\AlrhaScoringService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -107,6 +108,19 @@ class MatchReportService
 
     public function getEmailableShooters(ShootingMatch $match): Collection
     {
+        return $this->emailableShootersQuery($match)
+            ->select('shooters.*')
+            ->with('user')
+            ->get();
+    }
+
+    public function countEmailableShooters(ShootingMatch $match): int
+    {
+        return $this->emailableShootersQuery($match)->count();
+    }
+
+    private function emailableShootersQuery(ShootingMatch $match): Builder
+    {
         return Shooter::query()
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->where('squads.match_id', $match->id)
@@ -118,9 +132,7 @@ class MatchReportService
                     ->whereColumn('users.id', 'shooters.user_id')
                     ->whereNotNull('users.email')
                     ->where('users.email', '!=', '');
-            })
-            ->select('shooters.*')
-            ->get();
+            });
     }
 
     // ── Standard (relay-based) ─────────────────────────────────────────
@@ -1127,7 +1139,7 @@ class MatchReportService
 
         return UserAchievement::where('match_id', $match->id)
             ->where('user_id', $shooter->user_id)
-            ->with('achievement')
+            ->with(['achievement', 'stage:id,label'])
             ->orderBy('awarded_at')
             ->get()
             ->filter(fn ($ua) => $ua->achievement !== null)

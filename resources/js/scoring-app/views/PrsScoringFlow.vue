@@ -363,23 +363,9 @@
                         <button @click="undoShot" class="w-full rounded-xl border border-slate-600 py-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 active:scale-[0.98]">
                             Undo Last Shot
                         </button>
-                        <!-- Timer UI only on timed tiebreaker stages (where time is recorded per shooter). -->
                         <template v-if="stageRequiresTime">
-                            <!-- Timer display (when app timer is active) -->
-                            <div v-if="prsStore.timerMode === 'app'" class="rounded-xl border border-slate-700 bg-slate-900 p-3">
-                                <div class="flex items-center gap-3">
-                                    <p class="flex-1 text-center font-mono text-3xl font-bold tracking-wider" :class="prsStore.isTimerRunning ? 'text-amber-400' : 'text-white'">
-                                        {{ formattedTime }}
-                                    </p>
-                                    <div class="flex gap-1.5">
-                                        <button @click="startTimer" :disabled="prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-green-600 text-white hover:bg-green-700'">Start</button>
-                                        <button @click="stopTimer" :disabled="!prsStore.isTimerRunning" class="rounded-lg px-3 py-2 text-xs font-bold transition-colors" :class="!prsStore.isTimerRunning ? 'bg-slate-700 text-slate-500' : 'bg-red-600 text-white hover:bg-red-700'">Stop</button>
-                                        <button @click="resetTimer" class="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-white hover:bg-slate-600">Reset</button>
-                                    </div>
-                                </div>
-                            </div>
                             <!-- Time preview when already entered manually -->
-                            <div v-else-if="prsStore.rawTimeSeconds > 0" class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2">
+                            <div v-if="prsStore.rawTimeSeconds > 0" class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2">
                                 <span class="text-xs text-slate-400">Time:</span>
                                 <span class="font-mono text-lg font-bold text-white">{{ prsStore.rawTimeSeconds.toFixed(2) }}s</span>
                                 <button @click="clearTimeInput" class="ml-2 rounded bg-slate-700 px-2 py-1 text-[10px] font-bold text-slate-400 hover:bg-slate-600">Clear</button>
@@ -404,7 +390,7 @@
                     <p v-if="modalTimeAutoFilled" class="mb-3 text-sm text-amber-300">
                         Shots left on the clock — pre-filled with the stage par time. Edit if you recorded a different time.
                     </p>
-                    <p v-else class="mb-3 text-sm text-slate-400">Time is required for this tiebreaker stage.</p>
+                    <p v-else class="mb-3 text-sm text-slate-400">Time is required for this timed stage.</p>
 
                     <input
                         ref="modalTimeInput"
@@ -550,6 +536,7 @@
                             </div>
                         </button>
                     </div>
+                    <p v-if="actionError" class="mt-3 text-center text-sm text-red-400">{{ actionError }}</p>
                     <div class="mt-4 flex">
                         <button @click="closeShooterActionModal" class="flex-1 rounded-lg border border-slate-600 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
                     </div>
@@ -622,7 +609,6 @@ const matchStore = useMatchStore();
 const prsStore = usePrsScoringStore();
 const ready = ref(false);
 const completeError = ref('');
-const timeInput = ref(null);
 
 const showTimeModal = ref(false);
 const modalTimeDigits = ref('');
@@ -631,7 +617,6 @@ const modalTimeLowWarning = ref(false);
 const modalTimeAutoFilled = ref(false);
 const modalTimeInput = ref(null);
 
-let timerInterval = null;
 let syncInterval = null;
 
 // Corrections management
@@ -651,6 +636,7 @@ const correctionLogEntries = ref([]);
 // Already-scored shooter action panel
 const showShooterActionModal = ref(false);
 const shooterActionTarget = ref(null); // { shooter, stageId, stageName, completion, totalShots }
+const actionError = ref('');
 
 // Single-shooter shot-by-shot correction modal (shared with standard
 // scoring). Opened from the shooter action panel's "Correct scores"
@@ -778,15 +764,9 @@ const activeCorrectStageName = computed(() => {
     return ts?.display_name || ts?.label || 'Stage';
 });
 
-// A stage only needs a per-shooter recorded time when it is both timed and
-// a tiebreaker. A timed-only stage just has a par clock on the range (tells
-// the shooter to stop shooting); no per-shooter time is recorded. Only a
-// timed tiebreaker uses the recorded time to break ties on the leaderboard.
-const stageRequiresTime = computed(() => {
-    const ts = selectedStageObj.value;
-    if (!ts) return false;
-    return !!(ts.is_timed_stage && ts.is_tiebreaker);
-});
+// Every timed stage records the shooter's time: the server rejects a timed
+// completion without one (par-time clamping), and tiebreakers rank on it.
+const stageRequiresTime = computed(() => !!selectedStageObj.value?.is_timed_stage);
 
 const allShootersDoneAtStage = computed(() => {
     if (!selectedSquadObj.value || !prsStore.selectedStageId) return false;
@@ -827,10 +807,6 @@ function restorePrsProgress() {
         prsStore.navigateTo(state.screen);
         return true;
     } catch { return false; }
-}
-
-function clearPrsProgress() {
-    try { localStorage.removeItem(PRS_STATE_KEY); } catch { /* ignore */ }
 }
 
 function squadOverallProgress(squadId) {
@@ -951,6 +927,7 @@ function startFreshScoring(shooter) {
 function closeShooterActionModal() {
     showShooterActionModal.value = false;
     shooterActionTarget.value = null;
+    actionError.value = '';
 }
 
 /** Reshoot this shooter at this stage. Clears the local completion, logs a
@@ -1008,8 +985,11 @@ async function correctScoresFromActionModal() {
     const target = shooterActionTarget.value;
     if (!target) return;
 
+    // Opening the modal without the current shots would pre-fill every shot
+    // as "not taken" and saving would wipe the real row, so fail closed.
     let existingShots = [];
     let existingTime = null;
+    actionError.value = '';
     try {
         const { data } = await axios.get(`/api/matches/${props.matchId}/stages/${target.stageId}/scores`);
         const shots = data?.shots?.[String(target.shooter.id)] ?? data?.shots?.[target.shooter.id] ?? [];
@@ -1017,7 +997,8 @@ async function correctScoresFromActionModal() {
         const result = (data?.results ?? []).find(r => (r.shooter_id ?? r.shooterId) === target.shooter.id);
         existingTime = result?.raw_time_seconds ?? null;
     } catch {
-        existingShots = [];
+        actionError.value = "Couldn't load this shooter's current shots. Check the connection and try again.";
+        return;
     }
 
     const stageObj = targetSets.value.find(ts => ts.id === target.stageId);
@@ -1149,7 +1130,6 @@ function confirmTimeAndComplete() {
 function applyModalTimeAndComplete() {
     prsStore.rawDigits = modalTimeDigits.value;
     prsStore.rawTimeSeconds = modalTimeSeconds.value;
-    prsStore.timerMode = 'manual';
     showTimeModal.value = false;
     doCompleteStage();
 }
@@ -1167,7 +1147,6 @@ async function doCompleteStage() {
         completeError.value = result.error;
         return;
     }
-    stopTimerInternal();
     prsStore.navigateTo('shooter-list');
     savePrsProgress();
 }
@@ -1202,46 +1181,6 @@ function stageStatus(stageId) {
     if (p.completed > 0) return 'partial';
     return 'none';
 }
-
-// Timer
-function startTimer() {
-    if (prsStore.isTimerRunning) return;
-    prsStore.isTimerRunning = true;
-    prsStore.rawTimeSeconds = null;
-    const startTime = performance.now() - prsStore.timerElapsed * 1000;
-    timerInterval = setInterval(() => {
-        prsStore.timerElapsed = (performance.now() - startTime) / 1000;
-    }, 10);
-}
-
-function stopTimer() {
-    if (!prsStore.isTimerRunning) return;
-    stopTimerInternal();
-    prsStore.rawTimeSeconds = parseFloat(prsStore.timerElapsed.toFixed(2));
-}
-
-function stopTimerInternal() {
-    prsStore.isTimerRunning = false;
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-}
-
-function resetTimer() {
-    stopTimerInternal();
-    prsStore.resetTimer();
-}
-
-function formatTime(seconds) {
-    if (seconds == null || seconds === 0) return '00:00.00';
-    const t = parseFloat(seconds);
-    const mins = Math.floor(t / 60);
-    const secs = t % 60;
-    return `${String(mins).padStart(2, '0')}:${secs.toFixed(2).padStart(5, '0')}`;
-}
-
-const formattedTime = computed(() => formatTime(prsStore.effectiveTime));
 
 function onDigitKeydown(e) {
     const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
@@ -1334,17 +1273,23 @@ onMounted(async () => {
         restorePrsProgress();
     }
 
+    let polling = false;
     syncInterval = setInterval(async () => {
-        if (!navigator.onLine) return;
-        if (prsStore.pendingCount > 0) {
-            await prsStore.syncPendingResults();
-        }
-        await drainCorrectionQueue();
+        if (!navigator.onLine || document.hidden || polling) return;
+        polling = true;
         try {
-            await matchStore.fetchMatch(props.matchId);
-            const freshResults = matchStore.currentMatch?.prs_stage_results ?? [];
-            await prsStore.refreshCompletions(props.matchId, freshResults);
-        } catch { /* offline or transient failure */ }
+            if (prsStore.pendingCount > 0) {
+                await prsStore.syncPendingResults();
+            }
+            await drainCorrectionQueue();
+            try {
+                await matchStore.fetchMatch(props.matchId, { silent: true });
+                const freshResults = matchStore.currentMatch?.prs_stage_results ?? [];
+                await prsStore.refreshCompletions(props.matchId, freshResults);
+            } catch { /* offline or transient failure */ }
+        } finally {
+            polling = false;
+        }
     }, 15000);
 
     drainCorrectionQueue();
@@ -1363,28 +1308,25 @@ onMounted(async () => {
             if (shooterObj) break;
         }
         if (stageObj && shooterObj) {
-            let existingShots = [];
-            let existingTime = null;
             try {
                 const { data } = await axios.get(`/api/matches/${props.matchId}/stages/${correctStageId}/scores`);
                 const shots = data?.shots?.[String(correctShooterId)] ?? data?.shots?.[correctShooterId] ?? [];
-                existingShots = Array.isArray(shots) ? shots : [];
                 const result = (data?.results ?? []).find(r => (r.shooter_id ?? r.shooterId) === correctShooterId);
-                existingTime = result?.raw_time_seconds ?? null;
-            } catch { /* fall through with empty prefill */ }
-
-            correctionTarget.value = {
-                shooter: shooterObj,
-                stage: stageObj,
-                existingPrsShots: existingShots,
-                existingPrsTime: existingTime,
-            };
+                correctionTarget.value = {
+                    shooter: shooterObj,
+                    stage: stageObj,
+                    existingPrsShots: Array.isArray(shots) ? shots : [],
+                    existingPrsTime: result?.raw_time_seconds ?? null,
+                };
+            } catch {
+                // Without the current shots the modal would pre-fill "not taken"
+                // everywhere; leave it closed rather than risk wiping the row.
+            }
         }
     }
 });
 
 onUnmounted(() => {
     if (syncInterval) clearInterval(syncInterval);
-    if (timerInterval) clearInterval(timerInterval);
 });
 </script>

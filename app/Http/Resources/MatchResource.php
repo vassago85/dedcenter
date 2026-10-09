@@ -35,6 +35,9 @@ class MatchResource extends JsonResource
 
     public function toArray(Request $request): array
     {
+        // ShootingMatchPolicy::export() is the manage() bar.
+        $canManage = (bool) $request->user()?->can('manage', $this->resource);
+
         return [
             'id' => $this->id,
             'updated_at' => $this->updated_at?->toIso8601String(),
@@ -139,9 +142,9 @@ class MatchResource extends JsonResource
             'royal_flush_enabled' => (bool) $this->royal_flush_enabled,
             'concurrent_relays' => (int) ($this->concurrent_relays ?? 2),
             'device_lock_mode' => $this->device_lock_mode ?? 'open',
-            'can_manage' => (bool) $request->user()?->can('manage', $this->resource),
+            'can_manage' => $canManage,
             'can_manage_squadding' => (bool) $request->user()?->can('squad', $this->resource),
-            'can_export' => (bool) $request->user()?->can('export', $this->resource),
+            'can_export' => $canManage,
             'prs_stage_results' => $this->whenLoaded('prsResults', fn () => $this->prsResults->map(fn ($r) => [
                 'shooter_id' => $r->shooter_id,
                 'stage_id' => $r->stage_id,

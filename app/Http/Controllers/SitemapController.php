@@ -15,6 +15,7 @@ class SitemapController extends Controller
 
         $staticPages = [
             ['loc' => url('/'), 'priority' => '1.0', 'changefreq' => 'weekly'],
+            ['loc' => url('/events'), 'priority' => '0.9', 'changefreq' => 'daily'],
             ['loc' => url('/advertise'), 'priority' => '0.75', 'changefreq' => 'monthly'],
             ['loc' => url('/features'), 'priority' => '0.8', 'changefreq' => 'monthly'],
             ['loc' => url('/scoring'), 'priority' => '0.8', 'changefreq' => 'monthly'],
@@ -43,21 +44,23 @@ class SitemapController extends Controller
 
         $orgs = Organization::all();
         foreach ($orgs as $org) {
-            $urls->push([
-                'loc' => route('portal.home', $org),
-                'priority' => '0.7',
-                'changefreq' => 'weekly',
-            ]);
-            $urls->push([
-                'loc' => route('portal.matches', $org),
-                'priority' => '0.7',
-                'changefreq' => 'weekly',
-            ]);
-            $urls->push([
-                'loc' => route('portal.leaderboard', $org),
-                'priority' => '0.6',
-                'changefreq' => 'weekly',
-            ]);
+            if ($org->canAccessPortal()) {
+                $urls->push([
+                    'loc' => route('portal.home', $org),
+                    'priority' => '0.7',
+                    'changefreq' => 'weekly',
+                ]);
+                $urls->push([
+                    'loc' => route('portal.matches', $org),
+                    'priority' => '0.7',
+                    'changefreq' => 'weekly',
+                ]);
+                $urls->push([
+                    'loc' => route('portal.leaderboard', $org),
+                    'priority' => '0.6',
+                    'changefreq' => 'weekly',
+                ]);
+            }
             $urls->push([
                 'loc' => route('leaderboard', $org),
                 'priority' => '0.6',

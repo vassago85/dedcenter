@@ -62,9 +62,6 @@ new #[Layout('components.layouts.app')]
         <form wire:submit="updateProfile" class="space-y-4">
             <div>
                 <flux:input wire:model="name" label="Name" type="text" required />
-                @error('name')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>
@@ -113,16 +110,10 @@ new #[Layout('components.layouts.app')]
         <form wire:submit="updatePassword" class="space-y-4">
             <div>
                 <flux:input wire:model="current_password" label="Current Password" type="password" required />
-                @error('current_password')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>
                 <flux:input wire:model="password" label="New Password" type="password" required />
-                @error('password')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>

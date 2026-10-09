@@ -67,6 +67,7 @@ new #[Layout('components.layouts.marketing', [
     }
 }; ?>
 
+<div>
 {{-- Hero --}}
 <section class="relative overflow-hidden py-20 lg:py-28" style="border-bottom: 1px solid var(--lp-border);">
     <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(225,6,0,0.08) 0%, transparent 70%);"></div>
@@ -394,3 +395,4 @@ new #[Layout('components.layouts.marketing', [
         @endif
     </div>
 </section>
+</div>

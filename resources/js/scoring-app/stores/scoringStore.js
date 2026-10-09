@@ -28,8 +28,6 @@ export const useScoringStore = defineStore('scoring', {
     }),
 
     getters: {
-        scoreKey: () => (shooterId, gongId) => `${shooterId}-${gongId}`,
-        stageTimeKey: () => (shooterId, targetSetId) => `${shooterId}-${targetSetId}`,
         getScore: (state) => (shooterId, gongId) => {
             return state.scores.get(`${shooterId}-${gongId}`) ?? null;
         },
@@ -103,8 +101,10 @@ export const useScoringStore = defineStore('scoring', {
 
             this.scores.set(key, score);
 
-            await db.scores.where('[shooterId+gongId]').equals([shooterId, gongId]).delete();
-            await db.scores.add(score);
+            await db.transaction('rw', db.scores, async () => {
+                await db.scores.where('[shooterId+gongId]').equals([shooterId, gongId]).delete();
+                await db.scores.add(score);
+            });
             await this.updatePendingCount();
         },
 
@@ -119,25 +119,6 @@ export const useScoringStore = defineStore('scoring', {
                 this.deletedScores.push({ shooterId, gongId });
             }
 
-            await this.updatePendingCount();
-        },
-
-        async recordStageTime(shooterId, targetSetId, timeSeconds) {
-            const key = `${shooterId}-${targetSetId}`;
-            const stageTime = {
-                shooterId,
-                targetSetId,
-                matchId: this.matchId,
-                timeSeconds,
-                deviceId: this.deviceId,
-                recordedAt: new Date().toISOString(),
-                synced: false,
-            };
-
-            this.stageTimes.set(key, stageTime);
-
-            await db.stageTimes.where('[shooterId+targetSetId]').equals([shooterId, targetSetId]).delete();
-            await db.stageTimes.add(stageTime);
             await this.updatePendingCount();
         },
 
@@ -164,14 +145,10 @@ export const useScoringStore = defineStore('scoring', {
         },
 
         async updatePendingCount() {
-            const pendingScores = await db.scores
-                .where('matchId').equals(this.matchId)
-                .filter((s) => !s.synced)
-                .count();
-            const pendingTimes = await db.stageTimes
-                .where('matchId').equals(this.matchId)
-                .filter((s) => !s.synced)
-                .count();
+            const [pendingScores, pendingTimes] = await Promise.all([
+                db.scores.where('matchId').equals(this.matchId).filter((s) => !s.synced).count(),
+                db.stageTimes.where('matchId').equals(this.matchId).filter((s) => !s.synced).count(),
+            ]);
             this.pendingCount = pendingScores + pendingTimes + this.deletedScores.length;
         },
 
@@ -230,8 +207,12 @@ export const useScoringStore = defineStore('scoring', {
 
                 this.deletedScores = [];
 
+                await db.transaction('rw', db.scores, db.stageTimes, async () => {
+                    await db.scores.bulkUpdate(unsyncedScores.map((s) => ({ key: s.localId, changes: { synced: true } })));
+                    await db.stageTimes.bulkUpdate(unsyncedTimes.map((st) => ({ key: st.localId, changes: { synced: true } })));
+                });
+
                 for (const s of unsyncedScores) {
-                    await db.scores.update(s.localId, { synced: true });
                     const key = `${s.shooterId}-${s.gongId}`;
                     const current = this.scores.get(key);
                     if (current) {
@@ -240,7 +221,6 @@ export const useScoringStore = defineStore('scoring', {
                 }
 
                 for (const st of unsyncedTimes) {
-                    await db.stageTimes.update(st.localId, { synced: true });
                     const key = `${st.shooterId}-${st.targetSetId}`;
                     const current = this.stageTimes.get(key);
                     if (current) {
@@ -280,16 +260,6 @@ export const useScoringStore = defineStore('scoring', {
             return false;
         },
 
-        advanceToNextSquad(totalSquads) {
-            this.currentShooterIndex = 0;
-            this.currentGongIndex = 0;
-            if (this.currentSquadIndex < totalSquads - 1) {
-                this.currentSquadIndex++;
-                return true;
-            }
-            return false;
-        },
-
         jumpToSquad(index) {
             this.currentSquadIndex = index;
             this.currentShooterIndex = 0;
@@ -301,24 +271,6 @@ export const useScoringStore = defineStore('scoring', {
             this.currentGongIndex = 0;
             this.currentSquadIndex = 0;
             if (this.currentTargetSetIndex < totalSets - 1) {
-                this.currentTargetSetIndex++;
-                return true;
-            }
-            return false;
-        },
-
-        // PRS navigation: Stage -> Shooter -> (all gongs at once)
-        prsAdvanceToNextShooter(totalShooters) {
-            if (this.currentShooterIndex < totalShooters - 1) {
-                this.currentShooterIndex++;
-                return true;
-            }
-            return false;
-        },
-
-        prsAdvanceToNextStage(totalStages) {
-            this.currentShooterIndex = 0;
-            if (this.currentTargetSetIndex < totalStages - 1) {
                 this.currentTargetSetIndex++;
                 return true;
             }

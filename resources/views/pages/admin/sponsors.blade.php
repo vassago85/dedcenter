@@ -210,7 +210,7 @@ new #[Layout('components.layouts.app')]
         full explanation. Without this, toggling a sponsor's status and
         navigating back restores the stale row. --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <x-admin-tab-bar :tabs="[
         ['href' => route('admin.advertising'), 'label' => 'Match Placements', 'active' => false],

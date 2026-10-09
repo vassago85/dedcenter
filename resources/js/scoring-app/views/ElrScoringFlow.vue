@@ -992,15 +992,19 @@ onMounted(async () => {
             : 'scoring';
     }
 
+    let polling = false;
     syncInterval = setInterval(async () => {
-        if (!navigator.onLine) return;
-        if (elrStore.pendingCount > 0) {
-            await elrStore.syncShots();
-        }
+        if (!navigator.onLine || document.hidden || polling) return;
+        polling = true;
         try {
-            await matchStore.fetchMatch(props.matchId);
+            if (elrStore.pendingCount > 0) {
+                await elrStore.syncShots();
+            }
+            await matchStore.fetchMatch(props.matchId, { silent: true });
             await elrStore.refreshShots(props.matchId);
-        } catch { /* offline or transient failure */ }
+        } catch { /* offline or transient failure */ } finally {
+            polling = false;
+        }
     }, 15000);
 });
 

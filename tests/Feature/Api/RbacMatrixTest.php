@@ -161,19 +161,6 @@ test('POST disqualifications reaches auth layer for match directors', function (
     expect($r->status())->not->toBe(403);
 });
 
-// ── L2: badges endpoint moved from public → auth:sanctum ──
-
-test('badges endpoint requires authentication now', function () {
-    $this->getJson("/api/matches/{$this->match->id}/badges")
-        ->assertUnauthorized();
-});
-
-test('badges endpoint is reachable for any authenticated user', function () {
-    $this->actingAs($this->shooter)
-        ->getJson("/api/matches/{$this->match->id}/badges")
-        ->assertOk();
-});
-
 // ── H2: org team-management page — mutating actions are OWNER only ──
 
 test('range officers cannot add staff via the team page', function () {
@@ -269,4 +256,19 @@ test('/score issues a scoped scoring token for range officers', function () {
     expect($token)->not->toBeNull()
         ->and($token->abilities)->toContain('scoring')
         ->and($token->abilities)->not->toContain('*');
+});
+
+test('/score on a second device keeps the first device signed in and prunes only idle tokens', function () {
+    $idle = $this->ro->createToken('scoring-session', ['scoring']);
+    $idle->accessToken->forceFill(['last_used_at' => now()->subDays(3)])->save();
+
+    $this->actingAs($this->ro)->get('/score')->assertOk();
+    $firstDevice = $this->ro->tokens()->where('name', 'scoring-session')->latest('id')->first();
+
+    $this->actingAs($this->ro)->get('/score')->assertOk();
+
+    $ids = $this->ro->tokens()->where('name', 'scoring-session')->pluck('id');
+    expect($ids)->toContain($firstDevice->id)
+        ->and($ids)->not->toContain($idle->accessToken->id)
+        ->and($ids)->toHaveCount(2);
 });

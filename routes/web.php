@@ -78,7 +78,14 @@ Route::get('/score/{any?}', function () {
             ->with('status', 'The scoring app is only available to match staff.');
     }
 
-    $user->tokens()->where('name', 'scoring-session')->delete();
+    // Only prune idle tokens: one account often runs the scoring app on several
+    // devices at once, and wiping every token here logged the others out mid-match.
+    $idleSince = now()->subDays(2);
+    $user->tokens()
+        ->where('name', 'scoring-session')
+        ->where(fn ($q) => $q->where('last_used_at', '<', $idleSince)
+            ->orWhere(fn ($q) => $q->whereNull('last_used_at')->where('created_at', '<', $idleSince)))
+        ->delete();
     $token = $user->createToken('scoring-session', ['scoring'])->plainTextToken;
 
     return view('scoring', ['apiToken' => $token]);

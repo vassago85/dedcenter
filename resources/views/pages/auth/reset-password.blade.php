@@ -75,9 +75,6 @@ new #[Layout('components.layouts.auth')]
                     required
                     autofocus
                 />
-                @error('email')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>
@@ -88,9 +85,6 @@ new #[Layout('components.layouts.auth')]
                     placeholder="••••••••"
                     required
                 />
-                @error('password')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>

@@ -1,6 +1,9 @@
 <?php
 
+use App\Notifications\EmailVerificationPin;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -19,11 +22,21 @@ new #[Layout('components.layouts.auth')]
             'password' => ['required'],
         ]);
 
+        $throttleKey = Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('email', __('auth.throttle', ['seconds' => $seconds, 'minutes' => (int) ceil($seconds / 60)]));
+            return;
+        }
+
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+            RateLimiter::hit($throttleKey);
             $this->addError('email', __('auth.failed'));
             return;
         }
 
+        RateLimiter::clear($throttleKey);
         session()->regenerate();
 
         $user = auth()->user();
@@ -31,7 +44,7 @@ new #[Layout('components.layouts.auth')]
         if (! $user->hasVerifiedEmail()) {
             if (! $user->email_verification_code || $user->email_verification_code_expires_at?->isPast()) {
                 $code = $user->generateVerificationCode();
-                $user->notify(new \App\Notifications\EmailVerificationPin($code));
+                $user->notify(new EmailVerificationPin($code));
             }
             $this->redirect(route('verification.notice'));
             return;
@@ -67,9 +80,6 @@ new #[Layout('components.layouts.auth')]
                     required
                     autofocus
                 />
-                @error('email')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>
@@ -80,9 +90,6 @@ new #[Layout('components.layouts.auth')]
                     placeholder="••••••••"
                     required
                 />
-                @error('password')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <label class="flex items-center gap-2 text-sm text-secondary cursor-pointer select-none">

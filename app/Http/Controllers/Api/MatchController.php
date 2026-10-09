@@ -38,6 +38,7 @@ class MatchController extends Controller
         // (platform owners / match directors see everything for support).
         $matches = ShootingMatch::query()
             ->visibleToScoringUser($user)
+            ->with('organization')
             ->whereIn('status', $importableStatuses)
             ->orderBy('date')
             ->get();
@@ -103,6 +104,12 @@ class MatchController extends Controller
         $eagerLoads['disqualifications'] = fn ($q) => $q->with('issuedBy:id,name');
 
         $match->load($eagerLoads);
+
+        // resolvedProfile() falls back to stage->match->elrScoringProfile;
+        // point it at the loaded parent instead of lazy-loading per stage.
+        if ($match->relationLoaded('elrStages')) {
+            $match->elrStages->each->setRelation('match', $match);
+        }
 
         $shooterIds = $match->squads->flatMap->shooters->pluck('id');
 

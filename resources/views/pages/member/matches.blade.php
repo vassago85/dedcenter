@@ -18,13 +18,15 @@ new #[Layout('components.layouts.app')]
         $myMatchIds = \App\Models\MatchRegistration::where('user_id', $userId)
             ->pluck('match_id');
 
-        $liveMatches = ShootingMatch::whereIn('id', $myMatchIds)
+        $liveMatches = ShootingMatch::with('organization')
+            ->whereIn('id', $myMatchIds)
             ->activeLiveToday()
             ->withCount('shooters')
             ->latest('date')
             ->get();
 
-        $upcomingMatches = ShootingMatch::whereIn('id', $myMatchIds)
+        $upcomingMatches = ShootingMatch::with('organization')
+            ->whereIn('id', $myMatchIds)
             ->whereIn('status', [
                 MatchStatus::PreRegistration,
                 MatchStatus::RegistrationOpen,
@@ -37,14 +39,26 @@ new #[Layout('components.layouts.app')]
             ->orderBy('date')
             ->get();
 
-        $recentMatches = ShootingMatch::whereIn('id', $myMatchIds)
+        $recentMatches = ShootingMatch::with('organization')
+            ->whereIn('id', $myMatchIds)
             ->where('status', MatchStatus::Completed)
             ->withCount('shooters')
             ->latest('date')
             ->take(10)
             ->get();
 
-        $browseMatches = ShootingMatch::whereNotIn('id', $myMatchIds)
+        if ($recentMatches->isNotEmpty()) {
+            $shotMatchIds = array_flip(\App\Models\Shooter::query()
+                ->join('squads', 'shooters.squad_id', '=', 'squads.id')
+                ->where('shooters.user_id', $userId)
+                ->whereIn('squads.match_id', $recentMatches->modelKeys())
+                ->pluck('squads.match_id')
+                ->all());
+            $recentMatches->each(fn ($m) => $m->setAttribute('has_my_report', isset($shotMatchIds[$m->id])));
+        }
+
+        $browseMatches = ShootingMatch::with('organization')
+            ->whereNotIn('id', $myMatchIds)
             ->whereIn('status', [
                 MatchStatus::PreRegistration,
                 MatchStatus::RegistrationOpen,

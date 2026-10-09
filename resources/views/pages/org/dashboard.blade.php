@@ -52,14 +52,20 @@ new #[Layout('components.layouts.app')]
     public function with(): array
     {
         $org = $this->organization;
-        $matchIds = $org->matches()->pluck('id');
+        $statusCounts = $org->matches()
+            ->whereIn('status', [MatchStatus::Active, MatchStatus::RegistrationOpen, MatchStatus::SquaddingOpen, MatchStatus::Completed])
+            ->groupBy('status')
+            ->selectRaw('status, COUNT(*) as total, SUM(CASE WHEN scores_published = ? THEN 1 ELSE 0 END) as published', [true])
+            ->toBase()
+            ->get()
+            ->keyBy('status');
 
-        $activeMatches = $org->matches()->where('status', MatchStatus::Active)->count();
-        $openRegistrations = $org->matches()->where('status', MatchStatus::RegistrationOpen)->count();
-        $pendingSquads = $org->matches()->where('status', MatchStatus::SquaddingOpen)->count();
-        $resultsReady = $org->matches()->where('status', MatchStatus::Completed)->where('scores_published', true)->count();
+        $activeMatches = (int) ($statusCounts[MatchStatus::Active->value]->total ?? 0);
+        $openRegistrations = (int) ($statusCounts[MatchStatus::RegistrationOpen->value]->total ?? 0);
+        $pendingSquads = (int) ($statusCounts[MatchStatus::SquaddingOpen->value]->total ?? 0);
+        $resultsReady = (int) ($statusCounts[MatchStatus::Completed->value]->published ?? 0);
 
-        $pendingRegistrations = MatchRegistration::whereIn('match_id', $matchIds)
+        $pendingRegistrations = MatchRegistration::whereIn('match_id', $org->matches()->select('id'))
             ->where('payment_status', 'proof_submitted')->count();
 
         $childCount = $org->children()->count();

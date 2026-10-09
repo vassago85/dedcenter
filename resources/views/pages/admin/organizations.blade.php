@@ -17,7 +17,7 @@ new #[Layout('components.layouts.app')]
         // If there's nothing to review, default to "All" so the page isn't an
         // empty pane. The Pending pill still shows the badge count when work
         // exists so admins can jump to it with one click.
-        if (Organization::pending()->count() === 0) {
+        if (! Organization::pending()->exists()) {
             $this->filter = 'all';
         }
     }
@@ -130,7 +130,7 @@ new #[Layout('components.layouts.app')]
         every livewire:navigated event re-runs with() so the list always
         reflects the database. --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <div>
         <flux:heading size="xl">Organizations</flux:heading>

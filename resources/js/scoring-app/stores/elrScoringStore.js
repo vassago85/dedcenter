@@ -2,6 +2,13 @@ import { defineStore } from 'pinia';
 import { db } from '../db/index';
 import axios from 'axios';
 
+const EMPTY = Object.freeze([]);
+const SHOT_INDEX = '[shooterId+elrTargetId+shotNumber]';
+
+// Set when syncShots() is called while a sync is already in flight, so the
+// running sync does one more pass instead of dropping the request.
+let syncRequested = false;
+
 function generateDeviceId() {
     let id = localStorage.getItem('dc_device_id');
     if (!id) {
@@ -11,10 +18,142 @@ function generateDeviceId() {
     return id;
 }
 
+function shotKey(s) {
+    return `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
+}
+
+function targetKey(shooterId, targetId) {
+    return `${shooterId}-${targetId}`;
+}
+
+function byShotNumber(a, b) {
+    return a.shotNumber - b.shotNumber;
+}
+
+// shooter+target → shots sorted by shotNumber, kept in step with `shots`.
+function buildTargetIndex(shots) {
+    const index = new Map();
+    for (const shot of shots.values()) {
+        const key = targetKey(shot.shooterId, shot.elrTargetId);
+        const list = index.get(key);
+        if (list) list.push(shot);
+        else index.set(key, [shot]);
+    }
+    for (const list of index.values()) list.sort(byShotNumber);
+    return index;
+}
+
+function putShot(store, shot) {
+    store.shots.set(shotKey(shot), shot);
+    const key = targetKey(shot.shooterId, shot.elrTargetId);
+    const list = (store.shotsByTarget.get(key) ?? EMPTY).filter(s => s.shotNumber !== shot.shotNumber);
+    list.push(shot);
+    list.sort(byShotNumber);
+    store.shotsByTarget.set(key, list);
+}
+
+function dropShot(store, shooterId, elrTargetId, shotNumber) {
+    store.shots.delete(shotKey({ shooterId, elrTargetId, shotNumber }));
+    const key = targetKey(shooterId, elrTargetId);
+    const list = store.shotsByTarget.get(key);
+    if (!list) return;
+    const next = list.filter(s => s.shotNumber !== shotNumber);
+    if (next.length) store.shotsByTarget.set(key, next);
+    else store.shotsByTarget.delete(key);
+}
+
+function sameShot(a, b) {
+    return a.matchId === b.matchId
+        && a.result === b.result
+        && (a.impactNumber ?? null) === (b.impactNumber ?? null)
+        && a.pointsAwarded === b.pointsAwarded
+        && (a.deviceId ?? null) === (b.deviceId ?? null)
+        && (a.recordedAt ?? null) === (b.recordedAt ?? null)
+        && a.synced === b.synced;
+}
+
+function isAuthError(e) {
+    return e.response?.status === 401 || e.response?.status === 419;
+}
+
+// Native app / LAN hub: local Ktor feed (camelCase, returns all shots).
+// Only the standalone (APK) build is served by Ktor; Laravel has no such route.
+async function fetchHubShots(matchId) {
+    const res = await axios.get('/api/sync/elr-shots', { params: { match_id: matchId } });
+    return (res.data?.data ?? []).map((s) => ({
+        shooterId: s.shooterId,
+        elrTargetId: s.elrTargetId,
+        shotNumber: s.shotNumber,
+        impactNumber: s.impactNumber ?? null,
+        result: s.result,
+        pointsAwarded: s.pointsAwarded ?? 0,
+        deviceId: s.deviceId ?? null,
+        recordedAt: s.recordedAt ?? null,
+    }));
+}
+
+// Cloud PWA: incremental sync feed (snake_case).
+async function fetchCloudShots(matchId) {
+    const res = await axios.get(`/api/matches/${matchId}/scores/sync`);
+    return (res.data?.elr_shots ?? []).map((s) => ({
+        shooterId: s.shooter_id,
+        elrTargetId: s.elr_target_id,
+        shotNumber: s.shot_number,
+        impactNumber: s.impact_number ?? null,
+        result: s.result,
+        pointsAwarded: s.points_awarded ?? 0,
+        deviceId: s.device_id ?? null,
+        recordedAt: s.recorded_at ?? null,
+    }));
+}
+
+// One push of unsynced shots + team-stage entries. Returns false on failure.
+async function pushUnsynced(store) {
+    try {
+        const unsynced = await db.elrShots
+            .where('matchId').equals(store.matchId)
+            .filter(s => !s.synced)
+            .toArray();
+
+        if (unsynced.length) {
+            const payload = {
+                shots: unsynced.map(s => ({
+                    shooter_id: s.shooterId,
+                    elr_target_id: s.elrTargetId,
+                    shot_number: s.shotNumber,
+                    result: s.result,
+                    device_id: s.deviceId,
+                    recorded_at: s.recordedAt,
+                })),
+            };
+
+            await axios.post(`/api/matches/${store.matchId}/elr-shots`, payload);
+
+            await db.elrShots.bulkUpdate(unsynced.map(s => ({ key: s.localId, changes: { synced: true } })));
+            for (const s of unsynced) {
+                const current = store.shots.get(shotKey(s));
+                if (current) putShot(store, { ...current, synced: true });
+            }
+        }
+
+        await store.syncTeamStageEntries();
+        await store.updatePendingCount();
+        return true;
+    } catch (e) {
+        if (isAuthError(e)) {
+            store.authExpired = true;
+        } else {
+            console.error('ELR sync failed:', e);
+        }
+        return false;
+    }
+}
+
 export const useElrScoringStore = defineStore('elrScoring', {
     state: () => ({
         matchId: null,
         shots: new Map(),
+        shotsByTarget: new Map(),
         teamStageEntries: new Map(), // key: `${teamId}-${elrStageId}`
         syncing: false,
         pendingCount: 0,
@@ -23,19 +162,17 @@ export const useElrScoringStore = defineStore('elrScoring', {
     }),
 
     getters: {
-        shotKey: () => (shooterId, targetId, shotNumber) => `${shooterId}-${targetId}-${shotNumber}`,
+        getShotsForTarget: (state) => (shooterId, targetId) =>
+            state.shotsByTarget.get(targetKey(shooterId, targetId)) ?? EMPTY,
 
-        getShotsForTarget: (state) => (shooterId, targetId) => {
-            const result = [];
-            for (const [key, shot] of state.shots) {
-                if (shot.shooterId === shooterId && shot.elrTargetId === targetId) {
-                    result.push(shot);
-                }
+        // Shooters with at least one real (non not_taken) shot recorded.
+        shooterIdsWithShots: (state) => {
+            const ids = new Set();
+            for (const shot of state.shots.values()) {
+                if (shot.result && shot.result !== 'not_taken') ids.add(shot.shooterId);
             }
-            return result.sort((a, b) => a.shotNumber - b.shotNumber);
+            return ids;
         },
-
-        teamStageKey: () => (teamId, elrStageId) => `${teamId}-${elrStageId}`,
 
         getTeamStageEntry: (state) => (teamId, elrStageId) =>
             state.teamStageEntries.get(`${teamId}-${elrStageId}`) ?? null,
@@ -45,15 +182,16 @@ export const useElrScoringStore = defineStore('elrScoring', {
         async initForMatch(matchId) {
             this.matchId = matchId;
             this.shots = new Map();
+            this.shotsByTarget = new Map();
             this.teamStageEntries = new Map();
             this.authExpired = false;
 
             try {
                 const localShots = await db.elrShots.where('matchId').equals(matchId).toArray();
-                for (const s of localShots) {
-                    const key = `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
-                    this.shots.set(key, s);
-                }
+                const shots = new Map();
+                for (const s of localShots) shots.set(shotKey(s), s);
+                this.shots = shots;
+                this.shotsByTarget = buildTargetIndex(shots);
             } catch {
                 // elrShots table may not exist yet
             }
@@ -84,57 +222,27 @@ export const useElrScoringStore = defineStore('elrScoring', {
         async hydrateFromServer(matchId) {
             let serverShots = null;
 
-            // Native app / LAN hub: local Ktor feed (camelCase, returns all shots).
-            try {
-                const res = await axios.get('/api/sync/elr-shots', { params: { match_id: matchId } });
-                serverShots = (res.data?.data ?? []).map((s) => ({
-                    shooterId: s.shooterId,
-                    elrTargetId: s.elrTargetId,
-                    shotNumber: s.shotNumber,
-                    impactNumber: s.impactNumber ?? null,
-                    result: s.result,
-                    pointsAwarded: s.pointsAwarded ?? 0,
-                    deviceId: s.deviceId ?? null,
-                    recordedAt: s.recordedAt ?? null,
-                }));
-            } catch {
-                // Cloud PWA: incremental sync feed (snake_case).
+            if (window.__DC_STANDALONE === true) {
                 try {
-                    const res = await axios.get(`/api/matches/${matchId}/scores/sync`);
-                    serverShots = (res.data?.elr_shots ?? []).map((s) => ({
-                        shooterId: s.shooter_id,
-                        elrTargetId: s.elr_target_id,
-                        shotNumber: s.shot_number,
-                        impactNumber: s.impact_number ?? null,
-                        result: s.result,
-                        pointsAwarded: s.points_awarded ?? 0,
-                        deviceId: s.device_id ?? null,
-                        recordedAt: s.recorded_at ?? null,
-                    }));
+                    serverShots = await fetchHubShots(matchId);
+                } catch { /* fall through to the cloud feed */ }
+            }
+
+            if (serverShots === null) {
+                try {
+                    serverShots = await fetchCloudShots(matchId);
                 } catch (e) {
-                    if (e.response?.status === 401 || e.response?.status === 419) {
+                    if (isAuthError(e)) {
                         this.authExpired = true;
                     }
                     return; // offline / unsupported — keep local-only view
                 }
             }
 
+            const incoming = new Map();
             for (const srv of serverShots) {
                 if (srv.shooterId == null || srv.elrTargetId == null || srv.shotNumber == null) continue;
-                const key = `${srv.shooterId}-${srv.elrTargetId}-${srv.shotNumber}`;
-
-                let local = this.shots.get(key);
-                try {
-                    local = await db.elrShots
-                        .where('[shooterId+elrTargetId+shotNumber]')
-                        .equals([srv.shooterId, srv.elrTargetId, srv.shotNumber])
-                        .first() ?? local;
-                } catch { /* db not ready — fall back to in-memory */ }
-
-                // Pending local edit wins over the server copy.
-                if (local && local.synced === false) continue;
-
-                const merged = {
+                incoming.set(shotKey(srv), {
                     shooterId: srv.shooterId,
                     elrTargetId: srv.elrTargetId,
                     matchId,
@@ -145,40 +253,94 @@ export const useElrScoringStore = defineStore('elrScoring', {
                     deviceId: srv.deviceId,
                     recordedAt: srv.recordedAt,
                     synced: true,
-                };
+                });
+            }
+            if (!incoming.size) return;
 
-                try {
-                    await db.elrShots
-                        .where('[shooterId+elrTargetId+shotNumber]')
-                        .equals([srv.shooterId, srv.elrTargetId, srv.shotNumber])
-                        .delete();
-                    await db.elrShots.add(merged);
-                } catch { /* db not ready */ }
+            let accepted;
+            try {
+                accepted = await db.transaction('rw', db.elrShots, async () => {
+                    const rows = await db.elrShots
+                        .where(SHOT_INDEX)
+                        .anyOf([...incoming.values()].map(s => [s.shooterId, s.elrTargetId, s.shotNumber]))
+                        .toArray();
+                    const rowsByKey = new Map();
+                    for (const row of rows) {
+                        const key = shotKey(row);
+                        const list = rowsByKey.get(key);
+                        if (list) list.push(row);
+                        else rowsByKey.set(key, [row]);
+                    }
 
-                this.shots.set(key, merged);
+                    const out = [];
+                    const puts = [];
+                    const deletes = [];
+                    for (const [key, merged] of incoming) {
+                        const existing = rowsByKey.get(key);
+                        const local = existing?.[0] ?? this.shots.get(key);
+                        // Pending local edit wins over the server copy.
+                        if (local && local.synced === false) continue;
+                        out.push(merged);
+                        if (!existing) {
+                            puts.push(merged);
+                            continue;
+                        }
+                        if (existing.length > 1) deletes.push(...existing.slice(1).map(r => r.localId));
+                        if (existing.length > 1 || !sameShot(existing[0], merged)) {
+                            puts.push({ ...merged, localId: existing[0].localId });
+                        }
+                    }
+                    if (deletes.length) await db.elrShots.bulkDelete(deletes);
+                    if (puts.length) await db.elrShots.bulkPut(puts);
+                    return out;
+                });
+            } catch {
+                // db not ready — fall back to in-memory
+                accepted = [...incoming.values()];
+            }
+
+            for (const merged of accepted) {
+                const current = this.shots.get(shotKey(merged));
+                if (current && (current.synced === false || sameShot(current, merged))) continue;
+                putShot(this, merged);
             }
         },
 
-        async recordShot({ matchId, shooterId, elrTargetId, shotNumber, result, pointsAwarded, impactNumber = null }) {
-            const key = `${shooterId}-${elrTargetId}-${shotNumber}`;
-            const shot = {
-                shooterId,
-                elrTargetId,
-                matchId: matchId || this.matchId,
-                shotNumber,
-                impactNumber,
-                result,
-                pointsAwarded,
-                deviceId: this.deviceId,
-                recordedAt: new Date().toISOString(),
-                synced: false,
-            };
+        async recordShot(shot) {
+            await this.recordShots([shot]);
+        },
 
-            this.shots.set(key, shot);
+        // Batch variant: one Dexie transaction and one pending recount for
+        // every shot written by a single tap.
+        async recordShots(inputs) {
+            const shots = new Map();
+            for (const { matchId, shooterId, elrTargetId, shotNumber, result, pointsAwarded, impactNumber = null } of inputs) {
+                const shot = {
+                    shooterId,
+                    elrTargetId,
+                    matchId: matchId || this.matchId,
+                    shotNumber,
+                    impactNumber,
+                    result,
+                    pointsAwarded,
+                    deviceId: this.deviceId,
+                    recordedAt: new Date().toISOString(),
+                    synced: false,
+                };
+                shots.set(shotKey(shot), shot);
+            }
+            if (!shots.size) return;
+
+            for (const shot of shots.values()) putShot(this, shot);
 
             try {
-                await db.elrShots.where('[shooterId+elrTargetId+shotNumber]').equals([shooterId, elrTargetId, shotNumber]).delete();
-                await db.elrShots.add(shot);
+                await db.transaction('rw', db.elrShots, async () => {
+                    await db.elrShots
+                        .where(SHOT_INDEX)
+                        .anyOf([...shots.values()].map(s => [s.shooterId, s.elrTargetId, s.shotNumber]))
+                        .delete();
+                    await db.elrShots.bulkAdd([...shots.values()]);
+                });
             } catch {
                 // db not ready
             }
@@ -191,17 +353,11 @@ export const useElrScoringStore = defineStore('elrScoring', {
         // overwrite (0 points, no impact) so the server can't keep stale
         // points, while the UI treats the slot as open for re-entry.
         async removeShot({ shooterId, elrTargetId, shotNumber }) {
-            const key = `${shooterId}-${elrTargetId}-${shotNumber}`;
-            const existing = this.shots.get(key);
-            this.shots.delete(key);
-
-            try {
-                await db.elrShots.where('[shooterId+elrTargetId+shotNumber]').equals([shooterId, elrTargetId, shotNumber]).delete();
-            } catch {
-                // db not ready
-            }
+            const existing = this.shots.get(shotKey({ shooterId, elrTargetId, shotNumber }));
+            dropShot(this, shooterId, elrTargetId, shotNumber);
 
             if (existing?.synced) {
+                // recordShot replaces the Dexie row in the same transaction.
                 await this.recordShot({
                     matchId: this.matchId,
                     shooterId,
@@ -211,6 +367,13 @@ export const useElrScoringStore = defineStore('elrScoring', {
                     pointsAwarded: 0,
                     impactNumber: null,
                 });
+                return;
+            }
+
+            try {
+                await db.elrShots.where(SHOT_INDEX).equals([shooterId, elrTargetId, shotNumber]).delete();
+            } catch {
+                // db not ready
             }
 
             await this.updatePendingCount();
@@ -218,8 +381,9 @@ export const useElrScoringStore = defineStore('elrScoring', {
 
         // Upsert a team's per-stage lifecycle row (timer + rotation). Merges
         // with any existing entry so partial updates (e.g. just completed_at)
-        // don't wipe started_at / first_shooter.
-        async saveTeamStageEntry({ matchId, teamId, elrStageId, squadId, firstShooterId, position, startedAt, completedAt, timedOut, overtimeReason }) {
+        // don't wipe started_at / first_shooter. `synced` marks entries that
+        // came from the server so they are not re-uploaded.
+        async saveTeamStageEntry({ matchId, teamId, elrStageId, squadId, firstShooterId, position, startedAt, completedAt, timedOut, overtimeReason, synced = false }) {
             const key = `${teamId}-${elrStageId}`;
             const existing = this.teamStageEntries.get(key) ?? {};
             const entry = {
@@ -239,20 +403,24 @@ export const useElrScoringStore = defineStore('elrScoring', {
                 // devices on the next sync.
                 overtimeReason: overtimeReason !== undefined ? overtimeReason : existing.overtimeReason ?? null,
                 deviceId: this.deviceId,
-                synced: false,
+                synced,
             };
 
             this.teamStageEntries.set(key, entry);
 
             try {
-                await db.elrTeamStageEntries
-                    .where('[teamId+elrStageId]').equals([teamId, elrStageId]).delete();
-                await db.elrTeamStageEntries.add(entry);
+                await db.transaction('rw', db.elrTeamStageEntries, async () => {
+                    await db.elrTeamStageEntries
+                        .where('[teamId+elrStageId]').equals([teamId, elrStageId]).delete();
+                    await db.elrTeamStageEntries.add(entry);
+                });
             } catch {
                 // db not ready
             }
 
-            await this.updatePendingCount();
+            if (!synced || existing.synced === false) {
+                await this.updatePendingCount();
+            }
         },
 
         async refreshShots(matchId) {
@@ -263,12 +431,25 @@ export const useElrScoringStore = defineStore('elrScoring', {
             const merged = new Map();
             try {
                 const localShots = await db.elrShots.where('matchId').equals(matchId).toArray();
-                for (const s of localShots) {
-                    const key = `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
-                    merged.set(key, s);
-                }
+                for (const s of localShots) merged.set(shotKey(s), s);
             } catch { /* table may not exist */ }
-            this.shots = merged;
+
+            // Only swap the maps when Dexie disagrees with memory, so an idle
+            // poll doesn't invalidate every grid cell that reads the index.
+            let changed = merged.size !== this.shots.size;
+            if (!changed) {
+                for (const [key, s] of merged) {
+                    const current = this.shots.get(key);
+                    if (!current || !sameShot(current, s)) {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            if (changed) {
+                this.shots = merged;
+                this.shotsByTarget = buildTargetIndex(merged);
+            }
 
             const mergedEntries = new Map();
             try {
@@ -284,17 +465,17 @@ export const useElrScoringStore = defineStore('elrScoring', {
 
         async updatePendingCount() {
             try {
-                const pendingShots = await db.elrShots
-                    .where('matchId').equals(this.matchId)
-                    .filter(s => !s.synced)
-                    .count();
-                let pendingEntries = 0;
-                try {
-                    pendingEntries = await db.elrTeamStageEntries
+                const [pendingShots, pendingEntries] = await Promise.all([
+                    db.elrShots
+                        .where('matchId').equals(this.matchId)
+                        .filter(s => !s.synced)
+                        .count(),
+                    db.elrTeamStageEntries
                         .where('matchId').equals(this.matchId)
                         .filter(e => !e.synced)
-                        .count();
-                } catch { /* table may not exist */ }
+                        .count()
+                        .catch(() => 0), // table may not exist
+                ]);
                 this.pendingCount = pendingShots + pendingEntries;
             } catch {
                 this.pendingCount = 0;
@@ -302,47 +483,19 @@ export const useElrScoringStore = defineStore('elrScoring', {
         },
 
         async syncShots() {
-            if (this.syncing || !navigator.onLine) return;
+            if (!navigator.onLine) return;
+            if (this.syncing) {
+                syncRequested = true;
+                return;
+            }
             this.syncing = true;
 
             try {
-                const unsynced = await db.elrShots
-                    .where('matchId').equals(this.matchId)
-                    .filter(s => !s.synced)
-                    .toArray();
-
-                if (unsynced.length) {
-                    const payload = {
-                        shots: unsynced.map(s => ({
-                            shooter_id: s.shooterId,
-                            elr_target_id: s.elrTargetId,
-                            shot_number: s.shotNumber,
-                            result: s.result,
-                            device_id: s.deviceId,
-                            recorded_at: s.recordedAt,
-                        })),
-                    };
-
-                    await axios.post(`/api/matches/${this.matchId}/elr-shots`, payload);
-
-                    for (const s of unsynced) {
-                        await db.elrShots.update(s.localId, { synced: true });
-                        const key = `${s.shooterId}-${s.elrTargetId}-${s.shotNumber}`;
-                        const current = this.shots.get(key);
-                        if (current) {
-                            this.shots.set(key, { ...current, synced: true });
-                        }
-                    }
-                }
-
-                await this.syncTeamStageEntries();
-                await this.updatePendingCount();
-            } catch (e) {
-                if (e.response?.status === 401 || e.response?.status === 419) {
-                    this.authExpired = true;
-                } else {
-                    console.error('ELR sync failed:', e);
-                }
+                let ok;
+                do {
+                    syncRequested = false;
+                    ok = await pushUnsynced(this);
+                } while (ok && syncRequested && navigator.onLine);
             } finally {
                 this.syncing = false;
             }
@@ -381,7 +534,7 @@ export const useElrScoringStore = defineStore('elrScoring', {
                         this.teamStageEntries.set(key, { ...current, synced: true });
                     }
                 } catch (err) {
-                    if (err.response?.status === 401 || err.response?.status === 419) {
+                    if (isAuthError(err)) {
                         this.authExpired = true;
                         return;
                     }

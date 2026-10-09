@@ -52,9 +52,4 @@ class ElrSquadTeamOrder extends Model
     {
         return $this->belongsTo(ElrStage::class, 'elr_stage_id');
     }
-
-    public function shooterFirst(): BelongsTo
-    {
-        return $this->belongsTo(Shooter::class, 'shooter_first_id');
-    }
 }

@@ -3,273 +3,173 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\MatchStatus;
-use App\Enums\PrsShotResult;
 use App\Http\Controllers\Controller;
-use App\Jobs\SendPostMatchNotifications;
 use App\Models\CorrectionLog;
-use App\Models\ElrShot;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
 use App\Models\Score;
-use App\Models\ScoreAuditLog;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use App\Models\TargetSet;
+use App\Rules\InIdSet;
 use App\Services\AchievementService;
 use App\Services\NotificationService;
 use App\Services\ScoreAuditService;
 use App\Services\SquadScoreCorrectionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class ScoreManagementController extends Controller
 {
-    /**
-     * Reassign score(s) from one shooter to another.
-     */
-    public function reassign(Request $request, ShootingMatch $match)
-    {
-        $this->authorizeMatchDirector($request, $match);
-
-        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
-
-        $validated = $request->validate([
-            'score_type' => ['required', Rule::in(['standard', 'prs', 'elr'])],
-            'score_ids' => ['required', 'array', 'min:1'],
-            'score_ids.*' => ['required', 'integer'],
-            'new_shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
-            'reason' => ['required', 'string', 'max:1000'],
-        ]);
-
-        $reassigned = [];
-
-        foreach ($validated['score_ids'] as $scoreId) {
-            $model = match ($validated['score_type']) {
-                'standard' => Score::find($scoreId),
-                'prs' => PrsStageResult::where('match_id', $match->id)->find($scoreId),
-                'elr' => ElrShot::find($scoreId),
-                default => null,
-            };
-
-            if (! $model) {
-                continue;
-            }
-
-            $oldShooterId = $model->shooter_id;
-            if ($oldShooterId === $validated['new_shooter_id']) {
-                continue;
-            }
-
-            ScoreAuditService::logReassigned(
-                $match->id,
-                $model,
-                $oldShooterId,
-                $validated['new_shooter_id'],
-                $validated['reason'],
-                $request,
-            );
-
-            $model->update(['shooter_id' => $validated['new_shooter_id']]);
-
-            if ($validated['score_type'] === 'prs') {
-                PrsShotScore::where('match_id', $match->id)
-                    ->where('stage_id', $model->stage_id)
-                    ->where('shooter_id', $oldShooterId)
-                    ->update(['shooter_id' => $validated['new_shooter_id']]);
-            }
-
-            $reassigned[] = $model->getKey();
-        }
-
-        return response()->json([
-            'message' => count($reassigned).' score(s) reassigned.',
-            'reassigned_ids' => $reassigned,
-        ]);
-    }
+    private const SCORING_APP_REASON = 'Corrected in scoring app';
 
     /**
-     * Mark score(s) as a reshoot with a mandatory reason.
+     * Hand one shooter's PRS result on a stage to another shooter (the wrong
+     * shooter was scored). Same contract as the hub's
+     * POST stages/{stage}/reassign so the scoring SPA works on both.
      */
-    public function reshoot(Request $request, ShootingMatch $match)
+    public function reassignStage(Request $request, ShootingMatch $match, TargetSet $stage)
     {
         $this->authorizeMatchDirector($request, $match);
+        abort_unless($stage->match_id === $match->id, 422, 'Stage does not belong to this match.');
+
+        $validShooterIds = $match->shooters()->pluck('shooters.id')->all();
 
         $validated = $request->validate([
-            'score_type' => ['required', Rule::in(['standard', 'prs_stage', 'prs_shot', 'elr'])],
-            'score_ids' => ['required', 'array', 'min:1'],
-            'score_ids.*' => ['required', 'integer'],
-            'reason' => ['required', 'string', 'max:1000'],
+            'shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
+            'new_shooter_id' => ['required', 'integer', Rule::in($validShooterIds), 'different:shooter_id'],
         ]);
 
-        $marked = [];
+        $from = (int) $validated['shooter_id'];
+        $to = (int) $validated['new_shooter_id'];
 
-        foreach ($validated['score_ids'] as $scoreId) {
-            $model = match ($validated['score_type']) {
-                'standard' => Score::find($scoreId),
-                'prs_stage' => PrsStageResult::where('match_id', $match->id)->find($scoreId),
-                'prs_shot' => PrsShotScore::where('match_id', $match->id)->find($scoreId),
-                'elr' => ElrShot::find($scoreId),
-                default => null,
-            };
+        [$moved, $result] = DB::transaction(function () use ($request, $match, $stage, $from, $to) {
+            $displaced = PrsStageResult::where('shooter_id', $to)->where('stage_id', $stage->id)->first();
+            if ($displaced) {
+                ScoreAuditService::logDeleted($match->id, $displaced, self::SCORING_APP_REASON, $request);
+                $displaced->delete();
+            }
+            PrsShotScore::where('shooter_id', $to)->where('stage_id', $stage->id)->delete();
 
-            if (! $model) {
-                continue;
+            $moved = PrsShotScore::where('shooter_id', $from)
+                ->where('stage_id', $stage->id)
+                ->update(['shooter_id' => $to]);
+
+            $result = PrsStageResult::where('shooter_id', $from)->where('stage_id', $stage->id)->first();
+            if ($result) {
+                ScoreAuditService::logReassigned($match->id, $result, $from, $to, self::SCORING_APP_REASON, $request);
+                $result->update(['shooter_id' => $to]);
             }
 
-            $model->update([
-                'is_reshoot' => true,
-                'reshoot_reason' => $validated['reason'],
+            CorrectionLog::create([
+                'match_id' => $match->id,
+                'stage_id' => $stage->id,
+                'shooter_id' => $from,
+                'action' => 'reassign',
+                'details' => ['old_shooter_id' => $from, 'new_shooter_id' => $to, 'moved_scores' => $moved],
+                'device_id' => $request->header('X-Device-Id'),
+                'performed_at' => now(),
             ]);
 
-            ScoreAuditService::logReshoot($match->id, $model, $validated['reason'], $request);
-
-            $marked[] = $model->getKey();
-        }
-
-        return response()->json([
-            'message' => count($marked).' score(s) marked as reshoot.',
-            'reshoot_ids' => $marked,
-        ]);
-    }
-
-    /**
-     * Return audit log entries for a match.
-     */
-    public function auditLog(Request $request, ShootingMatch $match)
-    {
-        // Audit log is a READ that range officers legitimately want during
-        // scoring (to see what a co-scorer just changed) — RO-level bar.
-        $this->authorizeScorer($request, $match);
-
-        $query = ScoreAuditLog::where('match_id', $match->id)
-            ->with('user:id,name,email')
-            ->orderByDesc('created_at');
-
-        if ($request->has('action')) {
-            $query->where('action', $request->query('action'));
-        }
-
-        if ($request->has('shooter_id')) {
-            $shooterId = (int) $request->query('shooter_id');
-            $query->where(function ($q) use ($shooterId) {
-                $q->whereJsonContains('old_values->shooter_id', $shooterId)
-                    ->orWhereJsonContains('new_values->shooter_id', $shooterId);
-            });
-        }
-
-        $logs = $query->paginate(50);
-
-        return response()->json($logs);
-    }
-
-    /**
-     * Toggle scores_published for a match.
-     */
-    public function togglePublish(Request $request, ShootingMatch $match)
-    {
-        $this->authorizeMatchDirector($request, $match);
-
-        $validated = $request->validate([
-            'published' => ['required', 'boolean'],
-        ]);
-
-        $match->update(['scores_published' => $validated['published']]);
-
-        if ($validated['published']) {
-            try {
-                // Clean rebuild so the published leaderboard, podiums, and
-                // per-shooter badge lists always match the final scores even
-                // if the MD corrected something and re-published.
-                AchievementService::reevaluateForMatch($match);
-            } catch (\Throwable $e) {
-                Log::warning('Achievement evaluation failed', [
-                    'match_id' => $match->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            if ($match->status === MatchStatus::Completed) {
-                SendPostMatchNotifications::dispatch($match)->delay(now()->addHour());
-            }
-        }
-
-        return response()->json([
-            'message' => $validated['published'] ? 'Scores are now published.' : 'Scores are now hidden from public.',
-            'scores_published' => (bool) $match->scores_published,
-        ]);
-    }
-
-    /**
-     * Move a shooter's PRS scores from one stage to another.
-     */
-    public function moveStage(Request $request, ShootingMatch $match)
-    {
-        $this->authorizeMatchDirector($request, $match);
-
-        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
-        $validStageIds = $match->targetSets()->pluck('id')->toArray();
-
-        $validated = $request->validate([
-            'score_type' => ['required', Rule::in(['prs'])],
-            'shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
-            'old_stage_id' => ['required', 'integer', Rule::in($validStageIds)],
-            'new_stage_id' => ['required', 'integer', Rule::in($validStageIds), 'different:old_stage_id'],
-            'reason' => ['required', 'string', 'max:1000'],
-        ]);
-
-        $count = 0;
-
-        DB::transaction(function () use ($match, $validated, $request, &$count) {
-            $count = PrsShotScore::where('match_id', $match->id)
-                ->where('shooter_id', $validated['shooter_id'])
-                ->where('stage_id', $validated['old_stage_id'])
-                ->update(['stage_id' => $validated['new_stage_id']]);
-
-            $oldResult = PrsStageResult::where('match_id', $match->id)
-                ->where('shooter_id', $validated['shooter_id'])
-                ->where('stage_id', $validated['old_stage_id'])
-                ->first();
-
-            if ($oldResult) {
-                ScoreAuditService::logDeleted($match->id, $oldResult, $validated['reason'], $request);
-                $oldResult->delete();
-            }
-
-            $movedShots = PrsShotScore::where('match_id', $match->id)
-                ->where('shooter_id', $validated['shooter_id'])
-                ->where('stage_id', $validated['new_stage_id'])
-                ->get();
-
-            if ($movedShots->isNotEmpty()) {
-                $newResult = PrsStageResult::create([
-                    'match_id' => $match->id,
-                    'shooter_id' => $validated['shooter_id'],
-                    'stage_id' => $validated['new_stage_id'],
-                    'hits' => $movedShots->where('result', PrsShotResult::Hit)->count(),
-                    'misses' => $movedShots->where('result', PrsShotResult::Miss)->count(),
-                    'not_taken' => $movedShots->where('result', PrsShotResult::NotTaken)->count(),
-                    'completed_at' => now(),
-                ]);
-
-                ScoreAuditService::log(
-                    $match->id,
-                    $newResult,
-                    'move_stage',
-                    ['stage_id' => $validated['old_stage_id']],
-                    ['stage_id' => $validated['new_stage_id']],
-                    $validated['reason'],
-                    $request,
-                );
-            }
+            return [$moved, $result];
         });
 
         return response()->json([
-            'message' => "{$count} shot(s) moved to new stage.",
-            'count' => $count,
+            'success' => true,
+            'moved_scores' => $moved,
+            'shooterId' => $to,
+            'stageId' => $stage->id,
+            'hits' => $result?->hits ?? 0,
+            'misses' => $result?->misses ?? 0,
+            'notTaken' => $result?->not_taken ?? 0,
+            'time' => $result?->official_time_seconds !== null ? (float) $result->official_time_seconds : null,
+            'completedAt' => $result?->completed_at?->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Move a shooter's PRS result from one stage to another (scored on the
+     * wrong stage). Same contract as the hub's POST stages/{stage}/move.
+     */
+    public function moveStage(Request $request, ShootingMatch $match, TargetSet $stage)
+    {
+        $this->authorizeMatchDirector($request, $match);
+        abort_unless($stage->match_id === $match->id, 422, 'Stage does not belong to this match.');
+
+        $validShooterIds = $match->shooters()->pluck('shooters.id')->all();
+        $validStageIds = $match->targetSets()->pluck('id')->all();
+
+        $validated = $request->validate([
+            'shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
+            'new_stage_id' => ['required', 'integer', Rule::in($validStageIds), Rule::notIn([$stage->id])],
+        ]);
+
+        $shooterId = (int) $validated['shooter_id'];
+        $newStageId = (int) $validated['new_stage_id'];
+
+        $moved = DB::transaction(function () use ($request, $match, $stage, $shooterId, $newStageId) {
+            $displaced = PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $newStageId)->first();
+            if ($displaced) {
+                ScoreAuditService::logDeleted($match->id, $displaced, self::SCORING_APP_REASON, $request);
+                $displaced->delete();
+            }
+            PrsShotScore::where('shooter_id', $shooterId)->where('stage_id', $newStageId)->delete();
+
+            $moved = PrsShotScore::where('shooter_id', $shooterId)
+                ->where('stage_id', $stage->id)
+                ->update(['stage_id' => $newStageId]);
+
+            $result = PrsStageResult::where('shooter_id', $shooterId)->where('stage_id', $stage->id)->first();
+            if ($result) {
+                ScoreAuditService::log(
+                    $match->id,
+                    $result,
+                    'move_stage',
+                    ['stage_id' => $stage->id],
+                    ['stage_id' => $newStageId],
+                    self::SCORING_APP_REASON,
+                    $request,
+                );
+                $result->update(['stage_id' => $newStageId]);
+            }
+
+            CorrectionLog::create([
+                'match_id' => $match->id,
+                'stage_id' => $stage->id,
+                'shooter_id' => $shooterId,
+                'action' => 'move_stage',
+                'details' => ['old_stage_id' => $stage->id, 'new_stage_id' => $newStageId, 'moved_scores' => $moved],
+                'device_id' => $request->header('X-Device-Id'),
+                'performed_at' => now(),
+            ]);
+
+            return $moved;
+        });
+
+        return response()->json([
+            'success' => true,
+            'moved_scores' => $moved,
+        ]);
+    }
+
+    /**
+     * Correction log for a match, newest first. Same shape as the hub's
+     * GET correction-logs.
+     */
+    public function correctionLogs(Request $request, ShootingMatch $match)
+    {
+        $this->authorizeScorer($request, $match);
+
+        return response()->json(
+            CorrectionLog::where('match_id', $match->id)
+                ->orderByDesc('performed_at')
+                ->orderByDesc('id')
+                ->get(['id', 'match_id', 'stage_id', 'shooter_id', 'action', 'details', 'device_id', 'performed_at'])
+        );
     }
 
     /**
@@ -281,33 +181,30 @@ class ScoreManagementController extends Controller
         // just fixed on the day — RO-level bar (not a match-lifecycle op).
         $this->authorizeScorer($request, $match);
 
-        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
-        $validStageIds = $match->targetSets()->pluck('id')->toArray();
-
         $validated = $request->validate([
             'logs' => ['required', 'array', 'min:1'],
             'logs.*.action' => ['required', 'string', 'max:30'],
-            'logs.*.stage_id' => ['required', 'integer', Rule::in($validStageIds)],
-            'logs.*.shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
+            'logs.*.stage_id' => ['required', 'integer', new InIdSet($match->targetSets()->pluck('id'))],
+            'logs.*.shooter_id' => ['required', 'integer', new InIdSet($match->shooters()->pluck('shooters.id'))],
             'logs.*.details' => ['nullable', 'array'],
             'logs.*.device_id' => ['nullable', 'string'],
             'logs.*.performed_at' => ['nullable', 'date'],
         ]);
 
-        $created = 0;
-
-        foreach ($validated['logs'] as $entry) {
-            CorrectionLog::create([
-                'match_id' => $match->id,
-                'stage_id' => $entry['stage_id'],
-                'shooter_id' => $entry['shooter_id'],
-                'action' => $entry['action'],
-                'details' => $entry['details'] ?? null,
-                'device_id' => $entry['device_id'] ?? null,
-                'performed_at' => $entry['performed_at'] ?? null,
-            ]);
-            $created++;
-        }
+        // Bulk insert bypasses model casts, so encode/parse like the casts would.
+        $now = now();
+        CorrectionLog::insert(array_map(fn (array $entry) => [
+            'match_id' => $match->id,
+            'stage_id' => $entry['stage_id'],
+            'shooter_id' => $entry['shooter_id'],
+            'action' => $entry['action'],
+            'details' => isset($entry['details']) ? json_encode($entry['details']) : null,
+            'device_id' => $entry['device_id'] ?? null,
+            'performed_at' => isset($entry['performed_at']) ? Carbon::parse($entry['performed_at']) : null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $validated['logs']));
+        $created = count($validated['logs']);
 
         return response()->json([
             'message' => "{$created} correction log(s) created.",
@@ -659,25 +556,20 @@ class ScoreManagementController extends Controller
             }
             $stageTimeState = null;
         } elseif (array_key_exists('time_seconds', $validated) && $validated['time_seconds'] !== null) {
-            $existing = StageTime::where('shooter_id', $shooter->id)
-                ->where('target_set_id', $targetSet->id)
-                ->first();
-            $old = $existing?->toArray();
+            $stageTime = StageTime::firstOrNew([
+                'shooter_id' => $shooter->id,
+                'target_set_id' => $targetSet->id,
+            ]);
+            $old = $stageTime->exists ? $stageTime->toArray() : null;
 
-            $stageTime = StageTime::updateOrCreate(
-                [
-                    'shooter_id' => $shooter->id,
-                    'target_set_id' => $targetSet->id,
-                ],
-                [
-                    'time_seconds' => $validated['time_seconds'],
-                    'device_id' => $request->header('X-Device-Id', $request->input('device_id', 'correction')),
-                    'recorded_at' => now(),
-                ],
-            );
+            $stageTime->fill([
+                'time_seconds' => $validated['time_seconds'],
+                'device_id' => $request->header('X-Device-Id', $request->input('device_id', 'correction')),
+                'recorded_at' => now(),
+            ])->save();
 
-            if ($existing) {
-                ScoreAuditService::logUpdated($match->id, $stageTime, $old ?? [], $validated['reason'], $request);
+            if ($old !== null) {
+                ScoreAuditService::logUpdated($match->id, $stageTime, $old, $validated['reason'], $request);
             } else {
                 ScoreAuditService::logCreated($match->id, $stageTime, $request);
                 ScoreAuditService::log(
@@ -739,28 +631,29 @@ class ScoreManagementController extends Controller
             $misses = 0;
             $notTaken = 0;
 
+            $existingShots = PrsShotScore::where('shooter_id', $shooter->id)
+                ->where('stage_id', $stage->id)
+                ->get()
+                ->keyBy('shot_number');
+
             foreach ($validated['shots'] as $shot) {
-                $existingShot = PrsShotScore::where('shooter_id', $shooter->id)
-                    ->where('stage_id', $stage->id)
-                    ->where('shot_number', $shot['shot_number'])
-                    ->first();
+                $existingShot = $existingShots->get($shot['shot_number']);
                 $oldShotValues = $existingShot?->toArray();
 
-                $savedShot = PrsShotScore::updateOrCreate(
-                    [
-                        'shooter_id' => $shooter->id,
-                        'stage_id' => $stage->id,
-                        'shot_number' => $shot['shot_number'],
-                    ],
-                    [
-                        'match_id' => $match->id,
-                        'result' => $shot['result'],
-                        'device_id' => $deviceId,
-                        'recorded_at' => now(),
-                        'created_by' => $request->user()->id,
-                        'updated_by' => $request->user()->id,
-                    ],
-                );
+                $savedShot = $existingShot ?? new PrsShotScore([
+                    'shooter_id' => $shooter->id,
+                    'stage_id' => $stage->id,
+                    'shot_number' => $shot['shot_number'],
+                ]);
+                $savedShot->fill([
+                    'match_id' => $match->id,
+                    'result' => $shot['result'],
+                    'device_id' => $deviceId,
+                    'recorded_at' => now(),
+                    'created_by' => $request->user()->id,
+                    'updated_by' => $request->user()->id,
+                ])->save();
+                $existingShots->put($shot['shot_number'], $savedShot);
 
                 if ($existingShot && $oldShotValues && ($oldShotValues['result'] ?? '') !== $shot['result']) {
                     ScoreAuditService::logUpdated($match->id, $savedShot, $oldShotValues, $reason, $request);
@@ -792,30 +685,25 @@ class ScoreManagementController extends Controller
                 $officialTime = min($officialTime, (float) $stage->par_time_seconds);
             }
 
-            $existingResult = PrsStageResult::where('shooter_id', $shooter->id)
-                ->where('stage_id', $stage->id)
-                ->first();
-            $oldResultValues = $existingResult?->toArray();
+            $stageResult = PrsStageResult::firstOrNew([
+                'shooter_id' => $shooter->id,
+                'stage_id' => $stage->id,
+            ]);
+            $oldResultValues = $stageResult->exists ? $stageResult->toArray() : null;
 
-            $stageResult = PrsStageResult::updateOrCreate(
-                [
-                    'shooter_id' => $shooter->id,
-                    'stage_id' => $stage->id,
-                ],
-                [
-                    'match_id' => $match->id,
-                    'hits' => $hits,
-                    'misses' => $misses,
-                    'not_taken' => $notTaken,
-                    'raw_time_seconds' => $rawTime,
-                    'official_time_seconds' => $officialTime,
-                    'completed_at' => now(),
-                    'completed_by' => $request->user()->id,
-                    'updated_by' => $request->user()->id,
-                ],
-            );
+            $stageResult->fill([
+                'match_id' => $match->id,
+                'hits' => $hits,
+                'misses' => $misses,
+                'not_taken' => $notTaken,
+                'raw_time_seconds' => $rawTime,
+                'official_time_seconds' => $officialTime,
+                'completed_at' => now(),
+                'completed_by' => $request->user()->id,
+                'updated_by' => $request->user()->id,
+            ])->save();
 
-            if ($existingResult && $oldResultValues) {
+            if ($oldResultValues) {
                 ScoreAuditService::logUpdated($match->id, $stageResult, $oldResultValues, $reason, $request);
             } else {
                 ScoreAuditService::logCreated($match->id, $stageResult, $request);

@@ -75,33 +75,6 @@ class MatchBook extends Model
         return $this->hasMany(MatchBookStage::class)->orderBy('stage_number');
     }
 
-    // ── Helpers ──
-
-    public function isDraft(): bool
-    {
-        return $this->status === 'draft';
-    }
-
-    public function isReady(): bool
-    {
-        return $this->status === 'ready';
-    }
-
-    public function isPublished(): bool
-    {
-        return $this->status === 'published';
-    }
-
-    public function isRimfire(): bool
-    {
-        return $this->match_type === 'rimfire';
-    }
-
-    public function isCenterfire(): bool
-    {
-        return $this->match_type === 'centerfire' || ! $this->match_type;
-    }
-
     /**
      * Get CSS custom properties for theming.
      */

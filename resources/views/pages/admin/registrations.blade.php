@@ -2,8 +2,6 @@
 
 use App\Models\MatchRegistration;
 use App\Models\ShootingMatch;
-use App\Models\Squad;
-use App\Models\Shooter;
 use App\Enums\MatchStatus;
 use Flux\Flux;
 use Livewire\Attributes\Layout;
@@ -15,42 +13,14 @@ new #[Layout('components.layouts.app')]
     class extends Component {
     public function approve(int $id): void
     {
-        $reg = MatchRegistration::findOrFail($id);
-        $reg->update(['payment_status' => 'confirmed']);
-
-        $match = $reg->match;
-        $squad = $match->squads()->firstOrCreate(
-            ['name' => 'Default'],
-            ['sort_order' => 0]
-        );
-
-        $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-
-        Shooter::create([
-            'squad_id' => $squad->id,
-            'name' => $reg->user->name,
-            'user_id' => $reg->user_id,
-            'sort_order' => $maxSort + 1,
-        ]);
+        MatchRegistration::findOrFail($id)->confirm();
 
         Flux::toast('Registration approved. Shooter added to match.', variant: 'success');
     }
 
     public function approveFreeEntry(int $id): void
     {
-        $reg = MatchRegistration::findOrFail($id);
-        $reg->update(['payment_status' => 'confirmed', 'is_free_entry' => true, 'amount' => 0]);
-
-        $match = $reg->match;
-        $squad = $match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
-        $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-
-        Shooter::create([
-            'squad_id' => $squad->id,
-            'name' => $reg->user->name,
-            'user_id' => $reg->user_id,
-            'sort_order' => $maxSort + 1,
-        ]);
+        MatchRegistration::findOrFail($id)->confirm(freeEntry: true);
 
         Flux::toast('Free entry approved. Shooter added to match.', variant: 'success');
     }
@@ -151,7 +121,7 @@ new #[Layout('components.layouts.app')]
         livewire:navigated event keeps the queue honest.
     --}}
     <div x-data
-         x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())"></div>
+         x-on:livewire:navigated.document="$wire.$refresh()"></div>
 
     <div>
         <flux:heading size="xl">Match Registrations</flux:heading>

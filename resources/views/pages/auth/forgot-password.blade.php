@@ -51,9 +51,6 @@ new #[Layout('components.layouts.auth')]
                     required
                     autofocus
                 />
-                @error('email')
-                    <p class="mt-1 text-sm text-accent">{{ $message }}</p>
-                @enderror
             </div>
 
             <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover w-full">

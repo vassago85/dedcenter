@@ -7,8 +7,6 @@ use App\Jobs\SendPostMatchNotifications;
 use App\Models\ShootingMatch;
 use App\Notifications\RegistrationOpenNotification;
 use App\Notifications\SquaddingOpenNotification;
-use App\Notifications\MatchUpdateNotification;
-use App\Services\PushNotificationService;
 
 class NotificationService
 {
@@ -34,7 +32,7 @@ class NotificationService
     {
         $preRegistered = $match->registrations()
             ->whereNotNull('pre_registered_at')
-            ->with('user')
+            ->with('user.pushSubscriptions')
             ->get()
             ->pluck('user')
             ->filter();
@@ -53,7 +51,7 @@ class NotificationService
     {
         $registered = $match->registrations()
             ->where('payment_status', 'confirmed')
-            ->with('user')
+            ->with('user.pushSubscriptions')
             ->get()
             ->pluck('user')
             ->filter();
@@ -77,24 +75,5 @@ class NotificationService
         if (!$match->scores_published) return;
 
         SendPostMatchNotifications::dispatch($match)->delay(now()->addHour());
-    }
-
-    public function notifyMatchUpdate(ShootingMatch $match, string $change): void
-    {
-        $shooters = $match->shooters()
-            ->with('user')
-            ->get()
-            ->pluck('user')
-            ->filter()
-            ->unique('id');
-
-        foreach ($shooters as $user) {
-            if ($user->wantsNotification('match_updates')) {
-                $notification = new MatchUpdateNotification($match, $change);
-                $user->notify($notification);
-                $data = $notification->toArray($user);
-                PushNotificationService::send($user, $data['title'], $data['body'], $data['url']);
-            }
-        }
     }
 }

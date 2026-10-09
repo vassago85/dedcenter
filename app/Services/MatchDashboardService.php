@@ -7,7 +7,6 @@ use App\Enums\ElrShotResult;
 use App\Enums\MatchStatus;
 use App\Models\ElrScoringProfile;
 use App\Models\ElrShot;
-use App\Models\ElrStageDivisionRange;
 use App\Models\ElrTeamStageEntry;
 use App\Models\MatchRegistration;
 use App\Models\PrsShotScore;
@@ -43,17 +42,26 @@ class MatchDashboardService
 
         $registrationsCount = $match->registrations()->count();
         $usesElrPipeline = $match->usesElrPipeline();
+        $targetSets = $usesElrPipeline
+            ? collect()
+            : $match->targetSets()->orderBy('sort_order')->withCount('gongs')->get();
         $stagesCount = $usesElrPipeline
             ? $match->elrStages->count()
-            : $match->targetSets()->count();
+            : $targetSets->count();
+        $teamStageEntries = $usesElrPipeline
+            ? ElrTeamStageEntry::query()
+                ->whereIn('elr_stage_id', $match->elrStages->pluck('id'))
+                ->get(['elr_stage_id', 'completed_at', 'timed_out'])
+                ->groupBy('elr_stage_id')
+            : collect();
 
         $elrChecklist = $usesElrPipeline ? $this->elrChecklist($match) : null;
-        $setupChecklist = ! $usesElrPipeline ? $this->standardChecklist($match) : null;
-        $elrStages = $usesElrPipeline ? $this->elrStageRows($match) : collect();
-        $standardStages = ! $usesElrPipeline ? $this->standardStageRows($match) : collect();
-        $scoringProgress = $this->scoringProgress($match, $shooters);
-        $divisionMismatches = $this->registrationDivisionMismatches($match);
-        $teamsCount = $match->teams()->count();
+        $setupChecklist = ! $usesElrPipeline ? $this->standardChecklist($match, $targetSets, $shooters) : null;
+        $elrStages = $usesElrPipeline ? $this->elrStageRows($match, $teamStageEntries) : collect();
+        $standardStages = ! $usesElrPipeline ? $this->standardStageRows($match, $targetSets) : collect();
+        $scoringProgress = $this->scoringProgress($match, $shooters, $teamStageEntries);
+        $divisionMismatches = $this->registrationDivisionMismatches($match, $shooters);
+        $teamsCount = $match->teams->count();
 
         // Post-match "finish this match" data. Unclaimed = walk-ins / import
         // placeholders whose result isn't linked to a real account yet.
@@ -118,10 +126,10 @@ class MatchDashboardService
 
         $divisions = $match->divisions;
         $hasDivisions = $divisions->isNotEmpty();
-        $rangeCount = ElrStageDivisionRange::whereIn('elr_stage_id', $stages->pluck('id'))->count();
+        $rangeCount = $stages->sum(fn ($s) => $s->divisionRanges->count());
         $rangesOk = ! $isTeamSeq || ($hasDivisions && $rangeCount >= $stages->count() * $divisions->count());
 
-        $teamsOk = ! $isTeamSeq || ! $match->team_event || $match->teams()->count() > 0;
+        $teamsOk = ! $isTeamSeq || ! $match->team_event || $match->teams->isNotEmpty();
         $timerOk = ! $isTeamSeq || $match->elr_team_time_limit_seconds !== null;
         // Explicitly set means not null — DB default false counts as explicit once migration ran.
         $distanceExplicit = $match->elr_distance_based_scoring !== null;
@@ -157,15 +165,12 @@ class MatchDashboardService
      *
      * @return array<int, array{key:string, label:string, done:bool, anchor:string, target:string}>
      */
-    private function standardChecklist(ShootingMatch $match): array
+    private function standardChecklist(ShootingMatch $match, Collection $targetSets, Collection $shooters): array
     {
         $isPrs = $match->isPrs();
-        $targetSets = $match->targetSets()->withCount('gongs')->get();
         $hasStage = $targetSets->isNotEmpty();
 
-        $shootersSquadded = Shooter::query()
-            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
-            ->count();
+        $shootersSquadded = $shooters->count();
 
         $items = [
             [
@@ -199,17 +204,12 @@ class MatchDashboardService
         return $items;
     }
 
-    private function elrStageRows(ShootingMatch $match): Collection
+    private function elrStageRows(ShootingMatch $match, Collection $teamStageEntries): Collection
     {
-        $teamCount = $match->teams()->count();
-        $entries = ElrTeamStageEntry::query()
-            ->whereIn('elr_stage_id', $match->elrStages->pluck('id'))
-            ->whereNotNull('completed_at')
-            ->get()
-            ->groupBy('elr_stage_id');
+        $teamCount = $match->teams->count();
 
-        return $match->elrStages->map(function ($stage) use ($entries, $teamCount, $match) {
-            $completed = ($entries[$stage->id] ?? collect())->count();
+        return $match->elrStages->map(function ($stage) use ($teamStageEntries, $teamCount) {
+            $completed = $teamStageEntries->get($stage->id, collect())->whereNotNull('completed_at')->count();
             $ranges = $stage->divisionRanges->map(fn ($r) => [
                 'division_id' => $r->match_division_id,
                 'gong_start' => $r->gong_start,
@@ -229,26 +229,15 @@ class MatchDashboardService
         });
     }
 
-    private function standardStageRows(ShootingMatch $match): Collection
+    private function standardStageRows(ShootingMatch $match, Collection $targetSets): Collection
     {
-        if ($match->isPrs()) {
-            return $match->targetSets()->orderBy('sort_order')->get()->map(fn ($ts) => [
-                'id' => $ts->id,
-                'label' => $ts->name,
-                'type' => $ts->is_tiebreaker ? 'tiebreaker' : 'stage',
-                'gong_count' => $ts->gongs()->count(),
-                'profile' => null,
-                'teams_completed' => null,
-                'teams_total' => null,
-                'division_ranges' => collect(),
-            ]);
-        }
+        $isPrs = $match->isPrs();
 
-        return $match->targetSets()->orderBy('sort_order')->get()->map(fn ($ts) => [
+        return $targetSets->map(fn ($ts) => [
             'id' => $ts->id,
             'label' => $ts->name,
-            'type' => 'stage',
-            'gong_count' => $ts->gongs()->count(),
+            'type' => $isPrs && $ts->is_tiebreaker ? 'tiebreaker' : 'stage',
+            'gong_count' => (int) $ts->gongs_count,
             'profile' => null,
             'teams_completed' => null,
             'teams_total' => null,
@@ -270,31 +259,29 @@ class MatchDashboardService
     /**
      * @return array<int, array{registration_division:string, shooter_division:string, shooter_name:string}>
      */
-    private function registrationDivisionMismatches(ShootingMatch $match): array
+    private function registrationDivisionMismatches(ShootingMatch $match, Collection $shooters): array
     {
+        $shootersByUser = $shooters->whereNotNull('user_id')->groupBy('user_id');
+        if ($shootersByUser->isEmpty()) {
+            return [];
+        }
+
         $regs = MatchRegistration::query()
             ->where('match_id', $match->id)
             ->where('payment_status', 'confirmed')
             ->whereNotNull('division_id')
+            ->whereIn('user_id', $shootersByUser->keys())
             ->with('division')
             ->get();
 
         $mismatches = [];
         foreach ($regs as $reg) {
-            if (! $reg->user_id) {
-                continue;
-            }
-            $shooters = Shooter::query()
-                ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
-                ->where('user_id', $reg->user_id)
-                ->get();
-
-            foreach ($shooters as $shooter) {
+            foreach ($shootersByUser->get($reg->user_id, []) as $shooter) {
                 if ($shooter->match_division_id !== null && $shooter->match_division_id !== $reg->division_id) {
                     $mismatches[] = [
                         'shooter_name' => $shooter->name,
                         'registration_division' => $reg->division?->name ?? '—',
-                        'shooter_division' => $shooter->division?->name ?? '—',
+                        'shooter_division' => $shooter->division_name ?? '—',
                     ];
                 }
             }
@@ -352,17 +339,22 @@ class MatchDashboardService
         return $shooters;
     }
 
-    private function scoringProgress(ShootingMatch $match, Collection $shooters): array
+    private function scoringProgress(ShootingMatch $match, Collection $shooters, Collection $teamStageEntries): array
     {
         // ALRHA and ELR both write shot rows to `elr_shots`, not to the
         // legacy `scores` table. Gate on `usesElrPipeline()` (which is
         // true for both) so ALRHA hubs stop reporting "0 shots
         // recorded" while the scoring app is happily saving hits.
         if ($match->usesElrPipeline()) {
-            $shooterIds = $shooters->pluck('id');
-            $shots = ElrShot::whereIn('shooter_id', $shooterIds)->get();
-            $hits = $shots->where('result', ElrShotResult::Hit)->count();
-            $misses = $shots->where('result', ElrShotResult::Miss)->count();
+            $resultCounts = ElrShot::query()
+                ->whereIn('shooter_id', $shooters->pluck('id'))
+                ->whereIn('result', [ElrShotResult::Hit->value, ElrShotResult::Miss->value])
+                ->groupBy('result')
+                ->selectRaw('result, COUNT(*) as aggregate')
+                ->toBase()
+                ->pluck('aggregate', 'result');
+            $hits = (int) ($resultCounts[ElrShotResult::Hit->value] ?? 0);
+            $misses = (int) ($resultCounts[ElrShotResult::Miss->value] ?? 0);
             $total = $hits + $misses;
 
             // Team-stage progress is ELR-only (team gong sequence). ALRHA
@@ -371,14 +363,11 @@ class MatchDashboardService
             // the panel conditionally.
             $stageProgress = collect();
             if ($match->isElr()) {
-                $teamCount = max(1, $match->teams()->count());
-                $stageProgress = $match->elrStages->map(function ($stage) use ($teamCount) {
-                    $completed = ElrTeamStageEntry::where('elr_stage_id', $stage->id)
-                        ->whereNotNull('completed_at')
-                        ->count();
-                    $timedOut = ElrTeamStageEntry::where('elr_stage_id', $stage->id)
-                        ->where('timed_out', true)
-                        ->count();
+                $teamCount = max(1, $match->teams->count());
+                $stageProgress = $match->elrStages->map(function ($stage) use ($teamCount, $teamStageEntries) {
+                    $entries = $teamStageEntries->get($stage->id, collect());
+                    $completed = $entries->whereNotNull('completed_at')->count();
+                    $timedOut = $entries->where('timed_out', true)->count();
 
                     return [
                         'stage_id' => $stage->id,

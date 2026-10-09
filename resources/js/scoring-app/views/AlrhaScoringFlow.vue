@@ -256,13 +256,11 @@ const classFilterOptions = computed(() => {
     ];
 });
 
-const blocks = computed(() => {
-    return [
-        { key: 'cbc', label: 'Cold Bore', subtitle: 'One shot, prize table only' },
-        { key: 'far', label: 'Far block', subtitle: 'Top-2 distances' },
-        { key: 'near', label: 'Near block', subtitle: 'Bottom-3 distances' },
-    ];
-});
+const blocks = [
+    { key: 'cbc', label: 'Cold Bore', subtitle: 'One shot, prize table only' },
+    { key: 'far', label: 'Far block', subtitle: 'Top-2 distances' },
+    { key: 'near', label: 'Near block', subtitle: 'Bottom-3 distances' },
+];
 
 // Only show targets that belong to the active shooter's class stage
 // tree (so a Hunter on the 1000 m CBC gets the Springbuck cut-out, and
@@ -312,16 +310,9 @@ function jumpToShooter(idx) {
     activeShooterIndex.value = idx;
 }
 
-// Cheap check to tint the jump chip: does this shooter have any
-// recorded shot at all in the current session? Walking the whole
-// shots Map is fine at match-day scale (a few hundred entries max).
+// Tints the jump chip: does this shooter have any recorded shot at all?
 function shooterHasAnyShots(shooterId) {
-    for (const shot of elrStore.shots.values()) {
-        if (shot.shooterId === shooterId && shot.result && shot.result !== 'not_taken') {
-            return true;
-        }
-    }
-    return false;
+    return elrStore.shooterIdsWithShots.has(shooterId);
 }
 
 // Short display name for the jump chip so a long "Katherine
@@ -395,15 +386,19 @@ onMounted(async () => {
 
     // Same 15s sync loop as ELRScoringFlow so pending taps land on the
     // server without the RO having to press a button.
+    let polling = false;
     syncInterval = setInterval(async () => {
-        if (!navigator.onLine) return;
-        if (elrStore.pendingCount > 0) {
-            await elrStore.syncShots();
-        }
+        if (!navigator.onLine || document.hidden || polling) return;
+        polling = true;
         try {
-            await matchStore.fetchMatch(props.matchId);
+            if (elrStore.pendingCount > 0) {
+                await elrStore.syncShots();
+            }
+            await matchStore.fetchMatch(props.matchId, { silent: true });
             await elrStore.refreshShots(props.matchId);
-        } catch { /* offline / transient */ }
+        } catch { /* offline / transient */ } finally {
+            polling = false;
+        }
     }, 15000);
 });
 

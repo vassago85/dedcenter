@@ -12,9 +12,6 @@ use Illuminate\Support\Str;
 class MatchBookController extends Controller
 {
     /**
-     * Match book hub URL: redirect to the Volt editor (creates draft book on first visit).
-     */
-    /**
      * The org route group binds {match} but not against {organization}, and
      * these methods take no Organization arg — so without an explicit check
      * an org admin could read/download another org's match book by id (IDOR).
@@ -26,6 +23,9 @@ class MatchBookController extends Controller
         abort_unless(auth()->user()?->can('view', $match), 403, 'You are not authorized to access this match book.');
     }
 
+    /**
+     * Match book hub URL: redirect to the Volt editor (creates draft book on first visit).
+     */
     public function show(ShootingMatch $match)
     {
         $this->authorizeMatchBookAccess($match);
@@ -75,20 +75,6 @@ class MatchBookController extends Controller
     }
 
     /**
-     * Debug: show raw HTML for the PDF template.
-     */
-    public function htmlPreview(ShootingMatch $match)
-    {
-        $this->authorizeMatchBookAccess($match);
-
-        $matchBook = $match->matchBook;
-        abort_unless($matchBook, 404);
-        $matchBook->load(['locations', 'stages.shots']);
-
-        return view('matchbook.pdf', $this->bookData($match, $matchBook));
-    }
-
-    /**
      * Assemble all data needed for match book rendering.
      */
     protected function bookData(ShootingMatch $match, MatchBook $matchBook): array
@@ -96,16 +82,17 @@ class MatchBookController extends Controller
         $match->load(['organization', 'targetSets.gongs']);
 
         $allShots = $matchBook->stages->flatMap->shots;
+        $sizedShots = $allShots->where('size_mm', '>', 0);
         $matchStats = [
             'total_stages' => $matchBook->stages->count(),
             'total_shots' => $allShots->count(),
             'total_rounds' => $matchBook->stages->sum('round_count'),
             'total_time' => $matchBook->stages->sum('time_limit'),
             'total_positions' => $matchBook->stages->sum(fn ($s) => $s->uniquePositionCount()),
-            'min_distance' => $allShots->count() > 0 ? $allShots->min('distance_m') : 0,
-            'max_distance' => $allShots->count() > 0 ? $allShots->max('distance_m') : 0,
-            'min_size' => $allShots->where('size_mm', '>', 0)->count() > 0 ? $allShots->where('size_mm', '>', 0)->min('size_mm') : 0,
-            'max_size' => $allShots->where('size_mm', '>', 0)->count() > 0 ? $allShots->where('size_mm', '>', 0)->max('size_mm') : 0,
+            'min_distance' => $allShots->min('distance_m') ?? 0,
+            'max_distance' => $allShots->max('distance_m') ?? 0,
+            'min_size' => $sizedShots->min('size_mm') ?? 0,
+            'max_size' => $sizedShots->max('size_mm') ?? 0,
         ];
 
         $difficultyService = app(\App\Services\MatchBook\StageDifficultyService::class);

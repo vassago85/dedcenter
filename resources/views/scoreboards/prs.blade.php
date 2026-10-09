@@ -53,7 +53,7 @@
     </div>
 @endif
 
-<div x-data="{ prsTab: 'leaderboard' }" class="min-w-0">
+<div x-data="{ prsTab: 'leaderboard' }" wire:key="prs-board" class="min-w-0">
     <div class="mb-4 flex min-w-0 gap-1.5">
         <button type="button" @click="prsTab = 'leaderboard'" :class="prsTab === 'leaderboard' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Scoreboard</button>
         <button type="button" @click="prsTab = 'scoresheet'" :class="prsTab === 'scoresheet' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'" class="min-w-0 flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-colors sm:px-3 sm:text-xs">Score Sheet</button>
@@ -164,7 +164,7 @@
                                     </div>
                                 @endif
                                 @if($shooterIsRealUser)
-                                    <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" competitionType="prs" :compact="true" />
+                                    <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :badges="$rowBadgesByUser->get($shooter->user_id, collect())" competitionType="prs" :compact="true" />
                                 @endif
                                 @if(isset($customFieldMap[$shooter->id]))
                                     <div class="flex flex-wrap gap-1 mt-0.5">

@@ -2,7 +2,6 @@
 
 use App\Enums\ElrEngagementMode;
 use App\Models\ElrScoringProfile;
-use App\Models\ElrSquadTeamOrder;
 use App\Models\ElrStage;
 use App\Models\ElrTarget;
 use App\Models\ElrTeamStageEntry;
@@ -15,7 +14,6 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\MatchDashboardService;
 use App\Services\Scoring\ELRScoringService;
-use App\Services\Scoring\ElrSquadTeamOrderService;
 
 beforeEach(function () {
     $this->owner = User::factory()->create(['role' => 'owner']);
@@ -105,37 +103,6 @@ it('calculateStandings filters incomplete team stages when completedOnly is true
 
     expect($all['standings'][0]['total_points'] ?? 0)->toBeGreaterThan(0)
         ->and($completed['standings'][0]['total_points'] ?? 0)->toBeGreaterThan(0);
-});
-
-it('rotates squad firing order based on previous stage', function () {
-    ElrSquadTeamOrder::create([
-        'squad_id' => $this->squad->id,
-        'elr_stage_id' => $this->stage1->id,
-        'team_id' => $this->team1->id,
-        'position' => 1,
-        'shooter_first_id' => Shooter::where('team_id', $this->team1->id)->orderBy('sort_order')->value('id'),
-    ]);
-    ElrSquadTeamOrder::create([
-        'squad_id' => $this->squad->id,
-        'elr_stage_id' => $this->stage1->id,
-        'team_id' => $this->team2->id,
-        'position' => 2,
-        'shooter_first_id' => Shooter::where('team_id', $this->team2->id)->orderBy('sort_order')->value('id'),
-    ]);
-
-    $order = ElrSquadTeamOrderService::getNextFiringOrder($this->match, $this->squad->id, $this->stage2->id);
-
-    expect($order)->toHaveCount(2)
-        ->and($order[0]['team_id'])->toBe($this->team2->id)
-        ->and($order[1]['team_id'])->toBe($this->team1->id);
-});
-
-it('exposes firing order via api', function () {
-    $response = $this->actingAs($this->owner)->getJson(
-        "/api/matches/{$this->match->id}/elr-firing-order?squad_id={$this->squad->id}&elr_stage_id={$this->stage1->id}"
-    );
-
-    $response->assertOk()->assertJsonStructure(['order']);
 });
 
 it('syncs registration division to shooter on confirm', function () {

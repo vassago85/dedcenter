@@ -32,10 +32,10 @@
 
     // Personal report availability — only surfaces the "Download my report"
     // button when the match is completed AND the current user has a linked
-    // shooter row in that match. Kept as a single exists() probe so cards
-    // can be rendered in lists without touching the full shooter set.
-    $hasMyReport = false;
-    if ($statusValue === 'completed' && auth()->check()) {
+    // shooter row in that match. Lists can precompute `has_my_report` on
+    // the model to skip the per-card exists() probe.
+    $hasMyReport = (bool) $match->getAttribute('has_my_report');
+    if (! array_key_exists('has_my_report', $match->getAttributes()) && $statusValue === 'completed' && auth()->check()) {
         $hasMyReport = \App\Models\Shooter::whereHas(
             'squad',
             fn ($q) => $q->where('match_id', $match->id),

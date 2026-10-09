@@ -10,11 +10,12 @@ use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
+use App\Rules\InIdSet;
 use App\Services\NotificationService;
 use App\Services\RoyalFlushShotStatusService;
 use App\Services\ScoreAuditService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class ScoreController extends Controller
 {
@@ -37,25 +38,24 @@ class ScoreController extends Controller
             ], 423);
         }
 
-        $validShooterIds = $match->shooters()->pluck('shooters.id')->toArray();
-        $validTargetSetIds = $match->targetSets()->pluck('id')->toArray();
-        $validGongIds = Gong::whereIn('target_set_id', $validTargetSetIds)
-            ->pluck('id')
-            ->toArray();
+        $validTargetSetIds = $match->targetSets()->pluck('id');
+        $shooterRule = new InIdSet($match->shooters()->pluck('shooters.id'));
+        $gongRule = new InIdSet(Gong::whereIn('target_set_id', $validTargetSetIds)->pluck('id'));
+        $targetSetRule = new InIdSet($validTargetSetIds);
 
         $validated = $request->validate([
             'scores' => ['sometimes', 'array'],
-            'scores.*.shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
-            'scores.*.gong_id' => ['required', 'integer', Rule::in($validGongIds)],
+            'scores.*.shooter_id' => ['required', 'integer', $shooterRule],
+            'scores.*.gong_id' => ['required', 'integer', $gongRule],
             'scores.*.is_hit' => ['required', 'boolean'],
             'scores.*.device_id' => ['required', 'string', 'max:255'],
             'scores.*.recorded_at' => ['required', 'date'],
             'deleted_scores' => ['sometimes', 'array'],
-            'deleted_scores.*.shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
-            'deleted_scores.*.gong_id' => ['required', 'integer', Rule::in($validGongIds)],
+            'deleted_scores.*.shooter_id' => ['required', 'integer', $shooterRule],
+            'deleted_scores.*.gong_id' => ['required', 'integer', $gongRule],
             'stage_times' => ['sometimes', 'array'],
-            'stage_times.*.shooter_id' => ['required', 'integer', Rule::in($validShooterIds)],
-            'stage_times.*.target_set_id' => ['required', 'integer', Rule::in($validTargetSetIds)],
+            'stage_times.*.shooter_id' => ['required', 'integer', $shooterRule],
+            'stage_times.*.target_set_id' => ['required', 'integer', $targetSetRule],
             'stage_times.*.time_seconds' => ['required', 'numeric', 'min:0'],
             'stage_times.*.device_id' => ['required', 'string', 'max:255'],
             'stage_times.*.recorded_at' => ['required', 'date'],
@@ -89,73 +89,81 @@ class ScoreController extends Controller
             app(NotificationService::class)->onStatusChange($match, $oldStatus, MatchStatus::Active);
         }
 
-        if (! empty($validated['deleted_scores'])) {
-            foreach ($validated['deleted_scores'] as $del) {
-                $existing = Score::where('shooter_id', $del['shooter_id'])
-                    ->where('gong_id', $del['gong_id'])
-                    ->first();
-                if ($existing) {
+        $savedScores = collect();
+
+        DB::transaction(function () use ($validated, $match, $user, $reason, $request, $savedScores) {
+            $scoreRows = collect($validated['scores'] ?? [])->concat($validated['deleted_scores'] ?? []);
+            $existingScores = $scoreRows->isEmpty() ? collect() : Score::query()
+                ->whereIn('shooter_id', $scoreRows->pluck('shooter_id')->unique())
+                ->whereIn('gong_id', $scoreRows->pluck('gong_id')->unique())
+                ->get()
+                ->keyBy(fn (Score $s) => "{$s->shooter_id}-{$s->gong_id}");
+
+            foreach ($validated['deleted_scores'] ?? [] as $del) {
+                if ($existing = $existingScores->pull("{$del['shooter_id']}-{$del['gong_id']}")) {
                     ScoreAuditService::logDeleted($match->id, $existing, $reason, $request);
                     $existing->delete();
                 }
             }
-        }
 
-        $savedScores = collect();
+            foreach ($validated['scores'] ?? [] as $scoreData) {
+                $key = "{$scoreData['shooter_id']}-{$scoreData['gong_id']}";
+                $existing = $existingScores->get($key);
+                $oldValues = $existing?->toArray();
 
-        foreach ($validated['scores'] ?? [] as $scoreData) {
-            $existing = Score::where('shooter_id', $scoreData['shooter_id'])
-                ->where('gong_id', $scoreData['gong_id'])
-                ->first();
-
-            $oldValues = $existing?->toArray();
-
-            $score = Score::updateOrCreate(
-                [
+                $score = $existing ?? new Score([
                     'shooter_id' => $scoreData['shooter_id'],
                     'gong_id' => $scoreData['gong_id'],
-                ],
-                [
+                ]);
+                $score->fill([
                     'is_hit' => $scoreData['is_hit'],
                     'recorded_by' => $user->id,
                     'device_id' => $scoreData['device_id'],
                     'recorded_at' => $scoreData['recorded_at'],
                     'synced_at' => now(),
-                ]
-            );
+                ])->save();
+                $existingScores->put($key, $score);
 
-            if ($existing && $oldValues) {
-                if ((bool) ($oldValues['is_hit'] ?? false) !== (bool) $scoreData['is_hit']) {
-                    ScoreAuditService::logUpdated($match->id, $score, $oldValues, $reason, $request);
+                if ($oldValues) {
+                    if ((bool) ($oldValues['is_hit'] ?? false) !== (bool) $scoreData['is_hit']) {
+                        ScoreAuditService::logUpdated($match->id, $score, $oldValues, $reason, $request);
+                    }
+                } else {
+                    ScoreAuditService::logCreated($match->id, $score, $request);
                 }
-            } else {
-                ScoreAuditService::logCreated($match->id, $score, $request);
+
+                $savedScores->push($score);
             }
 
-            $savedScores->push($score);
-        }
+            $timeRows = collect($validated['stage_times'] ?? []);
+            if ($timeRows->isEmpty()) {
+                return;
+            }
 
-        if (! empty($validated['stage_times'])) {
-            foreach ($validated['stage_times'] as $timeData) {
-                $existingTime = StageTime::where('shooter_id', $timeData['shooter_id'])
-                    ->where('target_set_id', $timeData['target_set_id'])
-                    ->first();
+            $existingTimes = StageTime::query()
+                ->whereIn('shooter_id', $timeRows->pluck('shooter_id')->unique())
+                ->whereIn('target_set_id', $timeRows->pluck('target_set_id')->unique())
+                ->get()
+                ->keyBy(fn (StageTime $t) => "{$t->shooter_id}-{$t->target_set_id}");
+
+            foreach ($timeRows as $timeData) {
+                $key = "{$timeData['shooter_id']}-{$timeData['target_set_id']}";
+                $existingTime = $existingTimes->get($key);
                 $oldTimeValues = $existingTime?->toArray();
 
-                $stageTime = StageTime::updateOrCreate(
-                    [
-                        'shooter_id' => $timeData['shooter_id'],
-                        'target_set_id' => $timeData['target_set_id'],
-                    ],
-                    [
-                        'time_seconds' => $timeData['time_seconds'],
-                        'device_id' => $timeData['device_id'],
-                        'recorded_at' => $timeData['recorded_at'],
-                        'synced_at' => now(),
-                    ]
-                );
+                $stageTime = $existingTime ?? new StageTime([
+                    'shooter_id' => $timeData['shooter_id'],
+                    'target_set_id' => $timeData['target_set_id'],
+                ]);
+                $stageTime->fill([
+                    'time_seconds' => $timeData['time_seconds'],
+                    'device_id' => $timeData['device_id'],
+                    'recorded_at' => $timeData['recorded_at'],
+                    'synced_at' => now(),
+                ])->save();
+                $existingTimes->put($key, $stageTime);
 
-                if ($existingTime && $oldTimeValues) {
+                if ($oldTimeValues) {
                     if ((float) ($oldTimeValues['time_seconds'] ?? 0) !== (float) $timeData['time_seconds']) {
                         ScoreAuditService::logUpdated($match->id, $stageTime, $oldTimeValues, $reason, $request);
                     }
@@ -163,7 +171,7 @@ class ScoreController extends Controller
                     ScoreAuditService::logCreated($match->id, $stageTime, $request);
                 }
             }
-        }
+        });
 
         // Enrich the response with Royal-Flush "armed" status for every
         // shooter touched by this batch, so the scoring app can show the
@@ -186,25 +194,6 @@ class ScoreController extends Controller
 
         return ScoreResource::collection($savedScores)
             ->additional(['royal_flush' => $rfStatus]);
-    }
-
-    /**
-     * GET /api/matches/{match}/shooters/{shooter}/royal-flush-status
-     *
-     * Stateless "is the next shot the Royal Flush shot?" query the scoring
-     * app (or the web scoring pad) calls before rendering the hit/miss
-     * buttons for a shooter at a distance. Returns the full per-distance
-     * breakdown; the banner trigger is `royal_flush_shot === true`.
-     */
-    public function royalFlushStatus(Request $request, ShootingMatch $match, Shooter $shooter, RoyalFlushShotStatusService $service)
-    {
-        abort_unless($request->user()->can('view', $match), 403, 'You do not have access to this match.');
-
-        if (! $match->shooters()->whereKey($shooter->id)->exists()) {
-            abort(404);
-        }
-
-        return response()->json($service->forShooter($match, $shooter));
     }
 
     public function updateShooterStatus(ShootingMatch $match, Shooter $shooter, Request $request)

@@ -220,7 +220,7 @@ class ScoreboardController extends Controller
             'label' => $ts->label,
             'is_tiebreaker' => (bool) $ts->is_tiebreaker,
             'is_timed_stage' => (bool) $ts->is_timed_stage,
-            'gong_count' => DB::table('gongs')->where('target_set_id', $ts->id)->count(),
+            'gong_count' => (int) $ts->gongs_count,
         ])->values()->toArray();
     }
 
@@ -320,31 +320,28 @@ class ScoreboardController extends Controller
             ->toArray();
     }
 
-    private function divisionLookup(ShootingMatch $match): array
+    /**
+     * @return array{0: array<int, string|null>, 1: array<int, int|null>} [division names, division ids] keyed by shooter id
+     */
+    private function divisionLookups(ShootingMatch $match): array
     {
-        return DB::table('shooters')
+        $rows = DB::table('shooters')
             ->join('squads', 'shooters.squad_id', '=', 'squads.id')
             ->leftJoin('match_divisions', 'shooters.match_division_id', '=', 'match_divisions.id')
             ->where('squads.match_id', $match->id)
-            ->pluck('match_divisions.name', 'shooters.id')
-            ->toArray();
-    }
+            ->get(['shooters.id', 'shooters.match_division_id', 'match_divisions.name']);
 
-    private function divisionIdLookup(ShootingMatch $match): array
-    {
-        return DB::table('shooters')
-            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-            ->where('squads.match_id', $match->id)
-            ->pluck('shooters.match_division_id', 'shooters.id')
-            ->toArray();
+        return [
+            $rows->pluck('name', 'id')->toArray(),
+            $rows->pluck('match_division_id', 'id')->toArray(),
+        ];
     }
 
     private function standardScoreboard(ShootingMatch $match, Request $request)
     {
         $divisionFilter = $request->query('division');
         $categoryFilter = $request->query('category');
-        $divisionNames = $this->divisionLookup($match);
-        $divisionIds = $this->divisionIdLookup($match);
+        [$divisionNames, $divisionIds] = $this->divisionLookups($match);
         $catShooterIds = $this->categoryShooterIds($categoryFilter);
 
         $query = Shooter::query()
@@ -430,16 +427,34 @@ class ScoreboardController extends Controller
 
         $response['match']['is_md'] = $isMd;
 
+        $wantsSideBet = $match->side_bet_enabled && $isMd;
+        if ($wantsSideBet || $match->royal_flush_enabled) {
+            // $shooters already holds every filtered shooter with their aggregated
+            // total, so both leaderboards share it plus one target-set + hits load.
+            $extraTargetSets = $match->targetSets()
+                ->orderByDesc('distance_meters')
+                ->with('gongs')
+                ->get();
+            $gongIds = $extraTargetSets->flatMap->gongs->pluck('id');
+            $hits = ($gongIds->isEmpty() || $shooters->isEmpty())
+                ? collect()
+                : DB::table('scores')
+                    ->whereIn('gong_id', $gongIds)
+                    ->whereIn('shooter_id', $shooters->pluck('shooter_id'))
+                    ->where('is_hit', true)
+                    ->get(['shooter_id', 'gong_id']);
+        }
+
         if ($match->side_bet_enabled) {
             $response['match']['side_bet_enabled'] = true;
-            if ($isMd) {
-                $response['side_bet'] = $this->sideBetLeaderboard($match, $catShooterIds, $divisionFilter);
+            if ($wantsSideBet) {
+                $response['side_bet'] = $this->sideBetLeaderboard($match, $extraTargetSets, $shooters, $hits);
             }
         }
 
         if ($match->royal_flush_enabled) {
             $response['match']['royal_flush_enabled'] = true;
-            $response['royal_flush'] = $this->royalFlushLeaderboard($match, $catShooterIds, $divisionFilter);
+            $response['royal_flush'] = $this->royalFlushLeaderboard($extraTargetSets, $shooters, $hits);
         }
 
         return response()->json($response);
@@ -536,13 +551,13 @@ class ScoreboardController extends Controller
      * Tiebreaker: compare distances (furthest first) where each shooter hit that gong rank.
      * Cascade: if still tied, repeat for the next smallest gong rank.
      */
-    private function sideBetLeaderboard(ShootingMatch $match, ?array $catShooterIds, ?string $divisionFilter): array
+    /**
+     * @param  Collection<int, TargetSet>  $targetSets  ordered by distance desc, with gongs
+     * @param  Collection<int, Shooter>  $shooters  filtered standard rows (shooter_id, name, squad, agg_total)
+     * @param  Collection<int, object>  $hits  shooter_id + gong_id of every hit by those shooters
+     */
+    private function sideBetLeaderboard(ShootingMatch $match, Collection $targetSets, Collection $shooters, Collection $hits): array
     {
-        $targetSets = $match->targetSets()
-            ->orderByDesc('distance_meters')
-            ->with(['gongs' => fn ($q) => $q->orderByDesc('multiplier')])
-            ->get();
-
         if ($targetSets->isEmpty()) {
             return [];
         }
@@ -551,7 +566,7 @@ class ScoreboardController extends Controller
         $maxRanks = 0;
         foreach ($targetSets as $ts) {
             $rank = 0;
-            foreach ($ts->gongs as $gong) {
+            foreach ($ts->gongs->sortByDesc('multiplier') as $gong) {
                 $gongRankMap[$gong->id] = [
                     'rank' => $rank,
                     'distance' => $ts->distance_meters,
@@ -567,65 +582,29 @@ class ScoreboardController extends Controller
             return [];
         }
 
-        $sideBetIds = DB::table('side_bet_shooters')
+        $sideBetIds = array_flip(DB::table('side_bet_shooters')
             ->where('match_id', $match->id)
             ->pluck('shooter_id')
-            ->toArray();
+            ->map(fn ($id) => (int) $id)
+            ->all());
 
-        $shooterQuery = DB::table('shooters')
-            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-            ->where('squads.match_id', $match->id)
-            ->select('shooters.id', 'shooters.name', 'squads.name as squad');
-
-        if (!empty($sideBetIds)) {
-            $shooterQuery->whereIn('shooters.id', $sideBetIds);
-        } else {
+        $sideBetShooters = $shooters->filter(fn ($s) => isset($sideBetIds[(int) $s->shooter_id]));
+        if ($sideBetShooters->isEmpty()) {
             return [];
         }
-
-        if ($divisionFilter) {
-            $shooterQuery->where('shooters.match_division_id', $divisionFilter);
-        }
-        if ($catShooterIds !== null) {
-            $shooterQuery->whereIn('shooters.id', $catShooterIds);
-        }
-
-        $shooters = $shooterQuery->get();
-        $shooterIds = $shooters->pluck('id')->toArray();
-
-        if (empty($shooterIds)) {
-            return [];
-        }
-
-        $hits = DB::table('scores')
-            ->whereIn('scores.gong_id', $gongIds)
-            ->whereIn('scores.shooter_id', $shooterIds)
-            ->where('scores.is_hit', true)
-            ->select('scores.shooter_id', 'scores.gong_id')
-            ->get();
-
-        $totalScores = DB::table('scores')
-            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
-            ->whereIn('scores.shooter_id', $shooterIds)
-            ->where('scores.is_hit', true)
-            ->groupBy('scores.shooter_id')
-            ->select('scores.shooter_id')
-            ->selectRaw('COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total_score')
-            ->pluck('total_score', 'scores.shooter_id')
-            ->toArray();
 
         $profiles = [];
-        foreach ($shooters as $s) {
-            $profiles[$s->id] = [
-                'shooter_id' => $s->id,
+        foreach ($sideBetShooters as $s) {
+            $sid = (int) $s->shooter_id;
+            $profiles[$sid] = [
+                'shooter_id' => $sid,
                 'name' => $s->name,
                 'squad' => $s->squad,
-                'total_score' => round((float) ($totalScores[$s->id] ?? 0), 2),
+                'total_score' => round((float) $s->agg_total, 2),
                 'ranks' => [],
             ];
             for ($r = 0; $r < $maxRanks; $r++) {
-                $profiles[$s->id]['ranks'][$r] = [
+                $profiles[$sid]['ranks'][$r] = [
                     'count' => 0,
                     'distances' => [],
                 ];
@@ -635,7 +614,7 @@ class ScoreboardController extends Controller
         foreach ($hits as $hit) {
             if (!isset($gongRankMap[$hit->gong_id])) continue;
             $info = $gongRankMap[$hit->gong_id];
-            $sid = $hit->shooter_id;
+            $sid = (int) $hit->shooter_id;
             if (!isset($profiles[$sid])) continue;
 
             $profiles[$sid]['ranks'][$info['rank']]['count']++;
@@ -687,54 +666,25 @@ class ScoreboardController extends Controller
      * Royal Flush: a shooter who hits ALL gongs at a given distance earns a flush for that distance.
      * Ranked by flush count (desc), then furthest flushed distance, then total match score.
      */
-    private function royalFlushLeaderboard(ShootingMatch $match, ?array $catShooterIds, ?string $divisionFilter): array
+    /**
+     * @param  Collection<int, TargetSet>  $targetSets  ordered by distance desc, with gongs
+     * @param  Collection<int, Shooter>  $shooters  filtered standard rows (shooter_id, name, squad, agg_total)
+     * @param  Collection<int, object>  $hits  shooter_id + gong_id of every hit by those shooters
+     */
+    private function royalFlushLeaderboard(Collection $targetSets, Collection $shooters, Collection $hits): array
     {
-        $targetSets = $match->targetSets()
-            ->orderByDesc('distance_meters')
-            ->with(['gongs'])
-            ->get();
-
-        if ($targetSets->isEmpty()) {
+        if ($targetSets->isEmpty() || $shooters->isEmpty()) {
             return [];
         }
 
         $gongCountByTs = [];
-        $gongIdsByTs = [];
         foreach ($targetSets as $ts) {
             $gongCountByTs[$ts->id] = $ts->gongs->count();
-            $gongIdsByTs[$ts->id] = $ts->gongs->pluck('id')->toArray();
         }
 
-        $allGongIds = $targetSets->flatMap(fn ($ts) => $ts->gongs->pluck('id'))->toArray();
-        if (empty($allGongIds)) {
+        if (array_sum($gongCountByTs) === 0) {
             return [];
         }
-
-        $shooterQuery = DB::table('shooters')
-            ->join('squads', 'shooters.squad_id', '=', 'squads.id')
-            ->where('squads.match_id', $match->id)
-            ->select('shooters.id', 'shooters.name', 'squads.name as squad');
-
-        if ($divisionFilter) {
-            $shooterQuery->where('shooters.match_division_id', $divisionFilter);
-        }
-        if ($catShooterIds !== null) {
-            $shooterQuery->whereIn('shooters.id', $catShooterIds);
-        }
-
-        $shooters = $shooterQuery->get();
-        $shooterIds = $shooters->pluck('id')->toArray();
-
-        if (empty($shooterIds)) {
-            return [];
-        }
-
-        $hits = DB::table('scores')
-            ->whereIn('scores.gong_id', $allGongIds)
-            ->whereIn('scores.shooter_id', $shooterIds)
-            ->where('scores.is_hit', true)
-            ->select('scores.shooter_id', 'scores.gong_id')
-            ->get();
 
         $gongToTs = [];
         foreach ($targetSets as $ts) {
@@ -751,36 +701,24 @@ class ScoreboardController extends Controller
                 ($hitCountByShooterTs[$hit->shooter_id][$tsId] ?? 0) + 1;
         }
 
-        $tsDistances = $targetSets->pluck('distance_meters', 'id')->toArray();
-
-        $totalScores = DB::table('scores')
-            ->join('gongs', 'scores.gong_id', '=', 'gongs.id')
-            ->join('target_sets', 'gongs.target_set_id', '=', 'target_sets.id')
-            ->whereIn('scores.shooter_id', $shooterIds)
-            ->where('scores.is_hit', true)
-            ->groupBy('scores.shooter_id')
-            ->select('scores.shooter_id')
-            ->selectRaw('COALESCE(SUM(COALESCE(target_sets.distance_multiplier, 1) * gongs.multiplier), 0) as total_score')
-            ->pluck('total_score', 'scores.shooter_id')
-            ->toArray();
-
         $profiles = [];
         foreach ($shooters as $s) {
+            $sid = (int) $s->shooter_id;
             $flushDistances = [];
             foreach ($targetSets as $ts) {
-                $hitsAtTs = $hitCountByShooterTs[$s->id][$ts->id] ?? 0;
+                $hitsAtTs = $hitCountByShooterTs[$sid][$ts->id] ?? 0;
                 if ($gongCountByTs[$ts->id] > 0 && $hitsAtTs >= $gongCountByTs[$ts->id]) {
                     $flushDistances[] = (int) $ts->distance_meters;
                 }
             }
 
             $profiles[] = [
-                'shooter_id' => $s->id,
+                'shooter_id' => $sid,
                 'name' => $s->name,
                 'squad' => $s->squad,
                 'flush_count' => count($flushDistances),
                 'flush_distances' => $flushDistances,
-                'total_score' => round((float) ($totalScores[$s->id] ?? 0), 2),
+                'total_score' => round((float) $s->agg_total, 2),
             ];
         }
 
@@ -803,8 +741,7 @@ class ScoreboardController extends Controller
     {
         $divisionFilter = $request->query('division');
         $categoryFilter = $request->query('category');
-        $divisionNames = $this->divisionLookup($match);
-        $divisionIds = $this->divisionIdLookup($match);
+        [$divisionNames, $divisionIds] = $this->divisionLookups($match);
         $catShooterIds = $this->categoryShooterIds($categoryFilter);
 
         $hasNewResults = \App\Models\PrsStageResult::where('match_id', $match->id)->exists();
@@ -818,7 +755,7 @@ class ScoreboardController extends Controller
 
     private function prsScoreboardNew(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)
     {
-        $targetSets = $match->targetSets()->orderBy('sort_order')->get();
+        $targetSets = $match->targetSets()->orderBy('sort_order')->withCount('gongs')->get();
         $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);
 
         $query = \App\Models\Shooter::query()
@@ -840,17 +777,15 @@ class ScoreboardController extends Controller
 
         $allPrsShots = PrsShotScore::where('match_id', $match->id)
             ->orderBy('shot_number')
-            ->get()
+            ->toBase()
+            ->get(['shooter_id', 'stage_id', 'result'])
             ->groupBy(fn ($s) => "{$s->shooter_id}-{$s->stage_id}");
 
-        $gongCountByTs = [];
-        foreach ($targetSets as $ts) {
-            $gongCountByTs[$ts->id] = DB::table('gongs')->where('target_set_id', $ts->id)->count();
-        }
+        $gongCountByTs = $targetSets->pluck('gongs_count', 'id')->all();
 
         $entries = $shooters->map(function ($shooter) use ($allResults, $tiebreakerStage, $targetSets, $divisionNames, $divisionIds, $allPrsShots, $gongCountByTs) {
             $sid = (int) $shooter->shooter_id;
-            $results = $allResults->get($sid, collect());
+            $results = $allResults->get($sid, collect())->keyBy('stage_id');
 
             $totalHits = $results->sum('hits');
             $totalMisses = $results->sum('misses');
@@ -861,7 +796,7 @@ class ScoreboardController extends Controller
             $tbHits = 0;
             $tbTime = null;
             if ($tiebreakerStage) {
-                $tbResult = $results->firstWhere('stage_id', $tiebreakerStage->id);
+                $tbResult = $results->get($tiebreakerStage->id);
                 if ($tbResult) {
                     $tbHits = $tbResult->hits;
                     $tbTime = $tbResult->official_time_seconds ? (float) $tbResult->official_time_seconds : null;
@@ -870,10 +805,10 @@ class ScoreboardController extends Controller
 
             $stages = [];
             foreach ($targetSets as $ts) {
-                $stageResult = $results->firstWhere('stage_id', $ts->id);
+                $stageResult = $results->get($ts->id);
 
                 $stageShots = $allPrsShots->get("{$sid}-{$ts->id}", collect());
-                $shots = $stageShots->map(fn ($s) => $s->result instanceof \BackedEnum ? $s->result->value : (string) $s->result)->values()->toArray();
+                $shots = $stageShots->map(fn ($s) => (string) $s->result)->values()->toArray();
 
                 $expectedCount = $gongCountByTs[$ts->id] ?? 0;
                 while (count($shots) < $expectedCount) {
@@ -975,13 +910,14 @@ class ScoreboardController extends Controller
 
     private function prsScoreboardLegacy(ShootingMatch $match, ?string $divisionFilter, ?array $catShooterIds, array $divisionNames, array $divisionIds)
     {
-        $targetSets = $match->targetSets()->orderBy('sort_order')->get();
+        $targetSets = $match->targetSets()
+            ->orderBy('sort_order')
+            ->with(['gongs' => fn ($q) => $q->orderBy('number')->select('id', 'target_set_id', 'number')])
+            ->withCount('gongs')
+            ->get();
         $targetSetIds = $targetSets->pluck('id');
 
-        $gongsByTs = [];
-        foreach ($targetSets as $ts) {
-            $gongsByTs[$ts->id] = DB::table('gongs')->where('target_set_id', $ts->id)->orderBy('number')->get();
-        }
+        $gongsByTs = $targetSets->mapWithKeys(fn ($ts) => [$ts->id => $ts->gongs])->all();
 
         $totalTargets = collect($gongsByTs)->sum(fn ($g) => $g->count());
         $tiebreakerStage = $targetSets->firstWhere('is_tiebreaker', true);

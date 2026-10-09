@@ -90,21 +90,6 @@ enum PlacementKey: string
     }
 
     /**
-     * Get the corresponding global key for a match-level placement.
-     */
-    public function globalEquivalent(): ?self
-    {
-        return match ($this) {
-            self::MatchLeaderboard => self::GlobalLeaderboard,
-            self::MatchResults => self::GlobalResults,
-            self::MatchScoring => self::GlobalScoring,
-            self::MatchExports => self::GlobalExports,
-            self::MatchMatchbook => self::GlobalMatchbook,
-            default => null,
-        };
-    }
-
-    /**
      * Whether this placement is platform-level (global).
      */
     public function isGlobal(): bool
@@ -270,32 +255,6 @@ enum PlacementKey: string
             self::PortalMatchesSidebar,
             self::PortalLeaderboardStrip,
             self::PortalMatchDetailBanner,
-        ];
-    }
-
-    /**
-     * Site-wide landing placements (platform admin only).
-     *
-     * @return list<self>
-     */
-    public static function landingPlacements(): array
-    {
-        return [
-            self::LandingHeroMonthly,
-            self::LandingStripMonthly,
-        ];
-    }
-
-    /**
-     * Get placements available for matchbook-level assignment.
-     */
-    public static function matchbookPlacements(): array
-    {
-        return [
-            self::MatchbookCover,
-            self::MatchbookFooter,
-            self::MatchbookInsideCover,
-            self::MatchbookResultsSection,
         ];
     }
 }

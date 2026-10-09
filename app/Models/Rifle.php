@@ -32,11 +32,6 @@ class Rifle extends Model
         return $this->hasMany(AmmoLoad::class);
     }
 
-    public function defaultAmmo(): ?AmmoLoad
-    {
-        return $this->ammoLoads()->where('is_default', true)->first();
-    }
-
     public function summary(): string
     {
         $parts = array_filter([

@@ -188,11 +188,6 @@ class Shooter extends Model
         return $this->belongsToMany(MatchCategory::class, 'match_category_shooter');
     }
 
-    public function sideBetMatches(): BelongsToMany
-    {
-        return $this->belongsToMany(ShootingMatch::class, 'side_bet_shooters', 'shooter_id', 'match_id');
-    }
-
     public function disqualifications(): HasMany
     {
         return $this->hasMany(Disqualification::class);
@@ -201,11 +196,6 @@ class Shooter extends Model
     public function matchDq(): HasMany
     {
         return $this->hasMany(Disqualification::class)->whereNull('target_set_id');
-    }
-
-    public function stageDqs(): HasMany
-    {
-        return $this->hasMany(Disqualification::class)->whereNotNull('target_set_id');
     }
 
     // ── Computed Attributes ──
@@ -228,11 +218,6 @@ class Shooter extends Model
     public function getMissCountAttribute(): int
     {
         return $this->scores()->where('is_hit', false)->count();
-    }
-
-    public function getPrsScoreAttribute(): int
-    {
-        return $this->hit_count;
     }
 
     public function getTotalTimeAttribute(): float

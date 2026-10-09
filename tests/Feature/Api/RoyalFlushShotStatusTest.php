@@ -68,7 +68,7 @@ it('arms the banner when shooter has 4 clean hits on a 5-gong distance', functio
     ($this->hit)(4, $this->gongs400);
 
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     expect($status['royal_flush_shot'])->toBeTrue()
         ->and($status['armed_target_set_ids'])->toBe([$this->ts400->id]);
@@ -86,7 +86,7 @@ it('disarms the banner as soon as a miss is recorded at that distance', function
     ($this->miss)($this->gongs400[3]);
 
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     expect($status['royal_flush_shot'])->toBeFalse();
 
@@ -102,7 +102,7 @@ it('does not arm until the shooter is one gong away (3/3 is not armed)', functio
     ($this->hit)(3, $this->gongs400);
 
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     $d400 = collect($status['distances'])->firstWhere('target_set_id', $this->ts400->id);
     expect($d400['armed'])->toBeFalse()
@@ -116,7 +116,7 @@ it('does not arm on a pristine distance (0/0 is not armed)', function () {
     // correctly requires unshot === 1, so "the very first shot" doesn't
     // trigger the banner on every shooter.
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     $d500 = collect($status['distances'])->firstWhere('target_set_id', $this->ts500->id);
     expect($d500['armed'])->toBeFalse()
@@ -128,7 +128,7 @@ it('flushed flag flips on once every gong at the distance is hit', function () {
     ($this->hit)(5, $this->gongs400);
 
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     $d400 = collect($status['distances'])->firstWhere('target_set_id', $this->ts400->id);
     expect($d400['flushed'])->toBeTrue()
@@ -141,7 +141,7 @@ it('can arm multiple distances simultaneously', function () {
     ($this->hit)(4, $this->gongs500);
 
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     expect($status['royal_flush_shot'])->toBeTrue()
         ->and($status['armed_target_set_ids'])->toMatchArray([$this->ts400->id, $this->ts500->id]);
@@ -152,36 +152,11 @@ it('returns a flat unarmed payload when royal_flush_enabled is false', function 
     ($this->hit)(4, $this->gongs400);
 
     $status = app(RoyalFlushShotStatusService::class)
-        ->forShooter($this->match, $this->shooter);
+        ->forShooters($this->match, [$this->shooter])->first();
 
     expect($status['royal_flush_shot'])->toBeFalse()
         ->and($status['armed_target_set_ids'])->toBe([])
         ->and($status['distances'])->toBe([]);
-});
-
-// ── API route: GET royal-flush-status ─────────────────────────────────
-
-it('GET royal-flush-status returns an armed payload for a 4-for-4 shooter', function () {
-    ($this->hit)(4, $this->gongs400);
-
-    $this->actingAs($this->creator)
-        ->getJson("/api/matches/{$this->match->id}/shooters/{$this->shooter->id}/royal-flush-status")
-        ->assertOk()
-        ->assertJson([
-            'shooter_id' => $this->shooter->id,
-            'royal_flush_shot' => true,
-            'armed_target_set_ids' => [$this->ts400->id],
-        ]);
-});
-
-it('GET royal-flush-status 404s for a shooter not in the match', function () {
-    $otherMatch = ShootingMatch::factory()->active()->create();
-    $otherSquad = Squad::factory()->create(['match_id' => $otherMatch->id]);
-    $stranger = Shooter::factory()->create(['squad_id' => $otherSquad->id]);
-
-    $this->actingAs($this->creator)
-        ->getJson("/api/matches/{$this->match->id}/shooters/{$stranger->id}/royal-flush-status")
-        ->assertNotFound();
 });
 
 // ── API route: POST /scores now returns RF status in the response ────

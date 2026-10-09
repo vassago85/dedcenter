@@ -775,7 +775,7 @@
                                 </div>
                             @endif
                             @if($shooterIsRealUser)
-                                <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :competitionType="$royalFlushEnabled ? 'royal_flush' : null" :compact="true" />
+                                <x-shooter-badges :userId="$shooter->user_id" :matchId="$match->id" :badges="$rowBadgesByUser->get($shooter->user_id, collect())" :competitionType="$royalFlushEnabled ? 'royal_flush' : null" :compact="true" />
                             @endif
                             @if(isset($customFieldMap[$shooter->id]))
                                 <div class="flex flex-wrap gap-1 mt-0.5">

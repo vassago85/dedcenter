@@ -2,6 +2,7 @@
 
 use App\Enums\MatchStatus;
 use App\Models\ShootingMatch;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -64,10 +65,12 @@ new #[Layout('components.layouts.app')]
         $availableYears = ShootingMatch::query()
             ->where('status', MatchStatus::Completed)
             ->whereHas('shooters', fn ($q) => $q->where('user_id', $userId))
-            ->selectRaw('DISTINCT YEAR(date) as y')
-            ->orderByDesc('y')
-            ->pluck('y')
+            ->distinct()
+            ->pluck('date')
             ->filter()
+            ->map(fn ($date) => Carbon::parse($date)->year)
+            ->unique()
+            ->sortDesc()
             ->values();
 
         return [

@@ -1175,18 +1175,24 @@ onMounted(async () => {
         }
     }
 
+    let polling = false;
     syncInterval = setInterval(async () => {
-        if (!navigator.onLine) return;
-        if (scoringStore.pendingCount > 0) {
-            await scoringStore.syncScores();
-        }
-        await drainCorrectionQueue();
+        if (!navigator.onLine || document.hidden || polling) return;
+        polling = true;
         try {
-            await matchStore.fetchMatch(props.matchId);
-            const freshScores = matchStore.currentMatch?.scores ?? [];
-            await scoringStore.refreshScores(props.matchId, freshScores);
-            syncLocalScoresToMatch();
-        } catch { /* offline or transient failure */ }
+            if (scoringStore.pendingCount > 0) {
+                await scoringStore.syncScores();
+            }
+            await drainCorrectionQueue();
+            try {
+                await matchStore.fetchMatch(props.matchId, { silent: true });
+                const freshScores = matchStore.currentMatch?.scores ?? [];
+                await scoringStore.refreshScores(props.matchId, freshScores);
+                syncLocalScoresToMatch();
+            } catch { /* offline or transient failure */ }
+        } finally {
+            polling = false;
+        }
     }, 15000);
 
     drainCorrectionQueue();

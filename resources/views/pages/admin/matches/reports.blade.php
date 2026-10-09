@@ -88,7 +88,7 @@ class extends Component
         };
 
         $shooterCount = $this->match->shooters()->count();
-        $emailableCount = app(MatchReportService::class)->getEmailableShooters($this->match)->count();
+        $emailableCount = app(MatchReportService::class)->countEmailableShooters($this->match);
 
         // Route-name map. The org version of this page builds the same
         // shape with org.* names so both surfaces can @include the same

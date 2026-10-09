@@ -157,7 +157,7 @@ new #[Layout('components.layouts.portal')]
         $this->saveCustomFieldValues();
 
         if ($this->match->isFree()) {
-            $this->createShooter();
+            $this->registration->ensureShooter();
             Flux::toast('Registered! You are confirmed.', variant: 'success');
         } else {
             Flux::toast('Registered! Please make your EFT payment and upload proof.', variant: 'success');
@@ -255,19 +255,6 @@ new #[Layout('components.layouts.portal')]
         return \App\Models\Shooter::where('user_id', auth()->id())
             ->whereIn('squad_id', $this->match->squads()->pluck('id'))
             ->first();
-    }
-
-    private function createShooter(): void
-    {
-        $squad = $this->match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
-        $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-
-        \App\Models\Shooter::create([
-            'squad_id' => $squad->id,
-            'name' => auth()->user()->name,
-            'user_id' => auth()->id(),
-            'sort_order' => $maxSort + 1,
-        ]);
     }
 
     public function with(): array
@@ -502,7 +489,11 @@ new #[Layout('components.layouts.portal')]
                                         <p class="mt-1 text-xs text-accent">{{ $message }}</p>
                                     @enderror
                                 </div>
-                                <button type="submit" class="portal-bg-primary portal-bg-primary-hover rounded-lg px-5 py-2.5 text-sm font-medium text-primary transition-colors">Upload</button>
+                                <button type="submit" wire:loading.attr="disabled" wire:target="proofOfPayment,uploadProof"
+                                        class="portal-bg-primary portal-bg-primary-hover rounded-lg px-5 py-2.5 text-sm font-medium text-primary transition-colors disabled:cursor-wait disabled:opacity-60">
+                                    <span wire:loading.remove wire:target="proofOfPayment">Upload</span>
+                                    <span wire:loading wire:target="proofOfPayment">Uploading…</span>
+                                </button>
                             </div>
                         </form>
                     </div>

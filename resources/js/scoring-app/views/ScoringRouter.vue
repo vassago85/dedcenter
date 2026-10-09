@@ -6,14 +6,41 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
-import ScoringFlow from './ScoringFlow.vue';
-import PrsScoringFlow from './PrsScoringFlow.vue';
-import ElrScoringFlow from './ElrScoringFlow.vue';
-import TeamSequenceFlow from './TeamSequenceFlow.vue';
-import AlrhaScoringFlow from './AlrhaScoringFlow.vue';
+
+const loaders = {
+    standard: () => import('./ScoringFlow.vue'),
+    prs: () => import('./PrsScoringFlow.vue'),
+    elr: () => import('./ElrScoringFlow.vue'),
+    team: () => import('./TeamSequenceFlow.vue'),
+    alrha: () => import('./AlrhaScoringFlow.vue'),
+};
+const flows = Object.fromEntries(
+    Object.entries(loaders).map(([key, load]) => [key, defineAsyncComponent(load)])
+);
+
+function flowKey(match) {
+    if (match?.scoring_type === 'prs') return 'prs';
+    if (match?.scoring_type === 'alrha') return 'alrha';
+    if (match?.scoring_type === 'elr') {
+        return match.elr_engagement_mode === 'team_sequence' ? 'team' : 'elr';
+    }
+    return 'standard';
+}
+
+// The service worker only caches chunks it has fetched, so pull the other
+// flows once the active one is up to keep every flow available offline.
+function warmOtherFlows(activeKey) {
+    const warm = () => {
+        for (const [key, load] of Object.entries(loaders)) {
+            if (key !== activeKey) load().catch(() => {});
+        }
+    };
+    if ('requestIdleCallback' in window) window.requestIdleCallback(warm);
+    else setTimeout(warm, 2000);
+}
 
 const props = defineProps({
     matchId: { type: Number, required: true },
@@ -24,19 +51,7 @@ const route = useRoute();
 const matchStore = useMatchStore();
 const ready = ref(false);
 
-const scoringComponent = computed(() => {
-    const match = matchStore.currentMatch;
-    if (match && match.scoring_type === 'prs') {
-        return PrsScoringFlow;
-    }
-    if (match && match.scoring_type === 'alrha') {
-        return AlrhaScoringFlow;
-    }
-    if (match && match.scoring_type === 'elr') {
-        return match.elr_engagement_mode === 'team_sequence' ? TeamSequenceFlow : ElrScoringFlow;
-    }
-    return ScoringFlow;
-});
+const scoringComponent = computed(() => flows[flowKey(matchStore.currentMatch)]);
 
 onMounted(async () => {
     if (!matchStore.currentMatch || matchStore.currentMatch.id !== props.matchId) {
@@ -60,6 +75,12 @@ onMounted(async () => {
         router.replace({ name: 'scoring-matrix', params: { matchId: props.matchId } });
         return;
     }
+    // Resolve the flow chunk behind the existing spinner.
+    const activeKey = flowKey(matchStore.currentMatch);
+    try {
+        await loaders[activeKey]();
+    } catch { /* the async component reports the load failure */ }
     ready.value = true;
+    warmOtherFlows(activeKey);
 });
 </script>

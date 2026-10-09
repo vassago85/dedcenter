@@ -208,13 +208,18 @@ trait HandlesMatchLifecycleTransitions
     }
 
     /**
-     * Direct-jump back to Active from any state. Bypasses the transition
-     * graph — used by the "Reopen Match" affordance on the Reports tab
-     * for a Completed match (the in-graph path goes Completed → Active
-     * already, but this is the named entry point for the UI to bind to).
+     * Completed → Active, the named entry point behind the "Reopen Match"
+     * button on the Scoring tab.
      */
     public function reopenMatch(): void
     {
+        $this->match->refresh();
+
+        if ($this->match->status !== MatchStatus::Completed) {
+            $this->safeToast('Only a completed match can be reopened.', 'danger');
+            return;
+        }
+
         $this->match->update(['status' => MatchStatus::Active]);
         $this->safeToast('Match reopened.', 'success');
     }

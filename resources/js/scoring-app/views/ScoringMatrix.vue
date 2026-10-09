@@ -215,16 +215,23 @@ const progressPercent = computed(() => {
     return Math.round((scoredCount.value / totalCells.value) * 100);
 });
 
-function distanceStatus(tsId) {
-    let scored = 0;
-    let inProgress = 0;
-    const total = squads.value.length;
-    for (const squad of squads.value) {
-        const status = cellStatus(squad.id, tsId);
-        if (status === 'scored') scored++;
-        else if (status === 'in-progress') inProgress++;
+const distanceStatusMap = computed(() => {
+    const map = new Map();
+    for (const ts of targetSets.value) {
+        let scored = 0;
+        let inProgress = 0;
+        for (const squad of squads.value) {
+            const status = cellStatus(squad.id, ts.id);
+            if (status === 'scored') scored++;
+            else if (status === 'in-progress') inProgress++;
+        }
+        map.set(ts.id, { scored, inProgress, total: squads.value.length });
     }
-    return { scored, inProgress, total };
+    return map;
+});
+
+function distanceStatus(tsId) {
+    return distanceStatusMap.value.get(tsId) ?? { scored: 0, inProgress: 0, total: squads.value.length };
 }
 
 function distanceStatusLabel(tsId) {
@@ -276,20 +283,35 @@ function squadShooters(squad) {
     return (squad.shooters ?? []).filter(s => s.status === 'active');
 }
 
-// Per-shooter progress at a given target set. Not stored on the
-// completionMatrix (which is squad-level) so we recompute inline from
-// the scores array. Cheap because we already have gong ids on the
-// target set and scores in memory.
-function shooterProgress(shooterId, tsId) {
-    const ts = targetSets.value.find(t => t.id === tsId);
-    if (!ts) return { actual: 0, expected: 0, status: 'pending' };
-    const gongIds = new Set((ts.gongs ?? []).map(g => g.id));
-    const expected = gongIds.size;
-    const scores = matchStore.currentMatch?.scores ?? [];
-    let actual = 0;
-    for (const s of scores) {
-        if (s.shooter_id === shooterId && gongIds.has(s.gong_id)) actual++;
+// Per-shooter progress at each target set. Not stored on the
+// completionMatrix (which is squad-level), so count it here in one pass.
+const shooterProgressIndex = computed(() => {
+    const gongCounts = new Map();
+    const gongToSets = new Map();
+    for (const ts of targetSets.value) {
+        const gongIds = new Set((ts.gongs ?? []).map(g => g.id));
+        gongCounts.set(ts.id, gongIds.size);
+        for (const id of gongIds) {
+            const sets = gongToSets.get(id);
+            if (sets) sets.push(ts.id);
+            else gongToSets.set(id, [ts.id]);
+        }
     }
+    const actuals = new Map();
+    for (const s of (matchStore.currentMatch?.scores ?? [])) {
+        for (const tsId of (gongToSets.get(s.gong_id) ?? [])) {
+            const key = `${s.shooter_id}-${tsId}`;
+            actuals.set(key, (actuals.get(key) ?? 0) + 1);
+        }
+    }
+    return { gongCounts, actuals };
+});
+
+function shooterProgress(shooterId, tsId) {
+    const { gongCounts, actuals } = shooterProgressIndex.value;
+    if (!gongCounts.has(tsId)) return { actual: 0, expected: 0, status: 'pending' };
+    const expected = gongCounts.get(tsId);
+    const actual = actuals.get(`${shooterId}-${tsId}`) ?? 0;
     const status = actual === 0 ? 'pending' : (actual >= expected ? 'scored' : 'in-progress');
     return { actual, expected, status };
 }
@@ -359,7 +381,9 @@ function openCorrections(squadId, tsId) {
 }
 
 onMounted(async () => {
-    await matchStore.fetchMatch(matchId.value);
+    // Already-loaded match: revalidate without swapping the matrix for a spinner.
+    const cached = matchStore.currentMatch?.id === matchId.value;
+    await matchStore.fetchMatch(matchId.value, { silent: cached });
 
     if (matchStore.currentMatch?.status === 'completed') {
         router.replace({ name: 'match-overview', params: { matchId: matchId.value } });

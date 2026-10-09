@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MatchStatus;
 use App\Models\ShootingMatch;
 use App\Models\MatchRegistration;
 use App\Models\Setting;
@@ -87,6 +88,11 @@ new #[Layout('components.layouts.app')]
             return;
         }
 
+        if (! $this->match->canRegister() && ! in_array($this->match->status, [MatchStatus::Draft, MatchStatus::Active], true)) {
+            Flux::toast('Registration is closed for this match.', variant: 'danger');
+            return;
+        }
+
         $this->validate([
             'caliber' => 'required|string|max:255',
             'bullet_brand_type' => 'required|string|max:255',
@@ -140,7 +146,7 @@ new #[Layout('components.layouts.app')]
         $this->saveCustomFieldValues();
 
         if ($this->match->isFree()) {
-            $this->createShooter();
+            $this->registration->ensureShooter();
             Flux::toast('Registered! You are confirmed for this match.', variant: 'success');
         } else {
             Flux::toast('Registered! Please make your EFT payment and upload proof.', variant: 'success');
@@ -248,30 +254,9 @@ new #[Layout('components.layouts.app')]
 
     private function getOrCreateMyShooter(): ?\App\Models\Shooter
     {
-        $existing = $this->getMyShooter();
-        if ($existing) return $existing;
+        if (! $this->registration || ! $this->registration->isConfirmed()) return $this->getMyShooter();
 
-        if (! $this->registration || ! $this->registration->isConfirmed()) return null;
-
-        $this->createShooter();
-        return $this->getMyShooter();
-    }
-
-    private function createShooter(): void
-    {
-        $squad = $this->match->squads()->firstOrCreate(
-            ['name' => 'Default'],
-            ['sort_order' => 0]
-        );
-
-        $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-
-        \App\Models\Shooter::create([
-            'squad_id' => $squad->id,
-            'name' => auth()->user()->name,
-            'user_id' => auth()->id(),
-            'sort_order' => $maxSort + 1,
-        ]);
+        return $this->registration->ensureShooter();
     }
 
     public function with(): array
@@ -583,8 +568,10 @@ new #[Layout('components.layouts.app')]
                                     <p class="mt-1 text-xs text-accent">{{ $message }}</p>
                                 @enderror
                             </div>
-                            <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover">
-                                Upload
+                            <flux:button type="submit" variant="primary" class="!bg-accent hover:!bg-accent-hover"
+                                         wire:loading.attr="disabled" wire:target="proofOfPayment,uploadProof">
+                                <span wire:loading.remove wire:target="proofOfPayment">Upload</span>
+                                <span wire:loading wire:target="proofOfPayment">Uploading…</span>
                             </flux:button>
                         </div>
                     </form>

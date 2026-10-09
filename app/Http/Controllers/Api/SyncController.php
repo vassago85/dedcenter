@@ -10,6 +10,7 @@ use App\Models\Score;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class SyncController extends Controller
 {
@@ -21,25 +22,15 @@ class SyncController extends Controller
         // token. Restrict to match staff (score bar).
         abort_unless($request->user()->can('score', $match), 403, 'You are not authorized to sync this match.');
 
-        $since = $request->query('since');
+        $validated = $request->validate(['since' => ['nullable', 'date']]);
 
-        $scores = Score::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)));
-        $stageTimes = StageTime::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)));
-
-        if ($since) {
-            $scores = $scores->where('updated_at', '>', $since);
-            $stageTimes = $stageTimes->where('updated_at', '>', $since);
-        }
-
-        $scoreData = $scores->get()->map(fn ($s) => [
-            'id' => $s->id,
-            'shooter_id' => $s->shooter_id,
-            'gong_id' => $s->gong_id,
-            'is_hit' => (bool) $s->is_hit,
-            'device_id' => $s->device_id,
-            'recorded_at' => $s->recorded_at?->toIso8601String(),
-            'updated_at' => $s->updated_at?->toIso8601String(),
-        ]);
+        // Devices echo server_time back as `since`. Stamp it before reading and
+        // compare with >= so a score written mid-pull is in the next pull, not
+        // lost; boundary rows come back twice and devices upsert them by id.
+        $pulledAt = now();
+        $since = isset($validated['since'])
+            ? Carbon::parse($validated['since'])->setTimezone(config('app.timezone'))
+            : null;
 
         // Full roster on every pull (it's small) so devices that imported the
         // match earlier converge on walk-ins added later, re-squads, division
@@ -53,6 +44,26 @@ class SyncController extends Controller
             'squads.shooters.division',
             'squads.shooters.team',
             'squads.shooters.categories',
+        ]);
+
+        $shooterIds = $match->squads->flatMap->shooters->pluck('id');
+
+        $scores = Score::whereIn('shooter_id', $shooterIds);
+        $stageTimes = StageTime::whereIn('shooter_id', $shooterIds);
+
+        if ($since) {
+            $scores = $scores->where('updated_at', '>=', $since);
+            $stageTimes = $stageTimes->where('updated_at', '>=', $since);
+        }
+
+        $scoreData = $scores->get()->map(fn ($s) => [
+            'id' => $s->id,
+            'shooter_id' => $s->shooter_id,
+            'gong_id' => $s->gong_id,
+            'is_hit' => (bool) $s->is_hit,
+            'device_id' => $s->device_id,
+            'recorded_at' => $s->recorded_at?->toIso8601String(),
+            'updated_at' => $s->updated_at?->toIso8601String(),
         ]);
 
         $squadData = $match->squads->map(fn ($sq) => [
@@ -89,8 +100,8 @@ class SyncController extends Controller
 
         $elrShots = collect();
         if ($match->usesElrPipeline()) {
-            $query = ElrShot::whereHas('shooter', fn ($q) => $q->whereHas('squad', fn ($sq) => $sq->where('match_id', $match->id)));
-            if ($since) $query = $query->where('updated_at', '>', $since);
+            $query = ElrShot::whereIn('shooter_id', $shooterIds);
+            if ($since) $query = $query->where('updated_at', '>=', $since);
             $elrShots = $query->get()->map(fn ($s) => [
                 'id' => $s->id,
                 'shooter_id' => $s->shooter_id,
@@ -116,8 +127,8 @@ class SyncController extends Controller
             $shotQuery = PrsShotScore::where('match_id', $match->id);
             $resultQuery = PrsStageResult::where('match_id', $match->id);
             if ($since) {
-                $shotQuery = $shotQuery->where('updated_at', '>', $since);
-                $resultQuery = $resultQuery->where('updated_at', '>', $since);
+                $shotQuery = $shotQuery->where('updated_at', '>=', $since);
+                $resultQuery = $resultQuery->where('updated_at', '>=', $since);
             }
             $prsShots = $shotQuery->get()->map(fn ($s) => [
                 'id' => $s->id,
@@ -156,7 +167,7 @@ class SyncController extends Controller
             'elr_shots' => $elrShots,
             'prs_shots' => $prsShots,
             'prs_results' => $prsResults,
-            'server_time' => now()->toIso8601String(),
+            'server_time' => $pulledAt->toIso8601String(),
         ]);
     }
 }

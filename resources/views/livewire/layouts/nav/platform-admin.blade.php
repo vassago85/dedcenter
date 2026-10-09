@@ -12,12 +12,14 @@
      every wire:navigate via $wire.$refresh() — without it, navigating back to
      a cached page (e.g. Shooter Claims) restores the stale sidebar snapshot
      and the badge "sticks" at its old value. wire:poll.60s is a cross-tab
-     safety net. This Alpine hook lives on the persisted layout component, so
-     x-init runs once and the single listener survives every navigation. --}}
+     safety net (.visible: no polling while the owner's collapsed copy is
+     hidden). The layout is not persisted, so this component re-mounts on
+     every navigation — x-on scopes the listener to the element so it is
+     removed with it instead of piling up on `document`. --}}
 <div class="space-y-1"
-     wire:poll.60s
+     wire:poll.60s.visible
      x-data
-     x-init="document.addEventListener('livewire:navigated', () => $wire.$refresh())">
+     x-on:livewire:navigated.document="$wire.$refresh()">
     <div class="px-3 pb-1">
         <p class="text-xs font-semibold uppercase tracking-wider text-muted">Platform Admin</p>
     </div>

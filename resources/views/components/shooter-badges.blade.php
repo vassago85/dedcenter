@@ -12,6 +12,9 @@
     // `compact` is preserved for the per-row scoreboard avatars-of-badges
     // affordance — different consumer, different size budget.
     'trophy' => false,
+    // Preloaded UserAchievement rows (with `achievement`), already filtered
+    // to this user/match/competition. Lists pass these to avoid a query per row.
+    'badges' => null,
 ])
 
 @php
@@ -20,18 +23,20 @@
     $badgeConfig = BadgeGalleryController::BADGE_CONFIG;
     $tierOrder = ['featured' => 0, 'elite' => 1, 'milestone' => 2, 'earned' => 3];
 
-    $query = \App\Models\UserAchievement::where('user_id', $userId)
-        ->with('achievement');
+    if ($badges === null) {
+        $query = \App\Models\UserAchievement::where('user_id', $userId)
+            ->with('achievement');
 
-    if ($matchId) {
-        $query->where('match_id', $matchId);
+        if ($matchId) {
+            $query->where('match_id', $matchId);
+        }
+
+        if ($competitionType) {
+            $query->whereHas('achievement', fn ($q) => $q->where('competition_type', $competitionType));
+        }
+
+        $badges = $query->orderBy('awarded_at', 'desc')->get();
     }
-
-    if ($competitionType) {
-        $query->whereHas('achievement', fn ($q) => $q->where('competition_type', $competitionType));
-    }
-
-    $badges = $query->orderBy('awarded_at', 'desc')->get();
 
     if ($badges->isEmpty()) {
         return;

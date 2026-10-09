@@ -76,12 +76,6 @@ class SponsorAssignment extends Model
             ->where('scope_id', $matchId);
     }
 
-    public function scopeForMatchbook($query, int $matchBookId)
-    {
-        return $query->where('scope_type', SponsorScope::Matchbook)
-            ->where('scope_id', $matchBookId);
-    }
-
     public function scopeForOrganization($query, int $organizationId)
     {
         return $query->where('scope_type', SponsorScope::Organization)

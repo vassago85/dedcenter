@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Spatie\LaravelPdf\Facades\Pdf;
 
 /**
@@ -20,7 +19,7 @@ class PdfDocumentRenderer
 
     public function __construct()
     {
-        $this->gotenbergUrl = env('GOTENBERG_URL', 'http://gotenberg:3000');
+        $this->gotenbergUrl = config('services.gotenberg.url');
     }
 
     /**
@@ -88,37 +87,6 @@ class PdfDocumentRenderer
         // doesn't understand modern CSS anyway, so the template should fall
         // back to inline-style equivalents on its own).
         return $this->generateWithDomPdf($template, $data, $customSize);
-    }
-
-    /**
-     * Generate and save to disk, returning the file path.
-     */
-    public function generateAndSave(string $template, array $data, string $filePath, string $disk = 'local', ?array $customSize = null): string
-    {
-        $html = view($template, $data)->render();
-
-        // Strategy 1: Gotenberg
-        if ($this->generateWithGotenberg($html, $filePath, $disk, $customSize)) {
-            return $filePath;
-        }
-
-        // Strategy 2: DomPDF fallback
-        try {
-            $pdf = Pdf::view($template, $data)->driver('dompdf');
-            if ($customSize) {
-                $pdf->paperSize($customSize['width'], $customSize['height'], 'mm');
-            } else {
-                $pdf->format('a4');
-            }
-            $pdf->disk($disk)->save($filePath);
-
-            Log::info('PDF generated via DomPDF fallback', ['template' => $template, 'file' => $filePath]);
-
-            return $filePath;
-        } catch (\Throwable $e) {
-            Log::error('All PDF generation methods failed', ['template' => $template, 'error' => $e->getMessage()]);
-            throw $e;
-        }
     }
 
     /**
@@ -210,21 +178,14 @@ class PdfDocumentRenderer
         return null;
     }
 
-    protected function generateWithGotenberg(string $html, string $filePath, string $disk, ?array $customSize = null): bool
-    {
-        $pdfBytes = $this->tryGotenberg($html, $customSize);
-        if ($pdfBytes === null) {
-            return false;
-        }
-
-        Storage::disk($disk)->put($filePath, $pdfBytes);
-        Log::info('PDF saved via Gotenberg', ['file' => $filePath]);
-
-        return true;
-    }
-
     protected function generateWithDomPdf(string $template, array $data, ?array $customSize = null): string
     {
+        // DomPDF keeps the whole layout tree in memory; full-field reports blow past PHP's 128M default.
+        $limit = ini_get('memory_limit');
+        if ($limit !== '-1' && ini_parse_quantity($limit) < 512 * 1024 * 1024) {
+            ini_set('memory_limit', '512M');
+        }
+
         try {
             $pdf = Pdf::view($template, $data)->driver('dompdf');
             if ($customSize) {

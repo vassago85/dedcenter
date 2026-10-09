@@ -57,11 +57,6 @@ class MatchBookStage extends Model
         return $this->sequence_display_format === 'blocks';
     }
 
-    public function usesTableDisplay(): bool
-    {
-        return $this->sequence_display_format === 'table';
-    }
-
     /**
      * Get unique gongs from the shots (for the targets table display).
      */

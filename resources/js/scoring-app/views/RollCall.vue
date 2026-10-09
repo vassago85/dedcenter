@@ -53,7 +53,7 @@
 
                         <div class="flex items-center gap-2 ml-3">
                             <button
-                                v-if="shooter.status !== 'dq'"
+                                v-if="shooter.status !== 'dq' && !standalone"
                                 @click="openDqModal(shooter)"
                                 class="rounded-lg bg-red-600/20 px-2 py-1 text-[10px] font-bold text-red-400 hover:bg-red-600/30 transition-colors"
                                 title="Disqualify"
@@ -143,6 +143,10 @@ import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
+import { isStandaloneApk } from '../lib/platform';
+
+// The phone server has no disqualification endpoint.
+const standalone = isStandaloneApk();
 
 const props = defineProps({
     matchId: { type: Number, required: true },

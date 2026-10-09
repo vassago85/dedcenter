@@ -9,6 +9,7 @@ new #[Layout('components.layouts.marketing')]
     class extends Component {
 }; ?>
 
+<div>
 <section style="border-bottom: 1px solid var(--lp-border);">
     <div class="mx-auto max-w-6xl px-6 py-20 lg:py-28">
         <div class="mb-16 text-center">
@@ -222,3 +223,4 @@ new #[Layout('components.layouts.marketing')]
         </div>
     </div>
 </section>
+</div>

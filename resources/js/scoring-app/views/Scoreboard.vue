@@ -16,7 +16,7 @@
                 <span v-if="isAlrha" class="rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold uppercase">ALRHA</span>
                 <span v-else-if="isElr" class="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">ELR</span>
                 <div class="ml-auto flex items-center gap-3">
-                    <span v-if="autoRefresh" class="flex items-center gap-1 text-[10px] text-muted">
+                    <span class="flex items-center gap-1 text-[10px] text-muted">
                         <span class="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
                         LIVE
                     </span>
@@ -1184,7 +1184,6 @@ const viewMode = ref('summary');
 const loading = ref(false);
 const error = ref(null);
 const lastUpdated = ref('');
-const autoRefresh = ref(true);
 const expandedIds = ref(new Set());
 const scoresHidden = ref(false);
 const hiddenMessage = ref('');
@@ -1274,9 +1273,19 @@ function alrhaTeamMembers(entry) {
     return [a, b].filter(Boolean).join(' · ') || '—';
 }
 
-async function fetchData() {
+let fetching = false;
+let refetchQueued = false;
+
+// `background` = timed poll: a failure keeps the last good board on screen
+// instead of replacing it with the error panel.
+async function fetchData({ background = false } = {}) {
+    if (fetching) {
+        if (!background) refetchQueued = true;
+        return;
+    }
+    fetching = true;
     loading.value = true;
-    error.value = null;
+    if (!background) error.value = null;
     try {
         const scoringType = isPrs.value ? 'prs' : (usesElrPipeline.value ? 'elr' : null);
         // PRS doesn't support detailed=1; ELR carries an optional division
@@ -1350,11 +1359,17 @@ async function fetchData() {
             }
         }
 
+        error.value = null;
         lastUpdated.value = new Date().toLocaleTimeString('en-ZA');
     } catch (e) {
-        error.value = 'Unable to load scoreboard.';
+        if (!background || !lastUpdated.value) error.value = 'Unable to load scoreboard.';
     } finally {
+        fetching = false;
         loading.value = false;
+        if (refetchQueued) {
+            refetchQueued = false;
+            fetchData();
+        }
     }
 }
 
@@ -1757,7 +1772,10 @@ function onOnlineFlushTrigger() {
 
 onMounted(() => {
     fetchData();
-    refreshInterval = setInterval(fetchData, 12000);
+    refreshInterval = setInterval(() => {
+        if (document.hidden || !navigator.onLine) return;
+        fetchData({ background: true });
+    }, 12000);
     // Replay any queued side-bet toggles from a previous offline session,
     // and keep replaying whenever the device comes back online. Runs
     // unconditionally even if the MD never opens the Buy-Ins tab — so

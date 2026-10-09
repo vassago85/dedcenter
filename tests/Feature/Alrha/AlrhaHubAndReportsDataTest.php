@@ -27,9 +27,11 @@
 use App\Enums\AlrhaClass;
 use App\Enums\ElrShotResult;
 use App\Enums\ElrStageType;
+use App\Enums\MatchStatus;
 use App\Models\ElrScoringProfile;
 use App\Models\ElrStage;
 use App\Models\ElrTarget;
+use App\Models\Organization;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
@@ -39,6 +41,7 @@ use App\Services\MatchDashboardService;
 use App\Services\MatchReportService;
 use App\Services\MatchStandingsService;
 use App\Services\Scoring\ELRScoringService;
+use App\Services\ShooterBestFinishesService;
 
 /**
  * Local rig helpers — mirror the setup in AlrhaScoringTest.php but
@@ -205,6 +208,30 @@ it('MatchStandingsService::standingsFor excludes CBC from the ALRHA total_score'
     expect($row->total_score)->toBe(15.0);
     expect($row->hits)->toBe(5);
     expect($row->misses)->toBe(0);
+});
+
+it('ShooterBestFinishesService ranks ALRHA matches from elr_shots, not zeros', function () {
+    $ctx = alrhaBuild('varmint');
+    $ctx['match']->update([
+        'organization_id' => Organization::factory()->create()->id,
+        'status' => MatchStatus::Completed,
+    ]);
+    $abeUser = User::factory()->create();
+    $zedUser = User::factory()->create();
+    // Abe is created first so an all-zero tie would wrongly rank him 1st.
+    $abe = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'user_id' => $abeUser->id, 'name' => 'Abe Second']);
+    $zed = Shooter::factory()->create(['squad_id' => $ctx['squad']->id, 'user_id' => $zedUser->id, 'name' => 'Zed Winner']);
+
+    alrhaShoot($zed->id, $ctx['farTargets'][0], [1, 3, 4]); // 10 pts
+    alrhaShoot($abe->id, $ctx['farTargets'][0], [1]);       // 5 pts
+
+    $service = new ShooterBestFinishesService;
+
+    $zedRow = $service->forUser($zedUser)->first();
+    expect($zedRow->best_rank)->toBe(1);
+    expect($zedRow->field_size)->toBe(2);
+
+    expect($service->forUser($abeUser)->first()->best_rank)->toBe(2);
 });
 
 // Dual-class hub merging (Hunters + Varmint on one Top-5) is

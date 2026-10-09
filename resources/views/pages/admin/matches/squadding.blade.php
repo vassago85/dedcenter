@@ -91,6 +91,10 @@ new #[Layout('components.layouts.app')]
     public function closeSquadding(): void
     {
         if ($this->match->status === MatchStatus::SquaddingOpen) {
+            if ($this->matchStageCount() === 0) {
+                Flux::toast('Add at least one stage before starting the match — shooters can’t be scored without one.', variant: 'danger');
+                return;
+            }
             $this->match->update(['status' => MatchStatus::Active]);
             Flux::toast('Squadding closed. Match is now active.', variant: 'success');
         }
@@ -244,9 +248,7 @@ new #[Layout('components.layouts.app')]
         $regsToAssign = $confirmedRegs->filter(fn ($r) => !in_array($r->user_id, $existingShooterUserIds));
 
         foreach ($regsToAssign as $reg) {
-            $squad = $match->squads()->firstOrCreate(['name' => 'Default'], ['sort_order' => 0]);
-            $maxSort = $squad->shooters()->max('sort_order') ?? 0;
-            Shooter::create(['squad_id' => $squad->id, 'name' => $reg->user->name, 'user_id' => $reg->user_id, 'sort_order' => $maxSort + 1]);
+            $reg->ensureShooter();
         }
 
         $allShooters = $match->shooters()->get();

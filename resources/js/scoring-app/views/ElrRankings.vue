@@ -59,7 +59,7 @@
                 </a>
             </div>
 
-            <div v-if="loading" class="space-y-2">
+            <div v-if="loading && !hasLoaded" class="space-y-2">
                 <div v-for="n in 6" :key="n" class="h-10 animate-pulse rounded-lg bg-surface-2"></div>
             </div>
 
@@ -194,6 +194,7 @@ const tabs = [
 
 const activeTab = ref('overall');
 const loading = ref(true);
+const hasLoaded = ref(false);
 const error = ref(null);
 const scoresHidden = ref(false);
 const matchName = ref('');
@@ -253,12 +254,20 @@ function rankColor(rank) {
     return 'text-muted';
 }
 
-async function fetchData() {
+let fetching = false;
+
+// `background` = timed poll: keep the current table (no skeleton, no error
+// panel) unless nothing has loaded yet.
+async function fetchData({ background = false } = {}) {
+    if (fetching) return;
+    fetching = true;
     loading.value = true;
-    error.value = null;
+    if (!background) error.value = null;
     try {
         const { data: res } = await axios.get(`/api/matches/${props.matchId}/elr-rankings`);
         matchName.value = res.match?.name ?? '';
+        error.value = null;
+        hasLoaded.value = true;
 
         if (res.match && res.match.scores_published === false) {
             scoresHidden.value = true;
@@ -279,8 +288,9 @@ async function fetchData() {
             selectedDivision.value = divisionKey(data.divisions[0]);
         }
     } catch (e) {
-        error.value = 'Rankings are not available right now.';
+        if (!background || !hasLoaded.value) error.value = 'Rankings are not available right now.';
     } finally {
+        fetching = false;
         loading.value = false;
     }
 }
@@ -290,7 +300,10 @@ onMounted(() => {
         matchStore.fetchMatch(props.matchId, { silent: true });
     }
     fetchData();
-    refreshTimer = setInterval(fetchData, 12000);
+    refreshTimer = setInterval(() => {
+        if (document.hidden || !navigator.onLine) return;
+        fetchData({ background: true });
+    }, 12000);
 });
 
 onUnmounted(() => {
