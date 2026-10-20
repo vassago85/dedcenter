@@ -103,6 +103,7 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    <x-refresh-region targets="search,tab">
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($matches->isEmpty())
             @if($search)
@@ -201,4 +202,5 @@ new #[Layout('components.layouts.app')]
             </div>
         @endif
     </div>
+    </x-refresh-region>
 </div>

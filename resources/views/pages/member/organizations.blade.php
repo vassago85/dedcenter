@@ -50,6 +50,7 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    <x-refresh-region targets="search,type">
     @if($organizations->isEmpty())
         <div class="rounded-xl border border-border bg-surface px-6 py-12 text-center">
             <p class="text-muted">{{ $search ? "No organizations found for \"{$search}\"." : 'No organizations yet.' }}</p>
@@ -94,4 +95,5 @@ new #[Layout('components.layouts.app')]
             @endforeach
         </div>
     @endif
+    </x-refresh-region>
 </div>

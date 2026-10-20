@@ -58,6 +58,7 @@ new #[Layout('components.layouts.portal')]
             </div>
         </div>
 
+        <x-refresh-region targets="search,status">
         @if($matches->isEmpty())
                 <div class="rounded-xl border border-white/10 bg-app px-6 py-12 text-center">
                 <p class="text-muted">{{ $search ? "No matches found for \"{$search}\"." : 'No matches to show yet. Check back soon for the next event.' }}</p>
@@ -115,6 +116,7 @@ new #[Layout('components.layouts.portal')]
                 @endforeach
             </div>
         @endif
+        </x-refresh-region>
         </div>
 
         <aside class="w-full shrink-0 lg:w-72 lg:pt-2">

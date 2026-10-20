@@ -235,6 +235,7 @@ new #[Layout('components.layouts.app')]
         />
     </div>
 
+    <x-refresh-region targets="search">
     <flux:table>
         <flux:table.columns>
             <flux:table.column>Name</flux:table.column>
@@ -316,6 +317,7 @@ new #[Layout('components.layouts.app')]
             @endforelse
         </flux:table.rows>
     </flux:table>
+    </x-refresh-region>
 
     <flux:modal name="sponsor-form" class="min-w-[min(100vw-2rem,42rem)]">
         <form wire:submit="save" class="space-y-4">

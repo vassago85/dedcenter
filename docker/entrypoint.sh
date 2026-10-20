@@ -9,6 +9,8 @@ mkdir -p /var/www/html/storage/framework/views
 mkdir -p /var/www/html/storage/framework/cache
 mkdir -p /var/www/html/storage/framework/sessions
 mkdir -p /var/www/html/storage/logs
+mkdir -p /var/www/html/storage/app/public
+mkdir -p /var/www/html/storage/app/private
 mkdir -p /var/www/html/bootstrap/cache
 
 # Fix permissions
@@ -50,30 +52,36 @@ until php -r "new PDO('mysql:host=db;port=3306;dbname=${DB_DATABASE}', '${DB_USE
 done
 echo "Database is ready"
 
-# Run migrations
-echo "Running migrations..."
-php artisan migrate --force || echo "Migration had issues, continuing..."
-
-# Clear caches (env vars come from Docker at runtime)
-echo "Preparing for production..."
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-php artisan cache:clear || echo "Cache clear had issues, continuing..."
-
-# Publish Livewire assets
-echo "Publishing Livewire assets..."
-php artisan livewire:publish --assets 2>/dev/null || true
-
-# Create storage link
-php artisan storage:link 2>/dev/null || true
-
-# Final permissions fix
+# Final permissions fix (covers the public and private upload volumes)
 echo "Final permissions check..."
 chown -R www-data:www-data /var/www/html/storage
 chmod -R 775 /var/www/html/storage
 
-echo "DeadCenter is ready!"
+# Only the web process migrates and clears caches. Queue restarts every
+# hour (--max-time=3600); running cache:clear there would wipe Redis.
+if [ "${1:-}" = "/usr/bin/supervisord" ]; then
+    echo "Running migrations..."
+    php artisan migrate --force
 
-# Start supervisor
-exec /usr/bin/supervisord -c /etc/supervisord.conf
+    echo "Preparing for production..."
+    php artisan config:clear
+    php artisan route:clear
+    php artisan view:clear
+    php artisan cache:clear || echo "Cache clear had issues, continuing..."
+
+    echo "Publishing Livewire assets..."
+    php artisan livewire:publish --assets 2>/dev/null || true
+
+    php artisan storage:link 2>/dev/null || true
+
+    chown -R www-data:www-data /var/www/html/storage
+    chmod -R 775 /var/www/html/storage
+fi
+
+if [ "$#" -eq 0 ]; then
+    echo "No container command given"
+    exit 1
+fi
+
+echo "DeadCenter is ready!"
+exec "$@"

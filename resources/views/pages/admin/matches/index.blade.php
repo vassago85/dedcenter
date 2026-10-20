@@ -103,6 +103,7 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    <x-refresh-region targets="tab">
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($matches->isEmpty())
             <div class="px-6 py-12 text-center">
@@ -198,4 +199,5 @@ new #[Layout('components.layouts.app')]
             </div>{{-- /x-show visibleCount > 0 --}}
         @endif
     </div>
+    </x-refresh-region>
 </div>

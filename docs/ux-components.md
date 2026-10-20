@@ -123,6 +123,32 @@ Loading placeholders.
 </tbody>
 ```
 
+### `<x-error-state>`
+Inline failure for one panel. Full-page HTTP errors stay in `resources/views/errors/`.
+```blade
+<x-error-state
+    title="This list didn't refresh"
+    description="You're offline. Reconnect, then try again."
+    size="sm">
+    <x-slot:icon><x-icon name="circle-alert" class="h-5 w-5" /></x-slot:icon>
+    <x-slot:actions>
+        <button type="button" wire:click="$refresh">Try again</button>
+    </x-slot:actions>
+</x-error-state>
+```
+
+### `<x-refresh-region>`
+Wrap a list that re-queries. Shows `x-skeleton` while `targets` are in flight, and `x-error-state` when the browser is offline. The slot still owns the empty state.
+```blade
+<x-refresh-region targets="search,yearFilter" :rows="3">
+    @if($matches->isEmpty())
+        <x-empty-state title="No results yet" description="Completed matches will appear here." />
+    @else
+        {{-- rows --}}
+    @endif
+</x-refresh-region>
+```
+
 ## List / table primitives
 
 ### `<x-data-table>`

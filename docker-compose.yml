@@ -51,8 +51,15 @@ services:
     volumes:
       - app-logs:/var/www/html/storage/logs
       - app-storage:/var/www/html/storage/app/public
+      - app-private:/var/www/html/storage/app/private
     ports:
       - "${APP_PORT:-8091}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
     networks:
       - deadcenter-network
     depends_on:
@@ -115,14 +122,13 @@ services:
     networks:
       - deadcenter-network
 
+  # Same image as app. No build: key — scripts/deploy.sh builds app once
+  # and recreates scheduler onto that tag. The entrypoint execs command.
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: deadcenter-app:latest
     container_name: deadcenter-scheduler
     restart: unless-stopped
-    command: sh -c "while true; do php /var/www/html/artisan schedule:run --verbose --no-interaction & sleep 60; done"
+    command: ["sh", "-c", "while true; do php /var/www/html/artisan schedule:run --verbose --no-interaction & sleep 60; done"]
     environment:
       - APP_ENV=production
       - APP_TIMEZONE=Africa/Johannesburg
@@ -142,18 +148,19 @@ services:
     networks:
       - deadcenter-network
     depends_on:
-      - app
-      - db
-      - redis
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  # Same image as app. No build: key — see the scheduler comment.
   queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: deadcenter-app:latest
     container_name: deadcenter-queue
     restart: unless-stopped
-    command: php /var/www/html/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    command: ["php", "/var/www/html/artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600"]
     environment:
       - APP_ENV=production
       - APP_TIMEZONE=Africa/Johannesburg
@@ -184,10 +191,14 @@ services:
     networks:
       - deadcenter-network
     depends_on:
-      - app
-      - db
-      - redis
-      - gotenberg
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
 
 networks:
   deadcenter-network:
@@ -196,5 +207,6 @@ networks:
 volumes:
   app-logs:
   app-storage:
+  app-private:
   db-data:
   redis-data:

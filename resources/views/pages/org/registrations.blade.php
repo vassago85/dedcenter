@@ -137,6 +137,7 @@ new #[Layout('components.layouts.app')]
         </div>
     </div>
 
+    <x-refresh-region targets="matchFilter,filter">
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($registrations->isEmpty())
             <div class="px-6 py-12 text-center"><p class="text-muted">No registrations matching this filter.</p></div>
@@ -234,4 +235,5 @@ new #[Layout('components.layouts.app')]
             </div>
         @endif
     </div>
+    </x-refresh-region>
 </div>

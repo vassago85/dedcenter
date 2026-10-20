@@ -130,10 +130,11 @@ Every dashboard widget must earn its place by helping a decision or a next step.
 - Mobile still usable.
 - **Top 3 treatment**: keep rank numbers visible, add a Lucide icon next to rank — 1st trophy, 2nd/3rd medal — subtle and clean, never cartoonish.
 
-## 12. States (every new/revised page must include all three)
+## 12. States (every new/revised page must include these)
 
 - **Empty** — say what the area is for, why it's empty, what to do next. Use `x-empty-state`.
-- **Loading** — prefer skeletons/structured placeholders (`x-skeleton`) over random spinners.
+- **Loading** — prefer skeletons/structured placeholders (`x-skeleton`) over random spinners. Lists that re-query wrap the results in `x-refresh-region`.
+- **Error** — when one region fails and the rest of the page is still usable (offline refresh, a record the user asked for that is not there). Use `x-error-state`: what failed, and what to do next. Full-page HTTP failures stay on the 403 / 404 / 419 / 500 views.
 - **Success** — calm, clear confirmation. No cheesy effects.
 
 ## 13. Responsiveness
@@ -154,7 +155,9 @@ Do not inline one-off versions of any of these. If a primitive is missing, add i
 - `x-filter-bar` — search + filter chip pattern
 - `x-action-menu` — kebab/overflow dropdown for secondary actions
 - `x-empty-state` — icon + title + description + action(s)
+- `x-error-state` — inline failure: what failed, what to do next
 - `x-skeleton` — loading placeholders (line, block, row)
+- `x-refresh-region` — skeleton while a list re-queries, error when offline
 - `x-app-context-bar` — mode/context banner under the top bar
 
 ## 15. Design QA checklist (run before finishing any page/feature)
@@ -169,6 +172,7 @@ Do not inline one-off versions of any of these. If a primitive is missing, add i
 8. Would a first-time user understand where to go next?
 9. Does this feel premium and intentional?
 10. Did we improve UX without breaking architecture?
+11. Does a wait show `x-skeleton`, and a failed refresh show `x-error-state`?
 
 If any answer is "no", keep refining.
 

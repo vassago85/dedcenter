@@ -130,6 +130,7 @@ new #[Layout('components.layouts.app')]
     @endif
 
     {{-- Results list --}}
+    <x-refresh-region targets="search,yearFilter,clearFilters">
     @if($matches->isEmpty())
         <x-panel :padding="false">
             <x-empty-state
@@ -201,6 +202,7 @@ new #[Layout('components.layouts.app')]
             </ul>
         </x-panel>
     @endif
+    </x-refresh-region>
 
     {{-- Missing-a-match hint. Claim only lives on the scoreboard as an
          inline chip on your unclaimed row; without this pointer users can't

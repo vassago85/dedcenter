@@ -357,15 +357,20 @@ new #[Layout('components.layouts.app')]
         </div>
     @endif
 
-    @if($shooters->isEmpty() || $targetSets->isEmpty())
+    @if($shooters->isEmpty() && $focusShooterId)
+        <x-error-state
+            size="sm"
+            title="Selected shooter could not be found"
+            description="That shooter is not on this squad. Pick another from the dropdown above.">
+            <x-slot:icon>
+                <x-icon name="circle-alert" class="h-5 w-5" />
+            </x-slot:icon>
+        </x-error-state>
+    @elseif($shooters->isEmpty() || $targetSets->isEmpty())
         <div class="rounded-2xl border border-dashed border-border bg-surface/50 p-8 text-center">
             <p class="text-muted">
                 @if($shooters->isEmpty())
-                    @if($focusShooterId)
-                        Selected shooter could not be found on this squad. Pick another from the dropdown above.
-                    @else
-                        This squad has no shooters yet.
-                    @endif
+                    This squad has no shooters yet.
                 @else
                     This match has no target sets yet — add at least one before correcting scores.
                 @endif

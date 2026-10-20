@@ -486,6 +486,7 @@ new #[Layout('components.layouts.app')]
     </details>
 
     {{-- Table --}}
+    <x-refresh-region targets="search,accountFilter,roleFilter,nextPage,previousPage,gotoPage">
     <div class="rounded-xl border border-border bg-surface overflow-hidden">
         @if($users->isEmpty())
             <div class="px-6 py-12 text-center space-y-3">
@@ -699,4 +700,5 @@ new #[Layout('components.layouts.app')]
             </div>
         @endif
     </div>
+    </x-refresh-region>
 </div>

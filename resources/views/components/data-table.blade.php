@@ -40,6 +40,9 @@
                        instead of the table body.
     sticky   bool      Sticky thead. Default true.
     dense    bool      Tighter row padding for admin/dense tables. Default false.
+    targets  ?string   Livewire wire:target list. While those requests run,
+                       body rows are replaced with x-skeleton rows.
+    skeletonColumns int  Cells per skeleton row. Default 4.
 
     NOTE: don't nest blade-style comments inside this block — Blade's
     comment parser is non-greedy, and a nested closing sequence ends the
@@ -51,6 +54,8 @@
     'count' => 1,
     'sticky' => true,
     'dense' => false,
+    'targets' => null,
+    'skeletonColumns' => 4,
 ])
 
 @php
@@ -63,6 +68,23 @@
             {{ $toolbar }}
         </div>
     @endisset
+
+    <div wire:offline>
+        <x-error-state
+            size="sm"
+            title="This table didn't refresh"
+            description="You're offline. Reconnect, then try again.">
+            <x-slot:icon>
+                <x-icon name="circle-alert" class="h-5 w-5" />
+            </x-slot:icon>
+            <x-slot:actions>
+                <button type="button" wire:click="$refresh"
+                        class="inline-flex min-h-[36px] items-center rounded-lg bg-accent px-3 text-xs font-semibold text-white hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent">
+                    Try again
+                </button>
+            </x-slot:actions>
+        </x-error-state>
+    </div>
 
     @if($count === 0 && isset($empty))
         {{ $empty }}
@@ -78,9 +100,17 @@
                         {{ $columns }}
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-border/60 [&>tr]:transition-colors [&>tr:hover]:bg-surface-2/30 [&>tr>td]:px-4 [&>tr>td]:{{ $cellPadY }} [&>tr>td]:align-middle [&>tr>td:first-child]:pl-6 [&>tr>td:last-child]:pr-6">
+                <tbody @if($targets) wire:loading.delay.remove wire:target="{{ $targets }}" @endif
+                    class="divide-y divide-border/60 [&>tr]:transition-colors [&>tr:hover]:bg-surface-2/30 [&>tr>td]:px-4 [&>tr>td]:{{ $cellPadY }} [&>tr>td]:align-middle [&>tr>td:first-child]:pl-6 [&>tr>td:last-child]:pr-6">
                     {{ $rows }}
                 </tbody>
+                @if($targets)
+                    <tbody wire:loading.delay wire:target="{{ $targets }}" aria-busy="true" aria-live="polite">
+                        @for ($i = 0; $i < 5; $i++)
+                            <x-skeleton variant="row" :columns="$skeletonColumns" />
+                        @endfor
+                    </tbody>
+                @endif
             </table>
         </div>
     @endif

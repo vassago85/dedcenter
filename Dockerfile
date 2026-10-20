@@ -100,5 +100,7 @@ RUN chmod +x /entrypoint.sh
 # Expose port
 EXPOSE 80
 
-# Start with entrypoint
+# Start with entrypoint. CMD is the web stack; queue and scheduler
+# override it in docker-compose.yml and the entrypoint execs that command.
 ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
