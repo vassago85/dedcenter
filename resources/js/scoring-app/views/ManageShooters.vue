@@ -202,90 +202,90 @@
                             class="px-3 py-2.5"
                             :class="{ 'opacity-50': sh.status === 'withdrawn', 'bg-red-900/10': sh.status === 'dq' }"
                         >
-                        <div class="flex items-center gap-2">
-                            <!-- Firing-order rank -->
-                            <span class="w-6 shrink-0 text-center text-[11px] font-bold tabular-nums text-slate-500">{{ idx + 1 }}</span>
-
-                            <!-- Name + bib -->
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate text-sm font-medium">
-                                    {{ baseName(sh) }}
-                                    <span v-if="sh.status === 'dq'" class="ml-1 rounded bg-red-600/30 px-1.5 py-0.5 text-[9px] font-bold text-red-300">DQ</span>
-                                    <span v-else-if="sh.status === 'withdrawn'" class="ml-1 rounded bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-slate-300">OUT</span>
-                                </p>
-                                <p v-if="sh.bib_number || sh.division || caliberOf(sh) || sh.team" class="text-[11px] text-slate-500 truncate">
-                                    <span v-if="sh.bib_number">Bib #{{ sh.bib_number }}</span>
-                                    <span v-if="sh.bib_number && (sh.division || caliberOf(sh) || sh.team)"> &middot; </span>
-                                    <span v-if="sh.division">{{ sh.division }}</span>
-                                    <span v-if="sh.division && (caliberOf(sh) || sh.team)"> &middot; </span>
-                                    <span v-if="caliberOf(sh)">{{ caliberOf(sh) }}</span>
-                                    <span v-if="caliberOf(sh) && sh.team"> &middot; </span>
-                                    <span v-if="sh.team">{{ sh.team }}</span>
-                                </p>
+                        <div class="space-y-2">
+                            <!-- Row 1: rank + name + bib. Gets its own line so long names never shrink to a single letter. -->
+                            <div class="flex items-start gap-2">
+                                <span class="w-6 shrink-0 pt-0.5 text-center text-[11px] font-bold tabular-nums text-slate-500">{{ idx + 1 }}</span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium break-words">
+                                        {{ baseName(sh) }}
+                                        <span v-if="sh.status === 'dq'" class="ml-1 rounded bg-red-600/30 px-1.5 py-0.5 text-[9px] font-bold text-red-300">DQ</span>
+                                        <span v-else-if="sh.status === 'withdrawn'" class="ml-1 rounded bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-slate-300">OUT</span>
+                                    </p>
+                                    <p v-if="sh.bib_number || sh.division || caliberOf(sh) || sh.team" class="text-[11px] text-slate-500 break-words">
+                                        <span v-if="sh.bib_number">Bib #{{ sh.bib_number }}</span>
+                                        <span v-if="sh.bib_number && (sh.division || caliberOf(sh) || sh.team)"> &middot; </span>
+                                        <span v-if="sh.division">{{ sh.division }}</span>
+                                        <span v-if="sh.division && (caliberOf(sh) || sh.team)"> &middot; </span>
+                                        <span v-if="caliberOf(sh)">{{ caliberOf(sh) }}</span>
+                                        <span v-if="caliberOf(sh) && sh.team"> &middot; </span>
+                                        <span v-if="sh.team">{{ sh.team }}</span>
+                                    </p>
+                                </div>
                             </div>
 
-                            <!-- Reorder up/down -->
-                            <div class="flex items-center">
+                            <!-- Row 2: actions. Wraps on narrow screens so nothing gets squashed. -->
+                            <div class="flex flex-wrap items-center gap-2 pl-8">
+                                <div class="flex items-center">
+                                    <button
+                                        type="button"
+                                        class="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                        :disabled="idx === 0 || busyShooterId === sh.id"
+                                        @click="nudge(sh, 'up')"
+                                        aria-label="Move up"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                        :disabled="idx === sortedShooters(squad).length - 1 || busyShooterId === sh.id"
+                                        @click="nudge(sh, 'down')"
+                                        aria-label="Move down"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <select
+                                    class="min-w-0 rounded-md border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] font-medium text-white focus:border-amber-500 focus:outline-none"
+                                    :disabled="busyShooterId === sh.id"
+                                    :value="''"
+                                    @change="onMoveSelect($event, sh)"
+                                    :aria-label="'Move ' + sh.name + ' to another squad'"
+                                >
+                                    <option value="" disabled>Move…</option>
+                                    <option
+                                        v-for="target in otherSquads(squad)"
+                                        :key="target.id"
+                                        :value="target.id"
+                                        :disabled="squadIsFull(target)"
+                                    >
+                                        {{ target.name }}{{ squadIsFull(target) ? ' (full)' : '' }}
+                                    </option>
+                                </select>
+
+                                <button
+                                    v-if="sh.status !== 'dq'"
+                                    type="button"
+                                    class="rounded-md px-2 py-1 text-[11px] font-bold transition-colors"
+                                    :class="sh.status === 'withdrawn'
+                                        ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
+                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'"
+                                    :disabled="busyShooterId === sh.id"
+                                    @click="toggleStatus(sh)"
+                                >{{ sh.status === 'withdrawn' ? 'Restore' : 'Withdraw' }}</button>
+
                                 <button
                                     type="button"
-                                    class="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                                    :disabled="idx === 0 || busyShooterId === sh.id"
-                                    @click="nudge(sh, 'up')"
-                                    aria-label="Move up"
-                                >
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
-                                    </svg>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="rounded-md p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                                    :disabled="idx === sortedShooters(squad).length - 1 || busyShooterId === sh.id"
-                                    @click="nudge(sh, 'down')"
-                                    aria-label="Move down"
-                                >
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                                    </svg>
-                                </button>
+                                    class="rounded-md bg-amber-600/20 px-2 py-1 text-[11px] font-bold text-amber-200 hover:bg-amber-600/30"
+                                    @click="toggleEdit(sh, squad)"
+                                >{{ editingId === sh.id ? 'Close' : 'Edit' }}</button>
                             </div>
-
-                            <!-- Move to another squad -->
-                            <select
-                                class="shrink-0 rounded-md border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] font-medium text-white focus:border-amber-500 focus:outline-none"
-                                :disabled="busyShooterId === sh.id"
-                                :value="''"
-                                @change="onMoveSelect($event, sh)"
-                                :aria-label="'Move ' + sh.name + ' to another squad'"
-                            >
-                                <option value="" disabled>Move…</option>
-                                <option
-                                    v-for="target in otherSquads(squad)"
-                                    :key="target.id"
-                                    :value="target.id"
-                                    :disabled="squadIsFull(target)"
-                                >
-                                    {{ target.name }}{{ squadIsFull(target) ? ' (full)' : '' }}
-                                </option>
-                            </select>
-
-                            <!-- Withdraw / restore toggle -->
-                            <button
-                                v-if="sh.status !== 'dq'"
-                                type="button"
-                                class="rounded-md px-2 py-1 text-[11px] font-bold transition-colors"
-                                :class="sh.status === 'withdrawn'
-                                    ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
-                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'"
-                                :disabled="busyShooterId === sh.id"
-                                @click="toggleStatus(sh)"
-                            >{{ sh.status === 'withdrawn' ? 'Restore' : 'Withdraw' }}</button>
-
-                            <button
-                                type="button"
-                                class="rounded-md bg-amber-600/20 px-2 py-1 text-[11px] font-bold text-amber-200 hover:bg-amber-600/30"
-                                @click="toggleEdit(sh, squad)"
-                            >{{ editingId === sh.id ? 'Close' : 'Edit' }}</button>
                         </div>
 
                         <form
