@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\MatchStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MatchResource;
+use App\Models\MatchRegistration;
 use App\Models\Score;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
@@ -103,7 +104,26 @@ class MatchController extends Controller
 
         $eagerLoads['disqualifications'] = fn ($q) => $q->with('issuedBy:id,name');
 
+        if ($match->isTeamEvent() && ! isset($eagerLoads['teams'])) {
+            $eagerLoads['teams'] = fn ($q) => $q->orderBy('sort_order');
+            $eagerLoads['teams.shooters'] = fn ($q) => $q->orderBy('sort_order');
+            $eagerLoads['teams.shooters.division'] = fn ($q) => $q;
+        }
+
         $match->load($eagerLoads);
+
+        $calibers = MatchRegistration::query()
+            ->where('match_id', $match->id)
+            ->whereNotNull('user_id')
+            ->pluck('caliber', 'user_id');
+        foreach ($match->squads as $squad) {
+            foreach ($squad->shooters as $shooter) {
+                $shooter->setAttribute(
+                    'registration_caliber',
+                    $shooter->user_id ? ($calibers[$shooter->user_id] ?? null) : null,
+                );
+            }
+        }
 
         // resolvedProfile() falls back to stage->match->elrScoringProfile;
         // point it at the loaded parent instead of lazy-loading per stage.

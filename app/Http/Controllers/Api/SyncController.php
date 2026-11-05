@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ElrShot;
+use App\Models\MatchRegistration;
 use App\Models\PrsShotScore;
 use App\Models\PrsStageResult;
 use App\Models\Score;
 use App\Models\ShootingMatch;
 use App\Models\StageTime;
+use App\Services\ShooterRosterService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use RuntimeException;
 
 class SyncController extends Controller
 {
@@ -72,6 +76,11 @@ class SyncController extends Controller
             'sort_order' => $sq->sort_order,
         ])->values();
 
+        $calibers = MatchRegistration::query()
+            ->where('match_id', $match->id)
+            ->whereNotNull('user_id')
+            ->pluck('caliber', 'user_id');
+
         $shooterData = $match->squads->flatMap(fn ($sq) => $sq->shooters->map(fn ($sh) => [
             'id' => $sh->id,
             'squad_id' => $sq->id,
@@ -79,6 +88,10 @@ class SyncController extends Controller
             'bib_number' => $sh->bib_number,
             'sort_order' => $sh->sort_order,
             'division_id' => $sh->match_division_id,
+            'caliber' => ShooterRosterService::caliberFor(
+                $sh,
+                $sh->user_id ? ($calibers[$sh->user_id] ?? null) : null,
+            ),
             // Division name doubles as the cross-device key — the offline DB
             // has no cloud id for divisions, so the app maps by name.
             'division' => $sh->division?->name,
@@ -169,5 +182,62 @@ class SyncController extends Controller
             'prs_results' => $prsResults,
             'server_time' => $pulledAt->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Offline tablets push cartridge, division, team, and squad edits here
+     * before they pull, so a later pull cannot put the old roster back.
+     */
+    public function pushRoster(Request $request, ShootingMatch $match): JsonResponse
+    {
+        abort_unless($request->user()?->can('squad', $match), 403, 'You are not authorized to manage shooters in this match.');
+
+        $validated = $request->validate([
+            'shooters' => ['required', 'array', 'min:1'],
+            'shooters.*.id' => ['required', 'integer'],
+            'shooters.*.caliber' => ['nullable', 'string', 'max:64'],
+            'shooters.*.division' => ['nullable', 'string', 'max:255'],
+            'shooters.*.team' => ['nullable', 'string', 'max:255'],
+            'shooters.*.squad_id' => ['nullable', 'integer'],
+        ]);
+
+        $service = app(ShooterRosterService::class);
+        $divisions = $match->divisions()->get(['id', 'name'])->keyBy(fn ($division) => mb_strtolower($division->name));
+        $updated = 0;
+
+        foreach ($validated['shooters'] as $row) {
+            $shooter = $match->shooters()->whereKey($row['id'])->first();
+            if (! $shooter) {
+                continue;
+            }
+
+            $changes = [
+                'caliber' => $row['caliber'] ?? null,
+                'team' => $row['team'] ?? null,
+            ];
+
+            $divisionName = trim((string) ($row['division'] ?? ''));
+            if ($divisionName === '') {
+                $changes['division_id'] = null;
+            } else {
+                $divisionId = $divisions->get(mb_strtolower($divisionName))?->id;
+                if ($divisionId !== null) {
+                    $changes['division_id'] = $divisionId;
+                }
+            }
+
+            if (! empty($row['squad_id'])) {
+                $changes['squad_id'] = (int) $row['squad_id'];
+            }
+
+            try {
+                $service->update($match, $shooter, $changes);
+                $updated++;
+            } catch (RuntimeException) {
+                continue;
+            }
+        }
+
+        return response()->json(['updated' => $updated]);
     }
 }

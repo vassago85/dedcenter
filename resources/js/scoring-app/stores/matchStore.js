@@ -275,8 +275,9 @@ export const useMatchStore = defineStore('match', {
                         sort_order: created.sort_order,
                         division_id: created.division_id ?? null,
                         division: created.division ?? null,
-                        team_id: null,
-                        team: null,
+                        caliber: created.caliber ?? null,
+                        team_id: created.team_id ?? null,
+                        team: created.team ?? null,
                         category_ids: [],
                         status: created.status ?? 'active',
                         alrha_class: null,
@@ -308,6 +309,42 @@ export const useMatchStore = defineStore('match', {
                     moving.sort_order = updated.sort_order;
                     const target = this.currentMatch.squads.find(s => s.id === updated.squad_id);
                     if (target) target.shooters.push(moving);
+                }
+            }
+            return updated;
+        },
+
+        async updateShooterDetails(matchId, shooterId, payload) {
+            const { data } = await axios.patch(
+                `/api/matches/${matchId}/shooters/${shooterId}`,
+                payload,
+            );
+            const updated = data.shooter;
+            if (this.currentMatch && updated) {
+                let moving = null;
+                for (const squad of this.currentMatch.squads) {
+                    const idx = squad.shooters.findIndex(s => s.id === shooterId);
+                    if (idx >= 0) {
+                        moving = squad.shooters[idx];
+                        if (updated.squad_id !== squad.id) {
+                            squad.shooters.splice(idx, 1);
+                        }
+                        break;
+                    }
+                }
+                if (moving) {
+                    moving.name = updated.name;
+                    moving.sort_order = updated.sort_order;
+                    moving.division_id = updated.division_id ?? null;
+                    moving.division = updated.division ?? null;
+                    moving.team_id = updated.team_id ?? null;
+                    moving.team = updated.team ?? null;
+                    moving.caliber = updated.caliber ?? null;
+                    moving.squad_id = updated.squad_id;
+                    if (updated.squad_id && !this.currentMatch.squads.some(s => s.shooters.includes(moving))) {
+                        const target = this.currentMatch.squads.find(s => s.id === updated.squad_id);
+                        if (target) target.shooters.push(moving);
+                    }
                 }
             }
             return updated;

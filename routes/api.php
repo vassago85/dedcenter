@@ -74,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Walk-ins, squad moves, and firing order for Manage Shooters.
         Route::post('matches/{match}/shooters', [ShooterManagementController::class, 'store']);
+        Route::patch('matches/{match}/shooters/{shooter}', [ShooterManagementController::class, 'update']);
         Route::patch('matches/{match}/shooters/{shooter}/squad', [ShooterManagementController::class, 'move']);
         Route::patch('matches/{match}/shooters/{shooter}/order', [ShooterManagementController::class, 'reorder']);
 
@@ -89,6 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('matches/{match}/disqualifications/{disqualification}', [DisqualificationController::class, 'destroy']);
 
         Route::get('matches/{match}/scores/sync', [SyncController::class, 'scores']);
+        Route::post('matches/{match}/roster', [SyncController::class, 'pushRoster']);
     });
 
     // Diagnostic + one-shot repair endpoints. Both are match-director-only

@@ -199,23 +199,28 @@
                         <li
                             v-for="(sh, idx) in sortedShooters(squad)"
                             :key="sh.id"
-                            class="flex items-center gap-2 px-3 py-2.5"
+                            class="px-3 py-2.5"
                             :class="{ 'opacity-50': sh.status === 'withdrawn', 'bg-red-900/10': sh.status === 'dq' }"
                         >
+                        <div class="flex items-center gap-2">
                             <!-- Firing-order rank -->
                             <span class="w-6 shrink-0 text-center text-[11px] font-bold tabular-nums text-slate-500">{{ idx + 1 }}</span>
 
                             <!-- Name + bib -->
                             <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-medium">
-                                    {{ sh.name }}
+                                    {{ baseName(sh) }}
                                     <span v-if="sh.status === 'dq'" class="ml-1 rounded bg-red-600/30 px-1.5 py-0.5 text-[9px] font-bold text-red-300">DQ</span>
                                     <span v-else-if="sh.status === 'withdrawn'" class="ml-1 rounded bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-slate-300">OUT</span>
                                 </p>
-                                <p v-if="sh.bib_number || sh.division" class="text-[11px] text-slate-500 truncate">
+                                <p v-if="sh.bib_number || sh.division || caliberOf(sh) || sh.team" class="text-[11px] text-slate-500 truncate">
                                     <span v-if="sh.bib_number">Bib #{{ sh.bib_number }}</span>
-                                    <span v-if="sh.bib_number && sh.division"> &middot; </span>
+                                    <span v-if="sh.bib_number && (sh.division || caliberOf(sh) || sh.team)"> &middot; </span>
                                     <span v-if="sh.division">{{ sh.division }}</span>
+                                    <span v-if="sh.division && (caliberOf(sh) || sh.team)"> &middot; </span>
+                                    <span v-if="caliberOf(sh)">{{ caliberOf(sh) }}</span>
+                                    <span v-if="caliberOf(sh) && sh.team"> &middot; </span>
+                                    <span v-if="sh.team">{{ sh.team }}</span>
                                 </p>
                             </div>
 
@@ -275,6 +280,69 @@
                                 :disabled="busyShooterId === sh.id"
                                 @click="toggleStatus(sh)"
                             >{{ sh.status === 'withdrawn' ? 'Restore' : 'Withdraw' }}</button>
+
+                            <button
+                                type="button"
+                                class="rounded-md bg-amber-600/20 px-2 py-1 text-[11px] font-bold text-amber-200 hover:bg-amber-600/30"
+                                @click="toggleEdit(sh, squad)"
+                            >{{ editingId === sh.id ? 'Close' : 'Edit' }}</button>
+                        </div>
+
+                        <form
+                            v-if="editingId === sh.id"
+                            class="mt-3 grid grid-cols-2 gap-2 border-t border-slate-700/60 pt-3"
+                            @submit.prevent="saveDetails(sh, squad)"
+                        >
+                            <label class="col-span-2 space-y-1">
+                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Cartridge</span>
+                                <input
+                                    v-model="draft.caliber"
+                                    type="text"
+                                    maxlength="64"
+                                    class="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                                    placeholder="e.g. 6.5 CM"
+                                />
+                            </label>
+                            <label v-if="divisions.length" class="space-y-1">
+                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Major / Minor</span>
+                                <select
+                                    v-model="draft.division_id"
+                                    class="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                                >
+                                    <option :value="null">No division</option>
+                                    <option v-for="div in divisions" :key="div.id" :value="div.id">{{ div.name }}</option>
+                                </select>
+                            </label>
+                            <label v-if="teams.length" class="space-y-1">
+                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Team</span>
+                                <select
+                                    v-model="draft.team"
+                                    class="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                                >
+                                    <option value="">No team</option>
+                                    <option v-for="team in teams" :key="team.id" :value="team.name">{{ team.name }}</option>
+                                </select>
+                            </label>
+                            <label class="col-span-2 space-y-1">
+                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Squad</span>
+                                <select
+                                    v-model.number="draft.squad_id"
+                                    class="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+                                >
+                                    <option
+                                        v-for="target in matchStore.squads"
+                                        :key="target.id"
+                                        :value="target.id"
+                                        :disabled="target.id !== squad.id && squadIsFull(target)"
+                                    >{{ target.name }}{{ target.id !== squad.id && squadIsFull(target) ? ' (full)' : '' }}</option>
+                                </select>
+                            </label>
+                            <button
+                                type="submit"
+                                :disabled="busyShooterId === sh.id"
+                                class="col-span-2 rounded-lg bg-amber-600 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                            >{{ busyShooterId === sh.id ? 'Saving…' : 'Save details' }}</button>
+                        </form>
                         </li>
                     </ul>
                     <div v-else class="px-4 py-5 text-center text-sm text-slate-500">
@@ -307,6 +375,7 @@ const matchId = computed(() => props.matchId);
 // to [] so the form doesn't try to render a <select> when the API hasn't
 // loaded yet (otherwise Vue warns about v-for over undefined).
 const divisions = computed(() => matchStore.currentMatch?.divisions ?? []);
+const teams = computed(() => matchStore.currentMatch?.teams ?? []);
 
 // Add walk-in form state ------------------------------------------------------
 const addOpen = ref(true);
@@ -387,6 +456,61 @@ async function moveShooter(shooter, targetSquadId) {
         showFeedback('success', `${shooter.name} moved to ${target?.name ?? 'new squad'}.`);
     } catch (e) {
         showFeedback('error', serverMessage(e, 'Could not move shooter.'));
+        await matchStore.fetchMatch(matchId.value, { silent: true });
+    } finally {
+        busyShooterId.value = null;
+    }
+}
+
+const editingId = ref(null);
+const draft = ref({ caliber: '', division_id: null, team: '', squad_id: null });
+
+function baseName(shooter) {
+    const name = String(shooter?.name ?? '');
+    const split = name.split(' — ');
+    return split[0].trim() || name;
+}
+
+function caliberOf(shooter) {
+    if (shooter?.caliber) return shooter.caliber;
+    const name = String(shooter?.name ?? '');
+    const split = name.split(' — ');
+    return split.length > 1 ? split.slice(1).join(' — ').trim() : '';
+}
+
+function toggleEdit(shooter, squad) {
+    if (editingId.value === shooter.id) {
+        editingId.value = null;
+        return;
+    }
+    editingId.value = shooter.id;
+    draft.value = {
+        caliber: caliberOf(shooter),
+        division_id: shooter.division_id ?? null,
+        team: shooter.team ?? '',
+        squad_id: shooter.squad_id ?? squad.id,
+    };
+}
+
+async function saveDetails(shooter, squad) {
+    if (busyShooterId.value) return;
+    busyShooterId.value = shooter.id;
+    try {
+        const payload = {
+            caliber: draft.value.caliber.trim(),
+            squad_id: draft.value.squad_id || squad.id,
+        };
+        if (divisions.value.length) {
+            payload.division_id = draft.value.division_id || null;
+        }
+        if (teams.value.length) {
+            payload.team = draft.value.team || null;
+        }
+        await matchStore.updateShooterDetails(matchId.value, shooter.id, payload);
+        showFeedback('success', `${baseName(shooter)} updated.`);
+        editingId.value = null;
+    } catch (e) {
+        showFeedback('error', serverMessage(e, 'Could not update shooter.'));
         await matchStore.fetchMatch(matchId.value, { silent: true });
     } finally {
         busyShooterId.value = null;

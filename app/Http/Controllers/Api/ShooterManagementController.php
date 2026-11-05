@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\MatchRegistration;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
+use App\Services\ShooterRosterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 /**
  * Tablet squadding: add a walk-in, move a shooter between squads, or nudge
@@ -75,7 +78,33 @@ class ShooterManagementController extends Controller
             'status' => 'active',
         ]);
 
-        return $this->shooterResponse($shooter, 201);
+        return $this->shooterResponse($match, $shooter, 201);
+    }
+
+    /**
+     * Change cartridge, division, team, or squad on someone already on the
+     * roster. Allowed at every match status — this does not rewrite scores.
+     */
+    public function update(Request $request, ShootingMatch $match, Shooter $shooter): JsonResponse
+    {
+        $this->authorizeSquadding($request, $match);
+        $this->assertShooterInMatch($match, $shooter);
+
+        $validated = $request->validate([
+            'caliber' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'division_id' => ['sometimes', 'nullable', 'integer'],
+            'team_id' => ['sometimes', 'nullable', 'integer'],
+            'team' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'squad_id' => ['sometimes', 'nullable', 'integer'],
+        ]);
+
+        try {
+            $shooter = app(ShooterRosterService::class)->update($match, $shooter, $validated);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return $this->shooterResponse($match, $shooter);
     }
 
     /**
@@ -94,7 +123,7 @@ class ShooterManagementController extends Controller
         ]);
 
         if ((int) $validated['squad_id'] === (int) $shooter->squad_id) {
-            return $this->shooterResponse($shooter);
+            return $this->shooterResponse($match, $shooter);
         }
 
         $target = Squad::whereKey($validated['squad_id'])
@@ -113,7 +142,7 @@ class ShooterManagementController extends Controller
             'sort_order' => $maxSort + 1,
         ]);
 
-        return $this->shooterResponse($shooter);
+        return $this->shooterResponse($match, $shooter);
     }
 
     /**
@@ -143,7 +172,7 @@ class ShooterManagementController extends Controller
         }
 
         if (! $neighbour) {
-            return $this->shooterResponse($shooter);
+            return $this->shooterResponse($match, $shooter);
         }
 
         DB::transaction(function () use ($shooter, $neighbour) {
@@ -160,7 +189,7 @@ class ShooterManagementController extends Controller
 
         $shooter->refresh();
 
-        return $this->shooterResponse($shooter);
+        return $this->shooterResponse($match, $shooter);
     }
 
     protected function authorizeSquadding(Request $request, ShootingMatch $match): void
@@ -179,9 +208,16 @@ class ShooterManagementController extends Controller
         abort_unless($belongs, 404, 'Shooter not found in this match.');
     }
 
-    protected function shooterResponse(Shooter $shooter, int $status = 200): JsonResponse
+    protected function shooterResponse(ShootingMatch $match, Shooter $shooter, int $status = 200): JsonResponse
     {
-        $shooter->loadMissing('division');
+        $shooter->loadMissing('division', 'team');
+
+        $registrationCaliber = $shooter->user_id
+            ? MatchRegistration::query()
+                ->where('match_id', $match->id)
+                ->where('user_id', $shooter->user_id)
+                ->value('caliber')
+            : null;
 
         return response()->json([
             'shooter' => [
@@ -192,6 +228,9 @@ class ShooterManagementController extends Controller
                 'sort_order' => $shooter->sort_order,
                 'division_id' => $shooter->match_division_id,
                 'division' => $shooter->division?->name,
+                'team_id' => $shooter->team_id,
+                'team' => $shooter->team?->name,
+                'caliber' => ShooterRosterService::caliberFor($shooter, $registrationCaliber),
                 'status' => $shooter->status,
             ],
         ], $status);

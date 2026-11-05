@@ -120,6 +120,10 @@ class MatchResource extends JsonResource
                     'sort_order' => $sh->sort_order,
                     'division_id' => $sh->match_division_id,
                     'division' => $sh->division?->name,
+                    'caliber' => \App\Services\ShooterRosterService::caliberFor(
+                        $sh,
+                        $sh->getAttribute('registration_caliber'),
+                    ),
                     'team_id' => $sh->team_id,
                     'team' => $sh->relationLoaded('team') ? $sh->team?->name : null,
                     'category_ids' => $sh->relationLoaded('categories') ? $sh->categories->pluck('id')->values() : [],

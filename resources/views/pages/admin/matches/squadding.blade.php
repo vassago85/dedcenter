@@ -386,18 +386,30 @@ new #[Layout('components.layouts.app')]
      */
     public function setShooterDivision(int $shooterId, ?string $divisionId): void
     {
+        $divId = ($divisionId === null || $divisionId === '') ? null : (int) $divisionId;
+        $this->applyRosterChange($shooterId, ['division_id' => $divId]);
+    }
+
+    public function setShooterCaliber(int $shooterId, ?string $caliber): void
+    {
+        $this->applyRosterChange($shooterId, ['caliber' => $caliber]);
+    }
+
+    /**
+     * @param  array{caliber?: string|null, division_id?: int|null, team_id?: int|null}  $changes
+     */
+    private function applyRosterChange(int $shooterId, array $changes): void
+    {
         $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
         if (! $shooter) {
             return;
         }
 
-        $divId = ($divisionId === null || $divisionId === '') ? null : (int) $divisionId;
-        if ($divId !== null && ! $this->match->divisions()->whereKey($divId)->exists()) {
-            Flux::toast('That division does not belong to this match.', variant: 'danger');
-            return;
+        try {
+            app(\App\Services\ShooterRosterService::class)->update($this->match, $shooter, $changes);
+        } catch (\RuntimeException $e) {
+            Flux::toast($e->getMessage(), variant: 'danger');
         }
-
-        $shooter->update(['match_division_id' => $divId]);
     }
 
     /**
@@ -407,18 +419,8 @@ new #[Layout('components.layouts.app')]
      */
     public function setShooterTeam(int $shooterId, ?string $teamId): void
     {
-        $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
-        if (! $shooter) {
-            return;
-        }
-
         $tid = ($teamId === null || $teamId === '') ? null : (int) $teamId;
-        if ($tid !== null && ! $this->match->teams()->whereKey($tid)->exists()) {
-            Flux::toast('That team does not belong to this match.', variant: 'danger');
-            return;
-        }
-
-        $shooter->update(['team_id' => $tid]);
+        $this->applyRosterChange($shooterId, ['team_id' => $tid]);
     }
 
     public function markPresent(int $shooterId): void
@@ -588,6 +590,7 @@ new #[Layout('components.layouts.app')]
         $unassignedSquads = $squads->filter(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
         $unassignedShooters = $unassignedSquads->flatMap(fn ($s) => $s->shooters);
         $confirmedCount = $this->match->registrations()->where('payment_status', 'confirmed')->count();
+        $calibersByUser = $this->match->registrations()->whereNotNull('user_id')->pluck('caliber', 'user_id');
         $shareMap = [];
         $regs = $this->match->registrations()->where('payment_status', 'confirmed')->whereNotNull('share_rifle_with')->with('user')->get();
         foreach ($regs as $reg) { $shareMap[$reg->user_id] = $reg->share_rifle_with; }
@@ -615,6 +618,7 @@ new #[Layout('components.layouts.app')]
             'unassignedShooters' => $unassignedShooters,
             'confirmedCount' => $confirmedCount,
             'shareMap' => $shareMap,
+            'calibersByUser' => $calibersByUser,
             'concurrentSize' => $concurrentSize,
             'totalShooters' => $totalShooters,
             'activeCount' => $activeCount,
@@ -790,6 +794,7 @@ new #[Layout('components.layouts.app')]
                                         <thead><tr class="text-left text-muted border-b border-border/50">
                                             <th class="px-2 py-1.5 font-medium w-10">#</th>
                                             <th class="px-2 py-1.5 font-medium">Shooter</th>
+                                            <th class="px-2 py-1.5 font-medium w-36">Cartridge</th>
                                             @if($showDivision)
                                                 <th class="px-2 py-1.5 font-medium w-40">Division</th>
                                             @endif
@@ -808,10 +813,21 @@ new #[Layout('components.layouts.app')]
                                                 <tr wire:key="sh-{{ $shooter->id }}" class="{{ $shooter->isNoShow() ? 'opacity-50' : '' }} {{ $shooter->isDq() ? 'opacity-40' : '' }}">
                                                     <td class="px-2 py-1.5 text-muted font-mono text-xs">{{ $shooter->sort_order }}</td>
                                                     <td class="px-2 py-1.5 text-secondary">
-                                                        {{ $shooter->name }}
+                                                        @php [$shooterBaseName] = \App\Services\ShooterRosterService::splitName($shooter->name); @endphp
+                                                        {{ $shooterBaseName }}
                                                         @if(!$shooter->user_id)
                                                             <span class="ml-1 rounded px-1 py-0.5 text-[9px] bg-amber-500/10 text-amber-400">walk-in</span>
                                                         @endif
+                                                    </td>
+                                                    <td class="px-2 py-1.5">
+                                                        @php
+                                                            [, $nameCaliber] = \App\Services\ShooterRosterService::splitName($shooter->name);
+                                                            $cartridgeValue = $shooter->user_id ? ($calibersByUser[$shooter->user_id] ?? $nameCaliber) : $nameCaliber;
+                                                        @endphp
+                                                        <input type="text" value="{{ $cartridgeValue }}" maxlength="64" placeholder="e.g. 6.5 CM"
+                                                               wire:change="setShooterCaliber({{ $shooter->id }}, $event.target.value)"
+                                                               class="w-full rounded-md border border-border bg-app px-2 py-1 text-xs text-primary focus:border-accent focus:outline-none"
+                                                               aria-label="Cartridge for {{ $shooterBaseName }}" />
                                                     </td>
                                                     @if($showDivision)
                                                         <td class="px-2 py-1.5">

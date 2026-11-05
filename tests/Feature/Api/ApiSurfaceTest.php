@@ -11,9 +11,12 @@ use App\Models\Season;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
+use App\Enums\MatchStatus;
 use App\Models\TargetSet;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 
 /*
  * Happy paths and guard rails for the API endpoints the scoring app and the
@@ -109,6 +112,104 @@ it('will not move a shooter from another match or into a full squad', function (
 it('only match staff can manage shooters', function () {
     $this->actingAs($this->shooterUser)->postJson("/api/matches/{$this->match->id}/shooters", ['name' => 'X', 'squad_id' => $this->alpha->id])
         ->assertForbidden();
+});
+
+it('lets match staff edit cartridge, division, team, and squad at any status', function () {
+    $minor = MatchDivision::factory()->create(['match_id' => $this->match->id, 'name' => 'Minor']);
+    $major = MatchDivision::factory()->create(['match_id' => $this->match->id, 'name' => 'Major']);
+    $team = Team::query()->create(['match_id' => $this->match->id, 'name' => 'Pair A', 'sort_order' => 1]);
+    $user = User::factory()->create();
+    $this->first->update([
+        'user_id' => $user->id,
+        'name' => 'Jane Doe',
+        'match_division_id' => $minor->id,
+    ]);
+    $registration = MatchRegistration::factory()->confirmed()->create([
+        'match_id' => $this->match->id,
+        'user_id' => $user->id,
+        'caliber' => '6.5 Creedmoor',
+        'division_id' => $minor->id,
+    ]);
+
+    $this->actingAs($this->md)->patchJson("/api/matches/{$this->match->id}/shooters/{$this->first->id}", [
+        'caliber' => '7 PRC',
+        'division_id' => $major->id,
+        'team' => 'Pair A',
+        'squad_id' => $this->bravo->id,
+    ])->assertOk()
+        ->assertJsonPath('shooter.caliber', '7 PRC')
+        ->assertJsonPath('shooter.division', 'Major')
+        ->assertJsonPath('shooter.team', 'Pair A')
+        ->assertJsonPath('shooter.squad_id', $this->bravo->id);
+
+    $this->first->refresh();
+    $registration->refresh();
+    expect($this->first->name)->toBe('Jane Doe — 7 PRC')
+        ->and((int) $this->first->match_division_id)->toBe($major->id)
+        ->and((int) $this->first->team_id)->toBe($team->id)
+        ->and((int) $this->first->squad_id)->toBe($this->bravo->id)
+        ->and($registration->caliber)->toBe('7 PRC')
+        ->and((int) $registration->division_id)->toBe($major->id);
+
+    $this->match->update(['status' => MatchStatus::Completed]);
+
+    $this->actingAs($this->md)->patchJson("/api/matches/{$this->match->id}/shooters/{$this->first->id}", [
+        'caliber' => '300 WSM',
+    ])->assertOk()->assertJsonPath('shooter.caliber', '300 WSM');
+});
+
+it('rejects a roster edit from a shooter, a foreign division, and a full squad', function () {
+    $division = MatchDivision::factory()->create(['match_id' => $this->match->id, 'name' => 'Minor']);
+    $other = ShootingMatch::factory()->active()->create(['organization_id' => $this->org->id, 'created_by' => $this->md->id]);
+    $foreignDivision = MatchDivision::factory()->create(['match_id' => $other->id, 'name' => 'Major']);
+
+    Sanctum::actingAs($this->shooterUser, ['*']);
+    $this->patchJson("/api/matches/{$this->match->id}/shooters/{$this->first->id}", [
+        'division_id' => $division->id,
+    ])->assertForbidden();
+
+    Sanctum::actingAs($this->md, ['*']);
+    $this->patchJson("/api/matches/{$this->match->id}/shooters/{$this->first->id}", [
+        'division_id' => $foreignDivision->id,
+    ])->assertStatus(422);
+
+    $this->bravo->update(['max_capacity' => 1]);
+    Shooter::factory()->create(['squad_id' => $this->bravo->id]);
+    Sanctum::actingAs($this->md, ['*']);
+    $this->patchJson("/api/matches/{$this->match->id}/shooters/{$this->first->id}", [
+        'squad_id' => $this->bravo->id,
+    ])->assertStatus(422);
+
+    expect($this->first->fresh()->squad_id)->toBe($this->alpha->id);
+});
+
+it('applies a tablet roster push onto the registration', function () {
+    $minor = MatchDivision::factory()->create(['match_id' => $this->match->id, 'name' => 'Minor']);
+    Team::query()->create(['match_id' => $this->match->id, 'name' => 'Pair B', 'sort_order' => 1]);
+    $user = User::factory()->create();
+    $this->first->update(['user_id' => $user->id, 'name' => 'Sam Hill']);
+    $registration = MatchRegistration::factory()->confirmed()->create([
+        'match_id' => $this->match->id,
+        'user_id' => $user->id,
+        'division_id' => $minor->id,
+        'caliber' => '6 GT',
+    ]);
+
+    $this->actingAs($this->md)->postJson("/api/matches/{$this->match->id}/roster", [
+        'shooters' => [[
+            'id' => $this->first->id,
+            'caliber' => '6 Dasher',
+            'division' => 'Minor',
+            'team' => 'Pair B',
+            'squad_id' => $this->bravo->id,
+        ]],
+    ])->assertOk()->assertJsonPath('updated', 1);
+
+    $registration->refresh();
+    expect($this->first->fresh()->name)->toBe('Sam Hill — 6 Dasher')
+        ->and($registration->caliber)->toBe('6 Dasher')
+        ->and((int) $registration->division_id)->toBe($minor->id)
+        ->and((int) $this->first->fresh()->squad_id)->toBe($this->bravo->id);
 });
 
 // ── Disqualifications ──
