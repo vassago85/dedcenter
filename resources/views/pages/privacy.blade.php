@@ -12,7 +12,7 @@ new #[Layout('components.layouts.marketing')]
 <section class="py-20 lg:py-28" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
     <div class="mx-auto max-w-3xl px-6">
         <h1 class="mb-4 text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Privacy Policy</h1>
-        <p class="mb-12 text-sm" style="color: var(--lp-text-muted);">Last updated: {{ now()->format('d F Y') }}</p>
+        <p class="mb-12 text-sm" style="color: var(--lp-text-muted);">Last updated: 5 November 2026</p>
 
         <div class="space-y-10 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
 
@@ -69,7 +69,19 @@ new #[Layout('components.layouts.marketing')]
             </div>
 
             <div>
-                <h2 class="mb-3 text-lg font-semibold" style="color: var(--lp-text);">9. Contact</h2>
+                <h2 class="mb-3 text-lg font-semibold" style="color: var(--lp-text);">9. Android App</h2>
+                <p>The DeadCenter Android app is a scoring tool for matches you are allowed to run. It does not create accounts. Sign in with an account that already exists on deadcenter.co.za, or use <strong style="color: var(--lp-text);">Join a hub (offline)</strong>, which needs no account.</p>
+                <ul class="mt-2 list-disc space-y-1 pl-6">
+                    <li><strong style="color: var(--lp-text);">Sign-in.</strong> The app sends your email and password to our server over HTTPS to check them. We store a session token on the device. We also store the device manufacturer and model as the name of that sign-in, so a match director can see which tablet signed in.</li>
+                    <li><strong style="color: var(--lp-text);">Scores.</strong> Shooter names, squads, and scores are stored on the device and sent to DeadCenter over HTTPS when the device syncs.</li>
+                    <li><strong style="color: var(--lp-text);">Local hub.</strong> Phones on the same match Wi-Fi can pass scores to each other without an account. That traffic stays on the local network. It reaches DeadCenter only when the hub phone syncs, and that sync uses HTTPS.</li>
+                    <li><strong style="color: var(--lp-text);">What the app does not collect.</strong> Location, contacts, photos, advertising identifiers, and payment details. The app does not show ads.</li>
+                </ul>
+                <p class="mt-3">You can delete the session by signing out. Uninstalling the app removes the copy of match data stored on that device. Account deletion is described in Data Retention above.</p>
+            </div>
+
+            <div>
+                <h2 class="mb-3 text-lg font-semibold" style="color: var(--lp-text);">10. Contact</h2>
                 @php $supportEmail = config('app.support_email'); @endphp
                 <p>If you have questions about this privacy policy or your personal data, contact us at <a href="mailto:{{ $supportEmail }}" style="color: var(--lp-red);">{{ $supportEmail }}</a>.</p>
             </div>
