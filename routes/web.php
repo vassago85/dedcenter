@@ -202,6 +202,7 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Volt::route('/matches/{match}/scoring', 'org.matches.scoring')->name('matches.scoring');
     Volt::route('/matches/{match}/reports', 'org.matches.reports')->name('matches.reports');
     Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
+    Volt::route('/matches/{match}/scoresheet', 'matches.elr-scoresheet')->name('matches.scoresheet');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
@@ -251,6 +252,7 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/matches/{match}/scoring', 'admin.matches.scoring')->name('matches.scoring');
     Volt::route('/matches/{match}/reports', 'admin.matches.reports')->name('matches.reports');
     Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
+    Volt::route('/matches/{match}/scoresheet', 'matches.elr-scoresheet')->name('matches.scoresheet');
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');

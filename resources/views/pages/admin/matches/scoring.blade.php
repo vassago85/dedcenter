@@ -230,6 +230,30 @@ new #[Layout('components.layouts.app')]
             </article>
         </section>
 
+        @if($match->isElr())
+            <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h3 class="flex items-center gap-2 text-base font-semibold text-primary">
+                            <x-icon name="table" class="h-4 w-4 text-muted" />
+                            Scoresheet
+                        </h3>
+                        <p class="mt-0.5 max-w-xl text-xs text-muted">
+                            Edit the whole match in one grid, the same shape as the paper sheet. Each row shows the three gongs that class shoots. Empty cells stay unscored.
+                        </p>
+                    </div>
+                    <a
+                        href="{{ route('admin.matches.scoresheet', $match) }}"
+                        wire:navigate
+                        class="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-accent-hover"
+                    >
+                        Edit scoresheet
+                        <x-icon name="arrow-right" class="h-4 w-4" />
+                    </a>
+                </div>
+            </section>
+        @endif
+
         @if($isStandardScoring && ($isActive || $isCompleted))
             <section class="mt-4 rounded-2xl border border-border bg-surface p-5 sm:p-6">
                 <div class="flex items-start justify-between gap-3">

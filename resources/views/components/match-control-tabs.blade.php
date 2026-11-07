@@ -40,7 +40,7 @@
             'overview'  => ['label' => 'Overview',  'icon' => 'layout-dashboard', 'href' => route('admin.matches.hub', $match),       'active' => $currentRoute === 'admin.matches.hub'],
             'setup'     => ['label' => 'Setup',     'icon' => 'settings',         'href' => route('admin.matches.edit', $match),      'active' => in_array($currentRoute, ['admin.matches.edit', 'admin.matches.create'], true)],
             'squadding' => ['label' => 'Squadding', 'icon' => 'users',            'href' => route('admin.matches.squadding', $match), 'active' => $currentRoute === 'admin.matches.squadding'],
-            'scoring'   => ['label' => 'Scoring',   'icon' => 'target',           'href' => route('admin.matches.scoring', $match),   'active' => $currentRoute === 'admin.matches.scoring'],
+            'scoring'   => ['label' => 'Scoring',   'icon' => 'target',           'href' => route('admin.matches.scoring', $match),   'active' => in_array($currentRoute, ['admin.matches.scoring', 'admin.matches.scoresheet'], true)],
             'reports'   => ['label' => 'Reports',   'icon' => 'file-text',        'href' => route('admin.matches.reports', $match),   'active' => $currentRoute === 'admin.matches.reports'],
         ];
     } else {
@@ -48,7 +48,7 @@
             'overview'  => ['label' => 'Overview',  'icon' => 'layout-dashboard', 'href' => route('org.matches.hub', [$organization, $match]),       'active' => $currentRoute === 'org.matches.hub'],
             'setup'     => ['label' => 'Setup',     'icon' => 'settings',         'href' => route('org.matches.edit', [$organization, $match]),      'active' => in_array($currentRoute, ['org.matches.edit', 'org.matches.create'], true)],
             'squadding' => ['label' => 'Squadding', 'icon' => 'users',            'href' => route('org.matches.squadding', [$organization, $match]), 'active' => $currentRoute === 'org.matches.squadding'],
-            'scoring'   => ['label' => 'Scoring',   'icon' => 'target',           'href' => route('org.matches.scoring', [$organization, $match]),   'active' => $currentRoute === 'org.matches.scoring'],
+            'scoring'   => ['label' => 'Scoring',   'icon' => 'target',           'href' => route('org.matches.scoring', [$organization, $match]),   'active' => in_array($currentRoute, ['org.matches.scoring', 'org.matches.scoresheet'], true)],
             'reports'   => ['label' => 'Reports',   'icon' => 'file-text',        'href' => route('org.matches.reports', [$organization, $match]),   'active' => $currentRoute === 'org.matches.reports'],
         ];
 
