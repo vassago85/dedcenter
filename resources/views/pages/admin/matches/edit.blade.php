@@ -11,6 +11,7 @@ use App\Models\StageShotSequence;
 use App\Models\Squad;
 use App\Models\Shooter;
 use App\Concerns\HandlesMatchLifecycleTransitions;
+use App\Concerns\RefusesLockedSquadEdits;
 use App\Services\RoyalFlushEquipmentImportService;
 use App\Enums\MatchStatus;
 use chillerlan\QRCode\{QRCode, QROptions};
@@ -33,6 +34,7 @@ new #[Layout('components.layouts.app')]
     // treating the access as a method call and the page 500s with
     // "Public method [completeMatchPasswordError] not found".
     use HandlesMatchLifecycleTransitions;
+    use RefusesLockedSquadEdits;
 
     public ?ShootingMatch $match = null;
     public $coverImage = null;
@@ -208,8 +210,19 @@ new #[Layout('components.layouts.app')]
         $org = $this->match?->organization;
         if ($org && ! $org->season_standings_enabled) {
             $validated['season_id'] = null;
+        } elseif ($this->season_id) {
+            $belongs = \App\Models\Season::query()
+                ->whereKey((int) $this->season_id)
+                ->when($org, fn ($q) => $q->where('organization_id', $org->id), fn ($q) => $q->whereRaw('1 = 0'))
+                ->exists();
+            if (! $belongs) {
+                $this->addError('season_id', 'That season belongs to another organization.');
+
+                return;
+            }
+            $validated['season_id'] = (int) $this->season_id;
         } else {
-            $validated['season_id'] = $this->season_id ?: null;
+            $validated['season_id'] = null;
         }
 
         $validated['team_event'] = $this->team_event;
@@ -1133,6 +1146,10 @@ new #[Layout('components.layouts.app')]
 
     public function addSquad(): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $this->validate(['squadName' => 'required|string|max:255']);
 
         $maxSort = $this->match->squads()->max('sort_order') ?? 0;
@@ -1148,6 +1165,10 @@ new #[Layout('components.layouts.app')]
 
     public function deleteSquad(int $id): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         Squad::where('id', $id)->where('match_id', $this->match->id)->delete();
         Flux::toast('Squad deleted.', variant: 'success');
     }
@@ -1242,12 +1263,20 @@ new #[Layout('components.layouts.app')]
 
     public function deleteShooter(int $id): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         Shooter::destroy($id);
         Flux::toast('Shooter removed permanently.', variant: 'success');
     }
 
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = Shooter::findOrFail($shooterId);
         $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
 
@@ -1452,6 +1481,8 @@ new #[Layout('components.layouts.app')]
     @if($match)
         <x-match-control-shell :match="$match">
 
+            <x-squad-roster-lock :match="$match" :scoring-url="route('admin.matches.scoring', $match)" />
+
             {{-- Lifecycle-aware Setup banner — see equivalent comment in
                  the org edit page for the full reasoning. Active +
                  Completed states are foregrounded as "be careful, you're
@@ -1635,7 +1666,7 @@ new #[Layout('components.layouts.app')]
                         <select wire:model="season_id"
                                 class="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-red-500 focus:ring-1 focus:ring-red-500">
                             <option value="">No season</option>
-                            @foreach(\App\Models\Season::orderByDesc('year')->get() as $season)
+                            @foreach(\App\Models\Season::query()->when($match?->organization_id, fn ($q) => $q->where('organization_id', $match->organization_id), fn ($q) => $q->whereRaw('1 = 0'))->orderByDesc('year')->orderBy('name')->get() as $season)
                                 <option value="{{ $season->id }}">{{ $season->name }} ({{ $season->year }})</option>
                             @endforeach
                         </select>

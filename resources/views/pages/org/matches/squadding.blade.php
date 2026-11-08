@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\HandlesMatchLifecycleTransitions;
+use App\Concerns\RefusesLockedSquadEdits;
 use App\Enums\MatchStatus;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
@@ -16,6 +17,7 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.app')]
     class extends Component {
     use HandlesMatchLifecycleTransitions;
+    use RefusesLockedSquadEdits;
 
     public Organization $organization;
     public ShootingMatch $match;
@@ -79,6 +81,10 @@ new #[Layout('components.layouts.app')]
 
     public function addSquad(): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $this->validate(['newSquadName' => 'required|string|max:255']);
         $maxSort = $this->match->squads()->max('sort_order') ?? 0;
         $this->match->squads()->create([
@@ -91,6 +97,10 @@ new #[Layout('components.layouts.app')]
 
     public function deleteSquad(int $id): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $squad = $this->match->squads()->findOrFail($id);
         $squad->shooters()->delete();
         $squad->delete();
@@ -121,6 +131,10 @@ new #[Layout('components.layouts.app')]
 
     public function autoSetupRelays(): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $match = $this->match;
         $max = max(1, $this->autoRelayMax);
 
@@ -186,6 +200,10 @@ new #[Layout('components.layouts.app')]
 
     public function randomizeRelays(): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $match = $this->match;
         $squads = $match->squads()->orderBy('sort_order')->get();
 
@@ -264,6 +282,10 @@ new #[Layout('components.layouts.app')]
 
     public function autoSquad(): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $match = $this->match;
         $squads = $match->squads()->orderBy('sort_order')->get()
             ->reject(fn ($s) => in_array($s->name, ['Default', 'Unassigned']));
@@ -342,6 +364,10 @@ new #[Layout('components.layouts.app')]
 
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
         if ($targetSquad->isFull()) { Flux::toast("{$targetSquad->name} is full.", variant: 'danger'); return; }
@@ -356,6 +382,10 @@ new #[Layout('components.layouts.app')]
      */
     public function moveShooterUp(int $shooterId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         // Safety: must belong to this match.
         if (! $this->match->squads()->whereKey($shooter->squad_id)->exists()) { return; }
@@ -380,6 +410,10 @@ new #[Layout('components.layouts.app')]
      */
     public function moveShooterDown(int $shooterId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         if (! $this->match->squads()->whereKey($shooter->squad_id)->exists()) { return; }
 
@@ -399,6 +433,10 @@ new #[Layout('components.layouts.app')]
 
     public function removeFromRelay(int $shooterId): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $defaultSquad = $this->match->squads()->firstOrCreate(['name' => 'Unassigned'], ['sort_order' => 999]);
         $maxSort = Shooter::where('squad_id', $defaultSquad->id)->max('sort_order') ?? 0;
@@ -410,6 +448,10 @@ new #[Layout('components.layouts.app')]
 
     public function markNoShow(int $shooterId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $shooter->update(['status' => 'no_show']);
         Flux::toast("{$shooter->name} marked as no-show.", variant: 'warning');
@@ -417,6 +459,10 @@ new #[Layout('components.layouts.app')]
 
     public function markPresent(int $shooterId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $shooter->update(['status' => 'active']);
         Flux::toast("{$shooter->name} marked as present.", variant: 'success');
@@ -424,6 +470,10 @@ new #[Layout('components.layouts.app')]
 
     public function markWithdrawn(int $shooterId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $shooter->update(['status' => 'withdrawn']);
         Flux::toast("{$shooter->name} marked as withdrawn.", variant: 'warning');
@@ -431,6 +481,10 @@ new #[Layout('components.layouts.app')]
 
     public function deleteShooter(int $shooterId): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $name = $shooter->name;
         $shooter->scores()->delete();
@@ -443,6 +497,10 @@ new #[Layout('components.layouts.app')]
 
     public function markAllPresent(): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $this->match->shooters()->where('status', 'active')->update(['status' => 'active']);
         $count = $this->match->shooters()->count();
         Flux::toast("All {$count} shooters confirmed as present.", variant: 'success');
@@ -471,6 +529,10 @@ new #[Layout('components.layouts.app')]
 
     public function markAllNoShow(): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $ids = $this->match->shooters()
             ->where('shooters.status', 'active')
             ->whereDoesntHave('scores')
@@ -498,6 +560,10 @@ new #[Layout('components.layouts.app')]
 
     public function addWalkin(): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         // Divisions are match-level (e.g. ELR Minor/Major). When the match has
         // any, a walk-in must be assigned one so ELR target gating, rankings and
         // the per-division CSV export treat them like a regular registration.
@@ -589,6 +655,10 @@ new #[Layout('components.layouts.app')]
 
     public function assignToTeam(int $shooterId, int $teamId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $team = $this->match->teams()->findOrFail($teamId);
         if ($team->isFull()) {
@@ -601,6 +671,10 @@ new #[Layout('components.layouts.app')]
 
     public function removeFromTeam(int $shooterId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $shooter->update(['team_id' => null]);
         Flux::toast("{$shooter->name} removed from team.", variant: 'success');
@@ -608,6 +682,10 @@ new #[Layout('components.layouts.app')]
 
     public function autoTeam(): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         $teams = $this->match->teams()->withCount('shooters')->orderBy('sort_order')->get();
         if ($teams->isEmpty()) {
             Flux::toast('No teams exist. Add teams in match settings first.', variant: 'warning');
@@ -664,6 +742,10 @@ new #[Layout('components.layouts.app')]
      */
     private function applyRosterChange(int $shooterId, array $changes): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->match->shooters()->where('shooters.id', $shooterId)->first();
         if (! $shooter) {
             return;
@@ -794,6 +876,8 @@ new #[Layout('components.layouts.app')]
 
 <div x-data="{ tab: @entangle('activeTab') }">
 <x-match-control-shell :match="$match" :organization="$organization">
+
+    <x-squad-roster-lock :match="$match" :scoring-url="route('org.matches.scoring', [$organization, $match])" />
 
     {{-- ALRHA shared-rifle conflict banner:
          two shooters who share a rifle can't be in overlapping relays.
@@ -931,7 +1015,7 @@ new #[Layout('components.layouts.app')]
                     <input type="number" wire:model="autoRelayMax" min="1" max="50"
                            class="w-24 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-primary focus:border-accent focus:ring-1 focus:ring-accent min-h-[44px]" />
                 </div>
-                <flux:button wire:click="autoSetupRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]"
+                <flux:button wire:click="autoSetupRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px] {{ $match->bulkSquadEditsLocked() ? 'pointer-events-none opacity-40' : '' }}"
                              wire:confirm="This will create relays and randomly assign ALL shooters. Continue?">
                     Auto Setup Relays
                 </flux:button>
@@ -941,9 +1025,9 @@ new #[Layout('components.layouts.app')]
 
         {{-- Quick actions --}}
         <div class="flex flex-wrap gap-2">
-            <flux:button wire:click="autoSquad" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]"
+            <flux:button wire:click="autoSquad" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px] {{ $match->bulkSquadEditsLocked() ? 'pointer-events-none opacity-40' : '' }}"
                          wire:confirm="Auto-assign all unassigned registrants across squads (round-robin)?">Auto-Squad</flux:button>
-            <flux:button wire:click="randomizeRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px]"
+            <flux:button wire:click="randomizeRelays" variant="primary" class="!bg-accent hover:!bg-accent-hover min-h-[44px] {{ $match->bulkSquadEditsLocked() ? 'pointer-events-none opacity-40' : '' }}"
                          wire:confirm="Randomize all shooters into relays? Existing assignments will be reshuffled.">Randomize Relays</flux:button>
         </div>
 
@@ -1017,7 +1101,7 @@ new #[Layout('components.layouts.app')]
                                 <input type="number" min="1" placeholder="Cap" value="{{ $squad->max_capacity }}"
                                        wire:change="updateSquadCapacity({{ $squad->id }}, $event.target.value)"
                                        class="w-16 rounded border border-border bg-surface-2 px-2 py-1 text-xs text-primary text-center focus:border-accent min-h-[36px]" title="Max capacity override" />
-                                <button wire:click="deleteSquad({{ $squad->id }})" wire:confirm="Delete {{ $squad->name }} and all its shooters?"
+                                <button wire:click="deleteSquad({{ $squad->id }})" wire:confirm="Delete {{ $squad->name }} and all its shooters?" @disabled($match->bulkSquadEditsLocked())
                                         class="text-xs text-accent/60 hover:text-accent transition-colors min-h-[36px] px-1">&times;</button>
                             </div>
                         </div>
@@ -1065,8 +1149,10 @@ new #[Layout('components.layouts.app')]
                                                     </td>
                                                     <td class="px-2 py-1.5">
                                                         @php
-                                                            [, $nameCaliber] = \App\Services\ShooterRosterService::splitName($shooter->name);
-                                                            $cartridgeValue = $shooter->user_id ? ($calibersByUser[$shooter->user_id] ?? $nameCaliber) : $nameCaliber;
+                                                            $cartridgeValue = \App\Services\ShooterRosterService::caliberFor(
+                                                                $shooter,
+                                                                $shooter->user_id ? ($calibersByUser[$shooter->user_id] ?? null) : null,
+                                                            );
                                                         @endphp
                                                         <input type="text" value="{{ $cartridgeValue }}" maxlength="64" placeholder="e.g. 6.5 CM"
                                                                wire:change="setShooterCaliber({{ $shooter->id }}, $event.target.value)"
@@ -1204,7 +1290,7 @@ new #[Layout('components.layouts.app')]
                                                                         </button>
                                                                     @endif
                                                                     <div class="my-1 border-t border-border/50"></div>
-                                                                    <button wire:click="deleteShooter({{ $shooter->id }})" @click="sOpen = false"
+                                                                    <button wire:click="deleteShooter({{ $shooter->id }})" @click="sOpen = false" @disabled($match->bulkSquadEditsLocked())
                                                                             wire:confirm="Permanently remove {{ $shooter->name }}? This deletes all their scores."
                                                                             class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors min-h-[36px]">
                                                                         <x-icon name="trash-2" class="h-3.5 w-3.5" />
@@ -1225,7 +1311,7 @@ new #[Layout('components.layouts.app')]
                                                                     </div>
                                                                 </div>
                                                             @endif
-                                                            <button wire:click="removeFromRelay({{ $shooter->id }})" class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors min-h-[32px]" title="Remove from squad">&times;</button>
+                                                            <button wire:click="removeFromRelay({{ $shooter->id }})" @disabled($match->bulkSquadEditsLocked()) class="rounded px-1 py-0.5 text-xs text-accent/60 hover:text-accent transition-colors min-h-[32px] disabled:opacity-30" title="{{ $match->bulkSquadEditsLocked() ? $match->bulkSquadEditRefusal() : 'Remove from squad' }}">&times;</button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1354,7 +1440,7 @@ new #[Layout('components.layouts.app')]
                                                 @elseif($shooter->isDq())
                                                     <span class="text-[10px] text-muted">DQ'd</span>
                                                 @endif
-                                                <button wire:click="deleteShooter({{ $shooter->id }})"
+                                                <button wire:click="deleteShooter({{ $shooter->id }})" @disabled($match->bulkSquadEditsLocked())
                                                         wire:confirm="Permanently remove {{ $shooter->name }}? This deletes all their scores."
                                                         class="rounded px-1.5 py-1 text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-colors min-h-[32px]"
                                                         title="Delete shooter">
@@ -1521,7 +1607,7 @@ new #[Layout('components.layouts.app')]
                         <h2 class="text-lg font-semibold text-primary">Team Assignment</h2>
                         <p class="text-sm text-muted">Assign shooters to teams. Team size: {{ $match->team_size }}</p>
                     </div>
-                    <flux:button wire:click="autoTeam" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px]" size="sm"
+                    <flux:button wire:click="autoTeam" variant="primary" class="!bg-indigo-600 hover:!bg-indigo-700 min-h-[44px] {{ $match->bulkSquadEditsLocked() ? 'pointer-events-none opacity-40' : '' }}" size="sm"
                                  wire:confirm="Auto-assign all unassigned shooters to teams (round-robin)?">Auto-Team</flux:button>
                 </div>
 

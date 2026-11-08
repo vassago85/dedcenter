@@ -18,8 +18,8 @@ use RuntimeException;
 /**
  * Tablet squadding: add a walk-in, move a shooter between squads, or nudge
  * firing order. The web squadding page still owns capacity setup, teams, and
- * bulk edits. Same people as that page (RO, MD, creator, owner). Completed
- * matches stay editable because this changes registrations, not scores.
+ * bulk edits. Same people as that page (RO, MD, creator, owner). A completed
+ * match refuses every change until it is reopened.
  */
 class ShooterManagementController extends Controller
 {
@@ -32,6 +32,9 @@ class ShooterManagementController extends Controller
     public function store(Request $request, ShootingMatch $match): JsonResponse
     {
         $this->authorizeSquadding($request, $match);
+        if ($refusal = $this->completedRosterRefusal($match)) {
+            return $refusal;
+        }
 
         $squadIds = $match->squads()->pluck('id')->all();
         $divisionIds = $match->divisions()->pluck('id')->all();
@@ -89,6 +92,9 @@ class ShooterManagementController extends Controller
     {
         $this->authorizeSquadding($request, $match);
         $this->assertShooterInMatch($match, $shooter);
+        if ($refusal = $this->completedRosterRefusal($match)) {
+            return $refusal;
+        }
 
         $validated = $request->validate([
             'caliber' => ['sometimes', 'nullable', 'string', 'max:64'],
@@ -115,6 +121,9 @@ class ShooterManagementController extends Controller
     {
         $this->authorizeSquadding($request, $match);
         $this->assertShooterInMatch($match, $shooter);
+        if ($refusal = $this->completedRosterRefusal($match)) {
+            return $refusal;
+        }
 
         $squadIds = $match->squads()->pluck('id')->all();
 
@@ -153,6 +162,9 @@ class ShooterManagementController extends Controller
     {
         $this->authorizeSquadding($request, $match);
         $this->assertShooterInMatch($match, $shooter);
+        if ($refusal = $this->completedRosterRefusal($match)) {
+            return $refusal;
+        }
 
         $validated = $request->validate([
             'direction' => ['required', Rule::in(['up', 'down'])],
@@ -190,6 +202,17 @@ class ShooterManagementController extends Controller
         $shooter->refresh();
 
         return $this->shooterResponse($match, $shooter);
+    }
+
+    protected function completedRosterRefusal(ShootingMatch $match): ?JsonResponse
+    {
+        if (! $match->individualSquadEditsLocked()) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => $match->individualSquadEditRefusal(),
+        ], 422);
     }
 
     protected function authorizeSquadding(Request $request, ShootingMatch $match): void

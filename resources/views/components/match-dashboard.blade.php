@@ -29,6 +29,20 @@
 
     // Post-match finish flow state.
     $scoresPublished = (bool) ($dashboard['scores_published'] ?? true);
+    $scoresLine = $dashboard['scores_line'] ?? ['key' => 'none', 'label' => 'No scores yet', 'tone' => 'muted'];
+    $scoresTone = match ($scoresLine['tone'] ?? 'muted') {
+        'emerald' => 'text-emerald-300',
+        'amber' => 'text-amber-300',
+        default => 'text-muted',
+    };
+    $notInSquad = (int) ($dashboard['not_in_squad_count'] ?? 0);
+    $noTeam = (int) ($dashboard['no_team_count'] ?? 0);
+    $notInSquadLabel = $notInSquad === 1
+        ? '1 shooter is not in a squad'
+        : $notInSquad.' shooters are not in a squad';
+    $noTeamLabel = $noTeam === 1
+        ? '1 shooter has no team'
+        : $noTeam.' shooters have no team';
     $unclaimedCount = (int) ($dashboard['unclaimed_count'] ?? 0);
     $sideBetOn = ($dashboard['royal_flush_enabled'] ?? false) && ($dashboard['side_bet_enabled'] ?? false);
     $showFinishFlow = $isActive || $isCompleted;
@@ -45,9 +59,12 @@
                     <span class="inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
                         {{ $dashboard['type_label'] }}
                     </span>
-                    <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold {{ $isCompleted ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-border bg-surface-2 text-secondary' }}">
-                        {{ $dashboard['status_label'] }}
-                    </span>
+                    <x-status-badge
+                        :tone="$match->status->color()"
+                        :label="$dashboard['status_label']"
+                        size="sm"
+                        :pulse="$isActive"
+                    />
                 </div>
                 <p class="mt-1.5 text-sm text-muted">
                     {{ $match->date?->format('D j M Y') ?? 'Date TBC' }}
@@ -61,9 +78,7 @@
                     <span class="text-secondary"><span class="font-semibold tabular-nums text-primary">{{ $dashboard['stages_count'] }}</span> stages</span>
                     <span class="text-secondary">
                         Scores
-                        <span class="font-semibold {{ $dashboard['scores_published'] ? 'text-emerald-300' : 'text-amber-300' }}">
-                            {{ $dashboard['scores_published'] ? 'published' : 'hidden' }}
-                        </span>
+                        <span class="font-semibold {{ $scoresTone }}">{{ $scoresLine['label'] }}</span>
                     </span>
                 </div>
             </div>
@@ -365,10 +380,20 @@
                 </div>
             @endif
         </div>
-        @if(($dashboard['unassigned_shooters'] ?? 0) > 0)
-            <div class="mt-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 px-4 py-3">
-                <p class="text-sm text-amber-200">{{ $dashboard['unassigned_shooters'] }} shooter(s) not assigned to a squad or team</p>
-                <a href="{{ $squaddingUrl }}" wire:navigate class="shrink-0 text-xs font-semibold text-amber-300 hover:underline">Fix</a>
+        @if($notInSquad > 0 || $noTeam > 0)
+            <div class="mt-4 space-y-2">
+                @if($notInSquad > 0)
+                    <div class="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                        <p class="text-sm text-amber-200">{{ $notInSquadLabel }}</p>
+                        <a href="{{ $squaddingUrl }}" wire:navigate class="shrink-0 text-xs font-semibold text-amber-300 hover:underline">Fix</a>
+                    </div>
+                @endif
+                @if($noTeam > 0)
+                    <div class="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                        <p class="text-sm text-amber-200">{{ $noTeamLabel }}</p>
+                        <a href="{{ $squaddingUrl }}" wire:navigate class="shrink-0 text-xs font-semibold text-amber-300 hover:underline">Fix</a>
+                    </div>
+                @endif
             </div>
         @endif
         @if(! empty($dashboard['division_mismatches']))

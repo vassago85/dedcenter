@@ -9,9 +9,8 @@ use App\Enums\MatchStatus;
 use App\Enums\MdPackageStatus;
 use App\Enums\PlacementKey;
 use App\Enums\Province;
-use App\Enums\SponsorScope;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,10 +19,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class ShootingMatch extends Model
 {
     use HasFactory, SoftDeletes;
+
     protected $table = 'matches';
 
     protected $fillable = [
@@ -323,7 +324,7 @@ class ShootingMatch extends Model
         return ! $this->entry_fee || (float) $this->entry_fee <= 0;
     }
 
-    public function defaultRegistrationCloseDate(): ?\Carbon\Carbon
+    public function defaultRegistrationCloseDate(): ?Carbon
     {
         return $this->date?->copy()->subHours(72);
     }
@@ -418,6 +419,44 @@ class ShootingMatch extends Model
         return $this->elr_engagement_mode ?? ElrEngagementMode::TargetByTarget;
     }
 
+    /**
+     * A team is part of this match: the flag is on, the engagement is a
+     * team sequence, or at least one team row exists. A relay with none
+     * of those does not warn about missing teams.
+     */
+    public function usesTeams(): bool
+    {
+        return (bool) $this->team_event
+            || ($this->usesElrPipeline() && $this->elrEngagementMode()->isTeamSequence())
+            || $this->teams()->exists();
+    }
+
+    /** Randomize, auto-setup, and delete. Locked from Ready through Completed. */
+    public function bulkSquadEditsLocked(): bool
+    {
+        return in_array($this->status, [
+            MatchStatus::Ready,
+            MatchStatus::Active,
+            MatchStatus::Completed,
+        ], true);
+    }
+
+    /** Moves and match-day corrections. Locked only once the match is Completed. */
+    public function individualSquadEditsLocked(): bool
+    {
+        return $this->status === MatchStatus::Completed;
+    }
+
+    public function bulkSquadEditRefusal(): string
+    {
+        return 'Squads are locked. Step the match back to Squadding Open to randomize, auto-setup, or delete.';
+    }
+
+    public function individualSquadEditRefusal(): string
+    {
+        return 'This match is completed. Reopen it from Scoring before moving shooters.';
+    }
+
     public function scoresArePublic(): bool
     {
         return (bool) ($this->scores_published ?? true);
@@ -439,12 +478,14 @@ class ShootingMatch extends Model
      *
      * Access is granted via exactly one of these channels:
      *   1. They created the match (`created_by`).
-     *   2. They belong to the organisation that owns the match.
-     *   3. They are nominated as match staff (`match_staff` pivot — MD / RO etc.).
+     *   2. They are an owner or director of the organisation that owns the match.
+     *   3. They are nominated as match staff (`match_staff` pivot — MD / RO).
      *
-     * Platform owners and match directors (role-level admins) see everything;
-     * this is intentional so they can help debug / rescore any match in the
-     * system from their own device.
+     * A range-officer flag on the organisation does not open every match.
+     * Membership alone (the shooter flag) does not either.
+     *
+     * Platform owners and site match directors see everything so they can
+     * help debug / rescore any match from their own device.
      *
      * Note: this is specifically the "can this user operate a scoring device
      * for this match" scope. It is NOT a general "can the user read public
@@ -460,12 +501,17 @@ class ShootingMatch extends Model
             return $query;
         }
 
-        $orgIds = $user->organizations()->pluck('organizations.id');
+        $directorOrgIds = $user->organizations()
+            ->where(function ($q) {
+                $q->where('organization_admins.is_owner', true)
+                    ->orWhere('organization_admins.is_match_director', true);
+            })
+            ->pluck('organizations.id');
 
-        return $query->where(function (Builder $q) use ($user, $orgIds) {
+        return $query->where(function (Builder $q) use ($user, $directorOrgIds) {
             $q->where('created_by', $user->id)
-              ->orWhereIn('organization_id', $orgIds)
-              ->orWhereHas('staff', fn (Builder $sq) => $sq->where('users.id', $user->id));
+                ->orWhereIn('organization_id', $directorOrgIds)
+                ->orWhereHas('staff', fn (Builder $sq) => $sq->where('users.id', $user->id));
         });
     }
 

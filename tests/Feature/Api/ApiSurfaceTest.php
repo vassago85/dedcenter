@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MatchStatus;
 use App\Models\Disqualification;
 use App\Models\Gong;
 use App\Models\MatchDivision;
@@ -11,7 +12,6 @@ use App\Models\Season;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
-use App\Enums\MatchStatus;
 use App\Models\TargetSet;
 use App\Models\Team;
 use App\Models\User;
@@ -114,7 +114,7 @@ it('only match staff can manage shooters', function () {
         ->assertForbidden();
 });
 
-it('lets match staff edit cartridge, division, team, and squad at any status', function () {
+it('lets match staff edit cartridge, division, team, and squad until the match is completed', function () {
     $minor = MatchDivision::factory()->create(['match_id' => $this->match->id, 'name' => 'Minor']);
     $major = MatchDivision::factory()->create(['match_id' => $this->match->id, 'name' => 'Major']);
     $team = Team::query()->create(['match_id' => $this->match->id, 'name' => 'Pair A', 'sort_order' => 1]);
@@ -155,7 +155,9 @@ it('lets match staff edit cartridge, division, team, and squad at any status', f
 
     $this->actingAs($this->md)->patchJson("/api/matches/{$this->match->id}/shooters/{$this->first->id}", [
         'caliber' => '300 WSM',
-    ])->assertOk()->assertJsonPath('shooter.caliber', '300 WSM');
+    ])->assertStatus(422);
+
+    expect($this->first->fresh()->name)->toBe('Jane Doe — 7 PRC');
 });
 
 it('rejects a roster edit from a shooter, a foreign division, and a full squad', function () {

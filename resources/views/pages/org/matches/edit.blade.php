@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\HandlesMatchLifecycleTransitions;
+use App\Concerns\RefusesLockedSquadEdits;
 use App\Models\Organization;
 use App\Models\ShootingMatch;
 use App\Models\User;
@@ -38,6 +39,7 @@ new #[Layout('components.layouts.app')]
     // method_exists when the lifecycle enters RegistrationClosed,
     // so the existing hook on this page keeps firing.
     use HandlesMatchLifecycleTransitions;
+    use RefusesLockedSquadEdits;
 
     public Organization $organization;
     public ?ShootingMatch $match = null;
@@ -1330,6 +1332,10 @@ new #[Layout('components.layouts.app')]
 
     public function addSquad(): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $this->validate(['squadName' => 'required|string|max:255']);
         $maxSort = $this->match->squads()->max('sort_order') ?? 0;
         $this->match->squads()->create(['name' => $this->squadName, 'sort_order' => $maxSort + 1]);
@@ -1339,6 +1345,10 @@ new #[Layout('components.layouts.app')]
 
     public function deleteSquad(int $id): void
     {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
         Squad::where('id', $id)->where('match_id', $this->match->id)->delete();
         Flux::toast('Squad deleted.', variant: 'success');
     }
@@ -1424,7 +1434,15 @@ new #[Layout('components.layouts.app')]
         Flux::toast('Shooter ' . ($shooter->isActive() ? 'reactivated' : 'withdrawn') . '.', variant: 'success');
     }
 
-    public function deleteShooter(int $id): void { Shooter::destroy($id); Flux::toast('Shooter removed permanently.', variant: 'success'); }
+    public function deleteShooter(int $id): void
+    {
+        if ($this->refuseBulkSquadEdit()) {
+            return;
+        }
+
+        Shooter::destroy($id);
+        Flux::toast('Shooter removed permanently.', variant: 'success');
+    }
 
     public function openDqModal(int $shooterId, ?int $targetSetId = null): void
     {
@@ -1510,6 +1528,10 @@ new #[Layout('components.layouts.app')]
 
     public function moveShooter(int $shooterId, int $targetSquadId): void
     {
+        if ($this->refuseIndividualSquadEdit()) {
+            return;
+        }
+
         $shooter = $this->matchShooter($shooterId);
         $targetSquad = $this->match->squads()->findOrFail($targetSquadId);
         $maxSort = Shooter::where('squad_id', $targetSquadId)->max('sort_order') ?? 0;
@@ -1784,6 +1806,8 @@ new #[Layout('components.layouts.app')]
 <div x-data="{ tab: 'info' }">
     @if($match)
         <x-match-control-shell :match="$match" :organization="$organization">
+
+            <x-squad-roster-lock :match="$match" :scoring-url="route('org.matches.scoring', [$organization, $match])" />
 
             {{-- Lifecycle-aware Setup banner. Active/Completed matches
                  should be a read-only experience by default — the form

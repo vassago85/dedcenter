@@ -2,10 +2,8 @@
 
 namespace App\Services;
 
-use App\Enums\ElrEngagementMode;
 use App\Enums\ElrShotResult;
 use App\Enums\MatchStatus;
-use App\Models\ElrScoringProfile;
 use App\Models\ElrShot;
 use App\Models\ElrTeamStageEntry;
 use App\Models\MatchRegistration;
@@ -13,7 +11,6 @@ use App\Models\PrsShotScore;
 use App\Models\Score;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
-use App\Models\Team;
 use Illuminate\Support\Collection;
 
 /**
@@ -77,14 +74,7 @@ class MatchDashboardService
                 'alrha' => $match->alrhaClass()?->label() ?? 'ALRHA',
                 default => 'Standard',
             },
-            'status_label' => match ($match->status) {
-                MatchStatus::Draft, MatchStatus::PreRegistration => 'Draft',
-                MatchStatus::RegistrationOpen, MatchStatus::RegistrationClosed,
-                MatchStatus::SquaddingOpen, MatchStatus::SquaddingClosed, MatchStatus::Ready => 'Open',
-                MatchStatus::Active => 'In Progress',
-                MatchStatus::Completed => 'Complete',
-                default => $match->status->label(),
-            },
+            'status_label' => $match->status->label(),
             'registrations_count' => $registrationsCount,
             'shooters_count' => $shooters->count(),
             'stages_count' => $stagesCount,
@@ -101,7 +91,9 @@ class MatchDashboardService
             'team_composition' => $match->isElr() && $match->elrEngagementMode()?->isTeamSequence()
                 ? $this->teamComposition($match)
                 : [],
-            'unassigned_shooters' => $shooters->filter(fn ($s) => $s->team_id === null || $s->squad_id === null)->count(),
+            'scores_line' => $this->scoresLine($match, $this->recordedShotCount($match, $shooters)),
+            'not_in_squad_count' => $this->notInSquadCount($match),
+            'no_team_count' => $match->usesTeams() ? $shooters->whereNull('team_id')->count() : 0,
             'division_mismatches' => $divisionMismatches,
             'scoring_progress' => $scoringProgress,
         ];
@@ -337,6 +329,69 @@ class MatchDashboardService
         });
 
         return $shooters;
+    }
+
+    /**
+     * Same stores as attendanceRoster(): ELR/ALRHA shots, PRS shots, or relay scores.
+     */
+    private function recordedShotCount(ShootingMatch $match, Collection $shooters): int
+    {
+        $ids = $shooters->pluck('id');
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        if ($match->usesElrPipeline()) {
+            return (int) ElrShot::query()
+                ->whereIn('shooter_id', $ids)
+                ->whereIn('result', [ElrShotResult::Hit->value, ElrShotResult::Miss->value])
+                ->count();
+        }
+
+        if ($match->isPrs()) {
+            return (int) PrsShotScore::query()->whereIn('shooter_id', $ids)->count();
+        }
+
+        return (int) Score::query()->whereIn('shooter_id', $ids)->count();
+    }
+
+    /**
+     * @return array{key: string, label: string, tone: string}
+     */
+    private function scoresLine(ShootingMatch $match, int $shots): array
+    {
+        if ($shots < 1) {
+            return ['key' => 'none', 'label' => 'No scores yet', 'tone' => 'muted'];
+        }
+
+        if (! $match->scoresArePublic()) {
+            return ['key' => 'hidden', 'label' => 'Hidden', 'tone' => 'amber'];
+        }
+
+        if ($match->status === MatchStatus::Completed) {
+            return ['key' => 'published', 'label' => 'Published', 'tone' => 'emerald'];
+        }
+
+        return ['key' => 'live', 'label' => 'Live', 'tone' => 'emerald'];
+    }
+
+    private function notInSquadCount(ShootingMatch $match): int
+    {
+        $placedUserIds = Shooter::query()
+            ->whereHas('squad', fn ($q) => $q->where('match_id', $match->id))
+            ->whereNotNull('user_id')
+            ->pluck('user_id');
+
+        $query = MatchRegistration::query()
+            ->where('match_id', $match->id)
+            ->where('payment_status', 'confirmed')
+            ->whereNotNull('user_id');
+
+        if ($placedUserIds->isNotEmpty()) {
+            $query->whereNotIn('user_id', $placedUserIds);
+        }
+
+        return (int) $query->distinct()->count('user_id');
     }
 
     private function scoringProgress(ShootingMatch $match, Collection $shooters, Collection $teamStageEntries): array

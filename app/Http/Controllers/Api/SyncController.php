@@ -114,7 +114,9 @@ class SyncController extends Controller
         $elrShots = collect();
         if ($match->usesElrPipeline()) {
             $query = ElrShot::whereIn('shooter_id', $shooterIds);
-            if ($since) $query = $query->where('updated_at', '>=', $since);
+            if ($since) {
+                $query = $query->where('updated_at', '>=', $since);
+            }
             $elrShots = $query->get()->map(fn ($s) => [
                 'id' => $s->id,
                 'shooter_id' => $s->shooter_id,
@@ -191,6 +193,12 @@ class SyncController extends Controller
     public function pushRoster(Request $request, ShootingMatch $match): JsonResponse
     {
         abort_unless($request->user()?->can('squad', $match), 403, 'You are not authorized to manage shooters in this match.');
+
+        if ($match->individualSquadEditsLocked()) {
+            return response()->json([
+                'message' => $match->individualSquadEditRefusal(),
+            ], 422);
+        }
 
         $validated = $request->validate([
             'shooters' => ['required', 'array', 'min:1'],
