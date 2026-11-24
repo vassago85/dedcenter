@@ -63,6 +63,14 @@ const routes = [
         props: (route) => ({ matchId: Number(route.params.matchId) }),
     },
     {
+        // ALRHA mark-sense score card scanner. One-shot photo → decode →
+        // confirm → POST through the standard elr-shots endpoint.
+        path: '/score/:matchId/score-cards',
+        name: 'score-cards',
+        component: () => import('../views/ScoreCardScan.vue'),
+        props: (route) => ({ matchId: Number(route.params.matchId) }),
+    },
+    {
         path: '/score/:matchId/relay/:squadId/distance/:targetSetId/rollcall',
         name: 'roll-call',
         component: () => import('../views/RollCall.vue'),

@@ -8,8 +8,11 @@ use App\Http\Controllers\MatchExportController;
 use App\Http\Controllers\MatchReportController;
 use App\Http\Controllers\ModeSwitchController;
 use App\Http\Controllers\ProofOfPaymentController;
+use App\Http\Controllers\ScoreSheetPrintController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SponsorInfoController;
+use App\Models\Organization;
+use App\Models\ShootingMatch;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -61,9 +64,10 @@ Route::get('/registrations/{registration}/proof-of-payment', [ProofOfPaymentCont
 /**
  * Scoring SPA shell. Mints a short-lived Sanctum token the Vue app uses
  * for API calls. The RBAC audit tightened two things here:
- *   1. Only users who can actually score (platform admin, org owner / MD /
- *      RO) are handed a token — a pure shooter now redirects back to their
- *      dashboard instead of walking away with a session token.
+ *   1. Only users who can score a Ready or Active match (platform admin,
+ *      org director, the creator, or assigned match staff) are handed a
+ *      token. A pure shooter, and a range officer with no live assignment,
+ *      redirects back to the dashboard.
  *   2. The token is scoped to the `scoring` ability, so we can later gate
  *      individual API routes with `abilities:scoring` middleware without
  *      breaking existing sessions. Today ability enforcement is per-route
@@ -116,7 +120,7 @@ Route::middleware('auth')->group(function () {
 });
 // Bookmarks and printed QR codes still use /live/{match}. The public
 // scoreboard is the one results page, so this only forwards there.
-Route::get('/live/{match}', function (\App\Models\ShootingMatch $match) {
+Route::get('/live/{match}', function (ShootingMatch $match) {
     return redirect()->route('scoreboard', $match, 301);
 })->name('live');
 Route::get('/badges-preview', BadgeGalleryController::class)->name('badges.preview');
@@ -151,6 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/browse-events', 'member.browse-events')->name('browse-events');
     Volt::route('/equipment', 'member.equipment')->name('equipment');
     Volt::route('/organizations', 'member.organizations')->name('organizations');
+    Volt::route('/standings', 'member.standings')->name('standings');
     Volt::route('/organizations/create', 'member.organization-create')->name('organizations.create');
     Volt::route('/settings', 'member.settings')->name('settings');
     Volt::route('/notifications', 'member.notifications')->name('notifications');
@@ -203,6 +208,12 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     Volt::route('/matches/{match}/reports', 'org.matches.reports')->name('matches.reports');
     Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
     Volt::route('/matches/{match}/scoresheet', 'matches.elr-scoresheet')->name('matches.scoresheet');
+
+    // ALRHA mark-sense score cards (print + scan hand-off)
+    Route::get('/matches/{match}/score-cards', [ScoreSheetPrintController::class, 'show'])->name('matches.score-cards');
+    Route::post('/matches/{match}/score-cards/print', [ScoreSheetPrintController::class, 'print'])->name('matches.score-cards.print');
+    Route::post('/matches/{match}/score-cards/print-spares', [ScoreSheetPrintController::class, 'printSpares'])->name('matches.score-cards.print-spares');
+
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');
@@ -229,7 +240,8 @@ Route::middleware(['auth', 'verified', 'org.admin'])->prefix('org/{organization}
     });
 
     Volt::route('/registrations', 'org.registrations')->name('registrations');
-    Volt::route('/admins', 'org.admins')->name('admins');
+    Volt::route('/team', 'org.admins')->name('admins');
+    Route::get('/admins', fn (Organization $organization) => redirect()->route('org.admins', $organization, 301));
     Volt::route('/clubs', 'org.clubs')->name('clubs');
     Volt::route('/settings', 'org.settings')->name('settings');
     Volt::route('/portal-sponsors', 'org.portal-sponsors')->name('portal-sponsors');
@@ -253,6 +265,12 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Volt::route('/matches/{match}/reports', 'admin.matches.reports')->name('matches.reports');
     Volt::route('/matches/{match}/squads/{squad}/correct', 'matches.squad-correction')->name('matches.squad-correction');
     Volt::route('/matches/{match}/scoresheet', 'matches.elr-scoresheet')->name('matches.scoresheet');
+
+    // ALRHA mark-sense score cards (print + scan hand-off)
+    Route::get('/matches/{match}/score-cards', [ScoreSheetPrintController::class, 'show'])->name('matches.score-cards');
+    Route::post('/matches/{match}/score-cards/print', [ScoreSheetPrintController::class, 'print'])->name('matches.score-cards.print');
+    Route::post('/matches/{match}/score-cards/print-spares', [ScoreSheetPrintController::class, 'printSpares'])->name('matches.score-cards.print-spares');
+
     Route::get('/matches/{match}/export/standings', [MatchExportController::class, 'standings'])->name('matches.export.standings');
     Route::get('/matches/{match}/export/detailed', [MatchExportController::class, 'detailed'])->name('matches.export.detailed');
     Route::get('/matches/{match}/export/pdf-standings', [MatchExportController::class, 'pdfStandings'])->name('matches.export.pdf-standings');

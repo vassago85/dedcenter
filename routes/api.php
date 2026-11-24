@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\ScoreboardController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\ScoreManagementController;
+use App\Http\Controllers\Api\ScoreSheetController;
 use App\Http\Controllers\Api\ShooterManagementController;
 use App\Http\Controllers\Api\SeasonController;
 use App\Http\Controllers\Api\SyncController;
@@ -91,6 +92,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('matches/{match}/scores/sync', [SyncController::class, 'scores']);
         Route::post('matches/{match}/roster', [SyncController::class, 'pushRoster']);
+
+        // Printed ALRHA mark-sense card lookup. The scoring PWA calls
+        // this after it reads the QR off a photographed card. The POST
+        // side reuses the standard ELR shots endpoint above — only the
+        // card discovery is new.
+        Route::get('matches/{match}/score-sheets', [ScoreSheetController::class, 'index']);
+        Route::get('matches/{match}/score-sheets/{token}', [ScoreSheetController::class, 'show']);
+        Route::post('matches/{match}/score-sheets/{token}/claim', [ScoreSheetController::class, 'claim']);
     });
 
     // Diagnostic + one-shot repair endpoints. Both are match-director-only

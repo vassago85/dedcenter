@@ -5,7 +5,8 @@
     "scripts": {
         "build": "vite build",
         "build:scoring": "vite build --config vite.scoring-standalone.config.js",
-        "dev": "vite"
+        "dev": "vite",
+        "test:js": "node --test resources/js/scoring-app/lib/__tests__/*.test.mjs"
     },
     "devDependencies": {
         "@playwright/test": "^1.64.0",
