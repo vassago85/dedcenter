@@ -87,7 +87,6 @@ new #[Layout('components.layouts.app')]
                 ->each(fn ($m) => $m->setAttribute('has_my_report', true));
 
             $myOrgs = $user->organizations()->withPivot('is_owner', 'is_match_director', 'is_range_officer', 'is_shooter')->get();
-            $primaryOrg = $myOrgs->first();
             $registrationsNeedingAction = MatchRegistration::with('match.organization')
                 ->where('user_id', $userId)
                 ->whereIn('payment_status', ['pending_payment', 'proof_submitted'])
@@ -109,7 +108,6 @@ new #[Layout('components.layouts.app')]
                 'upcomingMatches',
                 'recentResults',
                 'myOrgs',
-                'primaryOrg',
                 'registrationsNeedingAction',
                 'nextSquaddingMatch',
                 'pendingOrgs',
@@ -414,11 +412,11 @@ new #[Layout('components.layouts.app')]
                     <ul class="divide-y divide-border/70">
                         @foreach($myOrgs as $org)
                             @php
-                                $primaryRole = $org->pivot->is_owner ? 'Owner' : ($org->pivot->is_match_director ? 'MD' : ($org->pivot->is_range_officer ? 'RO' : 'Shooter'));
+                                $primaryRole = org_membership_label($org->pivot);
                                 $primaryColor = $org->pivot->is_owner ? 'amber' : ($org->pivot->is_match_director ? 'blue' : ($org->pivot->is_range_officer ? 'green' : 'zinc'));
                             @endphp
                             <li>
-                                <a href="{{ $org->pivot->is_owner || $org->pivot->is_match_director ? route('org.dashboard', $org) : route('leaderboard', $org) }}"
+                                <a href="{{ user_org_destination(auth()->user(), $org) }}"
                                    class="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-surface-2/60">
                                     <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-2 text-xs font-bold uppercase text-muted">
                                         @if($org->logoUrl())
@@ -445,12 +443,10 @@ new #[Layout('components.layouts.app')]
                         <x-icon name="trophy" class="h-5 w-5 text-muted" />
                         <span class="text-xs font-semibold text-primary">My results</span>
                     </a>
-                    @if($primaryOrg)
-                        <a href="{{ route('leaderboard', $primaryOrg) }}" class="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface-2/40 p-3 text-center transition-all hover:border-accent/60">
-                            <x-icon name="chart-column" class="h-5 w-5 text-muted" />
-                            <span class="text-xs font-semibold text-primary">Standings</span>
-                        </a>
-                    @endif
+                    <a href="{{ route('standings') }}" class="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface-2/40 p-3 text-center transition-all hover:border-accent/60">
+                        <x-icon name="chart-column" class="h-5 w-5 text-muted" />
+                        <span class="text-xs font-semibold text-primary">Standings</span>
+                    </a>
                     <a href="{{ route('equipment') }}" class="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface-2/40 p-3 text-center transition-all hover:border-accent/60">
                         <x-icon name="target" class="h-5 w-5 text-muted" />
                         <span class="text-xs font-semibold text-primary">Equipment</span>

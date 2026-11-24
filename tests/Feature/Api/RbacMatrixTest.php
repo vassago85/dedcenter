@@ -44,6 +44,7 @@ beforeEach(function () {
         'organization_id' => $this->org->id,
         'scoring_type' => 'prs',
     ]);
+    $this->match->staff()->attach($this->ro->id, ['role' => 'range_officer']);
 
     $stage = TargetSet::factory()->create(['match_id' => $this->match->id]);
     $this->gong = Gong::factory()->create(['target_set_id' => $stage->id, 'number' => 1]);
@@ -167,7 +168,7 @@ test('range officers cannot add staff via the team page', function () {
     Livewire::actingAs($this->ro)
         ->test('org.admins', ['organization' => $this->org])
         ->set('email', 'attacker@example.com')
-        ->set('newRoles', ['is_match_director' => true])
+        ->set('newRole', 'director')
         ->call('addStaff')
         ->assertStatus(403);
 });
@@ -175,7 +176,7 @@ test('range officers cannot add staff via the team page', function () {
 test('range officers cannot toggle roles via the team page', function () {
     Livewire::actingAs($this->ro)
         ->test('org.admins', ['organization' => $this->org])
-        ->call('toggleRole', $this->ro->id, 'is_match_director')
+        ->call('setRole', $this->ro->id, 'director')
         ->assertStatus(403);
 });
 
@@ -194,7 +195,7 @@ test('owners can manage the team via the team page', function () {
     Livewire::actingAs($this->owner)
         ->test('org.admins', ['organization' => $this->org])
         ->set('email', $target->email)
-        ->set('newRoles', ['is_range_officer' => true])
+        ->set('newRole', 'range_officer')
         ->call('addStaff')
         ->assertHasNoErrors();
 
@@ -219,7 +220,11 @@ test('match abilities follow one bar per action', function () {
         ->and($this->ro->can('maintain', $this->match))->toBeFalse()
         ->and($this->md->can('manage', $this->match))->toBeTrue()
         ->and($this->md->can('maintain', $this->match))->toBeTrue()
-        ->and($this->shooter->can('score', $this->match))->toBeFalse()
+        ->and($this->shooter->can('score', $this->match))->toBeFalse();
+
+    $unassigned = User::factory()->create();
+    $this->org->admins()->attach($unassigned, ['is_range_officer' => true]);
+    expect($unassigned->can('score', $this->match))->toBeFalse()
         ->and($this->shooter->can('view', $this->match))->toBeFalse();
 });
 

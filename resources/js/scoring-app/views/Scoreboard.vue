@@ -2,7 +2,7 @@
     <div class="min-h-screen bg-app text-primary">
         <header class="border-b border-border bg-surface px-4 py-4">
             <div class="mx-auto flex max-w-4xl items-center gap-3">
-                <router-link
+                <BackLink
                     :to="backTarget"
                     class="text-muted hover:text-primary"
                     aria-label="Back"
@@ -10,7 +10,7 @@
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <h1 class="text-lg font-bold">Results</h1>
                 <span v-if="isPrs" class="rounded bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">PRS</span>
                 <span v-if="isAlrha" class="rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold uppercase">ALRHA</span>
@@ -1103,6 +1103,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import axios from 'axios';
+import BackLink from '../components/BackLink.vue';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import SyncStatusBar from '../components/SyncStatusBar.vue';

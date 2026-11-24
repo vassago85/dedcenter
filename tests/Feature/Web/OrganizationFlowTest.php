@@ -102,14 +102,18 @@ it('allows org admin to access org registrations page', function () {
         ->assertOk();
 });
 
-it('allows org admin to access org admins page', function () {
+it('allows org admin to access the team page and redirects the legacy admins URL', function () {
     $user = User::factory()->create();
     $org = Organization::factory()->create();
     $org->admins()->attach($user->id, ['is_owner' => true]);
 
     $this->actingAs($user)
-        ->get("/org/{$org->slug}/admins")
+        ->get("/org/{$org->slug}/team")
         ->assertOk();
+
+    $this->actingAs($user)
+        ->get("/org/{$org->slug}/admins")
+        ->assertRedirect("/org/{$org->slug}/team");
 });
 
 it('allows org admin to access org settings page', function () {

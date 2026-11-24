@@ -40,6 +40,7 @@ beforeEach(function () {
         'organization_id' => $this->org->id,
         'scoring_type' => 'prs',
     ]);
+    $this->match->staff()->attach($this->ro->id, ['role' => 'range_officer']);
 
     TargetSet::factory()->create(['match_id' => $this->match->id]);
     $squad = Squad::factory()->create(['match_id' => $this->match->id]);
@@ -146,7 +147,7 @@ test('an org admin cannot approve another organizations registration', function 
         Livewire::actingAs($this->md)
             ->test('org.registrations', ['organization' => $this->org])
             ->call('approve', $foreignReg->id);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         // findOrFail scoping surfaces as ModelNotFoundException / 404.
     }
 

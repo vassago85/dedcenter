@@ -2,7 +2,7 @@
     <div class="min-h-screen bg-app text-primary">
         <header class="border-b border-border bg-surface px-4 py-4">
             <div class="mx-auto flex max-w-5xl items-center gap-3">
-                <router-link
+                <BackLink
                     :to="{ name: 'match-overview', params: { matchId: props.matchId } }"
                     class="text-muted hover:text-primary"
                     aria-label="Back"
@@ -10,7 +10,7 @@
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <h1 class="text-lg font-bold">Rankings</h1>
                 <span class="rounded bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold uppercase">ELR</span>
                 <div class="ml-auto flex items-center gap-3">
@@ -178,6 +178,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
+import BackLink from '../components/BackLink.vue';
 import { useMatchStore } from '../stores/matchStore';
 
 const props = defineProps({

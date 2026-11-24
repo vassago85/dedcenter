@@ -3,7 +3,7 @@
         <!-- Header -->
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
             <div class="mx-auto flex max-w-2xl items-center gap-3">
-                <router-link
+                <BackLink
                     :to="{ name: 'match-overview', params: { matchId: matchId } }"
                     class="text-slate-400 hover:text-white"
                     aria-label="Back to match hub"
@@ -11,7 +11,7 @@
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <div class="min-w-0 flex-1">
                     <h1 class="truncate text-lg font-bold">Manage Shooters</h1>
                     <p class="text-xs text-slate-400 truncate">{{ matchStore.currentMatch?.name ?? 'Loading…' }}</p>
@@ -35,10 +35,10 @@
                 <p class="mt-2 text-sm text-amber-200/80">
                     Only match directors and range officers can add or move shooters.
                 </p>
-                <router-link
+                <BackLink
                     :to="{ name: 'match-overview', params: { matchId: matchId } }"
-                    class="mt-4 inline-block rounded-lg border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-900/40"
-                >Back to match</router-link>
+                    class="mt-4 inline-flex rounded-lg border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-900/40"
+                >Back to match</BackLink>
             </div>
         </div>
 
@@ -361,6 +361,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useMatchStore } from '../stores/matchStore';
+import BackLink from '../components/BackLink.vue';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 
 const props = defineProps({

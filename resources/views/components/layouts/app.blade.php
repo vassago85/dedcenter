@@ -69,16 +69,16 @@
 
         if ($isOrgMode) {
             $contextMode = 'org';
-            $contextModeLabel = $currentOrg->name . ' Admin Mode';
-            $contextLabel = 'Operate matches, registrations, and team for your organization.';
-            $contextExitUrl = route('dashboard');
-            $contextExitLabel = 'Back to Shooter Dashboard';
+            $contextModeLabel = 'Organizer';
+            $contextLabel = $currentOrg->name.' — matches, registrations, and team.';
+            $contextExitUrl = null;
+            $contextExitLabel = null;
         } elseif ($isPlatformMode) {
             $contextMode = 'platform';
-            $contextModeLabel = 'Platform Admin Mode';
+            $contextModeLabel = 'Platform admin';
             $contextLabel = 'Platform-level operations and controls.';
-            $contextExitUrl = route('dashboard');
-            $contextExitLabel = 'Back to Shooter Dashboard';
+            $contextExitUrl = null;
+            $contextExitLabel = null;
         } elseif (request()->routeIs('leaderboard') && $leaderboardOrg) {
             $contextLabel = 'Viewing standings for ' . $leaderboardOrg->name . '.';
         }

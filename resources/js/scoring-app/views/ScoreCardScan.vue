@@ -2,11 +2,11 @@
     <div class="min-h-screen bg-slate-900 text-white">
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
             <div class="mx-auto flex max-w-2xl items-center gap-3">
-                <router-link :to="{ name: 'match-overview', params: { matchId } }" class="text-slate-400 hover:text-white" aria-label="Back to match">
+                <BackLink :to="{ name: 'match-overview', params: { matchId } }" class="text-slate-400 hover:text-white" aria-label="Back to match">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <div class="min-w-0">
                     <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">ALRHA score cards</p>
                     <h1 class="truncate text-lg font-bold">{{ matchStore.currentMatch?.name ?? 'Match' }}</h1>
@@ -239,6 +239,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import axios from 'axios';
+import BackLink from '../components/BackLink.vue';
 import { useMatchStore } from '../stores/matchStore';
 import {
     sampleBubble,

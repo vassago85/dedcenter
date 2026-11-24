@@ -3,11 +3,18 @@
         <div class="mx-auto max-w-6xl px-4 py-6">
             <!-- Header: match + active shooter class + relay -->
             <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <div class="text-xs uppercase tracking-widest text-sky-300/80">
-                        ALRHA · {{ activeClassLabel }}
+                <div class="flex items-center gap-3">
+                    <button type="button" class="text-slate-400 hover:text-white" aria-label="Back to match" @click="leaveMatch">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div>
+                        <div class="text-xs uppercase tracking-widest text-sky-300/80">
+                            ALRHA · {{ activeClassLabel }}
+                        </div>
+                        <h1 class="mt-1 text-xl font-semibold text-white">{{ match?.name ?? 'Match' }}</h1>
                     </div>
-                    <h1 class="mt-1 text-xl font-semibold text-white">{{ match?.name ?? 'Match' }}</h1>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <SyncBadge
@@ -180,13 +187,21 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import { backTo } from '../lib/backTo';
 import { useElrScoringStore } from '../stores/elrScoringStore';
 import SyncBadge from '../components/SyncBadge.vue';
 
 const props = defineProps({
     matchId: { type: Number, required: true },
 });
+
+const router = useRouter();
+
+function leaveMatch() {
+    backTo(router, { name: 'match-overview', params: { matchId: props.matchId } });
+}
 
 const matchStore = useMatchStore();
 // ALRHA rides the same ELR shot pipeline (elr_shots table, /elr-shots

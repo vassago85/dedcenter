@@ -66,11 +66,30 @@ test('match creator can POST scores', function () {
         ->assertOk();
 });
 
-test('org admin of match organization can POST scores', function () {
+test('an assigned range officer can POST scores', function () {
+    $orgAdmin = User::factory()->create();
+    $this->org->admins()->attach($orgAdmin, ['is_range_officer' => true]);
+    $this->match->staff()->attach($orgAdmin->id, ['role' => 'range_officer']);
+
+    $this->actingAs($orgAdmin)
+        ->postJson("/api/matches/{$this->match->id}/scores", scorePayload($this->shooter->id, $this->gong->id))
+        ->assertOk();
+});
+
+test('an org range officer who is not assigned to the match cannot POST scores', function () {
     $orgAdmin = User::factory()->create();
     $this->org->admins()->attach($orgAdmin, ['is_range_officer' => true]);
 
     $this->actingAs($orgAdmin)
+        ->postJson("/api/matches/{$this->match->id}/scores", scorePayload($this->shooter->id, $this->gong->id))
+        ->assertForbidden();
+});
+
+test('an org director can POST scores without being listed as match staff', function () {
+    $director = User::factory()->create();
+    $this->org->admins()->attach($director, ['is_match_director' => true]);
+
+    $this->actingAs($director)
         ->postJson("/api/matches/{$this->match->id}/scores", scorePayload($this->shooter->id, $this->gong->id))
         ->assertOk();
 });

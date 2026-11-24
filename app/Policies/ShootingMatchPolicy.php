@@ -9,9 +9,9 @@ use App\Models\User;
  * One place for match access. Call `$user->can('score', $match)` and friends.
  *
  *   view      org member, match staff, the creator, or a platform admin
- *   score     range officer and above, or the creator
+ *   score     org director and above, match staff for this event, or the creator
  *   squad     same people as score — walk-ins and firing order
- *   manage    match director and above, or the creator — complete, DQ, export
+ *   manage    org director and above, this event's match director, or the creator
  *   maintain  match director and above, not merely the creator — repair tools
  */
 class ShootingMatchPolicy
@@ -39,12 +39,17 @@ class ShootingMatchPolicy
         return $match->staff()->where('users.id', $user->id)->exists();
     }
 
-    /** Record scores, correct a shooter, or change shooter status. Range-officer bar. */
+    /**
+     * Record scores, correct a shooter, or change shooter status.
+     * Org directors cover every match in their organization. A range
+     * officer only covers matches they are staffed on.
+     */
     public function score(User $user, ShootingMatch $match): bool
     {
         return $user->isAdmin()
             || $this->createdThisMatch($user, $match)
-            || ($match->organization !== null && $user->isOrgRangeOfficer($match->organization));
+            || ($match->organization !== null && $user->isOrgMatchDirector($match->organization))
+            || $match->staff()->where('users.id', $user->id)->exists();
     }
 
     /** Walk-ins, squad moves, and firing order. Same people as score(). */
@@ -67,7 +72,8 @@ class ShootingMatchPolicy
     {
         return $user->isAdmin()
             || $this->createdThisMatch($user, $match)
-            || ($match->organization !== null && $user->isOrgMatchDirector($match->organization));
+            || ($match->organization !== null && $user->isOrgMatchDirector($match->organization))
+            || $match->staff()->where('users.id', $user->id)->where('match_staff.role', 'match_director')->exists();
     }
 
     public function disqualify(User $user, ShootingMatch $match): bool

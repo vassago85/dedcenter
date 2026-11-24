@@ -3,7 +3,7 @@
         <!-- Header -->
         <header class="border-b border-border bg-surface px-4 py-3">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <button @click="handleHeaderBack" class="text-muted hover:text-primary">
+                <button type="button" @click="handleHeaderBack" class="text-muted hover:text-primary" aria-label="Back">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
                 <div class="min-w-0 flex-1">
@@ -397,6 +397,7 @@ import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useElrScoringStore } from '../stores/elrScoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
+import { backTo } from '../lib/backTo';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
@@ -783,9 +784,9 @@ function handleHeaderBack() {
         }
         saveElrProgress();
     } else if (currentView.value === 'stage-select') {
-        router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+        backTo(router, { name: 'match-overview', params: { matchId: props.matchId } });
     } else {
-        router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+        backTo(router, { name: 'match-overview', params: { matchId: props.matchId } });
     }
 }
 

@@ -4,8 +4,10 @@
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-3">
             <div class="mx-auto flex max-w-lg items-center gap-3">
                 <button
+                    type="button"
                     @click="handleHeaderBack"
                     class="text-slate-400 hover:text-white"
+                    aria-label="Back"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -227,13 +229,13 @@
                     >
                         Score Next &rarr; {{ nextSquadSuggestion.name }} at {{ scopedDistanceLabel }}
                     </button>
-                    <router-link
+                    <BackLink
                         v-if="isScoped"
                         :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
-                        class="block w-full rounded-xl border border-slate-600 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
+                        class="block w-full justify-center rounded-xl border border-slate-600 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
                     >
                         Back to Matrix
-                    </router-link>
+                    </BackLink>
                     <button
                         v-if="!isScoped"
                         @click="dismissSummary"
@@ -347,13 +349,13 @@
                 >
                     Score Next &rarr; {{ nextSquadSuggestion.name }} at {{ scopedDistanceLabel }}
                 </button>
-                <router-link
+                <BackLink
                     v-if="isScoped"
                     :to="{ name: 'scoring-matrix', params: { matchId: props.matchId } }"
-                    class="rounded-xl border border-slate-600 px-6 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
+                    class="justify-center rounded-xl border border-slate-600 px-6 py-3 text-center font-semibold text-white transition-colors hover:bg-slate-800"
                 >
                     Back to Matrix
-                </router-link>
+                </BackLink>
                 <button
                     v-if="!isScoped"
                     @click="goToStageSelect"
@@ -562,7 +564,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
 import axios from 'axios';
+import BackLink from '../components/BackLink.vue';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
+import { backTo } from '../lib/backTo';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
@@ -959,7 +963,7 @@ function goToStageSelect() {
 function handleHeaderBack() {
     if (currentView.value === 'scoring') {
         if (isScoped.value) {
-            router.push({ name: 'scoring-matrix', params: { matchId: props.matchId } });
+            backTo(router, { name: 'scoring-matrix', params: { matchId: props.matchId } });
         } else if (isMultiSquad.value) {
             currentView.value = 'squad-select';
             saveProgress();
@@ -974,9 +978,9 @@ function handleHeaderBack() {
         currentView.value = 'stage-select';
         saveProgress();
     } else if (currentView.value === 'stage-select') {
-        router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+        backTo(router, { name: 'match-overview', params: { matchId: props.matchId } });
     } else {
-        router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+        backTo(router, { name: 'match-overview', params: { matchId: props.matchId } });
     }
 }
 

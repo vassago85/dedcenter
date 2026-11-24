@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\MatchStatus;
+use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -159,7 +161,7 @@ class User extends Authenticatable
     {
         return $query->where(function ($q) {
             $q->where('email', 'like', '%'.self::IMPORT_PLACEHOLDER_EMAIL_SUFFIX)
-              ->orWhere('email', 'like', '%.deadcenter.local');
+                ->orWhere('email', 'like', '%.deadcenter.local');
         });
     }
 
@@ -220,36 +222,29 @@ class User extends Authenticatable
         return $this->isOrgRangeOfficer($organization);
     }
 
+    /**
+     * True when the scoring app has something this person can run right now:
+     * a Ready or Active match they direct, created, or are staffed on.
+     */
     public function canScore(): bool
     {
-        if ($this->isOwner() || $this->isMatchDirector()) {
-            return true;
-        }
-
-        if ($this->relationLoaded('organizations')) {
-            return $this->organizations->contains(
-                fn ($o) => $o->pivot->is_owner || $o->pivot->is_match_director || $o->pivot->is_range_officer
-            );
-        }
-
-        return $this->organizations()
-            ->where(function ($q) {
-                $q->where('organization_admins.is_owner', true)
-                    ->orWhere('organization_admins.is_match_director', true)
-                    ->orWhere('organization_admins.is_range_officer', true);
-            })
+        return ShootingMatch::query()
+            ->visibleToScoringUser($this)
+            ->whereIn('status', [MatchStatus::Ready, MatchStatus::Active])
             ->exists();
     }
 
     public function wantsNotification(string $type): bool
     {
         $prefs = $this->notification_preferences ?? [];
+
         return ($prefs[$type] ?? true) !== false;
     }
 
     public function wantsEmailNotification(string $type): bool
     {
         $prefs = $this->notification_preferences ?? [];
+
         return ($prefs["email_{$type}"] ?? false) !== false;
     }
 
@@ -267,7 +262,7 @@ class User extends Authenticatable
 
     public function sendPasswordResetNotification($token): void
     {
-        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     // ── Email Verification ──

@@ -2,11 +2,11 @@
     <div class="min-h-screen bg-slate-900 text-white">
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-4">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <router-link :to="{ name: 'match-select' }" class="text-slate-400 hover:text-white" aria-label="Back to matches">
+                <BackLink :to="{ name: 'match-select' }" class="text-slate-400 hover:text-white" aria-label="Back to matches">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <h1 class="text-lg font-bold truncate">{{ matchStore.currentMatch?.name ?? 'Loading...' }}</h1>
                 <div class="ml-auto flex items-center gap-2">
                     <DeviceRoleChip />
@@ -381,6 +381,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import BackLink from '../components/BackLink.vue';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceRoleChip from '../components/DeviceRoleChip.vue';
 import SyncStatusBar from '../components/SyncStatusBar.vue';

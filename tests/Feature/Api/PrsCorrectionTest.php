@@ -27,6 +27,7 @@ beforeEach(function () {
     $org->admins()->attach($this->ro, ['is_range_officer' => true]);
 
     $this->match = ShootingMatch::factory()->active()->prs()->create(['organization_id' => $org->id]);
+    $this->match->staff()->attach($this->ro->id, ['role' => 'range_officer']);
     $this->stage1 = TargetSet::factory()->create(['match_id' => $this->match->id, 'sort_order' => 1]);
     $this->stage2 = TargetSet::factory()->create(['match_id' => $this->match->id, 'sort_order' => 2]);
 

@@ -3,14 +3,15 @@
         <!-- Header -->
         <header class="border-b border-border bg-surface px-4 py-4">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <router-link
+                <BackLink
                     :to="{ name: 'scoring-matrix', params: { matchId: matchId } }"
                     class="text-muted hover:text-primary"
+                    aria-label="Back to matrix"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <div class="min-w-0 flex-1">
                     <h1 class="truncate text-lg font-bold">Relay {{ relayIndex }} &mdash; {{ distanceLabel }}</h1>
                     <p class="text-xs text-muted">Roll Call</p>
@@ -141,6 +142,7 @@
 import { computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMatchStore } from '../stores/matchStore';
+import BackLink from '../components/BackLink.vue';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import { isStandaloneApk } from '../lib/platform';

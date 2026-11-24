@@ -2,11 +2,11 @@
     <div class="flex min-h-screen flex-col bg-app text-primary">
         <header class="border-b border-border bg-surface px-4 py-4">
             <div class="mx-auto flex max-w-lg items-center gap-3">
-                <router-link to="/score" class="text-muted hover:text-primary">
+                <BackLink to="/score" class="text-muted hover:text-primary" aria-label="Back">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
-                </router-link>
+                </BackLink>
                 <h1 class="text-lg font-bold">Seasons</h1>
             </div>
         </header>
@@ -42,6 +42,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import BackLink from '../components/BackLink.vue';
 
 const seasons = ref([]);
 const loading = ref(true);

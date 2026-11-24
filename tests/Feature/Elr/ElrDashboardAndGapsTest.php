@@ -1,12 +1,16 @@
 <?php
 
 use App\Enums\ElrEngagementMode;
+use App\Enums\ElrShotResult;
+use App\Enums\ElrStageType;
 use App\Models\ElrScoringProfile;
+use App\Models\ElrShot;
 use App\Models\ElrStage;
 use App\Models\ElrTarget;
 use App\Models\ElrTeamStageEntry;
 use App\Models\MatchDivision;
 use App\Models\MatchRegistration;
+use App\Models\Organization;
 use App\Models\Shooter;
 use App\Models\ShootingMatch;
 use App\Models\Squad;
@@ -34,14 +38,14 @@ beforeEach(function () {
     $this->stage1 = ElrStage::create([
         'match_id' => $this->match->id,
         'label' => 'S1',
-        'stage_type' => \App\Enums\ElrStageType::Static,
+        'stage_type' => ElrStageType::Static,
         'elr_scoring_profile_id' => $this->profile->id,
         'sort_order' => 1,
     ]);
     $this->stage2 = ElrStage::create([
         'match_id' => $this->match->id,
         'label' => 'S2',
-        'stage_type' => \App\Enums\ElrStageType::Static,
+        'stage_type' => ElrStageType::Static,
         'elr_scoring_profile_id' => $this->profile->id,
         'sort_order' => 2,
     ]);
@@ -66,7 +70,7 @@ beforeEach(function () {
 });
 
 it('builds match dashboard data with elr checklist', function () {
-    $data = (new MatchDashboardService())->build($this->match->fresh());
+    $data = (new MatchDashboardService)->build($this->match->fresh());
 
     expect($data['type_label'])->toBe('ELR')
         ->and($data['elr_checklist'])->toBeArray()
@@ -87,19 +91,19 @@ it('calculateStandings filters incomplete team stages when completedOnly is true
     ]);
 
     $target = ElrTarget::where('elr_stage_id', $this->stage1->id)->first();
-    \App\Models\ElrShot::create([
+    ElrShot::create([
         'match_id' => $this->match->id,
         'shooter_id' => $shooter->id,
         'elr_target_id' => $target->id,
         'shot_number' => 1,
-        'result' => \App\Enums\ElrShotResult::Hit,
+        'result' => ElrShotResult::Hit,
         'points_awarded' => 10,
         'impact_number' => 1,
         'recorded_at' => now(),
     ]);
 
-    $all = (new ELRScoringService())->calculateStandings($this->match, [], completedOnly: false);
-    $completed = (new ELRScoringService())->calculateStandings($this->match, [], completedOnly: true);
+    $all = (new ELRScoringService)->calculateStandings($this->match, [], completedOnly: false);
+    $completed = (new ELRScoringService)->calculateStandings($this->match, [], completedOnly: true);
 
     expect($all['standings'][0]['total_points'] ?? 0)->toBeGreaterThan(0)
         ->and($completed['standings'][0]['total_points'] ?? 0)->toBeGreaterThan(0);
@@ -129,7 +133,7 @@ it('syncs registration division to shooter on confirm', function () {
 });
 
 it('exposes can_export separately from can_manage on match resource', function () {
-    $org = \App\Models\Organization::factory()->create();
+    $org = Organization::factory()->create();
     $this->match->update(['organization_id' => $org->id]);
 
     $md = User::factory()->create(['role' => 'shooter']);
@@ -137,6 +141,7 @@ it('exposes can_export separately from can_manage on match resource', function (
 
     $ro = User::factory()->create(['role' => 'shooter']);
     $org->admins()->attach($ro->id, ['is_range_officer' => true]);
+    $this->match->staff()->attach($ro->id, ['role' => 'range_officer']);
 
     $mdPayload = $this->actingAs($md)->getJson("/api/matches/{$this->match->id}")->json('data');
     $roPayload = $this->actingAs($ro)->getJson("/api/matches/{$this->match->id}")->json('data');

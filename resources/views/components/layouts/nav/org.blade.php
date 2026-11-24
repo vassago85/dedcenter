@@ -53,10 +53,4 @@
         @endif
     </div>
 
-    <div class="mt-2 border-t border-border pt-2">
-        <a href="{{ route('dashboard') }}" wire:navigate
-           class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:bg-surface-2/50 hover:text-primary">
-            ← Back to Shooter Mode
-        </a>
-    </div>
 </div>

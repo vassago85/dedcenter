@@ -130,7 +130,7 @@ new #[Layout('components.layouts.app')]
 
 <div class="space-y-6">
     <x-app-page-header
-        eyebrow="Match Director"
+        eyebrow="{{ auth()->user()->isOrgOwner($organization) ? 'Owner' : (auth()->user()->isOrgMatchDirector($organization) ? 'Director' : 'Range Officer') }}"
         :title="$organization->name . ' dashboard'"
         subtitle="Plan matches, manage squads, run scoring, and publish results.">
         <x-slot:actions>

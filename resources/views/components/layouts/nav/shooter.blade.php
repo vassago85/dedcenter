@@ -4,10 +4,6 @@
     'unreadNotifCount' => 0,
 ])
 
-@php
-    $primaryOrg = $userOrgs->first();
-@endphp
-
 {{-- Canonical shooter sidebar — 5 primary items. Notifications / Profile /
      Notification prefs live in the user menu (top-right). Secondary items
      (Standings, public homepage) move into a quieter bottom group. --}}
@@ -48,15 +44,13 @@
            class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('organizations') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
             My Organizations
         </a>
-        @if($primaryOrg)
-            <a href="{{ route('leaderboard', $primaryOrg) }}" wire:navigate
-               class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('leaderboard') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
-                Standings
-            </a>
-        @endif
+        <a href="{{ route('standings') }}" wire:navigate
+           class="flex min-h-[44px] items-center rounded-lg px-3 text-sm font-medium transition-colors {{ request()->routeIs('standings') ? 'bg-surface-2 text-primary' : 'text-secondary hover:bg-surface-2/50 hover:text-primary' }}">
+            Standings
+        </a>
         @if($userOrgs->count() > 0)
             @foreach($userOrgs as $org)
-                <a href="{{ route('org.dashboard', $org) }}" wire:navigate
+                <a href="{{ user_org_destination($authUser, $org) }}" wire:navigate
                    class="flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium text-secondary transition-colors hover:bg-surface-2/50 hover:text-primary">
                     <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-2 text-xs font-bold uppercase">{{ substr($org->name, 0, 1) }}</span>
                     <span class="truncate">{{ $org->name }}</span>

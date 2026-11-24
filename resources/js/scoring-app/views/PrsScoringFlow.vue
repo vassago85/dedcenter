@@ -3,7 +3,7 @@
         <!-- Global Header -->
         <header class="border-b border-slate-700 bg-slate-800 px-4 py-3">
             <div class="mx-auto flex max-w-2xl items-center gap-3">
-                <button @click="goBack" class="p-2 text-slate-400 hover:text-white">
+                <button type="button" @click="goBack" class="p-2 text-slate-400 hover:text-white" aria-label="Back">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                     </svg>
@@ -54,12 +54,13 @@
                     Start Scoring
                 </button>
 
-                <router-link
-                    :to="{ name: 'match-overview', params: { matchId: props.matchId } }"
+                <button
+                    type="button"
+                    @click="goBack"
                     class="mt-2 text-sm text-slate-500 hover:text-slate-300 transition-colors"
                 >
                     &larr; Match Overview
-                </router-link>
+                </button>
 
                 <button @click="showCorrections = !showCorrections" class="mt-4 w-full max-w-sm rounded-xl border border-slate-700 bg-slate-800/60 px-6 py-3 text-sm font-semibold text-amber-400 transition-all hover:border-amber-600 hover:bg-slate-800">
                     {{ showCorrections ? 'Hide Corrections' : 'Manage Corrections' }}
@@ -592,6 +593,7 @@ import axios from 'axios';
 import { useMatchStore } from '../stores/matchStore';
 import { usePrsScoringStore } from '../stores/prsScoringStore';
 import OnlineIndicator from '../components/OnlineIndicator.vue';
+import { backTo } from '../lib/backTo';
 import SyncBadge from '../components/SyncBadge.vue';
 import DeviceLockBanner from '../components/DeviceLockBanner.vue';
 import ScoringSponsorship from '../components/ScoringSponsorship.vue';
@@ -1067,7 +1069,7 @@ function goBack() {
         savePrsProgress();
         return;
     }
-    router.push({ name: 'match-overview', params: { matchId: props.matchId } });
+    backTo(router, { name: 'match-overview', params: { matchId: props.matchId } });
 }
 
 function recordHit() { prsStore.recordShot('hit'); }
