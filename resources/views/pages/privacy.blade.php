@@ -12,7 +12,7 @@ new #[Layout('components.layouts.marketing')]
 <section class="py-20 lg:py-28" style="border-bottom: 1px solid var(--lp-border); background: var(--lp-bg-2);">
     <div class="mx-auto max-w-3xl px-6">
         <h1 class="mb-4 text-3xl font-bold tracking-tight lg:text-4xl" style="color: var(--lp-text);">Privacy Policy</h1>
-        <p class="mb-12 text-sm" style="color: var(--lp-text-muted);">Last updated: 5 November 2026</p>
+        <p class="mb-12 text-sm" style="color: var(--lp-text-muted);">Last updated: 25 November 2026</p>
 
         <div class="space-y-10 text-sm leading-relaxed" style="color: var(--lp-text-soft);">
 
@@ -53,9 +53,18 @@ new #[Layout('components.layouts.marketing')]
                 <p>Your data is stored on secured servers. Passwords are hashed and never stored in plain text. API access is protected by token-based authentication. We take reasonable precautions to protect your personal information, but no system is completely secure.</p>
             </div>
 
-            <div>
-                <h2 class="mb-3 text-lg font-semibold" style="color: var(--lp-text);">6. Data Retention</h2>
-                <p>Your account and associated data are retained for as long as your account is active. Match results and standings are retained indefinitely as part of the historical competition record. If you wish to delete your account, contact us and we will remove your personal data while preserving anonymized competition records.</p>
+            <div id="delete">
+                <h2 class="mb-3 text-lg font-semibold" style="color: var(--lp-text);">6. Data Retention &amp; Account Deletion</h2>
+                <p>Your account and associated data are retained for as long as your account is active. Match results and standings are retained indefinitely as part of the historical competition record.</p>
+                <p class="mt-3"><strong style="color: var(--lp-text);">How to request deletion of your DeadCenter account:</strong></p>
+                @php $supportEmail = config('app.support_email'); @endphp
+                <ol class="mt-2 list-decimal space-y-1 pl-6">
+                    <li>Email <a href="mailto:{{ $supportEmail }}?subject=Delete%20my%20DeadCenter%20account" style="color: var(--lp-red);">{{ $supportEmail }}</a> from the email address on the account.</li>
+                    <li>Use the subject line <em>Delete my DeadCenter account</em>.</li>
+                    <li>We confirm the request and complete the deletion within 30 days.</li>
+                </ol>
+                <p class="mt-3"><strong style="color: var(--lp-text);">What is deleted:</strong> your name, email address, password hash, session tokens, notification preferences, device identifiers, and any registration details you provided for matches.</p>
+                <p class="mt-2"><strong style="color: var(--lp-text);">What is kept:</strong> your name on historical score sheets, standings, and season results is kept as an anonymised competition record, because removing a shooter from a past scoresheet would change the results of that match for everyone else who competed in it.</p>
             </div>
 
             <div>
@@ -73,11 +82,12 @@ new #[Layout('components.layouts.marketing')]
                 <p>The DeadCenter Android app is a scoring tool for matches you are allowed to run. It does not create accounts. Sign in with an account that already exists on deadcenter.co.za, or use <strong style="color: var(--lp-text);">Join a hub (offline)</strong>, which needs no account.</p>
                 <ul class="mt-2 list-disc space-y-1 pl-6">
                     <li><strong style="color: var(--lp-text);">Sign-in.</strong> The app sends your email and password to our server over HTTPS to check them. We store a session token on the device. We also store the device manufacturer and model as the name of that sign-in, so a match director can see which tablet signed in.</li>
+                    <li><strong style="color: var(--lp-text);">Device identifier.</strong> Each score the app sends to DeadCenter is tagged with the Android ID of the tablet that recorded it. The server uses this to tell which tablet made a change when the same shooter is edited on two tablets, so a correction is not undone on the next sync.</li>
                     <li><strong style="color: var(--lp-text);">Scores.</strong> Shooter names, squads, and scores are stored on the device and sent to DeadCenter over HTTPS when the device syncs.</li>
                     <li><strong style="color: var(--lp-text);">Local hub.</strong> Phones on the same match Wi-Fi can pass scores to each other without an account. That traffic stays on the local network. It reaches DeadCenter only when the hub phone syncs, and that sync uses HTTPS.</li>
                     <li><strong style="color: var(--lp-text);">What the app does not collect.</strong> Location, contacts, photos, advertising identifiers, and payment details. The app does not show ads.</li>
                 </ul>
-                <p class="mt-3">You can delete the session by signing out. Uninstalling the app removes the copy of match data stored on that device. Account deletion is described in Data Retention above.</p>
+                <p class="mt-3">You can delete the session by signing out. Uninstalling the app removes the copy of match data stored on that device. Account deletion is described in <a href="#delete" style="color: var(--lp-red);">Data Retention &amp; Account Deletion</a> above.</p>
             </div>
 
             <div>
