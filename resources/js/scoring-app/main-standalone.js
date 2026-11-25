@@ -3,8 +3,15 @@ import { createPinia } from 'pinia';
 import axios from 'axios';
 import router from './router';
 import App from './App.vue';
+import { initTheme } from './composables/useTheme';
 
 import '../../css/scoring.css';
+
+// Apply the stored dark/light preference before Vue mounts so the
+// first Vue paint matches the user's choice. The boot splash does its
+// own inline-stylesheet flip via the <script> in scoring-standalone.html
+// — this call handles the Vue side.
+initTheme();
 
 axios.defaults.headers.common['Accept'] = 'application/json';
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';

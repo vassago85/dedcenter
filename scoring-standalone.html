@@ -24,7 +24,36 @@
             #boot-splash .spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid #1e293b; border-top-color: #ef4444; animation: dc-spin 0.8s linear infinite; }
             #boot-splash .hint { font-size: 12px; color: #64748b; max-width: 280px; }
             @keyframes dc-spin { to { transform: rotate(360deg); } }
+
+            /* Light mode splash — picked up once the inline script below
+               stamps data-theme="light" on <html>, which happens before
+               the body is parsed, so the first paint is already correct. */
+            html[data-theme="light"],
+            html[data-theme="light"] body,
+            html[data-theme="light"] #scoring-app { background: #ffffff; color: #0f172a; }
+            html[data-theme="light"] #boot-splash .spinner { border-color: #e2e8f0; border-top-color: #ef4444; }
+            html[data-theme="light"] #boot-splash .hint { color: #64748b; }
         </style>
+        <script>
+            // Read the saved theme before the first paint so a user who
+            // set "sun mode" doesn't see a flash of dark on launch. This
+            // runs before scoring.css loads and before Vue boots, so it
+            // has to be self-contained.
+            (function () {
+                try {
+                    var stored = window.localStorage.getItem('deadcenter_theme');
+                    if (stored === 'light' || stored === 'dark') {
+                        document.documentElement.dataset.theme = stored;
+                        document.documentElement.style.colorScheme = stored;
+                    } else {
+                        document.documentElement.dataset.theme = 'dark';
+                        document.documentElement.style.colorScheme = 'dark';
+                    }
+                } catch (_) {
+                    document.documentElement.dataset.theme = 'dark';
+                }
+            })();
+        </script>
     </head>
     <body>
         <div id="scoring-app">

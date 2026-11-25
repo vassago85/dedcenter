@@ -21,3 +21,109 @@ body.has-scoring-shell #scoring-app .min-h-screen {
     --color-accent: #ff2b2b;
     --color-accent-hover: #e32020;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Light mode — "sun mode" for outdoor matches.
+
+   Every scoring view uses the slate palette as its structural
+   colours: slate-900 for page bg, slate-800 for surfaces,
+   slate-700 for borders, slate-100..400 for text. Tailwind 4
+   exposes those as CSS variables that each utility class reads
+   via var(). Rebinding them under [data-theme="light"] flips
+   the entire palette in one place — no need to touch 800+
+   component classes.
+
+   Accent colours (sky / emerald / rose / amber) stay the same
+   because their 500–600 steps are legible on both dark and
+   light backgrounds, which keeps buttons and status chips
+   consistent between modes.
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+    /* Mirror the slate ramp so "dark slate" classes render as
+       light tones and "light slate" classes render as dark tones.
+       Numbers below are the Tailwind 4 defaults, remapped. */
+    --color-slate-50: oklch(0.129 0.042 264.695);
+    --color-slate-100: oklch(0.208 0.042 265.755);
+    --color-slate-200: oklch(0.279 0.041 260.031);
+    --color-slate-300: oklch(0.372 0.044 257.287);
+    --color-slate-400: oklch(0.446 0.043 257.281);
+    --color-slate-500: oklch(0.554 0.046 257.417);
+    --color-slate-600: oklch(0.704 0.04 256.788);
+    --color-slate-700: oklch(0.869 0.022 252.894);
+    --color-slate-800: oklch(0.929 0.013 255.508);
+    --color-slate-900: oklch(0.968 0.007 247.896);
+    --color-slate-950: oklch(0.984 0.003 247.858);
+
+    /* Project-specific tokens used by the sidebar / shell */
+    --color-app: #ffffff;
+    --color-sidebar: #f1f5f9;
+    --color-surface: #ffffff;
+    --color-surface-2: #f8fafc;
+    --color-border: #cbd5e1;
+    --color-primary: #0f172a;
+    --color-secondary: #334155;
+    --color-muted: #64748b;
+    --color-scheme: light;
+}
+
+/* text-white and bg-white are static in Tailwind — they do not
+   use CSS variables, so the ramp swap above does not touch them.
+   In practice `text-white` is used in two ways: (1) label text
+   on a solid colour button (sky, emerald, rose, amber) where
+   white-on-colour stays the right choice in both modes, and
+   (2) emphasised body text on the page background. We only
+   want to flip case (2). Scope the override to text-white that
+   sits inside the page content, not inside a coloured button. */
+[data-theme="light"] .text-white {
+    color: #0f172a;
+}
+[data-theme="light"] [class*="bg-sky-"] .text-white,
+[data-theme="light"] [class*="bg-emerald-"] .text-white,
+[data-theme="light"] [class*="bg-rose-"] .text-white,
+[data-theme="light"] [class*="bg-red-"] .text-white,
+[data-theme="light"] [class*="bg-amber-"] .text-white,
+[data-theme="light"] [class*="bg-indigo-"] .text-white,
+[data-theme="light"] [class*="bg-violet-"] .text-white,
+[data-theme="light"] [class*="bg-black"] .text-white,
+[data-theme="light"] [class*="bg-slate-9"] .text-white,
+[data-theme="light"] [class*="bg-slate-8"] .text-white,
+[data-theme="light"] .bg-sky-500 .text-white,
+[data-theme="light"] .bg-sky-600 .text-white,
+[data-theme="light"] button[class*="bg-sky-"].text-white,
+[data-theme="light"] button[class*="bg-emerald-"].text-white,
+[data-theme="light"] button[class*="bg-rose-"].text-white,
+[data-theme="light"] button[class*="bg-amber-"].text-white {
+    color: #ffffff;
+}
+/* The common button pattern: the class list carries both
+   `bg-<colour>-NNN` and `text-white` on the same element. The
+   descendant selectors above only match text-white INSIDE a
+   coloured container, so we need an element-level override
+   too, keyed on the same element having a coloured background. */
+[data-theme="light"] .text-white[class*="bg-sky-"],
+[data-theme="light"] .text-white[class*="bg-emerald-"],
+[data-theme="light"] .text-white[class*="bg-rose-"],
+[data-theme="light"] .text-white[class*="bg-red-"],
+[data-theme="light"] .text-white[class*="bg-amber-"],
+[data-theme="light"] .text-white[class*="bg-indigo-"],
+[data-theme="light"] .text-white[class*="bg-violet-"],
+[data-theme="light"] .text-white[class*="bg-black"] {
+    color: #ffffff;
+}
+
+/* hover:text-white used as a focus/hover state on muted links
+   should match whatever text-white resolves to in this mode. */
+[data-theme="light"] .hover\:text-white:hover {
+    color: #0f172a;
+}
+
+/* The scoring app sets its root bg via `bg-slate-900` on the
+   top-level div in every view. Add a safety net so the body
+   itself is light even before Vue mounts (avoids a flash of
+   dark on the Android WebView when the theme is "light" and
+   the component tree is still booting). */
+html[data-theme="light"],
+html[data-theme="light"] body {
+    background: #ffffff;
+    color: #0f172a;
+}

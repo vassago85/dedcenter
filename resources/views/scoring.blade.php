@@ -14,6 +14,22 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,900" rel="stylesheet" />
     @vite(['resources/css/scoring.css', 'resources/js/scoring-app/main.js'])
+    <script>
+        // Match the saved dark/light preference before the first paint so
+        // a scorer who set "sun mode" on this tablet doesn't see a flash
+        // of dark on load. The Vue app reads the same key and updates it
+        // from the toggle at the bottom-right of every scoring view.
+        (function () {
+            try {
+                var stored = window.localStorage.getItem('deadcenter_theme');
+                var theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.style.colorScheme = theme;
+            } catch (_) {
+                document.documentElement.dataset.theme = 'dark';
+            }
+        })();
+    </script>
 </head>
 @php
     // Native tablets (Android WebView) load the scoring surface from inside
